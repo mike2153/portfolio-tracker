@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=True
+      - DJANGO_SECRET_KEY=drx3y2pcgc-sa7e9=ic2=6j8ng5wf@iervv^g+d7bj6l*0yxc2
+      - DATABASE_URL=postgresql://postgres.ryitmyslspbtnktogsad:0Q0zzgXM72fgUJWytcST@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres
+      - FINNHUB_API_KEY=your-finnhub-api-key
+      - ALPHA_VANTAGE_API_KEY=X2XXEHNZ0RMIBFU4
+      - SUPABASE_URL=https://ryitmyslspbtnktogsad.supabase.co
+      - SUPABASE_JWT_SECRET=5fIlx2+jhoi8dZXE9mKakEOKT17zPsvT1oBEg8PYe7oSiMFtIDdyYB2rxoFAgWLdxyogWM3agd2NKSqxEYov5A==
+      - SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ5aXRteXNsc3BidG5rdG9nc2FkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MDM3MDYxOCwiZXhwIjoyMDY1OTQ2NjE4fQ.rTMEJyxkhFXU3c0pDnl32sfwzTn_galjHlNgOaxMEPw
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+
+  frontend:
+    build: ./frontend
+    command: npm run dev
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    environment:
+      - NEXT_PUBLIC_SUPABASE_URL=https://ryitmyslspbtnktogsad.supabase.co
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ5aXRteXNsc3BidG5rdG9nc2FkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAzNzA2MTgsImV4cCI6MjA2NTk0NjYxOH0.KlHHFmib82kRjZJOtOH6Aq79YAoypUZ5Ta_pGLsAxR0
+      - ALPHA_VANTAGE_API_KEY=X2XXEHNZ0RMIBFU4
+
+volumes:
+  postgres_data: 
