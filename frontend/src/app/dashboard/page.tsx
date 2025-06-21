@@ -140,13 +140,13 @@ export default function DashboardPage() {
       }
 
       const data = await response.json()
-      const portfolio = data.portfolio
       const holdings = data.holdings || []
+      const summary = data.summary || { total_value: 0, total_holdings: 0 }
+      const cash_balance = data.cash_balance || 0
 
       // Calculate top performer
       let topPerformer = ''
       let topPerformerGain = 0
-      
       holdings.forEach((holding: HoldingData) => {
         if (holding.gain_loss && holding.gain_loss > topPerformerGain) {
           topPerformerGain = holding.gain_loss
@@ -155,14 +155,14 @@ export default function DashboardPage() {
       })
 
       setPortfolioSummary({
-        totalValue: portfolio.total_value,
+        totalValue: summary.total_value,
         totalGainLoss: holdings.reduce((sum: number, h: HoldingData) => sum + (h.gain_loss || 0), 0),
-        totalGainLossPercent: holdings.length > 0 ? 
+        totalGainLossPercent: holdings.length > 0 ?
           (holdings.reduce((sum: number, h: HoldingData) => sum + (h.gain_loss_percent || 0), 0) / holdings.length) : 0,
         topPerformer,
         topPerformerGain,
         holdingsCount: holdings.length,
-        cashBalance: portfolio.cash_balance
+        cashBalance: cash_balance
       })
 
     } catch (error) {

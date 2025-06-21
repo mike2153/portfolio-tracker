@@ -78,6 +78,8 @@ class Holding(models.Model):
     purchase_date = models.DateField()
     commission = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     used_cash_balance = models.BooleanField(default=False)
+    currency = models.CharField(max_length=3, default='USD')
+    fx_rate = models.DecimalField(max_digits=15, decimal_places=6, default=Decimal('1.0'))
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

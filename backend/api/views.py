@@ -2,7 +2,7 @@ from django.shortcuts import render
 from ninja import NinjaAPI, Schema
 from ninja.errors import HttpError
 from django.http import JsonResponse
-from django.db.models import Q, Sum, Avg, F, Count, DecimalField
+from django.db.models import Q, Sum, Avg, F, Count, DecimalField, Case, When, Value, IntegerField
 
 # pyright: reportAttributeAccessIssue=false
 # pyright: reportOperatorIssue=false  
@@ -98,16 +98,15 @@ def search_symbols(request, q: str = "", exchange: str = "", limit: int = 25):
     search_filter &= query_filter
     
     # Execute search with ordering for relevance
-    symbols = StockSymbol.objects.filter(search_filter).order_by(
-        # Exact symbol matches first
-        'symbol__iexact',
-        # Symbol starts with query
-        'symbol__istartswith',  
-        # Name starts with query
-        'name__istartswith',
-        # Finally by symbol alphabetically
-        'symbol'
-    )[:limit]
+    symbols = StockSymbol.objects.filter(search_filter).annotate(
+        relevance=Case(
+            When(symbol__iexact=query, then=Value(1)),
+            When(symbol__istartswith=query, then=Value(2)),
+            When(name__istartswith=query, then=Value(3)),
+            default=Value(4),
+            output_field=IntegerField(),
+        )
+    ).order_by('relevance', 'symbol')[:limit]
     
     # Convert to response format
     results = []
@@ -203,6 +202,8 @@ class HoldingSchema(Schema):
     purchase_date: date
     commission: float = 0.0
     used_cash_balance: bool = False
+    currency: str = "USD"
+    fx_rate: float = 1.0
 
 class PriceAlertSchema(Schema):
     ticker: str
@@ -351,15 +352,15 @@ def get_user_portfolio(request, user_id: str):
                 "id": holding.id,
                 "ticker": holding.ticker,
                 "company_name": holding.company_name,
-                "shares": holding.shares,
-                "purchase_price": holding.purchase_price,
-                "market_value": market_value,
-                "current_price": current_price
+                "shares": float(holding.shares),
+                "purchase_price": float(holding.purchase_price),
+                "market_value": float(market_value),
+                "current_price": float(current_price)
             })
         # Fix: Default cash_balance to Decimal('0.00') if None
         cash_balance = portfolio.cash_balance if portfolio.cash_balance is not None else Decimal('0.00')
         return {
-            "cash_balance": cash_balance,
+            "cash_balance": float(cash_balance),
             "holdings": holdings_data,
             "summary": {
                 "total_holdings": len(holdings_data),
@@ -456,24 +457,26 @@ def add_holding(request, user_id: str, holding_data: HoldingSchema):
     """Add a new stock holding to portfolio"""
     try:
         portfolio, _ = Portfolio.objects.get_or_create(user_id=user_id)
-        
         total_cost = (Decimal(str(holding_data.shares)) * Decimal(str(holding_data.purchase_price))) + Decimal(str(holding_data.commission))
-        
         if holding_data.used_cash_balance:
             if portfolio.cash_balance < total_cost:
                 raise HttpError(400, "Insufficient cash balance")
             portfolio.cash_balance -= total_cost
             portfolio.save()
-        
         holding = Holding.objects.create(
-            portfolio=portfolio, ticker=holding_data.ticker.upper(), company_name=holding_data.company_name,
-            exchange=holding_data.exchange, shares=Decimal(str(holding_data.shares)),
-            purchase_price=Decimal(str(holding_data.purchase_price)), purchase_date=holding_data.purchase_date,
-            commission=Decimal(str(holding_data.commission)), used_cash_balance=holding_data.used_cash_balance
+            portfolio=portfolio,
+            ticker=holding_data.ticker.upper(),
+            company_name=holding_data.company_name,
+            exchange=holding_data.exchange,
+            shares=Decimal(str(holding_data.shares)),
+            purchase_price=Decimal(str(holding_data.purchase_price)),
+            purchase_date=holding_data.purchase_date,
+            commission=Decimal(str(holding_data.commission)),
+            used_cash_balance=holding_data.used_cash_balance,
+            currency=holding_data.currency,
+            fx_rate=Decimal(str(holding_data.fx_rate))
         )
-        
         _create_dividend_records_for_holding(holding)
-        
         return {"message": "Holding added successfully", "holding_id": holding.id, "remaining_cash": float(portfolio.cash_balance)}
     except Exception as e:
         logger.error(f"Error adding holding for user {user_id}: {e}", exc_info=True)
