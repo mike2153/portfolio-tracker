@@ -381,81 +381,32 @@ def get_user_portfolio(request, user_id: str):
 
 @router.get("/portfolios/{user_id}/performance")
 def get_portfolio_performance(request, user_id: str, period: str = "1Y", benchmark: str = "^GSPC"):
-    """Get time-weighted portfolio performance with benchmark comparison"""
+    """Get enhanced time-weighted portfolio performance with comprehensive benchmark comparison"""
     try:
-        portfolio = Portfolio.objects.get(user_id=user_id)
+        from .services.portfolio_benchmarking import calculate_enhanced_portfolio_performance, SUPPORTED_BENCHMARKS
         
-        period_days = {"1W": 7, "1M": 30, "3M": 90, "6M": 180, "1Y": 365, "3Y": 1095, "5Y": 1825}
-        days = period_days.get(period.upper(), 365)
-        start_date = date.today() - timedelta(days=days)
+        # Validate benchmark
+        if benchmark not in SUPPORTED_BENCHMARKS:
+            raise HttpError(400, f"Unsupported benchmark: {benchmark}. Supported benchmarks: {list(SUPPORTED_BENCHMARKS.keys())}")
         
-        holdings = portfolio.holdings.filter(purchase_date__lt=date.today()).order_by('purchase_date')
+        # Validate period
+        valid_periods = ['1M', '3M', 'YTD', '1Y', '3Y', '5Y', 'ALL']
+        if period not in valid_periods:
+            raise HttpError(400, f"Invalid period: {period}. Valid periods: {valid_periods}")
         
-        if not holdings.exists():
-            return {"portfolio_performance": [], "benchmark_performance": [], "period": period, "benchmark_symbol": benchmark, "comparison": {"portfolio_return": 0, "benchmark_return": 0, "outperformance": 0}}
-            
-        tickers = list(holdings.values_list('ticker', flat=True).distinct())
+        logger.debug(f"Getting enhanced portfolio performance for user {user_id}, period {period}, benchmark {benchmark}")
         
-        all_historical_data = {}
-        failed_tickers = []
-        for ticker in tickers + [benchmark]:
-            historical_data = alpha_vantage.get_daily_adjusted(ticker, outputsize='full')
-            if historical_data and historical_data.get('data'):
-                all_historical_data[ticker] = {item['date']: item['adjusted_close'] for item in historical_data.get('data', [])}
-            else:
-                failed_tickers.append(ticker)
-                logger.warning(f"Could not retrieve historical data for '{ticker}'. It will be excluded from performance calculation.")
+        result = calculate_enhanced_portfolio_performance(user_id, period, benchmark)
         
-        if benchmark in failed_tickers:
-             raise HttpError(503, f"Failed to retrieve market data for benchmark symbol '{benchmark}'.")
+        logger.info(f"Successfully calculated portfolio performance for user {user_id}")
+        return result
         
-        date_range = [start_date + timedelta(days=x) for x in range(days + 1)]
-        portfolio_performance = []
-        
-        for current_date in date_range:
-            date_str = current_date.strftime('%Y-%m-%d')
-            daily_portfolio_value = Decimal('0.0')
-            
-            for holding in holdings.filter(purchase_date__lte=current_date):
-                price_data = all_historical_data.get(holding.ticker, {})
-                price_date_keys = sorted([d for d in price_data.keys() if d <= date_str], reverse=True)
-                if price_date_keys:
-                    latest_price = Decimal(str(price_data[price_date_keys[0]]))
-                    daily_portfolio_value += holding.shares * latest_price
-
-            daily_portfolio_value += portfolio.cash_balance
-            if daily_portfolio_value > 0:
-                portfolio_performance.append({'date': date_str, 'total_value': daily_portfolio_value})
-
-        if not portfolio_performance:
-            return {"portfolio_performance": [], "benchmark_performance": [], "period": period, "benchmark_symbol": benchmark, "comparison": {"portfolio_return": 0, "benchmark_return": 0, "outperformance": 0}}
-
-        base_portfolio_value = portfolio_performance[0]['total_value']
-        for point in portfolio_performance:
-            point['performance_return'] = float(((point['total_value'] / base_portfolio_value) - 1) * 100)
-            point['total_value'] = float(point['total_value'])
-
-        benchmark_performance = []
-        benchmark_prices = all_historical_data.get(benchmark, {})
-        relevant_benchmark_prices = {d: p for d, p in benchmark_prices.items() if start_date <= datetime.strptime(d, '%Y-%m-%d').date() <= date.today()}
-        
-        if relevant_benchmark_prices:
-            sorted_benchmark_dates = sorted(relevant_benchmark_prices.keys())
-            base_benchmark_price = Decimal(str(relevant_benchmark_prices[sorted_benchmark_dates[0]]))
-            for d in sorted_benchmark_dates:
-                price = Decimal(str(relevant_benchmark_prices[d]))
-                benchmark_performance.append({'date': d, 'performance_return': float(((price / base_benchmark_price) - 1) * 100)})
-
-        portfolio_return = portfolio_performance[-1]['performance_return'] if portfolio_performance else 0
-        benchmark_return = benchmark_performance[-1]['performance_return'] if benchmark_performance else 0
-        outperformance = portfolio_return - benchmark_return
-        
-        return {
-            "portfolio_performance": portfolio_performance, "benchmark_performance": benchmark_performance, "period": period, "benchmark_symbol": benchmark,
-            "comparison": {"portfolio_return": round(float(portfolio_return), 2), "benchmark_return": round(float(benchmark_return), 2), "outperformance": round(float(outperformance), 2)}
-        }
-    except Portfolio.DoesNotExist:
-        raise HttpError(404, "Portfolio not found")
+    except ValueError as e:
+        logger.warning(f"Validation error in portfolio performance: {e}")
+        if "Portfolio not found" in str(e):
+            raise HttpError(404, str(e))
+        else:
+            raise HttpError(400, str(e))
     except Exception as e:
         logger.error(f"Error in get_portfolio_performance: {e}", exc_info=True)
         raise HttpError(500, f"An unexpected error occurred: {e}")
