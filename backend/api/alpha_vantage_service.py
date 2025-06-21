@@ -394,20 +394,22 @@ class AlphaVantageService:
     
     def get_api_usage_stats(self) -> Dict[str, Any]:
         """Get current API usage statistics"""
-        current_time = time.time()
-        recent_requests = [t for t in self.request_timestamps if current_time - t < 60]
-        
         return {
-            'requests_last_minute': len(recent_requests),
-            'rate_limit': self.MAX_REQUESTS_PER_MINUTE,
-            'cache_entries': len(self.cache),
-            'cache_hit_ratio': 'N/A',  # Would need to track hits/misses for this
-            'service_status': 'healthy' if len(recent_requests) < self.MAX_REQUESTS_PER_MINUTE else 'rate_limited'
+            "total_requests_today": len(self.request_timestamps),
+            "requests_last_minute": len([t for t in self.request_timestamps if time.time() - t < 60]),
+            "cache_size": len(self.cache),
+            "rate_limit_max": self.MAX_REQUESTS_PER_MINUTE
         }
 
-# Global instance
-try:
-    alpha_vantage = AlphaVantageService()
-except ValueError:
-    # Don't create global instance if API key is not available (e.g., during testing)
-    alpha_vantage = None 
+# Singleton instance for the service
+_alpha_vantage_service_instance = None
+
+def get_alpha_vantage_service() -> AlphaVantageService:
+    """Get singleton instance of AlphaVantageService"""
+    global _alpha_vantage_service_instance
+    if _alpha_vantage_service_instance is None:
+        _alpha_vantage_service_instance = AlphaVantageService()
+    return _alpha_vantage_service_instance
+
+# Legacy instance for backward compatibility
+alpha_vantage = get_alpha_vantage_service() 

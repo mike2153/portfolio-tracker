@@ -639,7 +639,33 @@ def _create_dividend_records_for_holding(holding: Holding):
 def get_alpha_vantage_stats(request):
     """Get Alpha Vantage API usage statistics"""
     av_service = get_alpha_vantage_service()
-    return {"requests_today": av_service.get_request_count()}
+    return av_service.get_api_usage_stats()
+
+@router.get("/cache/stats")
+def get_cache_stats(request):
+    """Get market data cache statistics"""
+    try:
+        from .services.market_data_cache import get_market_data_cache_service
+        
+        cache_service = get_market_data_cache_service()
+        cache_stats = cache_service.get_cache_stats()
+        
+        # Add Alpha Vantage stats for comparison
+        av_service = get_alpha_vantage_service()
+        av_stats = av_service.get_api_usage_stats()
+        
+        return {
+            "cache": cache_stats,
+            "alpha_vantage": av_stats,
+            "status": "healthy"
+        }
+    except Exception as e:
+        logger.error(f"Error getting cache stats: {e}", exc_info=True)
+        return {
+            "cache": {"error": str(e)},
+            "alpha_vantage": {"error": "Unable to fetch stats"},
+            "status": "error"
+        }
 
 # Schemas for the Advanced Financials Endpoint
 class ValuationMetrics(Schema):
@@ -702,11 +728,21 @@ def advanced_financials(request, symbol: str):
     """
     logger.debug(f"Starting advanced financials fetch for symbol: {symbol}")
     try:
+        from .services.market_data_cache import get_market_data_cache_service
+        
+        cache_service = get_market_data_cache_service()
+        
+        # Try to get cached advanced metrics first
+        cached_metrics = cache_service.get_advanced_financials(symbol)
+        if cached_metrics:
+            logger.info(f"Successfully retrieved cached advanced metrics for {symbol}")
+            return 200, cached_metrics
+        
+        # Fallback to live calculation if not in cache
+        logger.debug(f"No cached metrics found for {symbol}, calculating from live data")
         av_service = get_alpha_vantage_service()
         
-        # 1. Fetch all required raw data concurrently (if possible, otherwise sequentially)
-        # For simplicity in this context, we fetch sequentially. A more advanced
-        # implementation might use asyncio.gather for concurrent fetching.
+        # 1. Fetch all required raw data
         logger.debug(f"Fetching company overview for {symbol}")
         overview = av_service.get_company_overview(symbol)
         if not overview or "MarketCapitalization" not in overview:
@@ -714,35 +750,35 @@ def advanced_financials(request, symbol: str):
              raise HttpError(404, f"Could not retrieve fundamental data for symbol: {symbol}. It may be an unsupported ticker.")
 
         logger.debug(f"Fetching income statements for {symbol}")
-        income_annual = av_service.get_income_statement(symbol, period='annual')
-        income_quarterly = av_service.get_income_statement(symbol, period='quarterly')
+        income_statement = av_service.get_income_statement(symbol)
 
         logger.debug(f"Fetching balance sheets for {symbol}")
-        balance_annual = av_service.get_balance_sheet(symbol, period='annual')
-        balance_quarterly = av_service.get_balance_sheet(symbol, period='quarterly')
+        balance_sheet = av_service.get_balance_sheet(symbol)
 
         logger.debug(f"Fetching cash flow statements for {symbol}")
-        cash_flow_annual = av_service.get_cash_flow(symbol, period='annual')
-        cash_flow_quarterly = av_service.get_cash_flow(symbol, period='quarterly')
+        cash_flow = av_service.get_cash_flow(symbol)
 
         # Check if we have the essential data to proceed
-        if not all([income_annual, income_quarterly, balance_annual, balance_quarterly, cash_flow_annual, cash_flow_quarterly]):
+        if not all([income_statement, balance_sheet, cash_flow]):
             logger.warning(f"Missing one or more financial statements for {symbol}.")
-            # We can still proceed and the calculator will handle missing data, but good to log.
 
         # 2. Calculate the metrics using the service
         logger.debug(f"Calculating advanced metrics for {symbol}")
         metrics = calculate_advanced_metrics(
             overview=overview,
-            income_annual=income_annual.get('annualReports', []),
-            income_quarterly=income_quarterly.get('quarterlyReports', []),
-            balance_annual=balance_annual.get('annualReports', []),
-            balance_quarterly=balance_quarterly.get('quarterlyReports', []),
-            cash_flow_annual=cash_flow_annual.get('annualReports', []),
-            cash_flow_quarterly=cash_flow_quarterly.get('quarterlyReports', []),
+            income_annual=income_statement.get('annual_reports', []),
+            income_quarterly=income_statement.get('quarterly_reports', []),
+            balance_annual=balance_sheet.get('annual_reports', []),
+            balance_quarterly=balance_sheet.get('quarterly_reports', []),
+            cash_flow_annual=cash_flow.get('annual_reports', []),
+            cash_flow_quarterly=cash_flow.get('quarterly_reports', []),
         )
-        logger.info(f"Successfully calculated advanced metrics for {symbol}")
         
+        # Add source information
+        metrics['source'] = 'alpha_vantage'
+        metrics['cache_note'] = 'Consider running update_market_data command to cache this data'
+        
+        logger.info(f"Successfully calculated advanced metrics for {symbol}")
         return 200, metrics
 
     except HttpError as e:

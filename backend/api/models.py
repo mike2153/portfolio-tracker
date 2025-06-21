@@ -183,3 +183,58 @@ class PortfolioSnapshot(models.Model):
 
     def __str__(self):
         return f"Portfolio Snapshot - {self.snapshot_date}: ${self.total_value}"
+
+
+class CachedDailyPrice(models.Model):
+    """Cache daily price data to reduce API calls and improve performance"""
+    symbol = models.CharField(max_length=20, db_index=True)
+    date = models.DateField(db_index=True)
+    open = models.DecimalField(max_digits=15, decimal_places=6)
+    high = models.DecimalField(max_digits=15, decimal_places=6)
+    low = models.DecimalField(max_digits=15, decimal_places=6)
+    close = models.DecimalField(max_digits=15, decimal_places=6)
+    adjusted_close = models.DecimalField(max_digits=15, decimal_places=6)
+    volume = models.BigIntegerField()
+    dividend_amount = models.DecimalField(max_digits=15, decimal_places=6, default=Decimal('0.00'))
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'cached_daily_prices'
+        unique_together = ['symbol', 'date']
+        indexes = [
+            models.Index(fields=['symbol', 'date']),
+            models.Index(fields=['date']),
+            models.Index(fields=['symbol']),
+        ]
+
+    def __str__(self):
+        return f"{self.symbol} - {self.date} (Adj Close: {self.adjusted_close})"
+
+
+class CachedCompanyFundamentals(models.Model):
+    """Cache company fundamental data and calculated metrics"""
+    symbol = models.CharField(max_length=20, unique=True, db_index=True)
+    last_updated = models.DateTimeField()  # When this cache entry was last updated
+    
+    # Store fundamental data as JSON for flexibility
+    # This includes raw overview data and calculated advanced metrics
+    data = models.JSONField(default=dict)
+    
+    # Key metrics as individual fields for easy querying (optional but useful)
+    market_capitalization = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)
+    pe_ratio = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    pb_ratio = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    dividend_yield = models.DecimalField(max_digits=6, decimal_places=4, null=True, blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'cached_company_fundamentals'
+        indexes = [
+            models.Index(fields=['symbol']),
+            models.Index(fields=['last_updated']),
+        ]
+
+    def __str__(self):
+        return f"{self.symbol} Fundamentals (Updated: {self.last_updated.strftime('%Y-%m-%d %H:%M')})"
