@@ -1,7 +1,10 @@
 # api/api.py
 from ninja import NinjaAPI
+from .views import router as api_router
 
 api = NinjaAPI()
+
+api.add_router("/", api_router)
 
 @api.get("/hello")
 def hello(request):

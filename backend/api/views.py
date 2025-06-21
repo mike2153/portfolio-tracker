@@ -1,5 +1,5 @@
-from django.shortcuts import render
-from ninja import NinjaAPI, Schema
+from django.shortcuts import render, get_object_or_404
+from ninja import NinjaAPI, Schema, Router
 from ninja.errors import HttpError
 from django.http import JsonResponse
 from django.db.models import Q, Sum, Avg, F, Count, DecimalField, Case, When, Value, IntegerField
@@ -13,7 +13,7 @@ from .models import (
     StockSymbol, SymbolRefreshLog, Portfolio, Holding, 
     CashContribution, DividendPayment, PriceAlert, PortfolioSnapshot
 )
-from .alpha_vantage_service import alpha_vantage
+from .alpha_vantage_service import alpha_vantage, get_alpha_vantage_service, AlphaVantageService
 from typing import List, Optional, Dict, Any
 from datetime import datetime, date, timedelta
 from decimal import Decimal
@@ -21,14 +21,15 @@ import os
 import json
 import logging
 import time
+from .services.metrics_calculator import calculate_advanced_metrics
 
 logger = logging.getLogger(__name__)
 
+router = Router()
+
 # Create your views here.
 
-api = NinjaAPI()
-
-@api.get("/health")
+@router.get("/health")
 def health_check(request):
     """Health check endpoint for system status monitoring"""
     try:
@@ -63,7 +64,7 @@ def health_check(request):
             "version": "1.0.0"
         }
 
-@api.get("/symbols/search")
+@router.get("/symbols/search")
 def search_symbols(request, q: str = "", exchange: str = "", limit: int = 25):
     """
     Comprehensive symbol search across all loaded exchanges
@@ -134,7 +135,7 @@ def search_symbols(request, q: str = "", exchange: str = "", limit: int = 25):
     }
 
 
-@api.get("/symbols/stats")
+@router.get("/symbols/stats")
 def symbol_stats(request):
     """Get statistics about loaded symbols"""
     
@@ -165,7 +166,7 @@ def symbol_stats(request):
     }
 
 
-@api.get("/symbols/refresh")
+@router.get("/symbols/refresh")
 def refresh_symbols(request, exchange: str = ""):
     """
     Trigger a refresh of symbol data from external APIs
@@ -221,8 +222,8 @@ class DividendConfirmationSchema(Schema):
 # STOCK ANALYSIS ENDPOINTS
 # =================
 
-@api.get("/stocks/{symbol}/overview")
-def get_stock_overview(request, symbol: str):
+@router.get("/stocks/{symbol}/overview", summary="Get Company Overview and Quote")
+def get_company_overview(request, symbol: str):
     """Get comprehensive stock overview including fundamentals"""
     try:
         symbol_upper = symbol.upper()
@@ -250,7 +251,7 @@ def get_stock_overview(request, symbol: str):
             status_code=500
         )
 
-@api.get("/stocks/{symbol}/historical")
+@router.get("/stocks/{symbol}/historical")
 def get_stock_historical(request, symbol: str, period: str = "1Y"):
     """Get historical price data for different time periods"""
     try:
@@ -284,7 +285,7 @@ def get_stock_historical(request, symbol: str, period: str = "1Y"):
     except Exception as e:
         raise HttpError(500, str(e))
 
-@api.get("/stocks/{symbol}/financials/{statement_type}")
+@router.get("/stocks/{symbol}/financials/{statement_type}")
 def get_stock_financials(request, symbol: str, statement_type: str):
     """Get financial statements (income, balance, cash flow)"""
     try:
@@ -310,7 +311,7 @@ def get_stock_financials(request, symbol: str, statement_type: str):
     except Exception as e:
         raise HttpError(500, str(e))
 
-@api.get("/stocks/{symbol}/news")
+@router.get("/stocks/{symbol}/news")
 def get_stock_news(request, symbol: str, limit: int = 20):
     """Get news sentiment for a specific stock"""
     try:
@@ -333,7 +334,7 @@ def get_stock_news(request, symbol: str, limit: int = 20):
 # PORTFOLIO MANAGEMENT ENDPOINTS
 # =================
 
-@api.get("/portfolios/{user_id}")
+@router.get("/portfolios/{user_id}")
 def get_user_portfolio(request, user_id: str):
     """Get detailed portfolio holdings and summary"""
     try:
@@ -378,7 +379,7 @@ def get_user_portfolio(request, user_id: str):
         logger.error(f"Failed to get user portfolio for {user_id}: {e}", exc_info=True)
         raise HttpError(500, "An error occurred while fetching portfolio data.")
 
-@api.get("/portfolios/{user_id}/performance")
+@router.get("/portfolios/{user_id}/performance")
 def get_portfolio_performance(request, user_id: str, period: str = "1Y", benchmark: str = "^GSPC"):
     """Get time-weighted portfolio performance with benchmark comparison"""
     try:
@@ -459,7 +460,7 @@ def get_portfolio_performance(request, user_id: str, period: str = "1Y", benchma
         logger.error(f"Error in get_portfolio_performance: {e}", exc_info=True)
         raise HttpError(500, f"An unexpected error occurred: {e}")
 
-@api.post("/portfolios/{user_id}/holdings")
+@router.post("/portfolios/{user_id}/holdings")
 def add_holding(request, user_id: str, holding_data: HoldingSchema):
     """Add a new stock holding to portfolio"""
     try:
@@ -519,7 +520,7 @@ def add_holding(request, user_id: str, holding_data: HoldingSchema):
 # CASH & DIVIDEND MANAGEMENT
 # =================
 
-@api.post("/portfolios/{user_id}/cash")
+@router.post("/portfolios/{user_id}/cash")
 def add_cash_contribution(request, user_id: str, cash_data: CashContributionSchema):
     """Add cash contribution to portfolio"""
     try:
@@ -537,7 +538,7 @@ def add_cash_contribution(request, user_id: str, cash_data: CashContributionSche
     except Exception as e:
         raise HttpError(500, str(e))
 
-@api.get("/portfolios/{user_id}/dividends")
+@router.get("/portfolios/{user_id}/dividends")
 def get_dividend_history(request, user_id: str, ticker: str = "", confirmed_only: bool = False):
     """Get dividend history for portfolio"""
     try:
@@ -574,7 +575,7 @@ def get_dividend_history(request, user_id: str, ticker: str = "", confirmed_only
         logger.error(f"Error fetching dividend history for user {user_id}: {e}", exc_info=True)
         raise HttpError(500, "Could not retrieve dividend history.")
 
-@api.post("/dividends/confirm")
+@router.post("/dividends/confirm")
 def confirm_dividend(request, confirmation: DividendConfirmationSchema):
     """Confirm dividend receipt"""
     try:
@@ -592,7 +593,7 @@ def confirm_dividend(request, confirmation: DividendConfirmationSchema):
 # PRICE ALERTS & NEWS
 # =================
 
-@api.post("/portfolios/{user_id}/alerts")
+@router.post("/portfolios/{user_id}/alerts")
 def create_price_alert(request, user_id: str, alert_data: PriceAlertSchema):
     """Create a price alert"""
     try:
@@ -607,7 +608,7 @@ def create_price_alert(request, user_id: str, alert_data: PriceAlertSchema):
     except Exception as e:
         raise HttpError(500, str(e))
 
-@api.get("/portfolios/{user_id}/alerts")
+@router.get("/portfolios/{user_id}/alerts")
 def get_price_alerts(request, user_id: str):
     """Get active price alerts"""
     try:
@@ -619,7 +620,7 @@ def get_price_alerts(request, user_id: str):
     except Exception as e:
         raise HttpError(500, str(e))
 
-@api.get("/portfolios/{user_id}/news")
+@router.get("/portfolios/{user_id}/news")
 def get_portfolio_news(request, user_id: str, limit: int = 50):
     """Get aggregated news for all portfolio stocks"""
     try:
@@ -683,20 +684,119 @@ def _create_dividend_records_for_holding(holding: Holding):
     except Exception as e:
         logger.error(f"Error creating dividend records for {holding.ticker}: {e}", exc_info=True)
 
-@api.get("/alpha_vantage/stats")
+@router.get("/alpha_vantage/stats")
 def get_alpha_vantage_stats(request):
     """Get Alpha Vantage API usage statistics"""
+    av_service = get_alpha_vantage_service()
+    return {"requests_today": av_service.get_request_count()}
+
+# Schemas for the Advanced Financials Endpoint
+class ValuationMetrics(Schema):
+    market_capitalization: Optional[float]
+    pe_ratio: Optional[float]
+    pb_ratio: Optional[float]
+    peg_ratio: Optional[float]
+    ev_to_ebitda: Optional[float]
+    dividend_yield: Optional[float]
+
+class HealthMetrics(Schema):
+    current_ratio: Optional[float]
+    debt_to_equity_ratio: Optional[float]
+    interest_coverage_ratio: Optional[float]
+    free_cash_flow_ttm: Optional[float]
+
+class PerformanceMetrics(Schema):
+    revenue_growth_yoy: Optional[float]
+    revenue_growth_5y_cagr: Optional[float]
+    eps_growth_yoy: Optional[float]
+    eps_growth_5y_cagr: Optional[float]
+    return_on_equity_ttm: Optional[float]
+    return_on_assets_ttm: Optional[float]
+
+class ProfitabilityMetrics(Schema):
+    gross_margin: Optional[float]
+    operating_margin: Optional[float]
+    net_profit_margin: Optional[float]
+
+class DividendMetrics(Schema):
+    dividend_payout_ratio: Optional[float]
+    dividend_growth_rate_3y_cagr: Optional[float]
+
+class RawDataSummary(Schema):
+    beta: Optional[float]
+    eps_ttm: Optional[float]
+    shares_outstanding: Optional[float]
+
+class AdvancedFinancialsResponse(Schema):
+    valuation: ValuationMetrics
+    financial_health: HealthMetrics
+    performance: PerformanceMetrics
+    profitability: ProfitabilityMetrics
+    dividends: DividendMetrics
+    raw_data_summary: RawDataSummary
+
+class ErrorResponse(Schema):
+    ok: bool = False
+    error: str
+
+@router.get(
+    "/stocks/{symbol}/advanced_financials",
+    response={200: AdvancedFinancialsResponse, 400: ErrorResponse, 404: ErrorResponse, 500: ErrorResponse},
+    summary="Get Advanced Financial Metrics for a Stock"
+)
+def advanced_financials(request, symbol: str):
+    """
+    Provides a comprehensive set of derived financial metrics for a given stock,
+    logically grouped into categories.
+    """
+    logger.debug(f"Starting advanced financials fetch for symbol: {symbol}")
     try:
-        stats = alpha_vantage.get_api_usage_stats()
-        return success_response({
-            "api_provider": "Alpha Vantage",
-            "usage_stats": stats,
-            "status": stats.get('service_status', 'unknown'),
-            "message": "Alpha Vantage integration is working properly"
-        })
-    except Exception as e:
-        logger.error(f"Error getting Alpha Vantage stats: {e}")
-        return error_response(
-            "Could not retrieve API statistics",
-            status_code=500
+        av_service = get_alpha_vantage_service()
+        
+        # 1. Fetch all required raw data concurrently (if possible, otherwise sequentially)
+        # For simplicity in this context, we fetch sequentially. A more advanced
+        # implementation might use asyncio.gather for concurrent fetching.
+        logger.debug(f"Fetching company overview for {symbol}")
+        overview = av_service.get_company_overview(symbol)
+        if not overview or "MarketCapitalization" not in overview:
+             logger.warning(f"Could not retrieve valid company overview for {symbol}.")
+             raise HttpError(404, f"Could not retrieve fundamental data for symbol: {symbol}. It may be an unsupported ticker.")
+
+        logger.debug(f"Fetching income statements for {symbol}")
+        income_annual = av_service.get_income_statement(symbol, period='annual')
+        income_quarterly = av_service.get_income_statement(symbol, period='quarterly')
+
+        logger.debug(f"Fetching balance sheets for {symbol}")
+        balance_annual = av_service.get_balance_sheet(symbol, period='annual')
+        balance_quarterly = av_service.get_balance_sheet(symbol, period='quarterly')
+
+        logger.debug(f"Fetching cash flow statements for {symbol}")
+        cash_flow_annual = av_service.get_cash_flow(symbol, period='annual')
+        cash_flow_quarterly = av_service.get_cash_flow(symbol, period='quarterly')
+
+        # Check if we have the essential data to proceed
+        if not all([income_annual, income_quarterly, balance_annual, balance_quarterly, cash_flow_annual, cash_flow_quarterly]):
+            logger.warning(f"Missing one or more financial statements for {symbol}.")
+            # We can still proceed and the calculator will handle missing data, but good to log.
+
+        # 2. Calculate the metrics using the service
+        logger.debug(f"Calculating advanced metrics for {symbol}")
+        metrics = calculate_advanced_metrics(
+            overview=overview,
+            income_annual=income_annual.get('annualReports', []),
+            income_quarterly=income_quarterly.get('quarterlyReports', []),
+            balance_annual=balance_annual.get('annualReports', []),
+            balance_quarterly=balance_quarterly.get('quarterlyReports', []),
+            cash_flow_annual=cash_flow_annual.get('annualReports', []),
+            cash_flow_quarterly=cash_flow_quarterly.get('quarterlyReports', []),
         )
+        logger.info(f"Successfully calculated advanced metrics for {symbol}")
+        
+        return 200, metrics
+
+    except HttpError as e:
+        logger.error(f"HttpError in advanced_financials for {symbol}: {e.message}", exc_info=True)
+        return e.status_code, {"ok": False, "error": e.message}
+    except Exception as e:
+        logger.exception(f"An unexpected error occurred in advanced_financials for {symbol}: {e}")
+        return 500, {"ok": False, "error": "An internal server error occurred."}
