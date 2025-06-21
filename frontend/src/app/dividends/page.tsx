@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { User, DividendByStock } from '@/types'
 
@@ -38,8 +38,13 @@ export default function DividendsPage() {
   const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString())
 
   // Get unique tickers and years for filtering
-  const uniqueTickers = [...new Set(dividends.map(d => d.holding__ticker))].sort()
-  const uniqueYears = [...new Set(dividends.map(d => new Date(d.ex_date).getFullYear().toString()))].sort().reverse()
+  const uniqueTickers = useMemo(() => {
+    return [...new Set(dividends.map(d => d.holding__ticker))].sort();
+  }, [dividends]);
+
+  const uniqueYears = useMemo(() => {
+    return [...new Set(dividends.map(d => new Date(d.ex_date).getFullYear().toString()))].sort().reverse();
+  }, [dividends]);
 
   useEffect(() => {
     checkUser()
@@ -126,9 +131,9 @@ export default function DividendsPage() {
     }
     
     acc[ticker].dividends.push(dividend)
-    acc[ticker].total_amount += dividend.total_amount
+    acc[ticker].total_amount += Number(dividend.total_amount) || 0
     if (dividend.confirmed_received) {
-      acc[ticker].confirmed_amount += dividend.total_amount
+      acc[ticker].confirmed_amount += Number(dividend.total_amount) || 0
     }
     
     return acc
@@ -168,7 +173,7 @@ export default function DividendsPage() {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="metric-card">
-          <div className="metric-value text-green-600">${summary.total_confirmed_dividends.toLocaleString()}</div>
+          <div className="metric-value text-green-600">${summary.total_confirmed_dividends.toFixed(2)}</div>
           <div className="metric-label">Confirmed Dividends</div>
         </div>
         <div className="metric-card">
@@ -243,10 +248,10 @@ export default function DividendsPage() {
                 </div>
                 <div className="text-right mt-2 sm:mt-0">
                   <div className="text-lg font-semibold text-green-600">
-                    ${stock.confirmed_amount.toFixed(2)} confirmed
+                    ${(Number(stock.confirmed_amount) || 0).toFixed(2)} confirmed
                   </div>
                   <div className="text-sm text-gray-600">
-                    ${stock.total_amount.toFixed(2)} total
+                    ${(Number(stock.total_amount) || 0).toFixed(2)} total
                   </div>
                 </div>
               </div>

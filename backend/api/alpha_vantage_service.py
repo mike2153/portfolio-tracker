@@ -406,4 +406,8 @@ class AlphaVantageService:
         }
 
 # Global instance
-alpha_vantage = AlphaVantageService() 
+try:
+    alpha_vantage = AlphaVantageService()
+except ValueError:
+    # Don't create global instance if API key is not available (e.g., during testing)
+    alpha_vantage = None 
