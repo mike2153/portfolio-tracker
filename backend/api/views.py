@@ -3,6 +3,7 @@ from ninja import NinjaAPI, Schema
 from ninja.errors import HttpError
 from django.http import JsonResponse
 from django.db.models import Q, Sum, Avg, F, Count, DecimalField, Case, When, Value, IntegerField
+from .utils import success_response, error_response, validation_error_response
 
 # pyright: reportAttributeAccessIssue=false
 # pyright: reportOperatorIssue=false  
@@ -229,19 +230,25 @@ def get_stock_overview(request, symbol: str):
         quote = alpha_vantage.get_global_quote(symbol_upper)
         
         if not overview and not quote:
-            raise HttpError(404, f"Complete data could not be found for ticker {symbol_upper} from our provider.")
+            return error_response(
+                f"Complete data could not be found for ticker {symbol_upper} from our provider.",
+                status_code=404
+            )
 
         # Combine any data we did find
         combined_data = {**(overview or {}), **(quote or {})}
 
-        return {
+        return success_response({
             "symbol": symbol_upper,
             "data": combined_data,
             "timestamp": datetime.now().isoformat()
-        }
+        })
     except Exception as e:
         logger.error(f"Error getting stock overview for {symbol}: {e}", exc_info=True)
-        raise HttpError(500, f"An unexpected error occurred while retrieving the overview for {symbol}.")
+        return error_response(
+            f"An unexpected error occurred while retrieving the overview for {symbol}.",
+            status_code=500
+        )
 
 @api.get("/stocks/{symbol}/historical")
 def get_stock_historical(request, symbol: str, period: str = "1Y"):
@@ -456,13 +463,28 @@ def get_portfolio_performance(request, user_id: str, period: str = "1Y", benchma
 def add_holding(request, user_id: str, holding_data: HoldingSchema):
     """Add a new stock holding to portfolio"""
     try:
+        # Validate input data
+        if holding_data.shares <= 0:
+            return validation_error_response({"shares": "Shares must be greater than 0"})
+        
+        if holding_data.purchase_price <= 0:
+            return validation_error_response({"purchase_price": "Purchase price must be greater than 0"})
+        
+        if holding_data.fx_rate <= 0:
+            return validation_error_response({"fx_rate": "Exchange rate must be greater than 0"})
+        
         portfolio, _ = Portfolio.objects.get_or_create(user_id=user_id)
         total_cost = (Decimal(str(holding_data.shares)) * Decimal(str(holding_data.purchase_price))) + Decimal(str(holding_data.commission))
+        
         if holding_data.used_cash_balance:
             if portfolio.cash_balance < total_cost:
-                raise HttpError(400, "Insufficient cash balance")
+                return error_response(
+                    f"Insufficient cash balance. Required: ${total_cost}, Available: ${portfolio.cash_balance}",
+                    status_code=400
+                )
             portfolio.cash_balance -= total_cost
             portfolio.save()
+            
         holding = Holding.objects.create(
             portfolio=portfolio,
             ticker=holding_data.ticker.upper(),
@@ -477,10 +499,20 @@ def add_holding(request, user_id: str, holding_data: HoldingSchema):
             fx_rate=Decimal(str(holding_data.fx_rate))
         )
         _create_dividend_records_for_holding(holding)
-        return {"message": "Holding added successfully", "holding_id": holding.id, "remaining_cash": float(portfolio.cash_balance)}
+        
+        return success_response({
+            "holding_id": holding.id,
+            "remaining_cash": float(portfolio.cash_balance),
+            "ticker": holding.ticker,
+            "shares": float(holding.shares)
+        }, message="Holding added successfully")
+        
     except Exception as e:
         logger.error(f"Error adding holding for user {user_id}: {e}", exc_info=True)
-        raise HttpError(500, "Could not add holding.")
+        return error_response(
+            "Could not add holding. Please try again.",
+            status_code=500
+        )
 
 
 # =================
@@ -653,21 +685,18 @@ def _create_dividend_records_for_holding(holding: Holding):
 
 @api.get("/alpha_vantage/stats")
 def get_alpha_vantage_stats(request):
-    """Provides statistics on Alpha Vantage API usage."""
-    # The alpha_vantage object is a singleton, so we can access its state directly.
-    current_time = time.time()
-    
-    # Filter out timestamps older than 60 seconds to get the current count
-    recent_timestamps = [
-        t for t in alpha_vantage.request_timestamps if current_time - t < 60
-    ]
-    alpha_vantage.request_timestamps = recent_timestamps # Prune the list
-    
-    request_count = len(alpha_vantage.request_timestamps)
-    
-    return {
-        "requests_in_last_60_seconds": request_count,
-        "rate_limit_per_minute": 70,
-        "remaining_in_window": 70 - request_count,
-        "status": "OK" if request_count < 60 else "WARNING: Nearing rate limit."
-    }
+    """Get Alpha Vantage API usage statistics"""
+    try:
+        stats = alpha_vantage.get_api_usage_stats()
+        return success_response({
+            "api_provider": "Alpha Vantage",
+            "usage_stats": stats,
+            "status": stats.get('service_status', 'unknown'),
+            "message": "Alpha Vantage integration is working properly"
+        })
+    except Exception as e:
+        logger.error(f"Error getting Alpha Vantage stats: {e}")
+        return error_response(
+            "Could not retrieve API statistics",
+            status_code=500
+        )

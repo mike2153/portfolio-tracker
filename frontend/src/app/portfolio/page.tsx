@@ -4,62 +4,45 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { User } from '@/types'
 import { PlusCircle, Trash2, Edit, ChevronDown, ChevronUp } from 'lucide-react'
+import { apiService } from '@/lib/api'
+import { ValidationService } from '@/lib/validation'
+import { useToast } from '@/components/ui/Toast'
+import {
+  PortfolioData,
+  Holding,
+  StockSymbol,
+  AddHoldingFormData,
+  FormErrors
+} from '@/types/api'
 
-// Define interfaces for our data structures
-interface Holding {
-    id: number;
-    ticker: string;
-    company_name: string;
-    shares: number;
-    purchase_price: number;
-    market_value: number;
-    current_price: number;
+interface HoldingRowProps {
+    holding: Holding;
 }
 
-interface PortfolioData {
-    cash_balance: number;
-    holdings: Holding[];
-    summary: {
-        total_holdings: number;
-        total_value: number;
-    };
-}
+const HoldingRow = ({ holding }: HoldingRowProps) => {
+    const total_cost = holding.shares * holding.purchase_price;
+    const pnl = holding.market_value - total_cost;
+    const pnl_percent = total_cost > 0 ? (pnl / total_cost) * 100 : 0;
 
-// A single row in our holdings table
-const HoldingRow = ({ holding }: { holding: Holding }) => {
-    const costBasis = holding.shares * holding.purchase_price;
-    const pnl = holding.market_value - costBasis;
-    const pnlPercent = costBasis > 0 ? (pnl / costBasis) * 100 : 0;
-
-    const formatCurrency = (value: number) => `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    
-    const pnlColor = pnl >= 0 ? 'text-green-600' : 'text-red-600';
+    const formatCurrency = (value: number) => ValidationService.formatCurrency(value);
 
     return (
         <tr className="border-b border-gray-200 hover:bg-gray-50">
-            <td className="py-3 px-4">
-                <div className="font-bold text-gray-800">{holding.ticker}</div>
-                <div className="text-sm text-gray-500">{holding.company_name}</div>
+            <td className="px-4 py-3">
+                <div className="font-bold text-gray-900">{holding.ticker}</div>
+                <div className="text-sm text-gray-600 truncate">{holding.company_name}</div>
             </td>
-            <td className="py-3 px-4 text-right">{holding.shares.toLocaleString()}</td>
-            <td className="py-3 px-4 text-right">{formatCurrency(holding.market_value)}</td>
-            <td className="py-3 px-4 text-right">{formatCurrency(costBasis)}</td>
-            <td className={`py-3 px-4 text-right font-medium ${pnlColor}`}>
+            <td className="text-right font-medium text-gray-800 px-4 py-3">{ValidationService.formatNumber(holding.shares, 0)}</td>
+            <td className="text-right font-medium text-gray-800 px-4 py-3">{formatCurrency(holding.market_value)}</td>
+            <td className="text-right font-medium text-gray-800 px-4 py-3">{formatCurrency(total_cost)}</td>
+            <td className={`text-right font-medium px-4 py-3 ${pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                 {pnl >= 0 ? '+' : ''}{formatCurrency(pnl)}
             </td>
-            <td className={`py-3 px-4 text-right font-medium ${pnlColor}`}>
-                <div className="flex items-center justify-end space-x-1">
-                   <span>{pnl >= 0 ? <ChevronUp size={14} /> : <ChevronDown size={14} />}</span>
-                   <span>{pnlPercent.toFixed(2)}%</span>
-                </div>
+            <td className={`text-right font-medium px-4 py-3 ${pnl_percent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {pnl_percent >= 0 ? '+' : ''}{ValidationService.formatNumber(pnl_percent, 2)}%
             </td>
-            <td className="py-3 px-4 text-center">
-                <button className="text-gray-400 hover:text-red-500 p-1">
-                    <Trash2 size={16} />
-                </button>
-                <button className="text-gray-400 hover:text-blue-500 p-1">
-                    <Edit size={16} />
-                </button>
+            <td className="text-center px-4 py-3">
+                <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">Edit</button>
             </td>
         </tr>
     );
@@ -89,14 +72,18 @@ export default function PortfolioPage() {
     const [showAddModal, setShowAddModal] = useState(false);
     const [loadingPrice, setLoadingPrice] = useState(false);
     const [loadingFX, setLoadingFX] = useState(false);
-    const [tickerSuggestions, setTickerSuggestions] = useState<any[]>([]);
+    const [tickerSuggestions, setTickerSuggestions] = useState<StockSymbol[]>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [searchLoading, setSearchLoading] = useState(false);
-    const [searchCache, setSearchCache] = useState<Record<string, any[]>>({});
+    const [searchCache, setSearchCache] = useState<Record<string, StockSymbol[]>>({});
+    const [formErrors, setFormErrors] = useState<FormErrors>({});
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const { addToast } = useToast();
 
     const currencies = ['USD', 'EUR', 'GBP', 'AUD', 'CAD', 'JPY', 'CHF', 'CNY'];
     
-    const initialFormState = {
+    const initialFormState: AddHoldingFormData = {
         ticker: '',
         company_name: '',
         exchange: '',
@@ -109,7 +96,7 @@ export default function PortfolioPage() {
         use_cash_balance: false,
     };
 
-    const [form, setForm] = useState(initialFormState);
+    const [form, setForm] = useState<AddHoldingFormData>(initialFormState);
 
     // --- Core Data Fetching ---
     useEffect(() => {
@@ -146,6 +133,11 @@ export default function PortfolioPage() {
         } catch (e: any) {
             console.error('[Auth] Error checking user session:', e);
             setError('Failed to check user session.');
+            addToast({
+                type: 'error',
+                title: 'Authentication Error',
+                message: 'Failed to check user session. Please try refreshing the page.',
+            });
         } finally {
             setLoading(false);
         }
@@ -155,19 +147,24 @@ export default function PortfolioPage() {
         console.log(`[API] Fetching portfolio data for user: ${userId}`);
         setLoading(true);
         try {
-            const response = await fetch(`http://localhost:8000/api/portfolios/${userId}`);
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+            const response = await apiService.getPortfolio(userId);
+            if (response.ok && response.data) {
+                console.log('[API] Successfully fetched portfolio data:', response.data);
+                setPortfolioData(response.data);
+                setError(null);
+            } else {
+                throw new Error(response.error || 'Failed to fetch portfolio data');
             }
-            const data: PortfolioData = await response.json();
-            console.log('[API] Successfully fetched portfolio data:', data);
-            setPortfolioData(data);
-            setError(null);
         } catch (e: any) {
             console.error('[API] Failed to fetch portfolio data:', e);
-            setError(`Failed to load portfolio. ${e.message}`);
+            const errorMessage = `Failed to load portfolio. ${e.message}`;
+            setError(errorMessage);
             setPortfolioData(null);
+            addToast({
+                type: 'error',
+                title: 'Portfolio Load Error',
+                message: errorMessage,
+            });
         } finally {
             setLoading(false);
         }
@@ -177,29 +174,49 @@ export default function PortfolioPage() {
     const openAddModal = () => {
         console.log('[Modal] Opening "Add Holding" modal.');
         setShowAddModal(true);
+        setFormErrors({});
     };
 
     const closeAddModal = () => {
         console.log('[Modal] Closing "Add Holding" modal. Resetting form state.');
         setShowAddModal(false);
-        setForm(initialFormState); // Reset form on close
+        setForm(initialFormState);
         setTickerSuggestions([]);
         setShowSuggestions(false);
+        setFormErrors({});
     };
 
     // --- Form Handling & Ticker Search ---
     const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
-        const newValue = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value;
+        let newValue: string | boolean;
+        
+        if (type === 'checkbox') {
+            newValue = (e.target as HTMLInputElement).checked;
+        } else if (name === 'shares' || name === 'purchase_price' || name === 'commission' || name === 'fx_rate') {
+            // Sanitize numeric inputs
+            newValue = ValidationService.sanitizeNumericInput(value);
+        } else {
+            newValue = value;
+        }
         
         console.log(`[Form] Field '${name}' changed to:`, newValue);
         const updatedForm = { ...form, [name]: newValue };
         setForm(updatedForm);
+
+        // Clear field-specific error when user starts typing
+        if (formErrors[name]) {
+            setFormErrors(prev => {
+                const newErrors = { ...prev };
+                delete newErrors[name];
+                return newErrors;
+            });
+        }
         
         if (name === 'ticker') {
-            if (value.length > 0) {
-                console.log(`[Form] Calling debounced search for "${value}"`);
-                debouncedSearchTickers(value);
+            if (typeof newValue === 'string' && newValue.length > 0) {
+                console.log(`[Form] Calling debounced search for "${newValue}"`);
+                debouncedSearchTickers(newValue);
             } else {
                 console.log('[Form] Ticker is empty, hiding suggestions.');
                 setShowSuggestions(false);
@@ -210,7 +227,7 @@ export default function PortfolioPage() {
         // Only fetch price on date change if a stock has been selected
         if (name === 'purchase_date' && form.ticker && form.company_name) {
             console.log(`[Form] Date changed for selected ticker ${form.ticker}. Fetching new price.`);
-            fetchStockPrice(form.ticker, value);
+            fetchStockPrice(form.ticker, value as string);
         }
     };
 
@@ -244,11 +261,10 @@ export default function PortfolioPage() {
         console.log(`[Search] Searching for ticker: "${trimmedQuery}"`);
         setSearchLoading(true);
         try {
-            const response = await fetch(`http://localhost:8000/api/symbols/search?q=${encodeURIComponent(trimmedQuery)}&limit=10`);
-            if (response.ok) {
-                const data = await response.json();
-                const results = data.results || [];
-                console.log(`[Search] Received ${results.length || 0} suggestions for "${trimmedQuery}":`, results);
+            const response = await apiService.searchSymbols(trimmedQuery, 10);
+            if (response.ok && response.data) {
+                const results = response.data.results || [];
+                console.log(`[Search] Received ${results.length} suggestions for "${trimmedQuery}":`, results);
                 
                 // Update cache only if results are found
                 if (results.length > 0) {
@@ -258,11 +274,21 @@ export default function PortfolioPage() {
                 setTickerSuggestions(results);
                 setShowSuggestions(true);
             } else {
-                console.error(`[Search] API error for query "${trimmedQuery}":`, response.status, response.statusText);
+                console.error(`[Search] API error for query "${trimmedQuery}":`, response.error);
                 setTickerSuggestions([]);
+                addToast({
+                    type: 'warning',
+                    title: 'Search Error',
+                    message: `Failed to search for "${trimmedQuery}". ${response.error}`,
+                });
             }
         } catch (error) {
             console.error(`[Search] Network error searching for "${trimmedQuery}":`, error);
+            addToast({
+                type: 'error',
+                title: 'Network Error',
+                message: 'Failed to search for stocks. Please check your connection.',
+            });
         } finally {
             setSearchLoading(false);
         }
@@ -270,7 +296,7 @@ export default function PortfolioPage() {
     
     const debouncedSearchTickers = useCallback(debounce(searchTickers, 300), [searchCache]);
 
-    const selectTicker = (suggestion: any) => {
+    const selectTicker = (suggestion: StockSymbol) => {
         console.log('[Form] Ticker selected from suggestions:', suggestion);
         const newFormState = {
             ...form,
@@ -294,9 +320,9 @@ export default function PortfolioPage() {
         console.log(`[Price] Fetching price for ${ticker} on ${purchase_date}`);
         setLoadingPrice(true);
         try {
-            const historicalResponse = await fetch(`http://localhost:8000/api/stocks/${ticker}/historical?period=5Y`);
-            if (historicalResponse.ok) {
-                const historicalData = await historicalResponse.json();
+            const historicalResponse = await apiService.getHistoricalData(ticker, '5Y');
+            if (historicalResponse.ok && historicalResponse.data) {
+                const historicalData = historicalResponse.data;
                 const targetDate = new Date(purchase_date);
                 
                 let closestPrice: number | null = null;
@@ -321,10 +347,9 @@ export default function PortfolioPage() {
             }
             
             console.log(`[Price] No historical price found for ${ticker} on ${purchase_date}. Falling back to current quote.`);
-            const currentResponse = await fetch(`http://localhost:8000/api/stocks/${ticker}/overview`);
-            if (currentResponse.ok) {
-                const currentData = await currentResponse.json();
-                const currentPrice = currentData.data?.price;
+            const currentResponse = await apiService.getStockOverview(ticker);
+            if (currentResponse.ok && currentResponse.data) {
+                const currentPrice = currentResponse.data.data?.price;
                 if (currentPrice) {
                     console.log(`[Price] Found fallback current price for ${ticker}: ${currentPrice}`);
                     setForm(prev => ({ ...prev, purchase_price: currentPrice.toFixed(2) }));
@@ -332,6 +357,11 @@ export default function PortfolioPage() {
             }
         } catch (error) {
             console.error(`[Price] Error fetching stock price for ${ticker}:`, error);
+            addToast({
+                type: 'warning',
+                title: 'Price Fetch Error',
+                message: `Could not fetch price for ${ticker}. Please enter manually.`,
+            });
         } finally {
             setLoadingPrice(false);
         }
@@ -359,60 +389,120 @@ export default function PortfolioPage() {
             }
         } catch (error) {
             console.error(`[FX] Error fetching FX rate for ${form.currency}:`, error);
+            addToast({
+                type: 'warning',
+                title: 'Exchange Rate Error',
+                message: `Could not fetch exchange rate for ${form.currency}. Please enter manually.`,
+            });
         } finally {
             setLoadingFX(false);
         }
     };
+
+    useEffect(() => { 
+        fetchFXRate(); 
+    }, [form.currency]);
 
     // --- Form Submission ---
     const handleAddHoldingSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         console.log('[Submit] "Add Holding" form submitted.');
 
-        if (!form.ticker || !form.shares || !form.purchase_price || !form.purchase_date) {
-            alert('Please fill in all required fields.');
-            console.warn('[Submit] Aborted: Missing required fields.');
+        // Validate form
+        const errors = ValidationService.validateAddHoldingForm(form);
+        if (ValidationService.hasErrors(errors)) {
+            console.warn('[Submit] Validation errors found:', errors);
+            setFormErrors(errors);
+            addToast({
+                type: 'error',
+                title: 'Validation Error',
+                message: 'Please correct the errors in the form.',
+            });
             return;
         }
 
+        setIsSubmitting(true);
         const payload = {
-            ...form,
+            ticker: form.ticker.toUpperCase(),
+            company_name: form.company_name,
+            exchange: form.exchange,
             shares: parseFloat(form.shares),
             purchase_price: parseFloat(form.purchase_price),
+            purchase_date: form.purchase_date,
             commission: form.commission ? parseFloat(form.commission) : 0,
+            currency: form.currency,
             fx_rate: form.fx_rate ? parseFloat(form.fx_rate) : 1.0,
-            use_cash_balance: !!form.use_cash_balance,
+            use_cash_balance: form.use_cash_balance,
         };
         console.log('[Submit] Payload prepared for API:', payload);
 
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-            alert('You must be signed in to add a holding.');
-            console.error('[Submit] Aborted: User is not signed in.');
+            addToast({
+                type: 'error',
+                title: 'Authentication Required',
+                message: 'You must be signed in to add a holding.',
+            });
+            setIsSubmitting(false);
             return;
         }
 
         try {
-            const res = await fetch(`http://localhost:8000/api/portfolios/${user.id}/holdings`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-            });
+            const response = await apiService.addHolding(user.id, payload);
 
-            if (res.ok) {
+            if (response.ok) {
                 console.log('[Submit] Successfully added holding. Closing modal and reloading data.');
+                addToast({
+                    type: 'success',
+                    title: 'Holding Added',
+                    message: `Successfully added ${form.shares} shares of ${form.ticker}.`,
+                });
                 closeAddModal();
-                fetchPortfolioData(user.id); // Re-fetch data instead of reloading page
+                fetchPortfolioData(user.id);
             } else {
-                const err = await res.json();
-                console.error('[Submit] API error on holding submission:', err);
-                alert(err.message || 'Failed to add holding.');
+                console.error('[Submit] API error on holding submission:', response.error);
+                addToast({
+                    type: 'error',
+                    title: 'Failed to Add Holding',
+                    message: response.error || 'An error occurred while adding the holding.',
+                });
             }
         } catch (error) {
             console.error('[Submit] Network error on holding submission:', error);
-            alert('A network error occurred. Please try again.');
+            addToast({
+                type: 'error',
+                title: 'Network Error',
+                message: 'A network error occurred. Please try again.',
+            });
+        } finally {
+            setIsSubmitting(false);
         }
     };
+
+    // --- Helper Components ---
+    const FormField = ({ 
+        label, 
+        name, 
+        children, 
+        required = false, 
+        error 
+    }: { 
+        label: string; 
+        name: string; 
+        children: React.ReactNode; 
+        required?: boolean; 
+        error?: string; 
+    }) => (
+        <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                {label} {required && <span className="text-red-500">*</span>}
+            </label>
+            {children}
+            {error && (
+                <p className="mt-1 text-sm text-red-600">{error}</p>
+            )}
+        </div>
+    );
 
     // --- Modal Rendering Logic ---
     let addHoldingModal = null;
@@ -427,6 +517,7 @@ export default function PortfolioPage() {
                             <button 
                                 className="text-gray-400 hover:text-gray-600 transition-colors p-1" 
                                 onClick={closeAddModal}
+                                disabled={isSubmitting}
                             >
                                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -435,14 +526,14 @@ export default function PortfolioPage() {
                         </div>
                     </div>
 
-                    <form
-                        onSubmit={handleAddHoldingSubmit}
-                        className="p-6 space-y-6"
-                    >
-                        <div className="relative">
-                            <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                Stock Ticker <span className="text-red-500">*</span>
-                            </label>
+                    <form onSubmit={handleAddHoldingSubmit} className="p-6 space-y-6">
+                        {/* Ticker Search */}
+                        <FormField 
+                            label="Stock Ticker" 
+                            name="ticker" 
+                            required 
+                            error={formErrors.ticker}
+                        >
                             <div className="relative">
                                 <input 
                                     name="ticker" 
@@ -450,10 +541,13 @@ export default function PortfolioPage() {
                                     onChange={handleFormChange}
                                     onFocus={handleTickerFocus}
                                     onBlur={handleTickerBlur}
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 font-mono uppercase"
+                                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 font-mono uppercase ${
+                                        formErrors.ticker ? 'border-red-300' : 'border-gray-300'
+                                    }`}
                                     placeholder="e.g., AAPL, MSFT, GOOGL"
                                     required 
                                     autoComplete="off"
+                                    disabled={isSubmitting}
                                 />
                                 {searchLoading && (
                                     <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -483,10 +577,10 @@ export default function PortfolioPage() {
                                     ))}
                                 </div>
                             )}
-                        </div>
+                        </FormField>
 
-                        <div>
-                            <label className="block text-sm font-semibold text-gray-700 mb-2">Company Name</label>
+                        {/* Company Name */}
+                        <FormField label="Company Name" name="company_name">
                             <input 
                                 name="company_name" 
                                 value={form.company_name} 
@@ -495,10 +589,10 @@ export default function PortfolioPage() {
                                 placeholder="Auto-filled from ticker search"
                                 readOnly
                             />
-                        </div>
+                        </FormField>
 
-                        <div>
-                            <label className="block text-sm font-semibold text-gray-700 mb-2">Exchange</label>
+                        {/* Exchange */}
+                        <FormField label="Exchange" name="exchange">
                             <input 
                                 name="exchange" 
                                 value={form.exchange} 
@@ -507,56 +601,69 @@ export default function PortfolioPage() {
                                 placeholder="Auto-filled from ticker search"
                                 readOnly
                             />
-                        </div>
+                        </FormField>
 
-                        <div>
-                            <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                Number of Shares <span className="text-red-500">*</span>
-                            </label>
+                        {/* Shares */}
+                        <FormField 
+                            label="Number of Shares" 
+                            name="shares" 
+                            required 
+                            error={formErrors.shares}
+                        >
                             <input 
                                 name="shares" 
-                                type="number" 
-                                min="0" 
-                                step="any" 
+                                type="text"
                                 value={form.shares} 
                                 onChange={handleFormChange}
-                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
+                                    formErrors.shares ? 'border-red-300' : 'border-gray-300'
+                                }`}
                                 placeholder="e.g., 100"
                                 required 
+                                disabled={isSubmitting}
                             />
-                        </div>
+                        </FormField>
 
-                        <div>
-                            <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                Purchase Date <span className="text-red-500">*</span>
-                            </label>
+                        {/* Purchase Date */}
+                        <FormField 
+                            label="Purchase Date" 
+                            name="purchase_date" 
+                            required 
+                            error={formErrors.purchase_date}
+                        >
                             <input 
                                 name="purchase_date" 
                                 type="date" 
                                 value={form.purchase_date} 
                                 onChange={handleFormChange}
-                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
+                                    formErrors.purchase_date ? 'border-red-300' : 'border-gray-300'
+                                }`}
                                 required 
+                                disabled={isSubmitting}
                             />
-                        </div>
+                        </FormField>
 
-                        <div>
-                            <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                Purchase Price <span className="text-red-500">*</span>
-                            </label>
+                        {/* Purchase Price */}
+                        <FormField 
+                            label="Purchase Price" 
+                            name="purchase_price" 
+                            required 
+                            error={formErrors.purchase_price}
+                        >
                             <div className="relative">
                                 <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">$</div>
                                 <input 
                                     name="purchase_price" 
-                                    type="number" 
-                                    min="0" 
-                                    step="0.01" 
+                                    type="text"
                                     value={form.purchase_price} 
                                     onChange={handleFormChange}
-                                    className="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                    className={`w-full pl-8 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
+                                        formErrors.purchase_price ? 'border-red-300' : 'border-gray-300'
+                                    }`}
                                     placeholder="0.00"
                                     required 
-                                    disabled={loadingPrice}
+                                    disabled={loadingPrice || isSubmitting}
                                 />
                                 {loadingPrice && (
                                     <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -565,54 +672,62 @@ export default function PortfolioPage() {
                                 )}
                             </div>
                             {loadingPrice && <div className="text-xs text-blue-600 mt-1">Auto-filling price for selected date...</div>}
-                        </div>
+                        </FormField>
 
-                        <div>
-                            <label className="block text-sm font-semibold text-gray-700 mb-2">Commission (Optional)</label>
+                        {/* Commission */}
+                        <FormField 
+                            label="Commission (Optional)" 
+                            name="commission" 
+                            error={formErrors.commission}
+                        >
                             <div className="relative">
                                 <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">$</div>
                                 <input 
                                     name="commission" 
-                                    type="number" 
-                                    min="0" 
-                                    step="0.01" 
+                                    type="text"
                                     value={form.commission} 
                                     onChange={handleFormChange}
-                                    className="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                    className={`w-full pl-8 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
+                                        formErrors.commission ? 'border-red-300' : 'border-gray-300'
+                                    }`}
                                     placeholder="0.00"
+                                    disabled={isSubmitting}
                                 />
                             </div>
-                        </div>
+                        </FormField>
 
-                        <div>
-                            <label className="block text-sm font-semibold text-gray-700 mb-2">Currency</label>
+                        {/* Currency */}
+                        <FormField label="Currency" name="currency">
                             <select 
                                 name="currency" 
                                 value={form.currency} 
                                 onChange={handleFormChange}
                                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                disabled={isSubmitting}
                             >
                                 {currencies.map((cur) => (
                                     <option key={cur} value={cur}>{cur}</option>
                                 ))}
                             </select>
-                        </div>
+                        </FormField>
 
+                        {/* FX Rate */}
                         {form.currency !== 'USD' && (
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                    Currency Conversion Rate (to USD)
-                                </label>
+                            <FormField 
+                                label="Currency Conversion Rate (to USD)" 
+                                name="fx_rate" 
+                                error={formErrors.fx_rate}
+                            >
                                 <div className="relative">
                                     <input 
                                         name="fx_rate" 
-                                        type="number" 
-                                        min="0" 
-                                        step="0.0001" 
+                                        type="text"
                                         value={form.fx_rate} 
                                         onChange={handleFormChange}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                                        disabled={loadingFX}
+                                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
+                                            formErrors.fx_rate ? 'border-red-300' : 'border-gray-300'
+                                        }`}
+                                        disabled={loadingFX || isSubmitting}
                                     />
                                     {loadingFX && (
                                         <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -621,9 +736,10 @@ export default function PortfolioPage() {
                                     )}
                                 </div>
                                 {loadingFX && <div className="text-xs text-blue-600 mt-1">Fetching current exchange rate...</div>}
-                            </div>
+                            </FormField>
                         )}
 
+                        {/* Use Cash Balance */}
                         <div className="flex items-center p-4 bg-gray-50 rounded-lg">
                             <input 
                                 name="use_cash_balance" 
@@ -631,25 +747,36 @@ export default function PortfolioPage() {
                                 checked={form.use_cash_balance} 
                                 onChange={handleFormChange}
                                 className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                disabled={isSubmitting}
                             />
                             <label className="ml-3 text-sm font-medium text-gray-700">
                                 Use cash balance to purchase shares
                             </label>
                         </div>
 
+                        {/* Action Buttons */}
                         <div className="flex gap-3 pt-4 border-t border-gray-200">
                             <button 
                                 type="button" 
-                                className="flex-1 px-4 py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors duration-200" 
+                                className="flex-1 px-4 py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors duration-200 disabled:opacity-50" 
                                 onClick={closeAddModal}
+                                disabled={isSubmitting}
                             >
                                 Cancel
                             </button>
                             <button 
                                 type="submit" 
-                                className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200"
+                                className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                                disabled={isSubmitting}
                             >
-                                Add Holding
+                                {isSubmitting ? (
+                                    <>
+                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                        Adding...
+                                    </>
+                                ) : (
+                                    'Add Holding'
+                                )}
                             </button>
                         </div>
                     </form>
@@ -661,9 +788,10 @@ export default function PortfolioPage() {
     // --- Main Component Rendering ---
     console.log(`[Render] Rendering PortfolioPage. State:`, { loading, error: !!error, user: !!user, portfolioData: !!portfolioData });
 
-    if (loading && !portfolioData) { // Show full-page loader only on initial load
+    if (loading && !portfolioData) {
         return (
             <div className="text-center py-10">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
                 Loading portfolio...
                 {addHoldingModal}
             </div>
@@ -673,7 +801,18 @@ export default function PortfolioPage() {
     if (error) {
         return (
             <div className="text-center py-10 text-red-500">
-                Error: {error}
+                <div className="mb-4">
+                    <svg className="w-12 h-12 mx-auto text-red-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Error: {error}
+                </div>
+                <button 
+                    onClick={() => user && fetchPortfolioData(user.id)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                    Retry
+                </button>
                 {addHoldingModal}
             </div>
         );
@@ -717,7 +856,7 @@ export default function PortfolioPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                 <div className="metric-card">
                     <div className="metric-label">Total Portfolio Value</div>
-                    <div className="metric-value text-blue-600">${summary.total_value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                    <div className="metric-value text-blue-600">{ValidationService.formatCurrency(summary.total_value)}</div>
                 </div>
                 <div className="metric-card">
                     <div className="metric-label">Number of Holdings</div>
@@ -725,7 +864,7 @@ export default function PortfolioPage() {
                 </div>
                 <div className="metric-card">
                     <div className="metric-label">Cash Balance</div>
-                    <div className="metric-value">${cash_balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                    <div className="metric-value">{ValidationService.formatCurrency(cash_balance)}</div>
                 </div>
             </div>
 
