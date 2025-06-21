@@ -870,3 +870,86 @@ def advanced_financials(request, symbol: str):
     except Exception as e:
         logger.exception(f"An unexpected error occurred in advanced_financials for {symbol}: {e}")
         return 500, {"ok": False, "error": "An internal server error occurred."}
+
+@router.get("/portfolios/{user_id}/optimization")
+def get_portfolio_optimization(request, user_id: str):
+    """Get comprehensive portfolio optimization analysis including risk assessment"""
+    try:
+        from .services.portfolio_optimization import get_portfolio_optimization_service
+        
+        optimization_service = get_portfolio_optimization_service()
+        analysis = optimization_service.analyze_portfolio(user_id)
+        
+        return {
+            "analysis": analysis,
+            "status": "success"
+        }
+    except ValueError as e:
+        logger.error(f"Portfolio not found for optimization analysis: {user_id}")
+        raise HttpError(404, str(e))
+    except Exception as e:
+        logger.error(f"Error in portfolio optimization for user {user_id}: {e}", exc_info=True)
+        raise HttpError(500, f"Portfolio optimization analysis failed: {str(e)}")
+
+
+@router.get("/portfolios/{user_id}/risk-assessment")
+def get_portfolio_risk_assessment(request, user_id: str):
+    """Get detailed portfolio risk assessment"""
+    try:
+        from .services.portfolio_optimization import get_portfolio_optimization_service
+        
+        optimization_service = get_portfolio_optimization_service()
+        analysis = optimization_service.analyze_portfolio(user_id)
+        
+        # Extract just the risk-related information
+        risk_data = {
+            'portfolio_metrics': {
+                'volatility': analysis['portfolio_metrics']['volatility'],
+                'beta': analysis['portfolio_metrics']['beta'],
+                'var_95': analysis['portfolio_metrics']['var_95'],
+                'sharpe_ratio': analysis['portfolio_metrics']['sharpe_ratio']
+            },
+            'risk_assessment': analysis['risk_assessment'],
+            'diversification': analysis['diversification'],
+            'analysis_date': analysis['analysis_date']
+        }
+        
+        return {
+            "risk_analysis": risk_data,
+            "status": "success"
+        }
+    except ValueError as e:
+        logger.error(f"Portfolio not found for risk assessment: {user_id}")
+        raise HttpError(404, str(e))
+    except Exception as e:
+        logger.error(f"Error in portfolio risk assessment for user {user_id}: {e}", exc_info=True)
+        raise HttpError(500, f"Portfolio risk assessment failed: {str(e)}")
+
+
+@router.get("/portfolios/{user_id}/diversification")
+def get_portfolio_diversification(request, user_id: str):
+    """Get portfolio diversification analysis"""
+    try:
+        from .services.portfolio_optimization import get_portfolio_optimization_service
+        
+        optimization_service = get_portfolio_optimization_service()
+        analysis = optimization_service.analyze_portfolio(user_id)
+        
+        # Extract diversification information
+        diversification_data = {
+            'diversification': analysis['diversification'],
+            'holdings_analysis': analysis['holdings_analysis'],
+            'total_holdings': analysis['total_holdings'],
+            'analysis_date': analysis['analysis_date']
+        }
+        
+        return {
+            "diversification_analysis": diversification_data,
+            "status": "success"
+        }
+    except ValueError as e:
+        logger.error(f"Portfolio not found for diversification analysis: {user_id}")
+        raise HttpError(404, str(e))
+    except Exception as e:
+        logger.error(f"Error in portfolio diversification analysis for user {user_id}: {e}", exc_info=True)
+        raise HttpError(500, f"Portfolio diversification analysis failed: {str(e)}")
