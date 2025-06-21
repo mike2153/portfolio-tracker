@@ -546,29 +546,59 @@ def confirm_dividend(request, confirmation: DividendConfirmationSchema):
 
 @router.post("/portfolios/{user_id}/alerts")
 def create_price_alert(request, user_id: str, alert_data: PriceAlertSchema):
-    """Create a price alert"""
+    """Create a price alert using the enhanced alert service"""
     try:
-        portfolio = Portfolio.objects.get(user_id=user_id)
-        alert = PriceAlert.objects.create(
-            portfolio=portfolio, ticker=alert_data.ticker.upper(),
-            alert_type=alert_data.alert_type, target_price=Decimal(str(alert_data.target_price))
+        from .services.price_alert_service import get_price_alert_service
+        
+        alert_service = get_price_alert_service()
+        alert = alert_service.create_alert(
+            user_id=user_id,
+            ticker=alert_data.ticker,
+            alert_type=alert_data.alert_type,
+            target_price=alert_data.target_price
         )
-        return {"message": "Price alert created successfully", "alert_id": alert.id}
-    except Portfolio.DoesNotExist:
-        raise HttpError(404, "Portfolio not found")
+        
+        return {
+            "message": "Price alert created successfully",
+            "alert_id": alert.id,
+            "ticker": alert.ticker,
+            "alert_type": alert.alert_type,
+            "target_price": float(alert.target_price)
+        }
+    except ValueError as e:
+        raise HttpError(400, str(e))
     except Exception as e:
+        logger.error(f"Error creating price alert for user {user_id}: {e}", exc_info=True)
         raise HttpError(500, str(e))
 
 @router.get("/portfolios/{user_id}/alerts")
-def get_price_alerts(request, user_id: str):
-    """Get active price alerts"""
+def get_price_alerts(request, user_id: str, active_only: bool = True):
+    """Get price alerts for user with enhanced filtering"""
     try:
-        portfolio = Portfolio.objects.get(user_id=user_id)
-        alerts = list(portfolio.price_alerts.filter(is_active=True).order_by('-created_at').values())
-        return {"alerts": alerts}
-    except Portfolio.DoesNotExist:
-        raise HttpError(404, "Portfolio not found")
+        from .services.price_alert_service import get_price_alert_service
+        
+        alert_service = get_price_alert_service()
+        alerts = alert_service.get_user_alerts(user_id, active_only=active_only)
+        
+        alert_data = []
+        for alert in alerts:
+            alert_data.append({
+                'id': alert.id,
+                'ticker': alert.ticker,
+                'alert_type': alert.alert_type,
+                'target_price': float(alert.target_price),
+                'is_active': alert.is_active,
+                'created_at': alert.created_at,
+                'triggered_at': alert.triggered_at
+            })
+        
+        return {
+            "alerts": alert_data,
+            "total_count": len(alert_data),
+            "active_count": len([a for a in alert_data if a['is_active']])
+        }
     except Exception as e:
+        logger.error(f"Error getting price alerts for user {user_id}: {e}", exc_info=True)
         raise HttpError(500, str(e))
 
 @router.get("/portfolios/{user_id}/news")
@@ -588,6 +618,59 @@ def get_portfolio_news(request, user_id: str, limit: int = 50):
     except Exception as e:
         raise HttpError(500, str(e))
 
+@router.delete("/portfolios/{user_id}/alerts/{alert_id}")
+def deactivate_price_alert(request, user_id: str, alert_id: int):
+    """Deactivate a specific price alert"""
+    try:
+        from .services.price_alert_service import get_price_alert_service
+        
+        alert_service = get_price_alert_service()
+        success = alert_service.deactivate_alert(alert_id, user_id)
+        
+        if success:
+            return {"message": "Price alert deactivated successfully"}
+        else:
+            raise HttpError(404, "Price alert not found")
+    except Exception as e:
+        logger.error(f"Error deactivating price alert {alert_id} for user {user_id}: {e}", exc_info=True)
+        raise HttpError(500, str(e))
+
+@router.post("/alerts/check")
+def check_price_alerts_manually(request):
+    """Manually trigger price alert checking (admin function)"""
+    try:
+        from .services.price_alert_service import get_price_alert_service
+        
+        alert_service = get_price_alert_service()
+        results = alert_service.check_all_active_alerts()
+        
+        return {
+            "message": "Price alert check completed",
+            "results": results
+        }
+    except Exception as e:
+        logger.error(f"Error in manual price alert check: {e}", exc_info=True)
+        raise HttpError(500, str(e))
+
+@router.get("/alerts/stats")
+def get_alert_statistics(request):
+    """Get price alert system statistics"""
+    try:
+        from .services.price_alert_service import get_price_alert_service
+        
+        alert_service = get_price_alert_service()
+        stats = alert_service.get_alert_statistics()
+        
+        return {
+            "statistics": stats,
+            "status": "healthy"
+        }
+    except Exception as e:
+        logger.error(f"Error getting alert statistics: {e}", exc_info=True)
+        return {
+            "statistics": {"error": str(e)},
+            "status": "error"
+        }
 
 # =================
 # HELPER FUNCTIONS
