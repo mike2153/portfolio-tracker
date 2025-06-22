@@ -1,6 +1,5 @@
 from unittest.mock import patch, MagicMock
-from django.test import TestCase
-from ninja.testing import TestClient
+from django.test import TestCase, Client
 from decimal import Decimal
 from datetime import date
 
@@ -11,8 +10,7 @@ from ..services.portfolio_optimization import (
     HoldingAnalysis, 
     PortfolioMetrics,
     DiversificationAnalysis,
-    RiskAssessment,
-    get_portfolio_optimization_service
+    RiskAssessment
 )
 
 class PortfolioOptimizationServiceTest(TestCase):
@@ -60,8 +58,6 @@ class PortfolioOptimizationServiceTest(TestCase):
 
     def test_analyze_portfolio_no_holdings(self):
         """Test portfolio analysis with no holdings"""
-        empty_portfolio = Portfolio.objects.create(user_id="empty_user", name="Empty Portfolio")
-        
         result = self.optimization_service.analyze_portfolio("empty_user")
         
         self.assertIn('error', result)
@@ -278,7 +274,7 @@ class PortfolioOptimizationServiceTest(TestCase):
 class PortfolioOptimizationAPITest(TestCase):
     def setUp(self):
         """Set up test client and data"""
-        self.client = TestClient(api)
+        self.client = Client()  # Use Django's Client
         self.user_id = "test_user_opt_api_456"
         self.portfolio = Portfolio.objects.create(
             user_id=self.user_id, 

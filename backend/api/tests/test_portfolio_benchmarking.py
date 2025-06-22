@@ -5,6 +5,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from ..api import api
 from ..models import Portfolio, Holding
+from django.test import Client
 from ..services.portfolio_benchmarking import (
     _parse_period_to_dates, 
     _calculate_cagr, 
@@ -45,12 +46,16 @@ class PeriodParsingTest(TestCase):
 class CAGRCalculationTest(TestCase):
     def test_calculate_cagr_positive_growth(self):
         """Test CAGR calculation with positive growth."""
-        cagr = _calculate_cagr(100, 121, 2)  # 10% annual growth over 2 years
+        cagr = _calculate_cagr(100, 121, 2)
+        self.assertIsNotNone(cagr)
+        assert cagr is not None  # Hint for the type checker
         self.assertAlmostEqual(cagr, 0.1, places=4)
     
     def test_calculate_cagr_negative_growth(self):
         """Test CAGR calculation with negative growth."""
-        cagr = _calculate_cagr(100, 81, 2)  # -10% annual decline over 2 years
+        cagr = _calculate_cagr(100, 81, 2)
+        self.assertIsNotNone(cagr)
+        assert cagr is not None  # Hint for the type checker
         self.assertAlmostEqual(cagr, -0.1, places=4)
     
     def test_calculate_cagr_zero_start_value(self):
@@ -146,11 +151,9 @@ class PortfolioBenchmarkingServiceTest(TestCase):
         self.assertIn('comparison', result)
         self.assertIn('summary', result)
         
-        # Check that we have performance data
         self.assertGreater(len(result['portfolio_performance']), 0)
         self.assertGreater(len(result['benchmark_performance']), 0)
         
-        # Check comparison metrics
         comparison = result['comparison']
         self.assertIn('portfolio_return', comparison)
         self.assertIn('benchmark_return', comparison)
@@ -158,7 +161,6 @@ class PortfolioBenchmarkingServiceTest(TestCase):
         self.assertIn('portfolio_cagr', comparison)
         self.assertIn('benchmark_cagr', comparison)
         
-        # Check summary
         summary = result['summary']
         self.assertIn('start_date', summary)
         self.assertIn('end_date', summary)
@@ -182,7 +184,7 @@ class PortfolioBenchmarkingServiceTest(TestCase):
 class PortfolioBenchmarkingEndpointTest(TestCase):
     def setUp(self):
         """Set up test client and test data."""
-        self.client = TestClient(api)
+        self.client = Client()  # Use Django's Client
         self.portfolio = Portfolio.objects.create(
             user_id="test_user",
             cash_balance=Decimal('1000.00')

@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { FinancialStatements, FinancialReport } from '@/types'
 import BalanceSheet from '@/components/BalanceSheet'
+import AdvancedFinancialsComponent from '@/components/AdvancedFinancials'
 
 // Dynamically import Plotly to avoid SSR issues
 const Plot = dynamic(() => import('react-plotly.js'), { ssr: false })
@@ -84,21 +85,7 @@ export default function StockAnalysisPage({ params }: StockAnalysisPageProps) {
     { key: 'cash_flow', label: 'Cash Flow' }
   ]
 
-  useEffect(() => {
-    fetchStockData()
-  }, [ticker])
-
-  useEffect(() => {
-    if (selectedTab === 'performance') {
-      fetchHistoricalData()
-    } else if (selectedTab === 'financials') {
-      fetchFinancials()
-    } else if (selectedTab === 'news') {
-      fetchNews()
-    }
-  }, [selectedTab, selectedPeriod, selectedStatement])
-
-  const fetchStockData = async () => {
+  const fetchStockData = useCallback(async () => {
     try {
       setLoading(true)
       setError('')
@@ -114,9 +101,9 @@ export default function StockAnalysisPage({ params }: StockAnalysisPageProps) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [ticker])
 
-  const fetchHistoricalData = async () => {
+  const fetchHistoricalData = useCallback(async () => {
     try {
       const response = await fetch(`http://localhost:8000/api/stocks/${ticker}/historical?period=${selectedPeriod}`)
       if (!response.ok) throw new Error('Failed to fetch historical data')
@@ -126,9 +113,9 @@ export default function StockAnalysisPage({ params }: StockAnalysisPageProps) {
     } catch (err) {
       console.error('Error fetching historical data:', err)
     }
-  }
+  }, [ticker, selectedPeriod])
 
-  const fetchFinancials = async () => {
+  const fetchFinancials = useCallback(async () => {
     try {
       const response = await fetch(`http://localhost:8000/api/stocks/${ticker}/financials/${selectedStatement}`)
       if (!response.ok) throw new Error('Failed to fetch financial data')
@@ -138,9 +125,9 @@ export default function StockAnalysisPage({ params }: StockAnalysisPageProps) {
     } catch (err) {
       console.error('Error fetching financials:', err)
     }
-  }
+  }, [ticker, selectedStatement])
 
-  const fetchNews = async () => {
+  const fetchNews = useCallback(async () => {
     try {
       const response = await fetch(`http://localhost:8000/api/stocks/${ticker}/news?limit=20`)
       if (!response.ok) throw new Error('Failed to fetch news')
@@ -150,7 +137,22 @@ export default function StockAnalysisPage({ params }: StockAnalysisPageProps) {
     } catch (err) {
       console.error('Error fetching news:', err)
     }
-  }
+  }, [ticker])
+
+  // Fetch stock data on mount
+  useEffect(() => {
+    fetchStockData();
+  }, [fetchStockData]);
+
+  useEffect(() => {
+    if (selectedTab === 'performance') {
+      fetchHistoricalData()
+    } else if (selectedTab === 'financials') {
+      fetchFinancials()
+    } else if (selectedTab === 'news') {
+      fetchNews()
+    }
+  }, [selectedTab, fetchHistoricalData, fetchFinancials, fetchNews])
 
   const formatCurrency = (value: number) => {
     if (value >= 1e12) return `$${(value / 1e12).toFixed(1)}T`
@@ -268,6 +270,7 @@ export default function StockAnalysisPage({ params }: StockAnalysisPageProps) {
             { key: 'overview', label: 'Overview' },
             { key: 'performance', label: 'Performance' },
             { key: 'financials', label: 'Financials' },
+            { key: 'advanced', label: 'Advanced Analytics' },
             { key: 'news', label: 'News' }
           ].map((tab) => (
             <button
@@ -357,6 +360,11 @@ export default function StockAnalysisPage({ params }: StockAnalysisPageProps) {
                 {selectedStatement === 'cash_flow' && <p>Cash Flow view coming soon...</p>}
               </div>
             ) : <p>Loading financial data...</p>}
+          </div>
+        )}
+        {selectedTab === 'advanced' && (
+          <div>
+            <AdvancedFinancialsComponent symbol={ticker} />
           </div>
         )}
         {selectedTab === 'news' && (

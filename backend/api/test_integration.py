@@ -1,7 +1,6 @@
 import unittest
 from unittest.mock import patch, Mock
 import json
-import os
 import django
 from django.conf import settings
 from api.alpha_vantage_service import AlphaVantageService, RateLimitError
@@ -146,6 +145,7 @@ class TestIntegrationErrorHandling(unittest.TestCase):
         print(f"API request result: {result}")
         
         self.assertIsNotNone(result)
+        assert result is not None
         self.assertEqual(result['symbol'], 'AAPL')
         self.assertEqual(result['price'], 150.00)
         self.assertEqual(result['change'], 2.50)

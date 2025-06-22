@@ -1,13 +1,10 @@
 import os
 import requests
 from typing import Dict, List, Optional, Any
-from datetime import datetime, date, timedelta
-from decimal import Decimal
 import logging
 import json
 import time
 import threading
-from functools import wraps
 
 logger = logging.getLogger(__name__)
 
@@ -147,10 +144,10 @@ class AlphaVantageService:
             
             if 'Note' in data:
                 note_msg = data['Note']
-                logger.warning(f"Alpha Vantage API rate limit note: {note_msg}")
-                if "rate limit" in note_msg.lower():
+                logger.warning(f"Alpha Vantage API note: {note_msg}")
+                # Only raise an error if it's a rate limit issue, otherwise continue processing
+                if "rate limit" in note_msg.lower() or "higher API call frequency" in note_msg.lower():
                     raise RateLimitError(f"Rate limit exceeded: {note_msg}")
-                return {}
             
             # Cache successful responses for cacheable endpoints
             if params.get('function') in ['GLOBAL_QUOTE', 'OVERVIEW']:
@@ -213,15 +210,22 @@ class AlphaVantageService:
         if not data or 'error' in data:
             logger.warning(f"No quote data available for {symbol} from Alpha Vantage. Error: {data.get('error', 'Unknown')}")
             return None
-            
-        quote_data = data.get('Global Quote', {})
+        
+        # Check for rate limiting or other API messages
+        if 'Note' in data:
+            logger.warning(f"Alpha Vantage API note for {symbol}: {data.get('Note')}")
+            return None
+        
+        # Handle both possible keys for quote data
+        quote_data = (data.get('Global Quote', {}) or 
+                     data.get('Global Quote - DATA DELAYED BY 15 MINUTES', {}))
         
         if not quote_data:
             logger.warning(f"Empty quote data available for {symbol} from Alpha Vantage.")
             return None
         
         try:
-            return {
+            parsed_quote = {
                 'symbol': quote_data.get('01. symbol', symbol),
                 'price': float(quote_data.get('05. price', 0)),
                 'change': float(quote_data.get('09. change', 0)),
@@ -233,6 +237,14 @@ class AlphaVantageService:
                 'high': float(quote_data.get('03. high', 0)),
                 'low': float(quote_data.get('04. low', 0))
             }
+            
+            # Validate that we have a meaningful price
+            if parsed_quote['price'] <= 0:
+                logger.warning(f"Invalid price ({parsed_quote['price']}) for {symbol}")
+                return None
+                
+            return parsed_quote
+            
         except (ValueError, TypeError) as e:
             logger.error(f"Could not parse quote data for {symbol}: {e}. Data: {quote_data}")
             return None
@@ -401,15 +413,13 @@ class AlphaVantageService:
             "rate_limit_max": self.MAX_REQUESTS_PER_MINUTE
         }
 
-# Singleton instance for the service
-_alpha_vantage_service_instance = None
-
 def get_alpha_vantage_service() -> AlphaVantageService:
-    """Get singleton instance of AlphaVantageService"""
-    global _alpha_vantage_service_instance
-    if _alpha_vantage_service_instance is None:
-        _alpha_vantage_service_instance = AlphaVantageService()
-    return _alpha_vantage_service_instance
+    """Get a singleton instance of the AlphaVantageService"""
+    global _alpha_vantage_service
+    if _alpha_vantage_service is None:
+        _alpha_vantage_service = AlphaVantageService()
+    return _alpha_vantage_service
 
-# Legacy instance for backward compatibility
+# Create global instance
+_alpha_vantage_service = None
 alpha_vantage = get_alpha_vantage_service() 

@@ -1,9 +1,9 @@
 # backend/api/management/commands/update_market_data.py
 import logging
 import time
-from datetime import datetime, date, timedelta
+from datetime import datetime, date
 from decimal import Decimal
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.conf import settings

@@ -1,9 +1,10 @@
 from django.db import models
-from django.contrib.auth.models import User
 from decimal import Decimal
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
+from datetime import datetime
 
 if TYPE_CHECKING:
+    from datetime import datetime
     from django.db.models import Manager
 
 # pyright: reportArgumentType=false
@@ -53,18 +54,27 @@ class SymbolRefreshLog(models.Model):
 
 class Portfolio(models.Model):
     """User's investment portfolio"""
-    user_id = models.CharField(max_length=255, db_index=True)  # Supabase user ID
-    name = models.CharField(max_length=100, default="My Portfolio")
-    cash_balance = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0.00'))
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    if TYPE_CHECKING:
+        user_id: str
+        name: str
+        cash_balance: Decimal
+        created_at: datetime
+        updated_at: datetime
+        holdings: 'Manager[Holding]'
+
+    user_id = models.CharField(max_length=255, db_index=True)  # type: ignore[assignment] # Supabase user ID
+    name = models.CharField(max_length=100, default="My Portfolio")  # type: ignore[assignment]
+    cash_balance = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0.00'))  # type: ignore[assignment]
+    created_at = models.DateTimeField(auto_now_add=True)  # type: ignore[assignment]
+    updated_at = models.DateTimeField(auto_now=True)  # type: ignore[assignment]
+    objects = models.Manager()
 
     class Meta:
         db_table = 'portfolios'
         indexes = [models.Index(fields=['user_id'])]
 
     def __str__(self):
-        return f"{self.name} - {self.user_id}"
+        return f"{self.name} ({self.user_id})"
 
 
 class Holding(models.Model):
@@ -82,6 +92,7 @@ class Holding(models.Model):
     fx_rate = models.DecimalField(max_digits=15, decimal_places=6, default=Decimal('1.0'))
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    objects = models.Manager()
 
     class Meta:
         db_table = 'holdings'
@@ -198,6 +209,7 @@ class CachedDailyPrice(models.Model):
     dividend_amount = models.DecimalField(max_digits=15, decimal_places=6, default=Decimal('0.00'))
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    objects = models.Manager()
 
     class Meta:
         db_table = 'cached_daily_prices'
@@ -214,20 +226,30 @@ class CachedDailyPrice(models.Model):
 
 class CachedCompanyFundamentals(models.Model):
     """Cache company fundamental data and calculated metrics"""
-    symbol = models.CharField(max_length=20, unique=True, db_index=True)
-    last_updated = models.DateTimeField()  # When this cache entry was last updated
+    if TYPE_CHECKING:
+        symbol: str
+        last_updated: datetime
+        data: dict
+        market_capitalization: Optional[Decimal]
+        pe_ratio: Optional[Decimal]
+        pb_ratio: Optional[Decimal]
+        dividend_yield: Optional[Decimal]
+        created_at: datetime
+
+    symbol = models.CharField(max_length=20, unique=True, db_index=True)  # type: ignore[assignment]
+    last_updated = models.DateTimeField()  # type: ignore[assignment] # When this cache entry was last updated
     
     # Store fundamental data as JSON for flexibility
-    # This includes raw overview data and calculated advanced metrics
-    data = models.JSONField(default=dict)
+    data = models.JSONField(default=dict)  # type: ignore[assignment]
     
     # Key metrics as individual fields for easy querying (optional but useful)
-    market_capitalization = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)
-    pe_ratio = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    pb_ratio = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    dividend_yield = models.DecimalField(max_digits=6, decimal_places=4, null=True, blank=True)
+    market_capitalization = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)  # type: ignore[assignment]
+    pe_ratio = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)  # type: ignore[assignment]
+    pb_ratio = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)  # type: ignore[assignment]
+    dividend_yield = models.DecimalField(max_digits=6, decimal_places=4, null=True, blank=True)  # type: ignore[assignment]
     
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)  # type: ignore[assignment]
+    objects = models.Manager()
 
     class Meta:
         db_table = 'cached_company_fundamentals'

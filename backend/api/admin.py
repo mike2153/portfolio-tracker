@@ -1,7 +1,5 @@
 from django.contrib import admin
 from django.utils.html import format_html
-from django.urls import path
-from django.http import HttpResponseRedirect
 from django.contrib import messages
 from .models import (
     StockSymbol, SymbolRefreshLog, Portfolio, Holding, 

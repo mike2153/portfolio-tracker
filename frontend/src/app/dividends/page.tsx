@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { User, DividendByStock } from '@/types'
 
@@ -46,25 +46,7 @@ export default function DividendsPage() {
     return [...new Set(dividends.map(d => new Date(d.ex_date).getFullYear().toString()))].sort().reverse();
   }, [dividends]);
 
-  useEffect(() => {
-    checkUser()
-  }, [])
-
-  useEffect(() => {
-    if (user) {
-      fetchDividends()
-    }
-  }, [user, selectedTicker, showConfirmedOnly])
-
-  const checkUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    setUser(user)
-    if (!user) {
-      setLoading(false)
-    }
-  }
-
-  const fetchDividends = async () => {
+  const fetchDividends = useCallback(async () => {
     if (!user) return
 
     try {
@@ -85,7 +67,25 @@ export default function DividendsPage() {
     } finally {
       setLoading(false)
     }
+  }, [user, selectedTicker, showConfirmedOnly])
+
+  const checkUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    setUser(user)
+    if (!user) {
+      setLoading(false)
+    }
   }
+
+  useEffect(() => {
+    checkUser()
+  }, [])
+
+  useEffect(() => {
+    if (user) {
+      fetchDividends()
+    }
+  }, [user, fetchDividends])
 
   const confirmDividend = async (dividendId: number, exDate: string, confirmed: boolean) => {
     try {

@@ -2,7 +2,7 @@
 import logging
 from datetime import datetime, date, timedelta
 from decimal import Decimal
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, Optional, Tuple, Any
 from ..models import Portfolio, Holding
 from ..alpha_vantage_service import get_alpha_vantage_service
 

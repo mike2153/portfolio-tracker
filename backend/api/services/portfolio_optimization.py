@@ -1,10 +1,11 @@
 # backend/api/services/portfolio_optimization.py
 import logging
 import numpy as np
-from datetime import datetime, date, timedelta
-from typing import Dict, List, Any, Optional, Tuple
+from datetime import datetime
+from typing import Dict, List, Any, Optional
 from decimal import Decimal
 from dataclasses import dataclass
+from django.core.exceptions import ObjectDoesNotExist
 from ..models import Portfolio, Holding
 from ..alpha_vantage_service import get_alpha_vantage_service
 
@@ -100,7 +101,7 @@ class PortfolioOptimizationService:
         
         try:
             portfolio = Portfolio.objects.get(user_id=user_id)
-        except Portfolio.DoesNotExist:
+        except ObjectDoesNotExist:
             raise ValueError(f"Portfolio not found for user {user_id}")
         
         holdings = list(portfolio.holdings.all())
@@ -145,37 +146,37 @@ class PortfolioOptimizationService:
         # First pass: calculate total portfolio value
         for holding in holdings:
             try:
-                quote = self.av_service.get_global_quote(holding.ticker)
-                current_price = Decimal(str(quote['price'])) if quote and quote.get('price') else holding.purchase_price
-                current_value = holding.shares * current_price
+                quote = self.av_service.get_global_quote(str(holding.ticker))
+                current_price = Decimal(str(quote['price'])) if quote and quote.get('price') else Decimal(str(holding.purchase_price))
+                current_value = Decimal(str(holding.shares)) * current_price
                 total_portfolio_value += current_value
             except Exception as e:
                 logger.warning(f"Could not get current price for {holding.ticker}: {e}")
-                current_value = holding.shares * holding.purchase_price
+                current_value = Decimal(str(holding.shares)) * Decimal(str(holding.purchase_price))
                 total_portfolio_value += current_value
         
         # Second pass: create analysis objects
         for holding in holdings:
             try:
                 # Get current market data
-                quote = self.av_service.get_global_quote(holding.ticker)
-                overview = self.av_service.get_company_overview(holding.ticker)
+                quote = self.av_service.get_global_quote(str(holding.ticker))
+                overview = self.av_service.get_company_overview(str(holding.ticker))
                 
-                current_price = Decimal(str(quote['price'])) if quote and quote.get('price') else holding.purchase_price
-                current_value = float(holding.shares * current_price)
-                weight = float(current_value / total_portfolio_value) if total_portfolio_value > 0 else 0
+                current_price = Decimal(str(quote['price'])) if quote and quote.get('price') else Decimal(str(holding.purchase_price))
+                current_value = float(Decimal(str(holding.shares)) * current_price)
+                weight = float(current_value / float(total_portfolio_value)) if total_portfolio_value > 0 else 0
                 
                 # Calculate expected return and volatility (simplified)
-                expected_return = self._estimate_expected_return(holding.ticker, quote, overview)
-                volatility = self._estimate_volatility(holding.ticker, overview)
+                expected_return = self._estimate_expected_return(str(holding.ticker), quote or {}, overview or {})
+                volatility = self._estimate_volatility(str(holding.ticker), overview or {})
                 beta = float(overview.get('Beta', 1.0)) if overview else 1.0
                 
                 # Get sector and market cap
-                sector = self.sector_mappings.get(holding.ticker, 'Unknown')
+                sector = self.sector_mappings.get(str(holding.ticker), 'Unknown')
                 market_cap = self._classify_market_cap(overview.get('MarketCapitalization') if overview else None)
                 
                 holding_analysis = HoldingAnalysis(
-                    ticker=holding.ticker,
+                    ticker=str(holding.ticker),
                     weight=weight,
                     expected_return=expected_return,
                     volatility=volatility,
@@ -190,16 +191,16 @@ class PortfolioOptimizationService:
             except Exception as e:
                 logger.error(f"Error analyzing holding {holding.ticker}: {e}")
                 # Add basic analysis even if we can't get market data
-                current_value = float(holding.shares * holding.purchase_price)
-                weight = float(current_value / total_portfolio_value) if total_portfolio_value > 0 else 0
+                current_value = float(Decimal(str(holding.shares)) * Decimal(str(holding.purchase_price)))
+                weight = float(current_value / float(total_portfolio_value)) if total_portfolio_value > 0 else 0
                 
                 holdings_data.append(HoldingAnalysis(
-                    ticker=holding.ticker,
+                    ticker=str(holding.ticker),
                     weight=weight,
                     expected_return=0.08,  # Default expected return
                     volatility=0.20,  # Default volatility
                     beta=1.0,
-                    sector=self.sector_mappings.get(holding.ticker, 'Unknown'),
+                    sector=self.sector_mappings.get(str(holding.ticker), 'Unknown'),
                     market_cap='Unknown',
                     current_value=current_value
                 ))

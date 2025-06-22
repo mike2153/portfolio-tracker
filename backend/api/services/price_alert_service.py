@@ -1,6 +1,6 @@
 # backend/api/services/price_alert_service.py
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import List, Dict, Any, Optional
 from django.utils import timezone
 from django.db import transaction

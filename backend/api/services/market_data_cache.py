@@ -1,8 +1,7 @@
 # backend/api/services/market_data_cache.py
 import logging
-from datetime import datetime, date, timedelta
+from datetime import datetime, date
 from typing import Dict, List, Optional, Any
-from decimal import Decimal
 from django.utils import timezone
 from ..models import CachedDailyPrice, CachedCompanyFundamentals
 from ..alpha_vantage_service import get_alpha_vantage_service

@@ -84,6 +84,13 @@ class ApiService {
     });
   }
 
+  async updateHolding(userId: string, holdingId: number, payload: AddHoldingPayload): Promise<ApiResponse<any>> {
+    return this.makeRequest(apiEndpoints.updateHolding(userId, holdingId), {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  }
+
   async searchSymbols(query: string, limit: number = 10): Promise<ApiResponse<SymbolSearchResponse>> {
     return this.makeRequest<SymbolSearchResponse>(apiEndpoints.symbolsSearch(query, limit));
   }
@@ -94,6 +101,16 @@ class ApiService {
 
   async getStockOverview(ticker: string): Promise<ApiResponse<StockOverviewResponse>> {
     return this.makeRequest<StockOverviewResponse>(apiEndpoints.stockOverview(ticker));
+  }
+
+  async getQuote(ticker: string): Promise<ApiResponse<any>> {
+    return this.makeRequest(apiEndpoints.stockQuote(ticker));
+  }
+
+  async deleteHolding(userId: string, holdingId: number): Promise<ApiResponse<any>> {
+    return this.makeRequest(apiEndpoints.deleteHolding(userId, holdingId), {
+      method: 'DELETE',
+    });
   }
 }
 

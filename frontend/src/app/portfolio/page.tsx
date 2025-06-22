@@ -1,87 +1,57 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef, ChangeEvent, FormEvent } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { User } from '@/types'
-import { PlusCircle, Trash2, Edit, ChevronDown, ChevronUp } from 'lucide-react'
+import { PlusCircle, Trash2, Edit, ChevronDown, ChevronUp, MoreVertical, X, Loader2 } from 'lucide-react'
 import { apiService } from '@/lib/api'
 import { ValidationService } from '@/lib/validation'
 import { useToast } from '@/components/ui/Toast'
 import {
-  PortfolioData,
-  Holding,
-  StockSymbol,
-  AddHoldingFormData,
-  FormErrors
+    PortfolioData,
+    Holding,
+    StockSymbol,
+    AddHoldingFormData,
+    AddHoldingPayload,
+    FormErrors
 } from '@/types/api'
 
 interface HoldingRowProps {
     holding: Holding;
+    onEdit: (holding: Holding) => void;
+    onRemove: (holding: Holding) => void;
 }
 
-const HoldingRow = ({ holding }: HoldingRowProps) => {
-    const total_cost = holding.shares * holding.purchase_price;
-    const pnl = holding.market_value - total_cost;
-    const pnl_percent = total_cost > 0 ? (pnl / total_cost) * 100 : 0;
-
-    const formatCurrency = (value: number) => ValidationService.formatCurrency(value);
-
-    return (
-        <tr className="border-b border-gray-200 hover:bg-gray-50">
-            <td className="px-4 py-3">
-                <div className="font-bold text-gray-900">{holding.ticker}</div>
-                <div className="text-sm text-gray-600 truncate">{holding.company_name}</div>
-            </td>
-            <td className="text-right font-medium text-gray-800 px-4 py-3">{ValidationService.formatNumber(holding.shares, 0)}</td>
-            <td className="text-right font-medium text-gray-800 px-4 py-3">{formatCurrency(holding.market_value)}</td>
-            <td className="text-right font-medium text-gray-800 px-4 py-3">{formatCurrency(total_cost)}</td>
-            <td className={`text-right font-medium px-4 py-3 ${pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {pnl >= 0 ? '+' : ''}{formatCurrency(pnl)}
-            </td>
-            <td className={`text-right font-medium px-4 py-3 ${pnl_percent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {pnl_percent >= 0 ? '+' : ''}{ValidationService.formatNumber(pnl_percent, 2)}%
-            </td>
-            <td className="text-center px-4 py-3">
-                <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">Edit</button>
-            </td>
-        </tr>
-    );
-};
-
-// Debounce function
-const debounce = <F extends (...args: any[]) => any>(func: F, waitFor: number) => {
-    let timeout: NodeJS.Timeout | null = null;
-
-    return (...args: Parameters<F>): Promise<ReturnType<F>> => {
-        return new Promise(resolve => {
-            if (timeout) {
-                clearTimeout(timeout);
-            }
-
-            timeout = setTimeout(() => resolve(func(...args)), waitFor);
-        });
+const debounce = (func: Function, delay: number) => {
+    let timeoutId: NodeJS.Timeout;
+    return (...args: any[]) => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+            func(...args);
+        }, delay);
     };
 };
 
-// The main component for the portfolio page
 export default function PortfolioPage() {
     const [user, setUser] = useState<User | null>(null);
     const [portfolioData, setPortfolioData] = useState<PortfolioData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [showAddModal, setShowAddModal] = useState(false);
+    const [showHoldingModal, setShowHoldingModal] = useState(false);
+    const [editingHolding, setEditingHolding] = useState<Holding | null>(null);
     const [loadingPrice, setLoadingPrice] = useState(false);
-    const [loadingFX, setLoadingFX] = useState(false);
-    const [tickerSuggestions, setTickerSuggestions] = useState<StockSymbol[]>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
+    const [tickerSuggestions, setTickerSuggestions] = useState<StockSymbol[]>([]);
     const [searchLoading, setSearchLoading] = useState(false);
     const [searchCache, setSearchCache] = useState<Record<string, StockSymbol[]>>({});
     const [formErrors, setFormErrors] = useState<FormErrors>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+    
+    // Track the previous date value to determine if user actually changed the date
+    const previousDateRef = useRef<string>('');
 
     const { addToast } = useToast();
-
-    const currencies = ['USD', 'EUR', 'GBP', 'AUD', 'CAD', 'JPY', 'CHF', 'CNY'];
     
     const initialFormState: AddHoldingFormData = {
         ticker: '',
@@ -90,807 +60,791 @@ export default function PortfolioPage() {
         shares: '',
         purchase_price: '',
         purchase_date: new Date().toISOString().split('T')[0],
-        commission: '',
+        commission: '0',
         currency: 'USD',
         fx_rate: '1.0',
-        use_cash_balance: false,
+        use_cash_balance: true,
     };
 
     const [form, setForm] = useState<AddHoldingFormData>(initialFormState);
 
-    // --- Core Data Fetching ---
-    useEffect(() => {
-        console.log('[PortfolioPage] Component did mount. Starting user check.');
-        checkUserAndFetchData();
-
-        const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-            console.log('[Auth] Auth state changed. New session:', session);
-            const currentUser = session?.user || null;
-            setUser(currentUser);
-            if (currentUser) {
-                fetchPortfolioData(currentUser.id);
-            } else {
-                setPortfolioData(null);
-                setLoading(false);
-            }
-        });
-
-        return () => {
-            console.log('[PortfolioPage] Component will unmount. Cleaning up auth listener.');
-            authListener.subscription.unsubscribe();
-        };
-    }, []);
-
-    const checkUserAndFetchData = async () => {
-        setLoading(true);
+    const fetchPortfolioData = useCallback(async (userId: string) => {
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-            console.log('[Auth] Initial user check:', user);
-            setUser(user);
-            if (user) {
-                await fetchPortfolioData(user.id);
-            }
-        } catch (e: any) {
-            console.error('[Auth] Error checking user session:', e);
-            setError('Failed to check user session.');
-            addToast({
-                type: 'error',
-                title: 'Authentication Error',
-                message: 'Failed to check user session. Please try refreshing the page.',
-            });
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const fetchPortfolioData = async (userId: string) => {
-        console.log(`[API] Fetching portfolio data for user: ${userId}`);
-        setLoading(true);
-        try {
+            setLoading(true);
             const response = await apiService.getPortfolio(userId);
-            if (response.ok && response.data) {
-                console.log('[API] Successfully fetched portfolio data:', response.data);
+            if (response.ok && response.data !== undefined) {
                 setPortfolioData(response.data);
-                setError(null);
             } else {
-                throw new Error(response.error || 'Failed to fetch portfolio data');
+                setError(response.error || 'Failed to fetch portfolio data');
+                setPortfolioData(null);
             }
-        } catch (e: any) {
-            console.error('[API] Failed to fetch portfolio data:', e);
-            const errorMessage = `Failed to load portfolio. ${e.message}`;
-            setError(errorMessage);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'An unknown error occurred');
             setPortfolioData(null);
             addToast({
                 type: 'error',
-                title: 'Portfolio Load Error',
-                message: errorMessage,
+                title: 'Error Fetching Portfolio',
+                message: err instanceof Error ? err.message : 'Could not load portfolio data.',
             });
         } finally {
             setLoading(false);
         }
-    };
-
-    // --- Modal Management ---
-    const openAddModal = () => {
-        console.log('[Modal] Opening "Add Holding" modal.');
-        setShowAddModal(true);
-        setFormErrors({});
-    };
-
-    const closeAddModal = () => {
-        console.log('[Modal] Closing "Add Holding" modal. Resetting form state.');
-        setShowAddModal(false);
-        setForm(initialFormState);
-        setTickerSuggestions([]);
-        setShowSuggestions(false);
-        setFormErrors({});
-    };
-
-    // --- Form Handling & Ticker Search ---
-    const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        const { name, value, type } = e.target;
-        let newValue: string | boolean;
-        
-        if (type === 'checkbox') {
-            newValue = (e.target as HTMLInputElement).checked;
-        } else if (name === 'shares' || name === 'purchase_price' || name === 'commission' || name === 'fx_rate') {
-            // Sanitize numeric inputs
-            newValue = ValidationService.sanitizeNumericInput(value);
-        } else {
-            newValue = value;
-        }
-        
-        console.log(`[Form] Field '${name}' changed to:`, newValue);
-        const updatedForm = { ...form, [name]: newValue };
-        setForm(updatedForm);
-
-        // Clear field-specific error when user starts typing
-        if (formErrors[name]) {
-            setFormErrors(prev => {
-                const newErrors = { ...prev };
-                delete newErrors[name];
-                return newErrors;
-            });
-        }
-        
-        if (name === 'ticker') {
-            if (typeof newValue === 'string' && newValue.length > 0) {
-                console.log(`[Form] Calling debounced search for "${newValue}"`);
-                debouncedSearchTickers(newValue);
-            } else {
-                console.log('[Form] Ticker is empty, hiding suggestions.');
-                setShowSuggestions(false);
-                setTickerSuggestions([]);
-            }
-        }
-
-        // Only fetch price on date change if a stock has been selected
-        if (name === 'purchase_date' && form.ticker && form.company_name) {
-            console.log(`[Form] Date changed for selected ticker ${form.ticker}. Fetching new price.`);
-            fetchStockPrice(form.ticker, value as string);
-        }
-    };
-
-    const handleTickerFocus = () => {
-        if (form.ticker.length > 0 && tickerSuggestions.length > 0) {
-            console.log('[Form] Ticker input focused, showing suggestions.');
-            setShowSuggestions(true);
-        }
-    };
-
-    const handleTickerBlur = () => {
-        // Delay hiding suggestions to allow for click on a suggestion
-        setTimeout(() => {
-            console.log('[Form] Ticker input blurred, hiding suggestions.');
-            setShowSuggestions(false);
-        }, 150);
-    };
-
-    const searchTickers = async (query: string) => {
-        const trimmedQuery = query.trim().toUpperCase();
-        if (trimmedQuery.length < 1) return;
-
-        // Check cache first
-        if (searchCache[trimmedQuery]) {
-            console.log(`[Search-Cache] Found results for "${trimmedQuery}" in cache.`);
-            setTickerSuggestions(searchCache[trimmedQuery]);
-            setShowSuggestions(true);
-            return;
-        }
-        
-        console.log(`[Search] Searching for ticker: "${trimmedQuery}"`);
-        setSearchLoading(true);
-        try {
-            const response = await apiService.searchSymbols(trimmedQuery, 10);
-            if (response.ok && response.data) {
-                const results = response.data.results || [];
-                console.log(`[Search] Received ${results.length} suggestions for "${trimmedQuery}":`, results);
-                
-                // Update cache only if results are found
-                if (results.length > 0) {
-                    setSearchCache(prevCache => ({...prevCache, [trimmedQuery]: results}));
-                }
-
-                setTickerSuggestions(results);
-                setShowSuggestions(true);
-            } else {
-                console.error(`[Search] API error for query "${trimmedQuery}":`, response.error);
-                setTickerSuggestions([]);
-                addToast({
-                    type: 'warning',
-                    title: 'Search Error',
-                    message: `Failed to search for "${trimmedQuery}". ${response.error}`,
-                });
-            }
-        } catch (error) {
-            console.error(`[Search] Network error searching for "${trimmedQuery}":`, error);
-            addToast({
-                type: 'error',
-                title: 'Network Error',
-                message: 'Failed to search for stocks. Please check your connection.',
-            });
-        } finally {
-            setSearchLoading(false);
-        }
-    };
+    }, [addToast]);
     
-    const debouncedSearchTickers = useCallback(debounce(searchTickers, 300), [searchCache]);
+    const checkUserAndFetchData = useCallback(async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+            setUser(session.user);
+            await fetchPortfolioData(session.user.id);
+        } else {
+            setLoading(false);
+        }
+    }, [fetchPortfolioData]);
 
-    const selectTicker = (suggestion: StockSymbol) => {
-        console.log('[Form] Ticker selected from suggestions:', suggestion);
-        const newFormState = {
-            ...form,
-            ticker: suggestion.symbol,
-            company_name: suggestion.name,
-            exchange: suggestion.exchange || suggestion.exchange_code,
-        };
-        setForm(newFormState);
-        setShowSuggestions(false);
-        setTickerSuggestions([]);
+    useEffect(() => {
+        checkUserAndFetchData();
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            if (session?.user) {
+                setUser(session.user);
+                fetchPortfolioData(session.user.id);
+            } else {
+                setUser(null);
+                setPortfolioData(null);
+            }
+        });
+        return () => subscription.unsubscribe();
+    }, [checkUserAndFetchData, fetchPortfolioData]);
 
-        // Fetch price immediately on ticker selection
-        console.log(`[Form] Ticker selected. Fetching price for ${suggestion.symbol} on ${newFormState.purchase_date}.`);
-        fetchStockPrice(suggestion.symbol, newFormState.purchase_date);
-    };
-
-    // --- Price & FX Rate Fetching ---
-    const fetchStockPrice = async (ticker: string, purchase_date: string) => {
-        if (!ticker || !purchase_date) return;
+    // Fetch closing price for the selected date when date picker is closed
+    const fetchClosingPriceForDate = useCallback(async (ticker: string, date: string) => {
+        if (!ticker || !date) return;
         
-        console.log(`[Price] Fetching price for ${ticker} on ${purchase_date}`);
         setLoadingPrice(true);
         try {
-            const historicalResponse = await apiService.getHistoricalData(ticker, '5Y');
-            if (historicalResponse.ok && historicalResponse.data) {
-                const historicalData = historicalResponse.data;
-                const targetDate = new Date(purchase_date);
-                
-                let closestPrice: number | null = null;
-                let closestDateDiff = Infinity;
-                
-                for (const dataPoint of historicalData.data || []) {
-                    const dataDate = new Date(dataPoint.date);
-                    const diffDays = Math.abs((targetDate.getTime() - dataDate.getTime()) / (1000 * 60 * 60 * 24));
-                    
-                    if (diffDays < closestDateDiff && dataDate <= targetDate) {
-                        closestDateDiff = diffDays;
-                        closestPrice = dataPoint.close;
-                    }
-                }
-                
-                if (closestPrice !== null) {
-                    console.log(`[Price] Found historical price for ${ticker}: ${closestPrice} (off by ${closestDateDiff.toFixed(0)} days)`);
-                    setForm(prev => ({ ...prev, purchase_price: closestPrice!.toFixed(2) }));
-                    setLoadingPrice(false);
-                    return;
-                }
-            }
-            
-            console.log(`[Price] No historical price found for ${ticker} on ${purchase_date}. Falling back to current quote.`);
-            const currentResponse = await apiService.getStockOverview(ticker);
-            if (currentResponse.ok && currentResponse.data) {
-                const currentPrice = currentResponse.data.data?.price;
-                if (currentPrice) {
-                    console.log(`[Price] Found fallback current price for ${ticker}: ${currentPrice}`);
-                    setForm(prev => ({ ...prev, purchase_price: currentPrice.toFixed(2) }));
+            const response = await apiService.getHistoricalData(ticker, 'max');
+            if (response.ok && response.data && response.data.data) {
+                const match = response.data.data.find((d: any) => d.date === date);
+                if (match) {
+                    setForm(prev => ({ ...prev, purchase_price: match.close.toString() }));
+                    addToast({
+                        type: 'success',
+                        title: 'Price Found',
+                        message: `Set purchase price to closing price of $${match.close} for ${date}`,
+                    });
+                } else {
+                    addToast({
+                        type: 'warning',
+                        title: 'Price Not Found',
+                        message: `No closing price found for ${ticker} on ${date}. Please enter manually.`,
+                    });
                 }
             }
         } catch (error) {
-            console.error(`[Price] Error fetching stock price for ${ticker}:`, error);
             addToast({
-                type: 'warning',
-                title: 'Price Fetch Error',
-                message: `Could not fetch price for ${ticker}. Please enter manually.`,
+                type: 'error',
+                title: 'Price Fetch Failed',
+                message: `Could not fetch closing price for ${ticker} on ${date}`,
             });
         } finally {
             setLoadingPrice(false);
         }
+    }, [addToast]);
+
+    const openAddModal = () => {
+        setEditingHolding(null);
+        setForm(initialFormState);
+        setShowHoldingModal(true);
+        setFormErrors({});
+        previousDateRef.current = ''; // Reset the previous date tracking
     };
 
-    const fetchFXRate = async () => {
-        if (form.currency === 'USD') {
-            console.log('[FX] Currency is USD, setting rate to 1.0');
-            setForm(prev => ({ ...prev, fx_rate: '1.0' }));
-            return;
+    const openEditModal = (holding: Holding) => {
+        setEditingHolding(holding);
+        const purchaseDate = holding.purchase_date ? holding.purchase_date.split('T')[0] : '';
+        setForm({
+            ticker: holding.ticker,
+            company_name: holding.company_name,
+            exchange: '',
+            shares: String(holding.shares),
+            purchase_price: String(holding.purchase_price),
+            purchase_date: purchaseDate,
+            commission: String(holding.commission || '0'),
+            currency: holding.currency || 'USD',
+            fx_rate: String(holding.fx_rate || '1.0'),
+            use_cash_balance: !!holding.used_cash_balance,
+        });
+        setShowHoldingModal(true);
+        setFormErrors({});
+        previousDateRef.current = purchaseDate; // Initialize with the holding's date
+    };
+
+    const closeHoldingModal = () => {
+        setShowHoldingModal(false);
+        setEditingHolding(null);
+        setForm(initialFormState);
+        setTickerSuggestions([]);
+        setShowSuggestions(false);
+        setFormErrors({});
+        previousDateRef.current = ''; // Reset the previous date tracking
+    };
+
+    const handleMenuToggle = (holdingId: number) => {
+        setOpenMenuId(prevId => (prevId === holdingId ? null : holdingId));
+    };
+
+    const validateForm = (): boolean => {
+        const errors: FormErrors = {};
+        
+        if (!form.ticker.trim()) {
+            errors.ticker = 'Stock ticker is required';
         }
         
-        console.log(`[FX] Fetching exchange rate for ${form.currency}`);
-        setLoadingFX(true);
-        try {
-            const response = await fetch(`https://api.exchangerate-api.com/v4/latest/USD`);
-            if (response.ok) {
-                const data = await response.json();
-                const rate = data.rates[form.currency];
-                if (rate) {
-                    const fxRate = (1 / rate).toFixed(4);
-                    console.log(`[FX] Successfully fetched rate for ${form.currency}: ${fxRate}`);
-                    setForm(prev => ({ ...prev, fx_rate: fxRate }));
-                }
-            }
-        } catch (error) {
-            console.error(`[FX] Error fetching FX rate for ${form.currency}:`, error);
-            addToast({
-                type: 'warning',
-                title: 'Exchange Rate Error',
-                message: `Could not fetch exchange rate for ${form.currency}. Please enter manually.`,
-            });
-        } finally {
-            setLoadingFX(false);
+        if (!form.shares || Number(form.shares) <= 0) {
+            errors.shares = 'Shares must be greater than 0';
+        }
+        
+        if (!form.purchase_price || Number(form.purchase_price) <= 0) {
+            errors.purchase_price = 'Purchase price must be greater than 0';
+        }
+        
+        if (!form.purchase_date) {
+            errors.purchase_date = 'Purchase date is required';
+        }
+        
+        if (Number(form.commission) < 0) {
+            errors.commission = 'Commission cannot be negative';
+        }
+        
+        if (!form.fx_rate || Number(form.fx_rate) <= 0) {
+            errors.fx_rate = 'Exchange rate must be greater than 0';
+        }
+
+        setFormErrors(errors);
+        return Object.keys(errors).length === 0;
+    };
+
+    const handleFormChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const { name, value, type } = e.target;
+        const isCheckbox = (e.target as HTMLInputElement).type === 'checkbox';
+        const checked = (e.target as HTMLInputElement).checked;
+    
+        setForm(prev => ({
+            ...prev,
+            [name]: isCheckbox ? checked : value
+        }));
+
+        // Clear specific field error when user starts typing
+        if (formErrors[name]) {
+            setFormErrors(prev => ({
+                ...prev,
+                [name]: ''
+            }));
         }
     };
 
-    useEffect(() => { 
-        fetchFXRate(); 
-    }, [form.currency]);
+    const handleDateChange = (e: ChangeEvent<HTMLInputElement>) => {
+        const { value } = e.target;
+        const previousDate = form.purchase_date;
+        setForm(prev => ({ ...prev, purchase_date: value }));
+        
+        // Clear date error
+        if (formErrors.purchase_date) {
+            setFormErrors(prev => ({ ...prev, purchase_date: '' }));
+        }
 
-    // --- Form Submission ---
-    const handleAddHoldingSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        console.log('[Submit] "Add Holding" form submitted.');
+        // Store the previous date to compare on blur
+        previousDateRef.current = previousDate;
+    };
 
-        // Validate form
-        const errors = ValidationService.validateAddHoldingForm(form);
-        if (ValidationService.hasErrors(errors)) {
-            console.warn('[Submit] Validation errors found:', errors);
-            setFormErrors(errors);
-            addToast({
-                type: 'error',
-                title: 'Validation Error',
-                message: 'Please correct the errors in the form.',
-            });
+    const handleDateBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+        const currentDate = e.target.value;
+        const previousDate = previousDateRef.current;
+        const todayDate = new Date().toISOString().split('T')[0];
+        
+        // Only fetch closing price if:
+        // 1. We have a ticker and purchase date
+        // 2. The date actually changed from the previous value
+        // 3. The selected date is not today's date
+        // 4. User wants to fetch historical price (both add and edit modes)
+        if (form.ticker && 
+            currentDate && 
+            currentDate !== previousDate && 
+            currentDate !== todayDate) {
+            fetchClosingPriceForDate(form.ticker, currentDate);
+        }
+    };
+
+    const handleTickerSearch = useCallback(debounce(async (query: string) => {
+        if (query.length < 1) {
+            setTickerSuggestions([]);
             return;
         }
+        if (searchCache[query]) {
+            setTickerSuggestions(searchCache[query]);
+            return;
+        }
+        setSearchLoading(true);
+        try {
+            const response = await apiService.searchSymbols(query);
+            if (response.ok && response.data !== undefined) {
+                setTickerSuggestions(response.data.results);
+                setSearchCache(prev => ({ ...prev, [query]: response.data!.results }));
+            } else {
+                setTickerSuggestions([]);
+            }
+        } catch (error) {
+            setTickerSuggestions([]);
+        } finally {
+            setSearchLoading(false);
+        }
+    }, 300), [searchCache]);
+
+    const handleTickerFocus = () => setShowSuggestions(true);
+    const handleTickerBlur = () => setTimeout(() => setShowSuggestions(false), 200);
+
+    const handleSuggestionClick = async (symbol: StockSymbol) => {
+        setForm(prev => ({
+            ...prev,
+            ticker: symbol.symbol,
+            company_name: symbol.name,
+            exchange: symbol.exchange,
+            purchase_price: '',
+        }));
+        setTickerSuggestions([]);
+        setShowSuggestions(false);
+        
+        // Clear ticker error
+        if (formErrors.ticker) {
+            setFormErrors(prev => ({ ...prev, ticker: '' }));
+        }
+
+        // Note: We don't automatically fetch price here anymore
+        // Price will only be fetched when user changes the date via calendar
+    };
+    
+    const handleAddHoldingSubmit = async () => {
+        if (!user || !validateForm()) return;
 
         setIsSubmitting(true);
-        const payload = {
-            ticker: form.ticker.toUpperCase(),
-            company_name: form.company_name,
-            exchange: form.exchange,
-            shares: parseFloat(form.shares),
-            purchase_price: parseFloat(form.purchase_price),
-            purchase_date: form.purchase_date,
-            commission: form.commission ? parseFloat(form.commission) : 0,
-            currency: form.currency,
-            fx_rate: form.fx_rate ? parseFloat(form.fx_rate) : 1.0,
-            use_cash_balance: form.use_cash_balance,
-        };
-        console.log('[Submit] Payload prepared for API:', payload);
-
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-            addToast({
-                type: 'error',
-                title: 'Authentication Required',
-                message: 'You must be signed in to add a holding.',
-            });
-            setIsSubmitting(false);
-            return;
-        }
-
         try {
-            const response = await apiService.addHolding(user.id, payload);
+            const payload: AddHoldingPayload = {
+                ticker: form.ticker.toUpperCase(),
+                company_name: form.company_name,
+                exchange: form.exchange,
+                shares: Number(form.shares),
+                purchase_price: Number(form.purchase_price),
+                purchase_date: form.purchase_date,
+                commission: Number(form.commission),
+                currency: form.currency,
+                fx_rate: Number(form.fx_rate),
+                use_cash_balance: form.use_cash_balance,
+            };
 
+            const response = await apiService.addHolding(user.id, payload);
+            
             if (response.ok) {
-                console.log('[Submit] Successfully added holding. Closing modal and reloading data.');
                 addToast({
                     type: 'success',
-                    title: 'Holding Added',
-                    message: `Successfully added ${form.shares} shares of ${form.ticker}.`,
+                    title: 'Stock Added',
+                    message: `Successfully added ${payload.shares} shares of ${payload.ticker}`,
                 });
-                closeAddModal();
-                fetchPortfolioData(user.id);
+                closeHoldingModal();
+                await fetchPortfolioData(user.id);
             } else {
-                console.error('[Submit] API error on holding submission:', response.error);
                 addToast({
                     type: 'error',
-                    title: 'Failed to Add Holding',
-                    message: response.error || 'An error occurred while adding the holding.',
+                    title: 'Failed to Add Stock',
+                    message: response.error || 'Could not add stock to portfolio',
                 });
             }
         } catch (error) {
-            console.error('[Submit] Network error on holding submission:', error);
             addToast({
                 type: 'error',
-                title: 'Network Error',
-                message: 'A network error occurred. Please try again.',
+                title: 'Error',
+                message: error instanceof Error ? error.message : 'An unexpected error occurred',
             });
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    // --- Helper Components ---
-    const FormField = ({ 
-        label, 
-        name, 
-        children, 
-        required = false, 
-        error 
-    }: { 
-        label: string; 
-        name: string; 
-        children: React.ReactNode; 
-        required?: boolean; 
-        error?: string; 
-    }) => (
-        <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-                {label} {required && <span className="text-red-500">*</span>}
-            </label>
-            {children}
-            {error && (
-                <p className="mt-1 text-sm text-red-600">{error}</p>
-            )}
-        </div>
-    );
+    const handleUpdateHoldingSubmit = async () => {
+        if (!user || !editingHolding || !validateForm()) return;
 
-    // --- Modal Rendering Logic ---
-    let addHoldingModal = null;
-    if (showAddModal) {
-        console.log(`[Render-Modal] Rendering AddHoldingModal. Suggestions visible: ${showSuggestions}, Count: ${tickerSuggestions.length}`);
-        addHoldingModal = (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-                <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-                    <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-xl">
-                        <div className="flex items-center justify-between">
-                            <h2 className="text-xl font-bold text-gray-900">Add Stock Holding</h2>
+        setIsSubmitting(true);
+        try {
+            const payload: AddHoldingPayload = {
+                ticker: form.ticker.toUpperCase(),
+                company_name: form.company_name,
+                exchange: form.exchange,
+                shares: Number(form.shares),
+                purchase_price: Number(form.purchase_price),
+                purchase_date: form.purchase_date,
+                commission: Number(form.commission),
+                currency: form.currency,
+                fx_rate: Number(form.fx_rate),
+                use_cash_balance: form.use_cash_balance,
+            };
+
+            const response = await apiService.updateHolding(user.id, editingHolding.id, payload);
+            
+            if (response.ok) {
+                addToast({
+                    type: 'success',
+                    title: 'Stock Updated',
+                    message: `Successfully updated ${payload.shares} shares of ${payload.ticker}`,
+                });
+                closeHoldingModal();
+                await fetchPortfolioData(user.id);
+            } else {
+                addToast({
+                    type: 'error',
+                    title: 'Failed to Update Stock',
+                    message: response.error || 'Could not update stock holding',
+                });
+            }
+        } catch (error) {
+            addToast({
+                type: 'error',
+                title: 'Error',
+                message: error instanceof Error ? error.message : 'An unexpected error occurred',
+            });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+    
+    const handleFormSubmit = async (e: FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        if (editingHolding) {
+            await handleUpdateHoldingSubmit();
+        } else {
+            await handleAddHoldingSubmit();
+        }
+    };
+
+    // Remove holding handler
+    const handleRemoveHolding = async (holding: Holding) => {
+        if (!user) return;
+        const confirmed = window.confirm(`Remove ${holding.ticker}?`);
+        if (!confirmed) return;
+        const response = await apiService.deleteHolding(user.id, holding.id);
+        if (response.ok) {
+            addToast({ type: 'success', title: 'Removed', message: `${holding.ticker} removed.` });
+            fetchPortfolioData(user.id);
+        } else {
+            addToast({ type: 'error', title: 'Error', message: response.error || 'Failed to remove holding.' });
+        }
+    };
+
+    // Add helper for percent formatting if not present
+    const formatPercent = (value: number) => `${value >= 0 ? '+' : ''}${ValidationService.formatNumber(value, 2)}%`;
+
+    // Calculate total return $ and %
+    const totalReturnDollars = portfolioData?.holdings.reduce((sum, h) => {
+        const currentPrice = h.current_price || h.purchase_price;
+        return sum + (currentPrice - h.purchase_price) * h.shares;
+    }, 0) || 0;
+    const totalCost = portfolioData?.holdings.reduce((sum, h) => sum + h.purchase_price * h.shares, 0) || 0;
+    const totalReturnPercent = totalCost > 0 ? (totalReturnDollars / totalCost) * 100 : 0;
+
+    const HoldingRow = ({ holding, onEdit, onRemove }: HoldingRowProps) => {
+        const total_cost = holding.shares * holding.purchase_price;
+        // Use the current_price from the holding data directly, fallback to purchase_price if not available
+        const currentPrice = holding.current_price || holding.purchase_price;
+        
+        const pnl = holding.market_value - total_cost;
+        const pnl_percent = total_cost > 0 ? (pnl / total_cost) * 100 : 0;
+        const returnDollar = (currentPrice - holding.purchase_price) * holding.shares;
+        const returnPercent = holding.purchase_price > 0 ? ((currentPrice - holding.purchase_price) / holding.purchase_price) * 100 : 0;
+        const formatCurrency = (value: number) => ValidationService.formatCurrency(value);
+        const isMenuOpen = openMenuId === holding.id;
+    
+        return (
+            <tr className="border-b border-gray-200 hover:bg-gray-50">
+                <td className="px-4 py-3">
+                    <div className="font-bold text-gray-900">{holding.ticker}</div>
+                    <div className="text-sm text-gray-600 truncate">{holding.company_name}</div>
+                </td>
+                <td className="text-right font-medium text-gray-800 px-4 py-3">{ValidationService.formatNumber(holding.shares, 0)}</td>
+                <td className="text-right font-medium text-gray-800 px-4 py-3">{formatCurrency(holding.purchase_price)}</td>
+                <td className="text-right font-medium text-gray-800 px-4 py-3">{formatCurrency(currentPrice)}</td>
+                <td className="text-right font-medium text-gray-800 px-4 py-3">{formatCurrency(holding.market_value)}</td>
+                <td className="text-right font-medium text-gray-800 px-4 py-3">{formatCurrency(total_cost)}</td>
+                <td className="text-right font-medium text-gray-800 px-4 py-3">{formatCurrency(returnDollar)}</td>
+                <td className="text-right font-medium text-gray-800 px-4 py-3">{formatPercent(returnPercent)}</td>
+                <td className={`text-right font-medium px-4 py-3 ${pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>{pnl >= 0 ? '+' : ''}{formatCurrency(pnl)}</td>
+                <td className={`text-right font-medium px-4 py-3 ${pnl_percent >= 0 ? 'text-green-600' : 'text-red-600'}`}>{pnl_percent >= 0 ? '+' : ''}{ValidationService.formatNumber(pnl_percent, 2)}%</td>
+                <td className="text-center px-4 py-3 relative">
+                    <button 
+                        onClick={() => handleMenuToggle(holding.id)} 
+                        className="p-2 rounded-full hover:bg-gray-100"
+                    >
+                        <MoreVertical size={16} />
+                    </button>
+                    {isMenuOpen && (
+                        <div 
+                            className="absolute right-0 mt-2 w-32 bg-white rounded-md shadow-lg z-10 border border-gray-100"
+                            onMouseLeave={() => setOpenMenuId(null)}
+                        >
                             <button 
-                                className="text-gray-400 hover:text-gray-600 transition-colors p-1" 
-                                onClick={closeAddModal}
-                                disabled={isSubmitting}
+                                onClick={() => { onEdit(holding); handleMenuToggle(holding.id); }} 
+                                className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                             >
-                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
+                                <Edit size={14} className="mr-2" />
+                                Modify
                             </button>
+                            <button 
+                                onClick={() => { onRemove(holding); handleMenuToggle(holding.id); }} 
+                                className="flex items-center w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                            >
+                                <Trash2 size={14} className="mr-2" />
+                                Remove
+                            </button>
+                        </div>
+                    )}
+                </td>
+            </tr>
+        );
+    };
+
+    const holdings = portfolioData?.holdings || [];
+    
+    // Modal rendering logic
+    const isEditing = !!editingHolding;
+    const totalAmount = Number(form.shares) * Number(form.purchase_price);
+    const holdingModal = showHoldingModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+                <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-xl">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-xl font-bold text-gray-900">{isEditing ? 'Edit Stock Holding' : 'Add Stock Holding'}</h2>
+                        <button 
+                            className="text-gray-400 hover:text-gray-600 transition-colors p-1" 
+                            onClick={closeHoldingModal}
+                            disabled={isSubmitting}
+                        >
+                            <X size={22} />
+                        </button>
+                    </div>
+                </div>
+                <form onSubmit={handleFormSubmit} className="p-6 space-y-6">
+                    {/* Ticker Search */}
+                    <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Stock Ticker</label>
+                        <div className="relative">
+                            <input
+                                name="ticker"
+                                value={form.ticker}
+                                onChange={e => {
+                                    handleFormChange(e);
+                                    if (!isEditing) handleTickerSearch(e.target.value);
+                                }}
+                                onFocus={handleTickerFocus}
+                                onBlur={handleTickerBlur}
+                                disabled={isEditing || isSubmitting}
+                                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 font-mono uppercase ${formErrors.ticker ? 'border-red-300' : 'border-gray-300'}`}
+                                placeholder="e.g., AAPL, MSFT, GOOGL"
+                                required
+                                autoComplete="off"
+                            />
+                            {searchLoading && !isEditing && (
+                                <div className="absolute right-3 top-3"><Loader2 className="animate-spin" size={18} /></div>
+                            )}
+                            {showSuggestions && tickerSuggestions.length > 0 && !isEditing && (
+                                <ul className="absolute left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg mt-1 z-20 max-h-48 overflow-y-auto">
+                                    {tickerSuggestions.map(s => (
+                                        <li
+                                            key={s.symbol}
+                                            className="px-4 py-2 cursor-pointer hover:bg-blue-50"
+                                            onMouseDown={() => handleSuggestionClick(s)}
+                                        >
+                                            <span className="font-mono font-bold">{s.symbol}</span> <span className="text-gray-600">{s.name}</span> <span className="text-xs text-gray-400">{s.exchange} ({s.exchange_code})</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
+                        {formErrors.ticker && <div className="text-xs text-red-500 mt-1">{formErrors.ticker}</div>}
+                    </div>
+
+                    {/* Purchase Date */}
+                    <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Purchase Date</label>
+                        <input
+                            name="purchase_date"
+                            type="date"
+                            value={form.purchase_date}
+                            onChange={handleDateChange}
+                            onBlur={handleDateBlur}
+                            disabled={isSubmitting}
+                            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${formErrors.purchase_date ? 'border-red-300' : 'border-gray-300'}`}
+                            required
+                        />
+                        {formErrors.purchase_date && <div className="text-xs text-red-500 mt-1">{formErrors.purchase_date}</div>}
+                    </div>
+
+                    {/* Purchase Price */}
+                    <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Purchase Price
+                            {loadingPrice && <span className="ml-2 text-xs text-blue-600">(Fetching closing price...)</span>}
+                        </label>
+                        <div className="relative">
+                            <input
+                                name="purchase_price"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={form.purchase_price}
+                                onChange={handleFormChange}
+                                disabled={isSubmitting || loadingPrice}
+                                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${formErrors.purchase_price ? 'border-red-300' : 'border-gray-300'} ${loadingPrice ? 'bg-gray-50' : ''}`}
+                                placeholder="0.00"
+                                required
+                            />
+                            {loadingPrice && (
+                                <div className="absolute right-3 top-3"><Loader2 className="animate-spin" size={18} /></div>
+                            )}
+                        </div>
+                        {formErrors.purchase_price && <div className="text-xs text-red-500 mt-1">{formErrors.purchase_price}</div>}
+                        <div className="text-xs text-gray-500 mt-1">
+                            {isEditing 
+                                ? "Change the purchase date to automatically fetch the closing price for that day"
+                                : "Select a purchase date to automatically fetch the closing price for that day"
+                            }
                         </div>
                     </div>
 
-                    <form onSubmit={handleAddHoldingSubmit} className="p-6 space-y-6">
-                        {/* Ticker Search */}
-                        <FormField 
-                            label="Stock Ticker" 
-                            name="ticker" 
-                            required 
-                            error={formErrors.ticker}
+                    {/* Quantity */}
+                    <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+                        <input
+                            name="shares"
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={form.shares}
+                            onChange={handleFormChange}
+                            disabled={isSubmitting}
+                            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${formErrors.shares ? 'border-red-300' : 'border-gray-300'}`}
+                            placeholder="0"
+                            required
+                        />
+                        {formErrors.shares && <div className="text-xs text-red-500 mt-1">{formErrors.shares}</div>}
+                    </div>
+
+                    {/* Commission */}
+                    <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Commission</label>
+                        <input
+                            name="commission"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={form.commission}
+                            onChange={handleFormChange}
+                            disabled={isSubmitting}
+                            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${formErrors.commission ? 'border-red-300' : 'border-gray-300'}`}
+                            placeholder="0.00"
+                        />
+                        {formErrors.commission && <div className="text-xs text-red-500 mt-1">{formErrors.commission}</div>}
+                    </div>
+
+                    {/* Use Cash Balance */}
+                    <div className="mb-4 flex items-center">
+                        <input
+                            id="use_cash_balance"
+                            name="use_cash_balance"
+                            type="checkbox"
+                            checked={form.use_cash_balance}
+                            onChange={handleFormChange}
+                            disabled={isSubmitting}
+                            className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <label htmlFor="use_cash_balance" className="ml-2 block text-sm text-gray-700">Use Cash Balance</label>
+                    </div>
+
+                    {/* Currency */}
+                    <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
+                        <select
+                            name="currency"
+                            value={form.currency}
+                            onChange={handleFormChange}
+                            disabled={isSubmitting}
+                            className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                         >
-                            <div className="relative">
-                                <input 
-                                    name="ticker" 
-                                    value={form.ticker} 
-                                    onChange={handleFormChange}
-                                    onFocus={handleTickerFocus}
-                                    onBlur={handleTickerBlur}
-                                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 font-mono uppercase ${
-                                        formErrors.ticker ? 'border-red-300' : 'border-gray-300'
-                                    }`}
-                                    placeholder="e.g., AAPL, MSFT, GOOGL"
-                                    required 
-                                    autoComplete="off"
-                                    disabled={isSubmitting}
-                                />
-                                {searchLoading && (
-                                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-                                    </div>
-                                )}
-                            </div>
-                            
-                            {showSuggestions && tickerSuggestions.length > 0 && (
-                                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                                    {tickerSuggestions.map((suggestion, index) => (
-                                        <div
-                                            key={index}
-                                            className="px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-                                            onClick={() => selectTicker(suggestion)}
-                                        >
-                                            <div className="flex justify-between items-start">
-                                                <div>
-                                                    <div className="font-semibold text-gray-900 font-mono">{suggestion.symbol}</div>
-                                                    <div className="text-sm text-gray-600 line-clamp-2">{suggestion.name}</div>
-                                                </div>
-                                                <div className="text-xs text-gray-500 ml-2 flex-shrink-0">
-                                                    {suggestion.exchange_code}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
+                            <option value="USD">USD</option>
+                            <option value="EUR">EUR</option>
+                            <option value="GBP">GBP</option>
+                            <option value="JPY">JPY</option>
+                            <option value="CAD">CAD</option>
+                            <option value="AUD">AUD</option>
+                            <option value="CHF">CHF</option>
+                            <option value="HKD">HKD</option>
+                            <option value="SGD">SGD</option>
+                            <option value="CNY">CNY</option>
+                        </select>
+                    </div>
+
+                    {/* Exchange Rate on Date */}
+                    <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Exchange Rate on Date</label>
+                        <input
+                            name="fx_rate"
+                            type="number"
+                            min="0"
+                            step="0.0001"
+                            value={form.fx_rate}
+                            onChange={handleFormChange}
+                            disabled={isSubmitting}
+                            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${formErrors.fx_rate ? 'border-red-300' : 'border-gray-300'}`}
+                            placeholder="1.0"
+                        />
+                        {formErrors.fx_rate && <div className="text-xs text-red-500 mt-1">{formErrors.fx_rate}</div>}
+                    </div>
+
+                    {/* Total Amount */}
+                    <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Total Amount</label>
+                        <input
+                            type="text"
+                            value={isNaN(totalAmount) ? '' : totalAmount.toLocaleString(undefined, { style: 'currency', currency: form.currency || 'USD' })}
+                            readOnly
+                            className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-800 font-semibold"
+                        />
+                    </div>
+
+                    <div className="flex gap-3 pt-4 border-t border-gray-200">
+                        <button 
+                            type="button" 
+                            className="flex-1 px-4 py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors duration-200 disabled:opacity-50" 
+                            onClick={closeHoldingModal}
+                            disabled={isSubmitting}
+                        >
+                            Cancel
+                        </button>
+                        <button 
+                            type="submit" 
+                            className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                            disabled={isSubmitting}
+                        >
+                            {isSubmitting ? (
+                                <>
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                    {isEditing ? 'Updating...' : 'Adding...'}
+                                </>
+                            ) : (
+                                isEditing ? 'Update Holding' : 'Confirm Stock'
                             )}
-                        </FormField>
-
-                        {/* Company Name */}
-                        <FormField label="Company Name" name="company_name">
-                            <input 
-                                name="company_name" 
-                                value={form.company_name} 
-                                onChange={handleFormChange}
-                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50"
-                                placeholder="Auto-filled from ticker search"
-                                readOnly
-                            />
-                        </FormField>
-
-                        {/* Exchange */}
-                        <FormField label="Exchange" name="exchange">
-                            <input 
-                                name="exchange" 
-                                value={form.exchange} 
-                                onChange={handleFormChange}
-                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50"
-                                placeholder="Auto-filled from ticker search"
-                                readOnly
-                            />
-                        </FormField>
-
-                        {/* Shares */}
-                        <FormField 
-                            label="Number of Shares" 
-                            name="shares" 
-                            required 
-                            error={formErrors.shares}
-                        >
-                            <input 
-                                name="shares" 
-                                type="text"
-                                value={form.shares} 
-                                onChange={handleFormChange}
-                                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
-                                    formErrors.shares ? 'border-red-300' : 'border-gray-300'
-                                }`}
-                                placeholder="e.g., 100"
-                                required 
-                                disabled={isSubmitting}
-                            />
-                        </FormField>
-
-                        {/* Purchase Date */}
-                        <FormField 
-                            label="Purchase Date" 
-                            name="purchase_date" 
-                            required 
-                            error={formErrors.purchase_date}
-                        >
-                            <input 
-                                name="purchase_date" 
-                                type="date" 
-                                value={form.purchase_date} 
-                                onChange={handleFormChange}
-                                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
-                                    formErrors.purchase_date ? 'border-red-300' : 'border-gray-300'
-                                }`}
-                                required 
-                                disabled={isSubmitting}
-                            />
-                        </FormField>
-
-                        {/* Purchase Price */}
-                        <FormField 
-                            label="Purchase Price" 
-                            name="purchase_price" 
-                            required 
-                            error={formErrors.purchase_price}
-                        >
-                            <div className="relative">
-                                <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">$</div>
-                                <input 
-                                    name="purchase_price" 
-                                    type="text"
-                                    value={form.purchase_price} 
-                                    onChange={handleFormChange}
-                                    className={`w-full pl-8 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
-                                        formErrors.purchase_price ? 'border-red-300' : 'border-gray-300'
-                                    }`}
-                                    placeholder="0.00"
-                                    required 
-                                    disabled={loadingPrice || isSubmitting}
-                                />
-                                {loadingPrice && (
-                                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-                                    </div>
-                                )}
-                            </div>
-                            {loadingPrice && <div className="text-xs text-blue-600 mt-1">Auto-filling price for selected date...</div>}
-                        </FormField>
-
-                        {/* Commission */}
-                        <FormField 
-                            label="Commission (Optional)" 
-                            name="commission" 
-                            error={formErrors.commission}
-                        >
-                            <div className="relative">
-                                <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">$</div>
-                                <input 
-                                    name="commission" 
-                                    type="text"
-                                    value={form.commission} 
-                                    onChange={handleFormChange}
-                                    className={`w-full pl-8 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
-                                        formErrors.commission ? 'border-red-300' : 'border-gray-300'
-                                    }`}
-                                    placeholder="0.00"
-                                    disabled={isSubmitting}
-                                />
-                            </div>
-                        </FormField>
-
-                        {/* Currency */}
-                        <FormField label="Currency" name="currency">
-                            <select 
-                                name="currency" 
-                                value={form.currency} 
-                                onChange={handleFormChange}
-                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                                disabled={isSubmitting}
-                            >
-                                {currencies.map((cur) => (
-                                    <option key={cur} value={cur}>{cur}</option>
-                                ))}
-                            </select>
-                        </FormField>
-
-                        {/* FX Rate */}
-                        {form.currency !== 'USD' && (
-                            <FormField 
-                                label="Currency Conversion Rate (to USD)" 
-                                name="fx_rate" 
-                                error={formErrors.fx_rate}
-                            >
-                                <div className="relative">
-                                    <input 
-                                        name="fx_rate" 
-                                        type="text"
-                                        value={form.fx_rate} 
-                                        onChange={handleFormChange}
-                                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
-                                            formErrors.fx_rate ? 'border-red-300' : 'border-gray-300'
-                                        }`}
-                                        disabled={loadingFX || isSubmitting}
-                                    />
-                                    {loadingFX && (
-                                        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-                                        </div>
-                                    )}
-                                </div>
-                                {loadingFX && <div className="text-xs text-blue-600 mt-1">Fetching current exchange rate...</div>}
-                            </FormField>
-                        )}
-
-                        {/* Use Cash Balance */}
-                        <div className="flex items-center p-4 bg-gray-50 rounded-lg">
-                            <input 
-                                name="use_cash_balance" 
-                                type="checkbox" 
-                                checked={form.use_cash_balance} 
-                                onChange={handleFormChange}
-                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                disabled={isSubmitting}
-                            />
-                            <label className="ml-3 text-sm font-medium text-gray-700">
-                                Use cash balance to purchase shares
-                            </label>
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="flex gap-3 pt-4 border-t border-gray-200">
-                            <button 
-                                type="button" 
-                                className="flex-1 px-4 py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors duration-200 disabled:opacity-50" 
-                                onClick={closeAddModal}
-                                disabled={isSubmitting}
-                            >
-                                Cancel
-                            </button>
-                            <button 
-                                type="submit" 
-                                className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-                                disabled={isSubmitting}
-                            >
-                                {isSubmitting ? (
-                                    <>
-                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                                        Adding...
-                                    </>
-                                ) : (
-                                    'Add Holding'
-                                )}
-                            </button>
-                        </div>
-                    </form>
-                </div>
+                        </button>
+                    </div>
+                </form>
             </div>
-        );
-    }
-    
-    // --- Main Component Rendering ---
-    console.log(`[Render] Rendering PortfolioPage. State:`, { loading, error: !!error, user: !!user, portfolioData: !!portfolioData });
+        </div>
+    );
 
-    if (loading && !portfolioData) {
+    if (loading) {
         return (
-            <div className="text-center py-10">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
-                Loading portfolio...
-                {addHoldingModal}
-            </div>
-        );
-    }
-
-    if (error) {
-        return (
-            <div className="text-center py-10 text-red-500">
-                <div className="mb-4">
-                    <svg className="w-12 h-12 mx-auto text-red-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    Error: {error}
+            <div className="p-4 sm:p-6 lg:p-8">
+                <div className="flex items-center justify-center min-h-[400px]">
+                    <div className="text-center">
+                        <Loader2 className="animate-spin h-8 w-8 mx-auto mb-4 text-blue-600" />
+                        <p className="text-gray-600">Loading your portfolio...</p>
+                    </div>
                 </div>
-                <button 
-                    onClick={() => user && fetchPortfolioData(user.id)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                    Retry
-                </button>
-                {addHoldingModal}
             </div>
         );
     }
 
     if (!user) {
         return (
-            <div className="text-center py-10">
-                <p>Please sign in to view your portfolio.</p>
-                {addHoldingModal}
+            <div className="p-4 sm:p-6 lg:p-8">
+                <div className="text-center">
+                    <h1 className="text-2xl font-bold text-gray-900 mb-4">Please Log In</h1>
+                    <p className="text-gray-600">You need to be logged in to view your portfolio.</p>
+                </div>
             </div>
         );
     }
 
-    if (!portfolioData || portfolioData.holdings.length === 0) {
+    if (error) {
         return (
-            <div className="text-center py-10">
-                <h2 className="text-xl font-semibold mb-2">Your portfolio is empty.</h2>
-                <p className="text-gray-600 mb-4">Add your first holding to get started.</p>
-                <button className="btn-primary" onClick={openAddModal}>
-                    <PlusCircle className="mr-2" size={20} /> Add Holding
-                </button>
-                {addHoldingModal}
+            <div className="p-4 sm:p-6 lg:p-8">
+                <div className="text-center">
+                    <h1 className="text-2xl font-bold text-red-600 mb-4">Error</h1>
+                    <p className="text-gray-600">{error}</p>
+                    <button 
+                        onClick={() => fetchPortfolioData(user.id)}
+                        className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    >
+                        Retry
+                    </button>
+                </div>
             </div>
         );
     }
-
-    const { holdings, summary, cash_balance } = portfolioData;
 
     return (
-        <div className="max-w-7xl mx-auto px-4 py-8">
-            {/* Header */}
+        <div className="p-4 sm:p-6 lg:p-8">
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-3xl font-bold text-gray-900">My Portfolio</h1>
                 <button className="btn-primary flex items-center" onClick={openAddModal}>
                     <PlusCircle className="mr-2" size={20} /> Add New Holding
                 </button>
             </div>
-
-            {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div className="metric-card">
-                    <div className="metric-label">Total Portfolio Value</div>
-                    <div className="metric-value text-blue-600">{ValidationService.formatCurrency(summary.total_value)}</div>
+            
+            {holdings.length === 0 ? (
+                <div className="text-center py-12 bg-white rounded-lg shadow border border-gray-200">
+                    <h2 className="text-xl font-semibold text-gray-700 mb-2">No Holdings Yet</h2>
+                    <p className="text-gray-500 mb-6">Start building your portfolio by adding your first stock holding.</p>
+                    <button className="btn-primary flex items-center mx-auto" onClick={openAddModal}>
+                        <PlusCircle className="mr-2" size={20} /> Add Your First Stock
+                    </button>
                 </div>
-                <div className="metric-card">
-                    <div className="metric-label">Number of Holdings</div>
-                    <div className="metric-value">{summary.total_holdings}</div>
+            ) : (
+                <div className="overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                        <thead>
+                            <tr className="bg-gray-50 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th className="text-left px-4 py-3">Asset</th>
+                                <th className="text-right px-4 py-3">Shares</th>
+                                <th className="text-right px-4 py-3">Purchase Price</th>
+                                <th className="text-right px-4 py-3">Current Price</th>
+                                <th className="text-right px-4 py-3">Market Value</th>
+                                <th className="text-right px-4 py-3">Total Cost</th>
+                                <th className="text-right px-4 py-3">Return $</th>
+                                <th className="text-right px-4 py-3">Return %</th>
+                                <th className="text-right px-4 py-3">Gain / Loss</th>
+                                <th className="text-right px-4 py-3">% Change</th>
+                                <th className="text-center px-4 py-3">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                            {holdings.map(holding => (
+                                <HoldingRow 
+                                    key={holding.id} 
+                                    holding={holding}
+                                    onEdit={openEditModal}
+                                    onRemove={handleRemoveHolding}
+                                />
+                            ))}
+                        </tbody>
+                        {/* Summary row for total PnL */}
+                        <tfoot>
+                            <tr className="bg-gray-100 font-bold">
+                                <td className="px-4 py-3 text-right" colSpan={6}>Total PnL</td>
+                                <td className="text-right px-4 py-3">{ValidationService.formatCurrency(totalReturnDollars)}</td>
+                                <td className="text-right px-4 py-3">{formatPercent(totalReturnPercent)}</td>
+                                <td colSpan={3}></td>
+                            </tr>
+                        </tfoot>
+                    </table>
                 </div>
-                <div className="metric-card">
-                    <div className="metric-label">Cash Balance</div>
-                    <div className="metric-value">{ValidationService.formatCurrency(cash_balance)}</div>
-                </div>
-            </div>
-
-            {/* Holdings Table */}
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-                <table className="w-full">
-                    <thead className="bg-gray-50 border-b border-gray-200">
-                        <tr>
-                            <th className="text-left font-semibold text-gray-600 px-4 py-3">Stock</th>
-                            <th className="text-right font-semibold text-gray-600 px-4 py-3">Quantity</th>
-                            <th className="text-right font-semibold text-gray-600 px-4 py-3">Market Value</th>
-                            <th className="text-right font-semibold text-gray-600 px-4 py-3">Cost Basis</th>
-                            <th className="text-right font-semibold text-gray-600 px-4 py-3">P/L ($)</th>
-                            <th className="text-right font-semibold text-gray-600 px-4 py-3">% Gain/Loss</th>
-                            <th className="text-center font-semibold text-gray-600 px-4 py-3">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {holdings.map(holding => (
-                            <HoldingRow key={holding.id} holding={holding} />
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-
-            {addHoldingModal}
+            )}
+            
+            {holdingModal}
         </div>
     );
 } 

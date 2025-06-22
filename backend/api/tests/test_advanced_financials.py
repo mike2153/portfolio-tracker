@@ -1,8 +1,7 @@
 # backend/api/tests/test_advanced_financials.py
-import json
 from unittest.mock import patch, MagicMock
 from django.test import TestCase
-from ninja.testing import TestClient
+from django.test import Client
 from ..api import api
 from ..services.metrics_calculator import calculate_advanced_metrics
 
@@ -71,7 +70,7 @@ class AdvancedMetricsCalculatorTest(TestCase):
 
 class AdvancedFinancialsEndpointTest(TestCase):
     def setUp(self):
-        self.client = TestClient(api)
+        self.client = Client()  # Use Django's Client
 
     @patch('api.views.get_alpha_vantage_service')
     def test_advanced_financials_endpoint_success(self, mock_get_service):

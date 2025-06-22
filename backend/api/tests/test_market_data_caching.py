@@ -6,11 +6,10 @@ from ninja.testing import TestClient
 from datetime import date, timedelta
 from decimal import Decimal
 from io import StringIO
-import json
 
 from ..api import api
 from ..models import CachedDailyPrice, CachedCompanyFundamentals
-from ..services.market_data_cache import MarketDataCacheService, get_market_data_cache_service
+from ..services.market_data_cache import MarketDataCacheService
 
 class CachedDailyPriceModelTest(TestCase):
     def setUp(self):

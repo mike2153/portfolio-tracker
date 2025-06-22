@@ -1,9 +1,8 @@
-from django.shortcuts import render, get_object_or_404
-from ninja import NinjaAPI, Schema, Router
+from ninja import Schema, Router
 from ninja.errors import HttpError
-from django.http import JsonResponse
-from django.db.models import Q, Sum, Avg, F, Count, DecimalField, Case, When, Value, IntegerField
+from django.db.models import Q, Sum, Count, Case, When, Value, IntegerField
 from .utils import success_response, error_response, validation_error_response
+from django.http import JsonResponse
 
 # pyright: reportAttributeAccessIssue=false
 # pyright: reportOperatorIssue=false  
@@ -11,17 +10,16 @@ from .utils import success_response, error_response, validation_error_response
 # pyright: reportReturnType=false
 from .models import (
     StockSymbol, SymbolRefreshLog, Portfolio, Holding, 
-    CashContribution, DividendPayment, PriceAlert, PortfolioSnapshot
+    CashContribution, DividendPayment
 )
-from .alpha_vantage_service import alpha_vantage, get_alpha_vantage_service, AlphaVantageService
-from typing import List, Optional, Dict, Any
+from .alpha_vantage_service import alpha_vantage, get_alpha_vantage_service
+from typing import Optional
 from datetime import datetime, date, timedelta
 from decimal import Decimal
 import os
-import json
 import logging
-import time
 from .services.metrics_calculator import calculate_advanced_metrics
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -67,71 +65,70 @@ def health_check(request):
 @router.get("/symbols/search")
 def search_symbols(request, q: str = "", exchange: str = "", limit: int = 25):
     """
-    Comprehensive symbol search across all loaded exchanges
-    
+    Live symbol search using Alpha Vantage SYMBOL_SEARCH.
     Args:
         q: Search query (symbol or company name)
-        exchange: Filter by specific exchange code (optional)
+        exchange: (ignored, for compatibility)
         limit: Maximum number of results to return (default: 25, max: 100)
     """
-    
+    ALPHA_VANTAGE_API_KEY = os.getenv("ALPHA_VANTAGE_API_KEY")
     if not q or len(q.strip()) < 1:
         return {"results": [], "total": 0, "query": q}
+    if not ALPHA_VANTAGE_API_KEY:
+        return {"results": [], "total": 0, "query": q, "error": "Alpha Vantage API key not set"}
+
+    EXCHANGE_SUFFIX_MAP = {
+        'AX': 'ASX', 'L': 'LSE', 'DE': 'XETRA', 'T': 'TSE', 'HK': 'HKEX',
+        'PA': 'Euronext Paris', 'TO': 'TSX', 'AS': 'Euronext Amsterdam',
+        'SS': 'SSE', 'SZ': 'SZSE', 'NS': 'NSE', 'KS': 'KSE', 'SA': 'Tadawul'
+    }
+
+    url = "https://www.alphavantage.co/query"
+    params = {
+        "function": "SYMBOL_SEARCH",
+        "keywords": q,
+        "apikey": ALPHA_VANTAGE_API_KEY,
+    }
+    response = requests.get(url, params=params)
+    if response.status_code != 200:
+        return {"results": [], "total": 0, "query": q, "error": "Alpha Vantage error"}
     
-    # Limit the number of results
-    limit = min(limit, 100)
-    query = q.strip()
-    
-    # Build search filter
-    search_filter = Q(is_active=True)
-    
-    # Add exchange filter if specified
-    if exchange:
-        search_filter &= Q(exchange_code=exchange)
-    
-    # Search in symbol and name fields
-    query_filter = (
-        Q(symbol__icontains=query) |
-        Q(name__icontains=query) |
-        Q(symbol__istartswith=query) |
-        Q(name__istartswith=query)
-    )
-    
-    search_filter &= query_filter
-    
-    # Execute search with ordering for relevance
-    symbols = StockSymbol.objects.filter(search_filter).annotate(
-        relevance=Case(
-            When(symbol__iexact=query, then=Value(1)),
-            When(symbol__istartswith=query, then=Value(2)),
-            When(name__istartswith=query, then=Value(3)),
-            default=Value(4),
-            output_field=IntegerField(),
-        )
-    ).order_by('relevance', 'symbol')[:limit]
-    
-    # Convert to response format
+    data = response.json()
+    matches = data.get("bestMatches", [])
     results = []
-    for symbol in symbols:
+    
+    for match in matches[:limit]:
+        symbol_str = match.get("1. symbol")
+        region = match.get("4. region")
+        
+        exchange_name = region
+        exchange_code = ""
+
+        if '.' in symbol_str:
+            parts = symbol_str.split('.')
+            suffix = parts[-1].upper()
+            if suffix in EXCHANGE_SUFFIX_MAP:
+                exchange_name = EXCHANGE_SUFFIX_MAP[suffix]
+                exchange_code = suffix
+        elif region == 'United States':
+            exchange_name = 'US Markets'
+            exchange_code = 'US'
+
         results.append({
-            'symbol': symbol.symbol,
-            'name': symbol.name,
-            'exchange': symbol.exchange_name,
-            'exchange_code': symbol.exchange_code,
-            'currency': symbol.currency,
-            'country': symbol.country,
-            'type': symbol.type
+            "symbol": symbol_str,
+            "name": match.get("2. name"),
+            "exchange": exchange_name,
+            "exchange_code": exchange_code,
+            "currency": match.get("8. currency"),
+            "type": match.get("3. type"),
         })
-    
-    # Get total count for the query
-    total_count = StockSymbol.objects.filter(search_filter).count()
-    
+
     return {
         "results": results,
-        "total": total_count,
-        "query": query,
+        "total": len(results),
+        "query": q,
         "limit": limit,
-        "source": "database"
+        "source": "alpha_vantage"
     }
 
 
@@ -222,6 +219,31 @@ class DividendConfirmationSchema(Schema):
 # STOCK ANALYSIS ENDPOINTS
 # =================
 
+@router.get("/stocks/{symbol}/quote", summary="Get Real-time Stock Quote")
+def get_stock_quote(request, symbol: str):
+    """Get real-time stock quote with current price"""
+    try:
+        symbol_upper = symbol.upper()
+        quote = alpha_vantage.get_global_quote(symbol_upper)
+        
+        if not quote:
+            return error_response(
+                f"Quote data could not be found for ticker {symbol_upper} from our provider.",
+                status_code=404
+            )
+
+        return success_response({
+            "symbol": symbol_upper,
+            "data": quote,
+            "timestamp": datetime.now().isoformat()
+        })
+    except Exception as e:
+        logger.error(f"Error getting stock quote for {symbol}: {e}", exc_info=True)
+        return error_response(
+            f"An unexpected error occurred while retrieving the quote for {symbol}.",
+            status_code=500
+        )
+
 @router.get("/stocks/{symbol}/overview", summary="Get Company Overview and Quote")
 def get_company_overview(request, symbol: str):
     """Get comprehensive stock overview including fundamentals"""
@@ -236,8 +258,16 @@ def get_company_overview(request, symbol: str):
                 status_code=404
             )
 
-        # Combine any data we did find
-        combined_data = {**(overview or {}), **(quote or {})}
+        # Combine any data we did find - prioritize quote data for price info
+        combined_data = {}
+        if overview:
+            combined_data.update(overview)
+        if quote:
+            combined_data.update(quote)
+
+        # Ensure we have a price field
+        if not combined_data.get('price') and quote:
+            combined_data['price'] = quote.get('price')
 
         return success_response({
             "symbol": symbol_upper,
@@ -414,6 +444,7 @@ def get_portfolio_performance(request, user_id: str, period: str = "1Y", benchma
 @router.post("/portfolios/{user_id}/holdings")
 def add_holding(request, user_id: str, holding_data: HoldingSchema):
     """Add a new stock holding to portfolio"""
+    print("UPDATE HOLDING CALLED")
     try:
         # Validate input data
         if holding_data.shares <= 0:
@@ -463,6 +494,81 @@ def add_holding(request, user_id: str, holding_data: HoldingSchema):
         logger.error(f"Error adding holding for user {user_id}: {e}", exc_info=True)
         return error_response(
             "Could not add holding. Please try again.",
+            status_code=500
+        )
+
+@router.delete("/portfolios/{user_id}/holdings/{holding_id}")
+def delete_holding(request, user_id: str, holding_id: int):
+    try:
+        holding = Holding.objects.get(id=holding_id, portfolio__user_id=user_id)
+        holding.delete()
+        return JsonResponse({"ok": True, "message": "Holding deleted"})
+    except Holding.DoesNotExist:
+        return JsonResponse({"ok": False, "error": "Holding not found"}, status=404)
+
+@router.put("/portfolios/{user_id}/holdings/{holding_id}")
+def update_holding(request, user_id: str, holding_id: int, holding_data: HoldingSchema):
+    """Update an existing holding"""
+    try:
+        print(f"UPDATE HOLDING CALLED")
+        holding = Holding.objects.get(id=holding_id, portfolio__user_id=user_id)
+
+        # Validate input data
+        if holding_data.shares <= 0:
+            return validation_error_response({"shares": "Shares must be greater than 0"})
+        if holding_data.purchase_price <= 0:
+            return validation_error_response({"purchase_price": "Purchase price must be greater than 0"})
+        if holding_data.fx_rate <= 0:
+            return validation_error_response({"fx_rate": "Exchange rate must be greater than 0"})
+
+        # Get or create the stock symbol
+        stock_symbol, _ = StockSymbol.objects.get_or_create(
+            symbol=holding_data.ticker.upper(),
+            defaults={
+                'name': holding_data.company_name,
+                'exchange_name': holding_data.exchange,
+                'is_active': True
+            }
+        )
+
+        # Update holding fields (only editable ones)
+        holding.stock_symbol = stock_symbol
+        holding.ticker = holding_data.ticker.upper()
+        holding.company_name = holding_data.company_name
+        holding.shares = Decimal(str(holding_data.shares))
+        holding.purchase_price = Decimal(str(holding_data.purchase_price))
+        holding.purchase_date = holding_data.purchase_date
+        holding.commission = Decimal(str(holding_data.commission))
+        holding.currency = holding_data.currency
+        holding.fx_rate = Decimal(str(holding_data.fx_rate))
+        holding.used_cash_balance = holding_data.used_cash_balance
+
+        holding.save()
+
+        # Create dividend records if not exists
+        try:
+            _create_dividend_records_for_holding(holding)
+        except Exception as e:
+            logger.warning(f"Could not create dividend records for {holding.ticker}: {e}")
+            # Don't fail the update if dividend record creation fails
+
+        return success_response({
+            "message": "Holding updated successfully",
+            "holding_id": holding.id,
+            "ticker": holding.ticker,
+            "shares": float(holding.shares),
+            "current_price": float(holding.purchase_price),
+            "market_value": float(holding.shares * holding.purchase_price)
+        })
+
+    except Holding.DoesNotExist:
+        print("Holding not found!")
+        return error_response("Holding not found", status_code=404)
+    except Exception as e:
+        print(f"Error updating holding: {e}")
+        import traceback; traceback.print_exc()
+        return error_response(
+            "Could not update holding. Please try again.",
             status_code=500
         )
 
@@ -684,7 +790,7 @@ def _calculate_current_portfolio_value(portfolio: Portfolio) -> Decimal:
             quote = alpha_vantage.get_global_quote(holding.ticker)
             current_price = Decimal(str(quote['price'])) if quote and quote.get('price') else holding.purchase_price
             total_value += holding.shares * current_price
-        except:
+        except Exception:
             total_value += holding.shares * holding.purchase_price
     return total_value
 
@@ -953,3 +1059,4 @@ def get_portfolio_diversification(request, user_id: str):
     except Exception as e:
         logger.error(f"Error in portfolio diversification analysis for user {user_id}: {e}", exc_info=True)
         raise HttpError(500, f"Portfolio diversification analysis failed: {str(e)}")
+

@@ -1,15 +1,13 @@
 from unittest.mock import patch, MagicMock
 from django.test import TestCase
 from django.core.management import call_command
-from django.utils import timezone
 from ninja.testing import TestClient
-from datetime import timedelta
 from decimal import Decimal
 from io import StringIO
 
 from ..api import api
 from ..models import Portfolio, PriceAlert
-from ..services.price_alert_service import PriceAlertService, get_price_alert_service
+from ..services.price_alert_service import PriceAlertService
 
 class PriceAlertServiceTest(TestCase):
     def setUp(self):

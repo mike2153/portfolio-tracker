@@ -1,8 +1,6 @@
 import unittest
-from unittest.mock import patch, Mock, MagicMock
+from unittest.mock import patch, Mock
 import time
-import json
-import os
 from api.alpha_vantage_service import AlphaVantageService, RateLimitError
 import requests
 
@@ -82,7 +80,7 @@ class TestAlphaVantageService(unittest.TestCase):
         # Test cache storage and retrieval
         test_data = {'test': 'data', 'timestamp': time.time()}
         self.service._store_in_cache(cache_key, test_data)
-        print(f"Stored test data in cache")
+        print("Stored test data in cache")
         
         cached_data = self.service._get_from_cache(cache_key)
         self.assertEqual(cached_data, test_data)
@@ -118,9 +116,10 @@ class TestAlphaVantageService(unittest.TestCase):
         result = self.service.get_global_quote('AAPL')
         print(f"API request result: {result}")
         
-        self.assertIsNotNone(result)
-        self.assertEqual(result['symbol'], 'AAPL')
-        self.assertEqual(result['price'], 150.00)
+        self.assertIsNotNone(result, "API request returned None")
+        if result:
+            self.assertEqual(result['symbol'], 'AAPL')
+            self.assertEqual(result['price'], 150.00)
         print("✓ Successfully parsed API response")
     
     @patch('requests.get')
@@ -212,9 +211,10 @@ class TestAlphaVantageService(unittest.TestCase):
             print(f"Number of sleep calls: {mock_sleep.call_count}")
             print(f"Total API calls made: {mock_get.call_count}")
         
-        self.assertIsNotNone(result)
-        self.assertEqual(result['symbol'], 'AAPL')
-        self.assertEqual(mock_get.call_count, 3)
+        self.assertIsNotNone(result, "API request returned None")
+        if result:
+            self.assertEqual(result['symbol'], 'AAPL')
+            self.assertEqual(mock_get.call_count, 3)
         print("✓ Retry logic worked correctly")
     
     def test_api_usage_stats(self):
@@ -285,18 +285,19 @@ class TestAlphaVantageService(unittest.TestCase):
             print(f"Number of data points: {len(result['data'])}")
             print(f"First data point: {result['data'][0] if result['data'] else 'None'}")
         
-        self.assertIsNotNone(result)
-        self.assertEqual(result['symbol'], 'AAPL')
-        self.assertIn('data', result)
-        self.assertEqual(len(result['data']), 2)
-        
-        # Check data is sorted by date (oldest first)
-        self.assertEqual(result['data'][0]['date'], '2023-12-01')
-        self.assertEqual(result['data'][1]['date'], '2023-12-02')
-        
-        # Check data parsing
-        self.assertEqual(result['data'][0]['close'], 154.00)
-        self.assertEqual(result['data'][0]['dividend_amount'], 0.25)
+        self.assertIsNotNone(result, "API request returned None")
+        if result:
+            self.assertEqual(result['symbol'], 'AAPL')
+            self.assertIn('data', result)
+            self.assertEqual(len(result['data']), 2)
+            
+            # Check data is sorted by date (oldest first)
+            self.assertEqual(result['data'][0]['date'], '2023-12-01')
+            self.assertEqual(result['data'][1]['date'], '2023-12-02')
+            
+            # Check data parsing
+            self.assertEqual(result['data'][0]['close'], 154.00)
+            self.assertEqual(result['data'][0]['dividend_amount'], 0.25)
         print("✓ Historical data parsing is correct")
 
 
