@@ -123,8 +123,10 @@ const TransactionsPage = () => {
         return;
       }
       setSearchLoading(true);
+      console.debug('[Autocomplete] Sending searchSymbols request:', query);
       try {
         const response = await apiService.searchSymbols(query);
+        console.debug('[Autocomplete] Received response:', response);
         if (response.ok && response.data) {
           setTickerSuggestions(response.data.results);
         } else {
@@ -337,15 +339,15 @@ const TransactionsPage = () => {
               </div>
               <div className="relative">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Ticker Symbol</label>
-                <input type="text" name="ticker" value={form.ticker} onChange={handleTickerChange} onFocus={() => setShowSuggestions(true)} onBlur={() => setTimeout(() => setShowSuggestions(false), 200)} className={`w-full p-2 border ${formErrors.ticker ? 'border-red-500' : 'border-gray-300'} rounded-lg`} placeholder="e.g., AAPL" required autoComplete="off" />
+                <input type="text" name="ticker" value={form.ticker} onChange={handleTickerChange} onFocus={() => setShowSuggestions(true)} onBlur={() => setTimeout(() => setShowSuggestions(false), 200)} className={`w-full p-2 border ${formErrors.ticker ? 'border-red-500' : 'border-gray-300'} rounded-lg text-black`} placeholder="e.g., AAPL" required autoComplete="off" />
                 {formErrors.ticker && <p className="text-red-500 text-xs mt-1">{formErrors.ticker}</p>}
                 {showSuggestions && (
                   <div className="absolute z-10 w-full bg-white border border-gray-300 rounded-lg mt-1 shadow-lg max-h-60 overflow-y-auto">
-                    {searchLoading ? <div className="p-4 text-center">Loading...</div> : tickerSuggestions.length > 0 ? (
+                    {searchLoading ? <div className="p-4 text-center text-black">Loading...</div> : tickerSuggestions.length > 0 ? (
                       tickerSuggestions.map(s => (
-                        <div key={s.symbol} onMouseDown={() => handleSuggestionClick(s)} className="p-2 hover:bg-gray-100 cursor-pointer">
-                          <div className="font-bold">{s.symbol}</div>
-                          <div className="text-sm text-gray-600">{s.name}</div>
+                        <div key={s.symbol} onMouseDown={() => handleSuggestionClick(s)} className="p-2 hover:bg-gray-100 cursor-pointer text-black">
+                          <div className="font-bold text-black">{s.symbol}</div>
+                          <div className="text-sm text-gray-700">{s.name}</div>
                         </div>
                       ))
                     ) : <div className="p-4 text-center text-gray-500">No results found.</div>}
@@ -355,24 +357,24 @@ const TransactionsPage = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Number of Shares</label>
-                  <input type="number" name="shares" step="0.000001" min="0" value={form.shares} onChange={handleFormChange} className={`w-full p-2 border ${formErrors.shares ? 'border-red-500' : 'border-gray-300'} rounded-lg`} required />
+                  <input type="number" name="shares" step="0.000001" min="0" value={form.shares} onChange={handleFormChange} className={`w-full p-2 border ${formErrors.shares ? 'border-red-500' : 'border-gray-300'} rounded-lg text-black`} required />
                   {formErrors.shares && <p className="text-red-500 text-xs mt-1">{formErrors.shares}</p>}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Price per Share</label>
-                  <input type="number" name="purchase_price" step="0.01" min="0" value={form.purchase_price} onChange={handleFormChange} className={`w-full p-2 border ${formErrors.purchase_price ? 'border-red-500' : 'border-gray-300'} rounded-lg`} required />
+                  <input type="number" name="purchase_price" step="0.01" min="0" value={form.purchase_price} onChange={handleFormChange} className={`w-full p-2 border ${formErrors.purchase_price ? 'border-red-500' : 'border-gray-300'} rounded-lg text-black`} required />
                   {formErrors.purchase_price && <p className="text-red-500 text-xs mt-1">{formErrors.purchase_price}</p>}
                 </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Transaction Date</label>
-                <input type="date" name="purchase_date" value={form.purchase_date} onChange={handleFormChange} onBlur={handleDateBlur} className={`w-full p-2 border ${formErrors.purchase_date ? 'border-red-500' : 'border-gray-300'} rounded-lg`} required />
+                <input type="date" name="purchase_date" value={form.purchase_date} onChange={handleFormChange} onBlur={handleDateBlur} className={`w-full p-2 border ${formErrors.purchase_date ? 'border-red-500' : 'border-gray-300'} rounded-lg text-black`} required />
                 {formErrors.purchase_date && <p className="text-red-500 text-xs mt-1">{formErrors.purchase_date}</p>}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
-                    <select name="currency" value={form.currency} onChange={handleFormChange} className="w-full p-2 border border-gray-300 rounded-lg">
+                    <select name="currency" value={form.currency} onChange={handleFormChange} className="w-full p-2 border border-gray-300 rounded-lg text-black">
                         <option value="USD">USD</option>
                         <option value="EUR">EUR</option>
                         <option value="GBP">GBP</option>
@@ -380,13 +382,13 @@ const TransactionsPage = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Commission (optional)</label>
-                  <input type="number" name="commission" step="0.01" min="0" value={form.commission} onChange={handleFormChange} className={`w-full p-2 border ${formErrors.commission ? 'border-red-500' : 'border-gray-300'} rounded-lg`} placeholder="0.00" />
+                  <input type="number" name="commission" step="0.01" min="0" value={form.commission} onChange={handleFormChange} className={`w-full p-2 border ${formErrors.commission ? 'border-red-500' : 'border-gray-300'} rounded-lg text-black`} placeholder="0.00" />
                   {formErrors.commission && <p className="text-red-500 text-xs mt-1">{formErrors.commission}</p>}
                 </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
-                <textarea name="notes" value={form.notes} onChange={handleFormChange} className="w-full p-2 border border-gray-300 rounded-lg" rows={2} placeholder="Additional notes..." />
+                <textarea name="notes" value={form.notes} onChange={handleFormChange} className="w-full p-2 border border-gray-300 rounded-lg text-black" rows={2} placeholder="Additional notes..." />
               </div>
               <div className="flex gap-4 pt-4">
                 <button type="button" onClick={() => setShowAddForm(false)} className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium">Cancel</button>

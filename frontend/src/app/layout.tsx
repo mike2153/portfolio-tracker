@@ -3,7 +3,7 @@ import { Inter } from 'next/font/google'
 import Link from 'next/link'
 import { ToastProvider } from '@/components/ui/Toast'
 import { Providers } from '@/components/Providers'
-import { Home, BarChart2, Briefcase, Wrench, Users, Plus, Search, Sun, Moon, ChevronsUpDown } from 'lucide-react'
+import { Home, BarChart2, Briefcase, Wrench, Users, Plus, Search, Sun, Moon, ChevronsUpDown, PlusCircle } from 'lucide-react'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -39,6 +39,10 @@ export default function RootLayout({
                     <Link href="/portfolio" className="flex items-center space-x-3 rounded-md px-3 py-2 hover:bg-gray-700/50">
                       <Briefcase className="h-5 w-5" />
                       <span>Portfolio</span>
+                    </Link>
+                    <Link href="/transactions" className="flex items-center space-x-3 rounded-md px-3 py-2 hover:bg-gray-700/50">
+                      <PlusCircle className="h-5 w-5" />
+                      <span>Transactions</span>
                     </Link>
                     <Link href="/tools" className="flex items-center space-x-3 rounded-md px-3 py-2 hover:bg-gray-700/50">
                       <Wrench className="h-5 w-5" />

@@ -20,7 +20,7 @@ export default async function DashboardPage() {
         <h1 className="text-2xl font-bold tracking-tight text-white">My portfolio</h1>
         {/* Add top right controls here */}
       </div>
-      
+
       <KPIGrid initialData={overviewDataResult.ok ? overviewDataResult.data : undefined} />
 
       <Suspense fallback={<ChartSkeleton />}>
@@ -43,7 +43,7 @@ export default async function DashboardPage() {
           <GainLossCard type="losers" />
         </Suspense>
       </div>
-      
+
       <div className="grid grid-cols-1 gap-6">
         <Suspense fallback={<ChartSkeleton />}>
             {/* @ts-expect-error Server Component */}

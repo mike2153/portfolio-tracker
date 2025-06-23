@@ -1,10 +1,10 @@
-from ninja import Schema, Router, Depends
+from ninja import Schema, Router
 from ninja.errors import HttpError
 from django.db.models import Q, Sum, Count, Case, When, Value, IntegerField
 from .utils import success_response, error_response, validation_error_response
 from django.http import JsonResponse
 from .services.transaction_service import get_transaction_service, get_price_update_service
-from .models import Transaction, UserSettings, UserApiRateLimit
+from .models import Transaction, UserSettings, UserApiRateLimit, Holding, Portfolio, CashContribution, PriceAlert, StockSymbol, DividendPayment
 from django.http import JsonResponse
 from datetime import datetime, date, timedelta
 from typing import Optional, List, Dict, Any
@@ -14,11 +14,14 @@ import logging
 from .services.metrics_calculator import calculate_advanced_metrics
 import requests
 from ninja.security import HttpBearer
-from cachetools.func import ttl_cache
+from cachetools import TTLCache
 from asgiref.sync import sync_to_async
 from functools import wraps
 from pydantic import Field
 from .alpha_vantage_service import alpha_vantage, get_alpha_vantage_service
+from .schemas import *
+from .services.price_alert_service import get_price_alert_service
+#from .services.portfolio_benchmarking import PortfolioBenchmarking
 from .dashboard_views import dashboard_api_router
 
 logger = logging.getLogger(__name__)
@@ -53,12 +56,10 @@ def async_ttl_cache(ttl: int):
     A wrapper to make cachetools.func.ttl_cache compatible with async functions.
     """
     def decorator(func):
-        sync_cache = ttl_cache(maxsize=None, ttl=ttl)
+        sync_cache = TTLCache(maxsize=128, ttl=ttl)
         @wraps(func)
         async def wrapper(*args, **kwargs):
-            # A simplistic way to create a cache key from args/kwargs.
-            # May need to be more robust depending on argument types.
-            key = args + tuple(sorted(kwargs.items()))
+            key = tuple(args) + tuple(sorted(kwargs.items()))
             try:
                 return sync_cache[key]
             except KeyError:
@@ -131,7 +132,7 @@ class FxResponse(Schema):
 
 @router.get("/dashboard/overview", response=OverviewResponse, summary="Get Dashboard KPI Overview")
 @async_ttl_cache(ttl=60) # Cache for 60 seconds
-async def get_dashboard_overview(request, user: MockUser = Depends(get_current_user)):
+async def get_dashboard_overview(request):
     """
     Provides the four main KPI cards for the user's dashboard.
     """
@@ -151,7 +152,7 @@ async def get_dashboard_overview(request, user: MockUser = Depends(get_current_u
 
 @router.get("/dashboard/allocation", response=AllocationResponse, summary="Get Portfolio Allocation")
 @async_ttl_cache(ttl=60)
-async def get_portfolio_allocation(request, groupBy: str = "sector", user: MockUser = Depends(get_current_user)):
+async def get_portfolio_allocation(request, groupBy: str = "sector"):
     """
     Provides data for the portfolio allocation table, grouped by a given category.
     """
@@ -172,7 +173,7 @@ async def get_portfolio_allocation(request, groupBy: str = "sector", user: MockU
 
 @router.get("/dashboard/gainers", response=GainersLosersResponse, summary="Get Top 5 Day Gainers")
 @async_ttl_cache(ttl=60)
-async def get_top_gainers(request, limit: int = 5, user: MockUser = Depends(get_current_user)):
+async def get_top_gainers(request, limit: int = 5):
     """Provides the top 5 daily gainers from the user's portfolio."""
     # TODO: Implement real logic
     gainers_data = [
@@ -188,7 +189,7 @@ async def get_top_gainers(request, limit: int = 5, user: MockUser = Depends(get_
 
 @router.get("/dashboard/losers", response=GainersLosersResponse, summary="Get Top 5 Day Losers")
 @async_ttl_cache(ttl=60)
-async def get_top_losers(request, limit: int = 5, user: MockUser = Depends(get_current_user)):
+async def get_top_losers(request, limit: int = 5):
     """Provides the top 5 daily losers from the user's portfolio."""
     # TODO: Implement real logic
     losers_data = [
@@ -204,7 +205,7 @@ async def get_top_losers(request, limit: int = 5, user: MockUser = Depends(get_c
 
 @router.get("/dashboard/dividend-forecast", response=DividendForecastResponse, summary="Get 12-Month Dividend Forecast")
 @async_ttl_cache(ttl=3600) # Cache for 1 hour
-async def get_dividend_forecast(request, months: int = 12, user: MockUser = Depends(get_current_user)):
+async def get_dividend_forecast(request, months: int = 12):
     """
     Provides a 12-month forecast of expected dividend payments.
     """
@@ -544,7 +545,7 @@ def update_holding(request, user_id: str, holding_id: int, holding_data: Holding
         if holding_data.fx_rate <= 0:
             return validation_error_response({"fx_rate": "Exchange rate must be greater than 0"})
 
-        # Get or create the stock symbol
+        # Get or create the stock symbol for reference, but don't assign it to the holding model
         stock_symbol, _ = StockSymbol.objects.get_or_create(
             symbol=holding_data.ticker.upper(),
             defaults={
@@ -554,8 +555,7 @@ def update_holding(request, user_id: str, holding_id: int, holding_data: Holding
             }
         )
 
-        # Update holding fields (only editable ones)
-        holding.stock_symbol = stock_symbol
+        # Update holding fields
         holding.ticker = holding_data.ticker.upper()
         holding.company_name = holding_data.company_name
         holding.shares = Decimal(str(holding_data.shares))
@@ -675,37 +675,25 @@ def confirm_dividend(request, confirmation: DividendConfirmationSchema):
 
 @router.post("/portfolios/{user_id}/alerts")
 def create_price_alert(request, user_id: str, alert_data: PriceAlertSchema):
-    """Create a price alert using the enhanced alert service"""
+    """Create a new price alert for a user"""
     try:
-        from .services.price_alert_service import get_price_alert_service
-        
         alert_service = get_price_alert_service()
         alert = alert_service.create_alert(
             user_id=user_id,
             ticker=alert_data.ticker,
             alert_type=alert_data.alert_type,
-            target_price=alert_data.target_price
+            target_price=float(alert_data.target_price)  # <-- Cast to float
         )
-        
-        return {
-            "message": "Price alert created successfully",
-            "alert_id": alert.id,
-            "ticker": alert.ticker,
-            "alert_type": alert.alert_type,
-            "target_price": float(alert.target_price)
-        }
+        return {"ok": True, "alert_id": alert.id}
     except ValueError as e:
-        raise HttpError(400, str(e))
-    except Exception as e:
-        logger.error(f"Error creating price alert for user {user_id}: {e}", exc_info=True)
-        raise HttpError(500, str(e))
+        return JsonResponse({"ok": False, "error": str(e)}, status=400)
+    except Exception:
+        return JsonResponse({"ok": False, "error": "Could not create alert"}, status=500)
 
 @router.get("/portfolios/{user_id}/alerts")
 def get_price_alerts(request, user_id: str, active_only: bool = True):
     """Get price alerts for user with enhanced filtering"""
     try:
-        from .services.price_alert_service import get_price_alert_service
-        
         alert_service = get_price_alert_service()
         alerts = alert_service.get_user_alerts(user_id, active_only=active_only)
         
@@ -751,8 +739,6 @@ def get_portfolio_news(request, user_id: str, limit: int = 50):
 def deactivate_price_alert(request, user_id: str, alert_id: int):
     """Deactivate a specific price alert"""
     try:
-        from .services.price_alert_service import get_price_alert_service
-        
         alert_service = get_price_alert_service()
         success = alert_service.deactivate_alert(alert_id, user_id)
         
@@ -768,8 +754,6 @@ def deactivate_price_alert(request, user_id: str, alert_id: int):
 def check_price_alerts_manually(request):
     """Manually trigger price alert checking (admin function)"""
     try:
-        from .services.price_alert_service import get_price_alert_service
-        
         alert_service = get_price_alert_service()
         results = alert_service.check_all_active_alerts()
         
@@ -785,8 +769,6 @@ def check_price_alerts_manually(request):
 def get_alert_statistics(request):
     """Get price alert system statistics"""
     try:
-        from .services.price_alert_service import get_price_alert_service
-        
         alert_service = get_price_alert_service()
         stats = alert_service.get_alert_statistics()
         
@@ -1388,17 +1370,79 @@ def migrate_existing_holdings(request):
     One-time migration script to populate the new Transaction model
     from the old Holding and CashContribution models.
     """
-    transaction_service = get_transaction_service(user_id="migration_user")
-    
     try:
-        summary = transaction_service.migrate_from_holdings()
+        # Removed call to non-existent migrate_from_holdings
+        summary = {"message": "Migration logic not implemented."}
         return success_response(data=summary)
     except Exception as e:
         logger.error(f"Migration failed: {e}", exc_info=True)
-        return error_response(message=f"Migration failed: {e}", status_code=500)
+        return error_response(error=f"Migration failed: {e}", status_code=500)
 
 
 @router.get("/health")
 def health_check(request):
-    # ... existing code ...
+    return success_response(data={"status": "ok"})
+
+
+@router.get("/symbols/search")
+def search_symbols(request, q: str, limit: int = 10):
+    """
+    Search for stock symbols by ticker or company name.
+    First, it searches the local database. If fewer than `limit` results are found,
+    it queries the Alpha Vantage API for more symbols and combines the results.
+    """
+    logger.info(f"[SYMBOL SEARCH] Received search request: q='{q}', limit={limit}")
+    av_service = get_alpha_vantage_service()
+
+    results = []
+    local_symbols_qs = StockSymbol.objects.filter(
+        Q(symbol__icontains=q) | Q(name__icontains=q),
+        is_active=True
+    ).order_by('symbol')[:limit]
+
+    for s in local_symbols_qs:
+        results.append({
+            "symbol": s.symbol,
+            "name": s.name,
+            "exchange": s.exchange_name,
+            "currency": s.currency,
+            "type": s.type,
+            "source": "local"
+        })
+
+    logger.debug(f"[SYMBOL SEARCH] Found {len(results)} symbols locally for '{q}'.")
+
+    if len(results) >= limit or len(q) < 2:
+        return {"ok": True, "results": results[:limit]}
+
+    try:
+        av_search_results = av_service.symbol_search(keywords=q)
+        if av_search_results and av_search_results.get('bestMatches'):
+            logger.debug(f"[SYMBOL SEARCH] Alpha Vantage found {len(av_search_results['bestMatches'])} potential matches for '{q}'.")
+            existing_symbols = {r['symbol'] for r in results}
+            
+            for match in av_search_results['bestMatches']:
+                if len(results) >= limit:
+                    break
+                
+                symbol_data = {
+                    "symbol": match.get("1. symbol"),
+                    "name": match.get("2. name"),
+                    "exchange": match.get("4. region"),
+                    "currency": match.get("8. currency"),
+                    "type": match.get("3. type"),
+                    "source": "alpha_vantage"
+                }
+
+                if symbol_data["symbol"] and symbol_data["symbol"] not in existing_symbols:
+                    results.append(symbol_data)
+                    existing_symbols.add(symbol_data["symbol"])
+        else:
+            logger.debug(f"[SYMBOL SEARCH] No additional matches found via Alpha Vantage for '{q}'.")
+            
+    except Exception as e:
+        logger.error(f"[SYMBOL SEARCH] Error during Alpha Vantage search for '{q}': {e}", exc_info=True)
+
+    logger.info(f"[SYMBOL SEARCH] Returning {len(results)} combined results for '{q}'.")
+    return {"ok": True, "results": results[:limit]}
 

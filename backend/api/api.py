@@ -6,7 +6,7 @@ from .dashboard_views import dashboard_api_router
 api = NinjaAPI()
 
 api.add_router("/", api_router)
-api.add_router("/", dashboard_api_router)
+api.add_router("/dashboard", dashboard_api_router)
 
 @api.get("/hello")
 def hello(request):

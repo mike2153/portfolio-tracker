@@ -1,9 +1,9 @@
-from ninja import Router, Schema, Depends
+from ninja import Router, Schema
 from typing import List, Optional, Dict, Any
 from pydantic import Field
 from decimal import Decimal
 from functools import wraps
-from cachetools.func import ttl_cache
+from cachetools import TTLCache
 
 # =================
 # AUTHENTICATION
@@ -23,7 +23,7 @@ async def get_current_user(request) -> MockUser:
 def async_ttl_cache(ttl: int):
     """A wrapper to make cachetools.func.ttl_cache compatible with async functions."""
     def decorator(func):
-        sync_cache = ttl_cache(maxsize=None, ttl=ttl)
+        sync_cache = TTLCache(maxsize=128, ttl=ttl)
         @wraps(func)
         async def wrapper(*args, **kwargs):
             key_args = [a for a in args if not isinstance(a, MockUser)]
@@ -103,7 +103,7 @@ class FxResponse(Schema):
 
 @dashboard_api_router.get("/dashboard/overview", response=OverviewResponse, summary="Get Dashboard KPI Overview")
 @async_ttl_cache(ttl=60)
-async def get_dashboard_overview(request, user: MockUser = Depends(get_current_user)):
+async def get_dashboard_overview(request):
     return {
         "marketValue": {"value": "138214.02", "sub_label": "AU$138,477.40 invested", "is_positive": True},
         "totalProfit": {"value": "12257.01", "sub_label": "+AU$178.07 daily", "delta_percent": "8.9", "is_positive": True},
@@ -113,7 +113,7 @@ async def get_dashboard_overview(request, user: MockUser = Depends(get_current_u
 
 @dashboard_api_router.get("/dashboard/allocation", response=AllocationResponse, summary="Get Portfolio Allocation")
 @async_ttl_cache(ttl=60)
-async def get_portfolio_allocation(request, groupBy: str = "sector", user: MockUser = Depends(get_current_user)):
+async def get_portfolio_allocation(request, groupBy: str = "sector"):
     allocation_data = [
         {"groupKey": "Funds", "value": "51142.06", "invested": "57257.15", "gainValue": "3195.08", "gainPercent": "5.58", "allocation": "44.24", "accentColor": "blue"},
         {"groupKey": "Industrials", "value": "18729.62", "invested": "19470.87", "gainValue": "-1225.94", "gainPercent": "-6.3", "allocation": "14.27", "accentColor": "green"},
@@ -125,7 +125,7 @@ async def get_portfolio_allocation(request, groupBy: str = "sector", user: MockU
 
 @dashboard_api_router.get("/dashboard/gainers", response=GainersLosersResponse, summary="Get Top 5 Day Gainers")
 @async_ttl_cache(ttl=60)
-async def get_top_gainers(request, limit: int = 5, user: MockUser = Depends(get_current_user)):
+async def get_top_gainers(request, limit: int = 5):
     gainers_data = [
         {"name": "iShares Core S&P 500 AUD", "ticker": "IVV", "value": "29550.15", "changePercent": "0.9", "changeValue": "262.33"},
         {"name": "Vanguard US Total Market Shares Index ETF", "ticker": "VTS", "value": "14624.96", "changePercent": "0.95", "changeValue": "127.60"},
@@ -137,7 +137,7 @@ async def get_top_gainers(request, limit: int = 5, user: MockUser = Depends(get_
 
 @dashboard_api_router.get("/dashboard/losers", response=GainersLosersResponse, summary="Get Top 5 Day Losers")
 @async_ttl_cache(ttl=60)
-async def get_top_losers(request, limit: int = 5, user: MockUser = Depends(get_current_user)):
+async def get_top_losers(request, limit: int = 5):
     losers_data = [
         {"name": "Arista Networks, Inc", "ticker": "ANET", "value": "3622.50", "changePercent": "-4.42", "changeValue": "-167.58"},
         {"name": "Brookside Energy Ltd", "ticker": "BRK", "value": "5983.29", "changePercent": "-3.48", "changeValue": "-216.20"},
@@ -149,7 +149,7 @@ async def get_top_losers(request, limit: int = 5, user: MockUser = Depends(get_c
 
 @dashboard_api_router.get("/dashboard/dividend-forecast", response=DividendForecastResponse, summary="Get 12-Month Dividend Forecast")
 @async_ttl_cache(ttl=3600)
-async def get_dividend_forecast(request, months: int = 12, user: MockUser = Depends(get_current_user)):
+async def get_dividend_forecast(request, months: int = 12):
     forecast_data = [
         {"month": "Jul", "amount": "619"}, {"month": "Aug", "amount": "290"}, {"month": "Sep", "amount": "150"},
         {"month": "Oct", "amount": "520"}, {"month": "Nov", "amount": "175"}, {"month": "Dec", "amount": "125"},

@@ -405,13 +405,39 @@ class AlphaVantageService:
         }
     
     def get_api_usage_stats(self) -> Dict[str, Any]:
-        """Get current API usage statistics"""
+        """Return API usage statistics"""
+        current_time = time.time()
+        # Clean old timestamps
+        self.request_timestamps = [t for t in self.request_timestamps if current_time - t < 60]
+        
         return {
-            "total_requests_today": len(self.request_timestamps),
-            "requests_last_minute": len([t for t in self.request_timestamps if time.time() - t < 60]),
+            "requests_last_minute": len(self.request_timestamps),
+            "rate_limit": self.MAX_REQUESTS_PER_MINUTE,
             "cache_size": len(self.cache),
-            "rate_limit_max": self.MAX_REQUESTS_PER_MINUTE
+            "api_key_configured": bool(self.api_key)
         }
+
+    def symbol_search(self, keywords: str) -> Optional[Dict[str, Any]]:
+        """
+        Search for stock symbols by keywords (ticker symbol or company name).
+        
+        Args:
+            keywords: Search keywords (e.g., 'AAPL', 'Apple', 'Microsoft')
+        
+        Returns:
+            Dictionary with search results or None if error/no results.
+        """
+        params = {
+            'function': 'SYMBOL_SEARCH',
+            'keywords': keywords
+        }
+        data = self._make_request(params)
+        
+        if not data or 'error' in data or not data.get('bestMatches'):
+            logger.warning(f"No symbol search results for keywords: {keywords}. Error: {data.get('error', 'No bestMatches')}")
+            return None
+            
+        return data
 
 def get_alpha_vantage_service() -> AlphaVantageService:
     """Get a singleton instance of the AlphaVantageService"""
