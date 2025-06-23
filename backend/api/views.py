@@ -1,218 +1,241 @@
-from ninja import Schema, Router
+from ninja import Schema, Router, Depends
 from ninja.errors import HttpError
 from django.db.models import Q, Sum, Count, Case, When, Value, IntegerField
 from .utils import success_response, error_response, validation_error_response
 from django.http import JsonResponse
-
-# pyright: reportAttributeAccessIssue=false
-# pyright: reportOperatorIssue=false  
-# pyright: reportArgumentType=false
-# pyright: reportReturnType=false
-from .models import (
-    StockSymbol, SymbolRefreshLog, Portfolio, Holding, 
-    CashContribution, DividendPayment
-)
-from .alpha_vantage_service import alpha_vantage, get_alpha_vantage_service
-from typing import Optional
+from .services.transaction_service import get_transaction_service, get_price_update_service
+from .models import Transaction, UserSettings, UserApiRateLimit
+from django.http import JsonResponse
 from datetime import datetime, date, timedelta
+from typing import Optional, List, Dict, Any
 from decimal import Decimal
 import os
 import logging
 from .services.metrics_calculator import calculate_advanced_metrics
 import requests
+from ninja.security import HttpBearer
+from cachetools.func import ttl_cache
+from asgiref.sync import sync_to_async
+from functools import wraps
+from pydantic import Field
+from .alpha_vantage_service import alpha_vantage, get_alpha_vantage_service
+from .dashboard_views import dashboard_api_router
 
 logger = logging.getLogger(__name__)
 
 router = Router()
+router.add_router("/", dashboard_api_router)
 
-# Create your views here.
+# =================
+# AUTHENTICATION
+# =================
 
-@router.get("/health")
-def health_check(request):
-    """Health check endpoint for system status monitoring"""
-    try:
-        # Check database connectivity
-        symbol_count = StockSymbol.objects.filter(is_active=True).count()
-        
-        # Check if we have any symbols loaded
-        has_data = symbol_count > 0
-        
-        # Check if API keys are configured (without exposing them)
-        has_alpha_vantage_key = bool(os.getenv('ALPHA_VANTAGE_API_KEY'))
-        
-        return {
-            "status": "healthy",
-            "message": "Portfolio Analytics API is running",
-            "database": "connected",
-            "symbols_loaded": symbol_count,
-            "data_ready": has_data,
-            "external_apis": "configured" if has_alpha_vantage_key else "pending_configuration",
-            "api_provider": "Alpha Vantage",
-            "version": "1.0.0"
-        }
-    except Exception as e:
-        return {
-            "status": "unhealthy", 
-            "message": f"System error: {str(e)}",
-            "database": "error",
-            "symbols_loaded": 0,
-            "data_ready": False,
-            "external_apis": "unknown",
-            "api_provider": "Alpha Vantage",
-            "version": "1.0.0"
-        }
+# TODO: Implement proper Supabase JWT authentication
+# This is a placeholder for development.
+class MockUser:
+    def __init__(self, id, email="test@example.com"):
+        self.id = id
+        self.email = email
 
-@router.get("/symbols/search")
-def search_symbols(request, q: str = "", exchange: str = "", limit: int = 25):
+async def get_current_user(request) -> MockUser:
     """
-    Live symbol search using Alpha Vantage SYMBOL_SEARCH.
-    Args:
-        q: Search query (symbol or company name)
-        exchange: (ignored, for compatibility)
-        limit: Maximum number of results to return (default: 25, max: 100)
+    Placeholder dependency to simulate getting a user from a JWT.
+    In a real scenario, this would decode the token from the Authorization header.
     """
-    ALPHA_VANTAGE_API_KEY = os.getenv("ALPHA_VANTAGE_API_KEY")
-    if not q or len(q.strip()) < 1:
-        return {"results": [], "total": 0, "query": q}
-    if not ALPHA_VANTAGE_API_KEY:
-        return {"results": [], "total": 0, "query": q, "error": "Alpha Vantage API key not set"}
-
-    EXCHANGE_SUFFIX_MAP = {
-        'AX': 'ASX', 'L': 'LSE', 'DE': 'XETRA', 'T': 'TSE', 'HK': 'HKEX',
-        'PA': 'Euronext Paris', 'TO': 'TSX', 'AS': 'Euronext Amsterdam',
-        'SS': 'SSE', 'SZ': 'SZSE', 'NS': 'NSE', 'KS': 'KSE', 'SA': 'Tadawul'
-    }
-
-    url = "https://www.alphavantage.co/query"
-    params = {
-        "function": "SYMBOL_SEARCH",
-        "keywords": q,
-        "apikey": ALPHA_VANTAGE_API_KEY,
-    }
-    response = requests.get(url, params=params)
-    if response.status_code != 200:
-        return {"results": [], "total": 0, "query": q, "error": "Alpha Vantage error"}
-    
-    data = response.json()
-    matches = data.get("bestMatches", [])
-    results = []
-    
-    for match in matches[:limit]:
-        symbol_str = match.get("1. symbol")
-        region = match.get("4. region")
-        
-        exchange_name = region
-        exchange_code = ""
-
-        if '.' in symbol_str:
-            parts = symbol_str.split('.')
-            suffix = parts[-1].upper()
-            if suffix in EXCHANGE_SUFFIX_MAP:
-                exchange_name = EXCHANGE_SUFFIX_MAP[suffix]
-                exchange_code = suffix
-        elif region == 'United States':
-            exchange_name = 'US Markets'
-            exchange_code = 'US'
-
-        results.append({
-            "symbol": symbol_str,
-            "name": match.get("2. name"),
-            "exchange": exchange_name,
-            "exchange_code": exchange_code,
-            "currency": match.get("8. currency"),
-            "type": match.get("3. type"),
-        })
-
-    return {
-        "results": results,
-        "total": len(results),
-        "query": q,
-        "limit": limit,
-        "source": "alpha_vantage"
-    }
+    # For now, we'll use a fixed user_id.
+    # In a real app, you'd get this from the JWT payload.
+    # The `user_id` in the database seems to be a string, not an integer.
+    return MockUser(id="0b8a164c-8e81-4328-a28f-1555560b7952") # Example UUID
 
 
-@router.get("/symbols/stats")
-def symbol_stats(request):
-    """Get statistics about loaded symbols"""
-    
-    # Get total symbols by exchange
-    exchange_stats = list(
-        StockSymbol.objects.values('exchange_code', 'exchange_name', 'country')
-        .annotate(count=Count('id'))
-        .order_by('-count')
-    )
-    
-    # Get refresh logs
-    refresh_logs = list(
-        SymbolRefreshLog.objects.all()
-        .order_by('-last_refresh')
-        .values('exchange_code', 'last_refresh', 'total_symbols', 'success', 'error_message')
-    )
-    
-    total_symbols = StockSymbol.objects.filter(is_active=True).count()
-    
-    return {
-        "total_symbols": total_symbols,
-        "exchanges": exchange_stats,
-        "refresh_logs": refresh_logs,
-        "last_updated": max(
-            (log['last_refresh'] for log in refresh_logs if log['last_refresh']), 
-            default=None
-        )
-    }
-
-
-@router.get("/symbols/refresh")
-def refresh_symbols(request, exchange: str = ""):
+def async_ttl_cache(ttl: int):
     """
-    Trigger a refresh of symbol data from external APIs
-    Note: This is a simplified endpoint. In production, this should be a POST with authentication
+    A wrapper to make cachetools.func.ttl_cache compatible with async functions.
     """
-    
-    # This would trigger the management command
-    # For now, just return information about when to refresh
-    
-    refresh_logs = SymbolRefreshLog.objects.all()
-    if exchange:
-        refresh_logs = refresh_logs.filter(exchange_code=exchange)
-    
-    logs = list(refresh_logs.values())
-    
-    return {
-        "message": "To refresh symbols, run: python manage.py load_symbols",
-        "current_status": logs,
-        "refresh_command": f"python manage.py load_symbols {'--exchange ' + exchange if exchange else ''}",
-    }
+    def decorator(func):
+        sync_cache = ttl_cache(maxsize=None, ttl=ttl)
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            # A simplistic way to create a cache key from args/kwargs.
+            # May need to be more robust depending on argument types.
+            key = args + tuple(sorted(kwargs.items()))
+            try:
+                return sync_cache[key]
+            except KeyError:
+                res = await func(*args, **kwargs)
+                sync_cache[key] = res
+                return res
+        return wrapper
+    return decorator
 
 
-# Pydantic schemas for request/response validation
-class CashContributionSchema(Schema):
-    amount: float
-    contribution_date: date
-    description: str = ""
+# =================
+# DASHBOARD ENDPOINTS
+# =================
 
-class HoldingSchema(Schema):
+# --- Pydantic Schemas for Dashboard ---
+
+class KPIValue(Schema):
+    value: Decimal
+    sub_label: str
+    delta: Optional[Decimal] = None
+    delta_percent: Optional[Decimal] = None
+    is_positive: bool
+
+class OverviewResponse(Schema):
+    market_value: KPIValue
+    total_profit: KPIValue
+    irr: KPIValue
+    passive_income: KPIValue
+
+class AllocationRow(Schema):
+    group_key: str = Field(..., alias="groupKey")
+    value: Decimal
+    invested: Decimal
+    gain_value: Decimal
+    gain_percent: Decimal
+    allocation: Decimal
+    accent_color: str
+
+class AllocationResponse(Schema):
+    rows: List[AllocationRow]
+
+class GainerLoserRow(Schema):
+    logo_url: Optional[str] = Field(None, alias="logoUrl")
+    name: str
     ticker: str
-    company_name: str
-    exchange: str = ""
-    shares: float
-    purchase_price: float
-    purchase_date: date
-    commission: float = 0.0
-    used_cash_balance: bool = False
-    currency: str = "USD"
-    fx_rate: float = 1.0
+    value: Decimal
+    change_percent: Decimal = Field(..., alias="changePercent")
+    change_value: Decimal = Field(..., alias="changeValue")
 
-class PriceAlertSchema(Schema):
-    ticker: str
-    alert_type: str  # 'above' or 'below'
-    target_price: float
+class GainersLosersResponse(Schema):
+    items: List[GainerLoserRow]
 
-class DividendConfirmationSchema(Schema):
-    holding_id: int
-    ex_date: date
-    confirmed: bool
+class DividendForecastItem(Schema):
+    month: str
+    amount: Decimal
+
+class DividendForecastResponse(Schema):
+    forecast: List[DividendForecastItem]
+    next_12m_total: Decimal = Field(..., alias="next12mTotal")
+    monthly_avg: Decimal = Field(..., alias="monthlyAvg")
+
+class FxRate(Schema):
+    pair: str
+    rate: Decimal
+    change: Decimal
+
+class FxResponse(Schema):
+    rates: List[FxRate]
+
+
+@router.get("/dashboard/overview", response=OverviewResponse, summary="Get Dashboard KPI Overview")
+@async_ttl_cache(ttl=60) # Cache for 60 seconds
+async def get_dashboard_overview(request, user: MockUser = Depends(get_current_user)):
+    """
+    Provides the four main KPI cards for the user's dashboard.
+    """
+    # NOTE: This implementation requires complex calculations.
+    # It will fetch all holdings, their current prices, and historical data.
+    # This is a simplified version for demonstration.
+    # A full implementation would need a robust service layer.
+    
+    # Placeholder data - replace with actual calculations
+    return OverviewResponse(
+        market_value=KPIValue(value=Decimal("138214.02"), sub_label="AU$138,477.40 invested", is_positive=True),
+        total_profit=KPIValue(value=Decimal("12257.01"), sub_label="+AU$178.07 daily", delta_percent=Decimal("8.9"), is_positive=True),
+        irr=KPIValue(value=Decimal("11.48"), sub_label="-0.33% current holdings", is_positive=False),
+        passive_income=KPIValue(value=Decimal("1.6"), sub_label="AU$2,022.86 annually", delta=Decimal("9"), is_positive=True)
+    )
+
+
+@router.get("/dashboard/allocation", response=AllocationResponse, summary="Get Portfolio Allocation")
+@async_ttl_cache(ttl=60)
+async def get_portfolio_allocation(request, groupBy: str = "sector", user: MockUser = Depends(get_current_user)):
+    """
+    Provides data for the portfolio allocation table, grouped by a given category.
+    """
+    # TODO: Replace with real data fetching and processing
+    allocation_data = [
+        {"groupKey": "Funds", "value": 51142.06, "invested": 57257.15, "gain_value": 3195.08, "gain_percent": 5.58, "allocation": 44.24, "accent_color": "blue"},
+        {"groupKey": "Industrials", "value": 18729.62, "invested": 19470.87, "gain_value": -1225.94, "gain_percent": -6.3, "allocation": 14.27, "accent_color": "green"},
+        {"groupKey": "Financials", "value": 14563.92, "invested": 13613.49, "gain_value": 10311.09, "gain_percent": 75.74, "allocation": 10.54, "accent_color": "purple"},
+        {"groupKey": "Cash", "value": 11804.06, "invested": 11804.06, "gain_value": 0, "gain_percent": 0, "allocation": 8.54, "accent_color": "gray"},
+        {"groupKey": "Healthcare", "value": 9797.59, "invested": 8463.80, "gain_value": 2275.97, "gain_percent": 26.89, "allocation": 7.09, "accent_color": "teal"},
+    ]
+    
+    # Convert dicts to Pydantic models
+    rows = [AllocationRow(**row) for row in allocation_data]
+    
+    return AllocationResponse(rows=rows)
+
+
+@router.get("/dashboard/gainers", response=GainersLosersResponse, summary="Get Top 5 Day Gainers")
+@async_ttl_cache(ttl=60)
+async def get_top_gainers(request, limit: int = 5, user: MockUser = Depends(get_current_user)):
+    """Provides the top 5 daily gainers from the user's portfolio."""
+    # TODO: Implement real logic
+    gainers_data = [
+        {"name": "iShares Core S&P 500 AUD", "ticker": "IVV", "value": 29550.15, "changePercent": 0.9, "changeValue": 262.33},
+        {"name": "Vanguard US Total Market Shares Index ETF", "ticker": "VTS", "value": 14624.96, "changePercent": 0.95, "changeValue": 127.60},
+        {"name": "Hims & Hers Health, Inc", "ticker": "HIMS", "value": 1605.50, "changePercent": 5.16, "changeValue": 78.75},
+        {"name": "Betashares Nasdaq 100", "ticker": "NDQ", "value": 16966.95, "changePercent": 0.6, "changeValue": 101.70},
+        {"name": "Tasmia Ltd", "ticker": "TEA", "value": 4779.16, "changePercent": 1.88, "changeValue": 87.96},
+    ]
+    items = [GainerLoserRow(**item) for item in gainers_data]
+    return GainersLosersResponse(items=items)
+
+
+@router.get("/dashboard/losers", response=GainersLosersResponse, summary="Get Top 5 Day Losers")
+@async_ttl_cache(ttl=60)
+async def get_top_losers(request, limit: int = 5, user: MockUser = Depends(get_current_user)):
+    """Provides the top 5 daily losers from the user's portfolio."""
+    # TODO: Implement real logic
+    losers_data = [
+        {"name": "Arista Networks, Inc", "ticker": "ANET", "value": 3622.50, "changePercent": -4.42, "changeValue": -167.58},
+        {"name": "Brookside Energy Ltd", "ticker": "BRK", "value": 5983.29, "changePercent": -3.48, "changeValue": -216.20},
+        {"name": "Terawulf Inc", "ticker": "WULF", "value": 4222.46, "changePercent": -2.6, "changeValue": -115.04},
+        {"name": "Acrow Limited", "ticker": "ACF", "value": 5493.16, "changePercent": -2.05, "changeValue": -115.04},
+        {"name": "Nu Holdings Ltd.", "ticker": "NU", "value": 3537.02, "changePercent": -0.82, "changeValue": -29.30},
+    ]
+    items = [GainerLoserRow(**item) for item in losers_data]
+    return GainersLosersResponse(items=items)
+
+
+@router.get("/dashboard/dividend-forecast", response=DividendForecastResponse, summary="Get 12-Month Dividend Forecast")
+@async_ttl_cache(ttl=3600) # Cache for 1 hour
+async def get_dividend_forecast(request, months: int = 12, user: MockUser = Depends(get_current_user)):
+    """
+    Provides a 12-month forecast of expected dividend payments.
+    """
+    # TODO: Implement real logic based on holding dividend schedules
+    forecast_data = [
+        {"month": "Jul", "amount": 619}, {"month": "Aug", "amount": 290}, {"month": "Sep", "amount": 150},
+        {"month": "Oct", "amount": 520}, {"month": "Nov", "amount": 175}, {"month": "Dec", "amount": 125},
+        {"month": "Jan", "amount": 167},
+    ]
+    total = sum(d['amount'] for d in forecast_data)
+    avg = total / 12
+    
+    return DividendForecastResponse(
+        forecast=[DividendForecastItem(**d) for d in forecast_data],
+        next12mTotal=Decimal(str(total)),
+        monthlyAvg=Decimal(str(avg))
+    )
+
+@router.get("/fx/latest", response=FxResponse, summary="Get Latest FX Rates")
+@async_ttl_cache(ttl=300) # Cache for 5 minutes
+async def get_latest_fx_rates(request, base: str = "AUD"):
+    """
+    Provides latest foreign exchange rates relative to a base currency.
+    """
+    # TODO: Implement real logic
+    fx_data = [
+        {"pair": "USDAUD", "rate": 1.57, "change": 0.75},
+        {"pair": "EURAUD", "rate": 1.79, "change": 0.62},
+        {"pair": "GBPAUD", "rate": 2.09, "change": 0.48},
+    ]
+    return FxResponse(rates=[FxRate(**rate) for rate in fx_data])
 
 
 # =================
@@ -1059,4 +1082,323 @@ def get_portfolio_diversification(request, user_id: str):
     except Exception as e:
         logger.error(f"Error in portfolio diversification analysis for user {user_id}: {e}", exc_info=True)
         raise HttpError(500, f"Portfolio diversification analysis failed: {str(e)}")
+
+
+@router.post("/transactions/create")
+def create_transaction(request):
+    """
+    Create a new transaction (BUY/SELL/DIVIDEND).
+    
+    Handles transaction creation with historical data fetching and portfolio updates.
+    """
+    logger.info(f"[TransactionAPI] Creating transaction for user")
+    logger.debug(f"[TransactionAPI] Request data: {request.body}")
+    
+    try:
+        import json
+        data = json.loads(request.body) if request.body else {}
+        
+        # Extract user ID from request - assuming it's in headers or session
+        # For now using a test user ID - this should come from authentication
+        user_id = data.get('user_id', 'test_user_123')
+        
+        # Validate required fields
+        required_fields = ['transaction_type', 'ticker', 'shares', 'price_per_share', 'transaction_date']
+        for field in required_fields:
+            if field not in data:
+                logger.warning(f"[TransactionAPI] Missing required field: {field}")
+                return {
+                    'ok': False,
+                    'error': f'Missing required field: {field}',
+                    'required_fields': required_fields
+                }
+        
+        # Get company name from ticker if not provided
+        transaction_data = data.copy()
+        if 'company_name' not in transaction_data or not transaction_data['company_name']:
+            logger.debug(f"[TransactionAPI] Fetching company name for ticker {transaction_data['ticker']}")
+            try:
+                service = get_alpha_vantage_service()
+                overview = service.get_company_overview(transaction_data['ticker'])
+                transaction_data['company_name'] = overview.get('Name', transaction_data['ticker'])
+                logger.debug(f"[TransactionAPI] Company name: {transaction_data['company_name']}")
+            except Exception as e:
+                logger.warning(f"[TransactionAPI] Could not fetch company name: {e}")
+                transaction_data['company_name'] = transaction_data['ticker']
+        
+        # Create transaction using service
+        transaction_service = get_transaction_service()
+        result = transaction_service.create_transaction(user_id, transaction_data)
+        
+        if result['success']:
+            logger.info(f"[TransactionAPI] ✅ Transaction created successfully: {result['transaction_id']}")
+            return {
+                'ok': True,
+                'message': result['message'],
+                'data': {
+                    'transaction_id': result['transaction_id'],
+                    'ticker': result['ticker']
+                }
+            }
+        else:
+            logger.error(f"[TransactionAPI] ❌ Transaction creation failed: {result['error']}")
+            return {
+                'ok': False,
+                'error': result['error'],
+                'message': result['message']
+            }
+    
+    except Exception as e:
+        logger.error(f"[TransactionAPI] Unexpected error creating transaction: {e}", exc_info=True)
+        return {
+            'ok': False,
+            'error': 'internal_server_error',
+            'message': 'An unexpected error occurred while creating the transaction'
+        }
+
+
+@router.get("/transactions/user")
+def get_user_transactions(request):
+    """
+    Get user's transaction history with optional filtering.
+    
+    Query parameters:
+    - transaction_type: BUY, SELL, DIVIDEND (optional)
+    - ticker: Filter by specific ticker (optional)
+    - start_date: Filter from date (optional)
+    - end_date: Filter to date (optional)
+    """
+    logger.info(f"[TransactionAPI] Getting user transactions")
+    
+    try:
+        # Get user ID - for now using test user
+        user_id = request.GET.get('user_id', 'test_user_123')
+        
+        # Get filter parameters
+        transaction_type = request.GET.get('transaction_type')
+        ticker = request.GET.get('ticker')
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+        
+        logger.debug(f"[TransactionAPI] Filters - type: {transaction_type}, ticker: {ticker}, dates: {start_date} to {end_date}")
+        
+        # Get transactions from service
+        transaction_service = get_transaction_service()
+        transactions = transaction_service.get_user_transactions(user_id, transaction_type, ticker)
+        
+        # Apply date filtering if provided
+        if start_date or end_date:
+            filtered_transactions = []
+            for txn in transactions:
+                txn_date = txn['transaction_date']
+                if isinstance(txn_date, str):
+                    txn_date = datetime.strptime(txn_date, '%Y-%m-%d').date()
+                
+                include = True
+                if start_date and txn_date < datetime.strptime(start_date, '%Y-%m-%d').date():
+                    include = False
+                if end_date and txn_date > datetime.strptime(end_date, '%Y-%m-%d').date():
+                    include = False
+                
+                if include:
+                    filtered_transactions.append(txn)
+            
+            transactions = filtered_transactions
+        
+        logger.info(f"[TransactionAPI] ✅ Retrieved {len(transactions)} transactions")
+        
+        return {
+            'ok': True,
+            'message': 'Transactions retrieved successfully',
+            'data': {
+                'transactions': transactions,
+                'count': len(transactions),
+                'filters_applied': {
+                    'transaction_type': transaction_type,
+                    'ticker': ticker,
+                    'start_date': start_date,
+                    'end_date': end_date
+                }
+            }
+        }
+    
+    except Exception as e:
+        logger.error(f"[TransactionAPI] Error getting transactions: {e}", exc_info=True)
+        return {
+            'ok': False,
+            'error': 'internal_server_error',
+            'message': 'Failed to retrieve transactions'
+        }
+
+
+@router.post("/transactions/update-prices")
+def update_current_prices(request):
+    """
+    Update current prices for user's holdings with rate limiting.
+    
+    Rate limited to once per minute per user.
+    """
+    logger.info(f"[TransactionAPI] Updating current prices")
+    
+    try:
+        import json
+        data = json.loads(request.body) if request.body else {}
+        
+        # Get user ID
+        user_id = data.get('user_id', 'test_user_123')
+        
+        # Update prices using service
+        price_service = get_price_update_service()
+        result = price_service.update_user_current_prices(user_id)
+        
+        if result['success']:
+            logger.info(f"[TransactionAPI] ✅ Prices updated successfully")
+            return {
+                'ok': True,
+                'message': 'Current prices updated successfully',
+                'data': result
+            }
+        else:
+            if result.get('error') == 'rate_limited':
+                logger.warning(f"[TransactionAPI] ⚠️ Rate limit exceeded for user {user_id}")
+                return {
+                    'ok': False,
+                    'error': 'rate_limited',
+                    'message': result['message'],
+                    'retry_after': result.get('retry_after', 60)
+                }
+            else:
+                logger.error(f"[TransactionAPI] ❌ Price update failed: {result['error']}")
+                return {
+                    'ok': False,
+                    'error': result['error'],
+                    'message': result['message']
+                }
+    
+    except Exception as e:
+        logger.error(f"[TransactionAPI] Error updating prices: {e}", exc_info=True)
+        return {
+            'ok': False,
+            'error': 'internal_server_error',
+            'message': 'Failed to update current prices'
+        }
+
+
+@router.get("/transactions/cached-prices")
+def get_current_prices(request):
+    """
+    Get cached current prices for user's holdings.
+    """
+    logger.debug(f"[TransactionAPI] Getting cached current prices")
+    
+    try:
+        user_id = request.GET.get('user_id', 'test_user_123')
+        
+        price_service = get_price_update_service()
+        result = price_service.get_cached_prices(user_id)
+        
+        logger.debug(f"[TransactionAPI] ✅ Retrieved {len(result['prices'])} cached prices")
+        
+        return {
+            'ok': True,
+            'message': 'Cached prices retrieved successfully',
+            'data': result
+        }
+    
+    except Exception as e:
+        logger.error(f"[TransactionAPI] Error getting cached prices: {e}", exc_info=True)
+        return {
+            'ok': False,
+            'error': 'internal_server_error',
+            'message': 'Failed to retrieve cached prices'
+        }
+
+
+@router.get("/transactions/summary")
+def get_transaction_summary(request):
+    """
+    Get transaction summary and portfolio calculations based on transactions.
+    """
+    logger.info(f"[TransactionAPI] Getting transaction summary")
+    
+    try:
+        user_id = request.GET.get('user_id', 'test_user_123')
+        
+        # Get user's transactions
+        transactions = Transaction.objects.filter(user_id=user_id).order_by('-transaction_date')
+        
+        # Calculate summary statistics
+        total_transactions = transactions.count()
+        buy_transactions = transactions.filter(transaction_type='BUY').count()
+        sell_transactions = transactions.filter(transaction_type='SELL').count()
+        dividend_transactions = transactions.filter(transaction_type='DIVIDEND').count()
+        
+        # Calculate total invested and received
+        from decimal import Decimal
+        total_invested = transactions.filter(transaction_type='BUY').aggregate(
+            total=Sum('total_amount')
+        )['total'] or Decimal('0')
+        
+        total_received = transactions.filter(transaction_type='SELL').aggregate(
+            total=Sum('total_amount')
+        )['total'] or Decimal('0')
+        
+        total_dividends = transactions.filter(transaction_type='DIVIDEND').aggregate(
+            total=Sum('total_amount')
+        )['total'] or Decimal('0')
+        
+        # Get unique tickers
+        unique_tickers = transactions.filter(
+            transaction_type__in=['BUY', 'SELL']
+        ).values_list('ticker', flat=True).distinct()
+        
+        logger.info(f"[TransactionAPI] ✅ Summary calculated: {total_transactions} transactions across {len(unique_tickers)} tickers")
+        
+        return {
+            'ok': True,
+            'message': 'Transaction summary retrieved successfully',
+            'data': {
+                'summary': {
+                    'total_transactions': total_transactions,
+                    'buy_transactions': buy_transactions,
+                    'sell_transactions': sell_transactions,
+                    'dividend_transactions': dividend_transactions,
+                    'unique_tickers': len(unique_tickers),
+                    'total_invested': float(total_invested),
+                    'total_received': float(total_received),
+                    'total_dividends': float(total_dividends),
+                    'net_invested': float(total_invested - total_received)
+                },
+                'tickers': list(unique_tickers)
+            }
+        }
+    
+    except Exception as e:
+        logger.error(f"[TransactionAPI] Error getting transaction summary: {e}", exc_info=True)
+        return {
+            'ok': False,
+            'error': 'internal_server_error',
+            'message': 'Failed to retrieve transaction summary'
+        }
+
+
+@router.post("/transactions/migrate")
+def migrate_existing_holdings(request):
+    """
+    One-time migration script to populate the new Transaction model
+    from the old Holding and CashContribution models.
+    """
+    transaction_service = get_transaction_service(user_id="migration_user")
+    
+    try:
+        summary = transaction_service.migrate_from_holdings()
+        return success_response(data=summary)
+    except Exception as e:
+        logger.error(f"Migration failed: {e}", exc_info=True)
+        return error_response(message=f"Migration failed: {e}", status_code=500)
+
+
+@router.get("/health")
+def health_check(request):
+    # ... existing code ...
 

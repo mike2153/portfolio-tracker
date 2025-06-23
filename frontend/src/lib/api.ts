@@ -6,7 +6,12 @@ import {
   HistoricalDataResponse,
   StockOverviewResponse,
   AddHoldingPayload,
-  StockSymbol
+  StockSymbol,
+  DashboardOverview,
+  Allocation,
+  GainerLoser,
+  DividendForecast,
+  FxRates,
 } from '@/types/api';
 
 class ApiError extends Error {
@@ -115,4 +120,349 @@ class ApiService {
 }
 
 export const apiService = new ApiService();
-export { ApiError }; 
+export { ApiError };
+
+// Dashboard API
+export const dashboardAPI = {
+  async getOverview(): Promise<ApiResponse<DashboardOverview>> {
+    const url = `${config.apiBaseUrl}${apiEndpoints.dashboard.overview()}`;
+    // This is a simplified call since makeRequest is private in the example
+    const response = await fetch(url);
+    if (!response.ok) {
+        return { ok: false, error: `HTTP error! status: ${response.status}` };
+    }
+    const data = await response.json();
+    return { ok: true, data };
+  },
+
+  async getAllocation(groupBy: string = 'sector'): Promise<ApiResponse<Allocation>> {
+    const url = `${config.apiBaseUrl}${apiEndpoints.dashboard.allocation(groupBy)}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+        return { ok: false, error: `HTTP error! status: ${response.status}` };
+    }
+    const data = await response.json();
+    return { ok: true, data };
+  },
+
+  async getGainers(limit: number = 5): Promise<ApiResponse<GainerLoser>> {
+    const url = `${config.apiBaseUrl}${apiEndpoints.dashboard.gainers(limit)}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+        return { ok: false, error: `HTTP error! status: ${response.status}` };
+    }
+    const data = await response.json();
+    return { ok: true, data };
+  },
+
+  async getLosers(limit: number = 5): Promise<ApiResponse<GainerLoser>> {
+    const url = `${config.apiBaseUrl}${apiEndpoints.dashboard.losers(limit)}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+        return { ok: false, error: `HTTP error! status: ${response.status}` };
+    }
+    const data = await response.json();
+    return { ok: true, data };
+  },
+
+  async getDividendForecast(months: number = 12): Promise<ApiResponse<DividendForecast>> {
+    const url = `${config.apiBaseUrl}${apiEndpoints.dashboard.dividendForecast(months)}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+        return { ok: false, error: `HTTP error! status: ${response.status}` };
+    }
+    const data = await response.json();
+    return { ok: true, data };
+  },
+
+  async getFxRates(base: string = 'AUD'): Promise<ApiResponse<FxRates>> {
+    const url = `${config.apiBaseUrl}${apiEndpoints.fx.latest(base)}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+        return { ok: false, error: `HTTP error! status: ${response.status}` };
+    }
+    const data = await response.json();
+    return { ok: true, data };
+  },
+};
+
+// Add transaction API functions after existing functions
+
+// Transaction management
+export const transactionAPI = {
+  // Create a new transaction
+  async createTransaction(transactionData: {
+    transaction_type: 'BUY' | 'SELL' | 'DIVIDEND';
+    ticker: string;
+    company_name?: string;
+    shares: number;
+    price_per_share: number;
+    transaction_date: string;
+    transaction_currency?: string;
+    commission?: number;
+    notes?: string;
+    user_id?: string;
+  }): Promise<ApiResponse<{ transaction_id: number; ticker: string }>> {
+    console.log('[TransactionAPI] Creating transaction:', transactionData);
+    
+    try {
+      const response = await fetch(`${config.apiBaseUrl}/api/transactions/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(transactionData),
+      });
+      
+      const data = await response.json();
+      console.log('[TransactionAPI] Create response:', data);
+      
+      return {
+        ok: data.ok || response.ok,
+        data: data.data,
+        error: data.error,
+        message: data.message
+      };
+    } catch (error) {
+      console.error('[TransactionAPI] Create error:', error);
+      return {
+        ok: false,
+        error: 'network_error',
+        message: 'Failed to create transaction'
+      };
+    }
+  },
+
+  // Get user transactions
+  async getUserTransactions(filters: {
+    user_id?: string;
+    transaction_type?: 'BUY' | 'SELL' | 'DIVIDEND';
+    ticker?: string;
+    start_date?: string;
+    end_date?: string;
+  } = {}): Promise<ApiResponse<{
+    transactions: Array<{
+      id: number;
+      transaction_type: string;
+      ticker: string;
+      company_name: string;
+      shares: number;
+      price_per_share: number;
+      transaction_date: string;
+      transaction_currency: string;
+      commission: number;
+      total_amount: number;
+      daily_close_price?: number;
+      notes: string;
+      created_at: string;
+    }>;
+    count: number;
+    filters_applied: any;
+  }>> {
+    console.log('[TransactionAPI] Getting user transactions with filters:', filters);
+    
+    try {
+      const params = new URLSearchParams();
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          params.append(key, value.toString());
+        }
+      });
+      
+      const response = await fetch(`${config.apiBaseUrl}/api/transactions/user?${params}`, {
+        method: 'GET',
+      });
+      
+      const data = await response.json();
+      console.log('[TransactionAPI] Get transactions response:', data);
+      
+      return {
+        ok: data.ok || response.ok,
+        data: data.data,
+        error: data.error,
+        message: data.message
+      };
+    } catch (error) {
+      console.error('[TransactionAPI] Get transactions error:', error);
+      return {
+        ok: false,
+        error: 'network_error',
+        message: 'Failed to get transactions'
+      };
+    }
+  },
+
+  // Update current prices with rate limiting
+  async updateCurrentPrices(user_id?: string): Promise<ApiResponse<{
+    prices: Record<string, {
+      price: number;
+      change: number;
+      change_percent: number;
+      volume: number;
+      timestamp: string;
+    }>;
+    stats: {
+      successful_fetches: number;
+      failed_fetches: number;
+      total_tickers: number;
+    };
+    cached_until: string;
+  }>> {
+    console.log('[TransactionAPI] Updating current prices for user:', user_id);
+    
+    try {
+      const response = await fetch(`${config.apiBaseUrl}/api/transactions/update-prices`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ user_id }),
+      });
+      
+      const data = await response.json();
+      console.log('[TransactionAPI] Update prices response:', data);
+      
+      return {
+        ok: data.ok || response.ok,
+        data: data.data,
+        error: data.error,
+        message: data.message,
+        retry_after: data.retry_after
+      } as ApiResponse<{
+        prices: Record<string, {
+          price: number;
+          change: number;
+          change_percent: number;
+          volume: number;
+          timestamp: string;
+        }>;
+        stats: {
+          successful_fetches: number;
+          failed_fetches: number;
+          total_tickers: number;
+        };
+        cached_until: string;
+      }>;
+    } catch (error) {
+      console.error('[TransactionAPI] Update prices error:', error);
+      return {
+        ok: false,
+        error: 'network_error',
+        message: 'Failed to update prices'
+      };
+    }
+  },
+
+  // Get cached current prices
+  async getCachedPrices(user_id?: string): Promise<ApiResponse<{
+    prices: Record<string, any>;
+    is_cached: boolean;
+  }>> {
+    console.log('[TransactionAPI] Getting cached prices for user:', user_id);
+    
+    try {
+      const params = new URLSearchParams();
+      if (user_id) params.append('user_id', user_id);
+      
+      const response = await fetch(`${config.apiBaseUrl}/api/transactions/cached-prices?${params}`, {
+        method: 'GET',
+      });
+      
+      const data = await response.json();
+      console.log('[TransactionAPI] Cached prices response:', data);
+      
+      return {
+        ok: data.ok || response.ok,
+        data: data.data,
+        error: data.error,
+        message: data.message
+      };
+    } catch (error) {
+      console.error('[TransactionAPI] Get cached prices error:', error);
+      return {
+        ok: false,
+        error: 'network_error',
+        message: 'Failed to get cached prices'
+      };
+    }
+  },
+
+  // Get transaction summary
+  async getTransactionSummary(user_id?: string): Promise<ApiResponse<{
+    summary: {
+      total_transactions: number;
+      buy_transactions: number;
+      sell_transactions: number;
+      dividend_transactions: number;
+      unique_tickers: number;
+      total_invested: number;
+      total_received: number;
+      total_dividends: number;
+      net_invested: number;
+    };
+    tickers: string[];
+  }>> {
+    console.log('[TransactionAPI] Getting transaction summary for user:', user_id);
+    
+    try {
+      const params = new URLSearchParams();
+      if (user_id) params.append('user_id', user_id);
+      
+      const response = await fetch(`${config.apiBaseUrl}/api/transactions/summary?${params}`, {
+        method: 'GET',
+      });
+      
+      const data = await response.json();
+      console.log('[TransactionAPI] Summary response:', data);
+      
+      return {
+        ok: data.ok || response.ok,
+        data: data.data,
+        error: data.error,
+        message: data.message
+      };
+    } catch (error) {
+      console.error('[TransactionAPI] Get summary error:', error);
+      return {
+        ok: false,
+        error: 'network_error',
+        message: 'Failed to get transaction summary'
+      };
+    }
+  },
+
+  // Migrate existing holdings to transactions
+  async migrateExistingHoldings(user_id?: string): Promise<ApiResponse<{
+    migrated_count: number;
+    total_holdings: number;
+  }>> {
+    console.log('[TransactionAPI] Migrating existing holdings for user:', user_id);
+    
+    try {
+      const response = await fetch(`${config.apiBaseUrl}/api/transactions/migrate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ user_id }),
+      });
+      
+      const data = await response.json();
+      console.log('[TransactionAPI] Migration response:', data);
+      
+      return {
+        ok: data.ok || response.ok,
+        data: data.data,
+        error: data.error,
+        message: data.message
+      };
+    } catch (error) {
+      console.error('[TransactionAPI] Migration error:', error);
+      return {
+        ok: false,
+        error: 'network_error',
+        message: 'Failed to migrate holdings'
+      };
+    }
+  }
+}; 

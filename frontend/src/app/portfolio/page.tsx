@@ -151,11 +151,11 @@ export default function PortfolioPage() {
     }, [addToast]);
 
     const openAddModal = () => {
-        setEditingHolding(null);
-        setForm(initialFormState);
-        setShowHoldingModal(true);
-        setFormErrors({});
-        previousDateRef.current = ''; // Reset the previous date tracking
+        addToast({
+            type: 'info',
+            title: 'Action Moved',
+            message: 'Please add new transactions from the Transactions page.',
+        });
     };
 
     const openEditModal = (holding: Holding) => {
@@ -175,7 +175,7 @@ export default function PortfolioPage() {
         });
         setShowHoldingModal(true);
         setFormErrors({});
-        previousDateRef.current = purchaseDate; // Initialize with the holding's date
+        previousDateRef.current = purchaseDate;
     };
 
     const closeHoldingModal = () => {
@@ -185,7 +185,7 @@ export default function PortfolioPage() {
         setTickerSuggestions([]);
         setShowSuggestions(false);
         setFormErrors({});
-        previousDateRef.current = ''; // Reset the previous date tracking
+        previousDateRef.current = '';
     };
 
     const handleMenuToggle = (holdingId: number) => {

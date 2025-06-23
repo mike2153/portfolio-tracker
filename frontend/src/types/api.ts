@@ -103,6 +103,8 @@ export interface AddHoldingFormData {
   currency: string;
   fx_rate: string;
   use_cash_balance: boolean;
+  notes?: string;
+  transaction_type?: 'BUY' | 'SELL' | 'DIVIDEND';
 }
 
 export interface AddHoldingPayload {
@@ -126,4 +128,71 @@ export interface ValidationError {
 
 export interface FormErrors {
   [key: string]: string;
+}
+
+// =================
+// DASHBOARD TYPES
+// =================
+
+export interface KPIValue {
+  value: number;
+  sub_label: string;
+  delta?: number;
+  deltaPercent?: number;
+  is_positive: boolean;
+}
+
+export interface DashboardOverview {
+  marketValue: KPIValue;
+  totalProfit: KPIValue;
+  irr: KPIValue;
+  passiveIncome: KPIValue;
+}
+
+export interface AllocationRow {
+  groupKey: string;
+  value: number;
+  invested: number;
+  gainValue: number;
+  gainPercent: number;
+  allocation: number;
+  accentColor: string;
+}
+
+export interface Allocation {
+  rows: AllocationRow[];
+}
+
+export interface GainerLoserRow {
+  logoUrl?: string;
+  name: string;
+  ticker: string;
+  value: number;
+  changePercent: number;
+  changeValue: number;
+}
+
+export interface GainerLoser {
+  items: GainerLoserRow[];
+}
+
+export interface DividendForecastItem {
+  month: string;
+  amount: number;
+}
+
+export interface DividendForecast {
+  forecast: DividendForecastItem[];
+  next12mTotal: number;
+  monthlyAvg: number;
+}
+
+export interface FxRate {
+  pair: string;
+  rate: number;
+  change: number;
+}
+
+export interface FxRates {
+  rates: FxRate[];
 } 
