@@ -25,6 +25,8 @@ export const apiEndpoints = {
     gainers: (limit: number) => `/api/dashboard/gainers?limit=${limit}`,
     losers: (limit: number) => `/api/dashboard/losers?limit=${limit}`,
     dividendForecast: (months: number) => `/api/dashboard/dividend-forecast?months=${months}`,
+    portfolioPerformance: (userId: string, period: string, benchmark: string) =>
+      `/api/portfolios/${userId}/performance?period=${period}&benchmark=${benchmark}`,
   },
   fx: {
     latest: (base: string) => `/api/fx/latest?base=${base}`,
