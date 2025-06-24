@@ -7,23 +7,15 @@ from cachetools import TTLCache
 from collections import defaultdict
 from asgiref.sync import sync_to_async
 from datetime import date, timedelta
-
 from .models import Transaction, DividendPayment
 from .alpha_vantage_service import get_alpha_vantage_service
+from .auth import SupabaseUser, get_current_user, require_auth
 
 # =================
 # AUTHENTICATION
 # =================
 
-# TODO: Implement proper Supabase JWT authentication
-class MockUser:
-    def __init__(self, id, email="test@example.com"):
-        self.id = id
-        self.email = email
-
-async def get_current_user(request) -> MockUser:
-    """Placeholder dependency to simulate getting a user from a JWT."""
-    return MockUser(id="0b8a164c-8e81-4328-a28f-1555560b7952") # Example UUID
+# TODO: Proper Supabase JWT authentication is handled in auth.py
 
 # --- ASYNC CACHING WRAPPER ---
 def async_ttl_cache(ttl: int):
@@ -32,8 +24,8 @@ def async_ttl_cache(ttl: int):
         sync_cache = TTLCache(maxsize=128, ttl=ttl)
         @wraps(func)
         async def wrapper(*args, **kwargs):
-            key_args = [a for a in args if not isinstance(a, MockUser)]
-            key_kwargs = {k: v for k, v in kwargs.items() if not isinstance(v, MockUser)}
+            key_args = [a for a in args if not isinstance(a, SupabaseUser)]
+            key_kwargs = {k: v for k, v in kwargs.items() if not isinstance(v, SupabaseUser)}
             key = tuple(key_args) + tuple(sorted(key_kwargs.items()))
             try:
                 return sync_cache[key]
@@ -109,6 +101,8 @@ class FxResponse(Schema):
 
 @dashboard_api_router.get("/dashboard/overview", response=OverviewResponse, summary="Get Dashboard KPI Overview")
 @async_ttl_cache(ttl=1800)
+
+@require_auth
 async def get_dashboard_overview(request):
     user = await get_current_user(request)
     transactions = await sync_to_async(list)(Transaction.objects.filter(user_id=user.id))
@@ -146,6 +140,8 @@ async def get_dashboard_overview(request):
 
 @dashboard_api_router.get("/dashboard/allocation", response=AllocationResponse, summary="Get Portfolio Allocation")
 @async_ttl_cache(ttl=1800)
+@require_auth
+
 async def get_portfolio_allocation(request, groupBy: str = "sector"):
     user = await get_current_user(request)
     transactions = await sync_to_async(list)(Transaction.objects.filter(user_id=user.id))
@@ -196,6 +192,8 @@ async def get_portfolio_allocation(request, groupBy: str = "sector"):
 
 @dashboard_api_router.get("/dashboard/gainers", response=GainersLosersResponse, summary="Get Top 5 Day Gainers")
 @async_ttl_cache(ttl=1800)
+@require_auth
+
 async def get_top_gainers(request, limit: int = 5):
     user = await get_current_user(request)
     transactions = await sync_to_async(list)(Transaction.objects.filter(user_id=user.id))
@@ -224,6 +222,7 @@ async def get_top_gainers(request, limit: int = 5):
 
 @dashboard_api_router.get("/dashboard/losers", response=GainersLosersResponse, summary="Get Top 5 Day Losers")
 @async_ttl_cache(ttl=1800)
+@require_auth
 async def get_top_losers(request, limit: int = 5):
     user = await get_current_user(request)
     transactions = await sync_to_async(list)(Transaction.objects.filter(user_id=user.id))
@@ -252,6 +251,7 @@ async def get_top_losers(request, limit: int = 5):
 
 @dashboard_api_router.get("/dashboard/dividend-forecast", response=DividendForecastResponse, summary="Get 12-Month Dividend Forecast")
 @async_ttl_cache(ttl=1800)
+@require_auth
 async def get_dividend_forecast(request, months: int = 12):
     user = await get_current_user(request)
     start_date = date.today()
@@ -279,6 +279,7 @@ async def get_dividend_forecast(request, months: int = 12):
     return {"forecast": forecast_data, "next12mTotal": str(round(total,2)), "monthlyAvg": str(round(avg,2))}
 
 @dashboard_api_router.get("/fx/latest", response=FxResponse, summary="Get Latest FX Rates")
+@require_auth
 @async_ttl_cache(ttl=300)
 async def get_latest_fx_rates(request, base: str = "AUD"):
     fx_data = [

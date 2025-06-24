@@ -1,0 +1,113 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import dynamic from 'next/dynamic'
+import { useQuery } from '@tanstack/react-query'
+import { supabase } from '@/lib/supabaseClient'
+import { dashboardAPI } from '@/lib/api'
+import { ChartSkeleton } from './Skeletons'
+import { EnhancedPortfolioPerformance } from '@/types/api'
+
+const Plot = dynamic(() => import('react-plotly.js'), { ssr: false })
+
+const ranges = ['1M', '3M', 'YTD', '1Y', '3Y', '5Y', 'ALL']
+
+type Mode = 'value' | 'performance'
+
+export default function PortfolioChart() {
+  const [userId, setUserId] = useState<string | null>(null)
+  const [range, setRange] = useState('1Y')
+  const [mode, setMode] = useState<Mode>('value')
+
+  useEffect(() => {
+    const init = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session?.user) setUserId(session.user.id)
+    }
+    init()
+  }, [])
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['portfolioPerformance', userId, range],
+    queryFn: () => dashboardAPI.getPortfolioPerformance(userId!, range),
+    enabled: !!userId
+  })
+
+  const perf: EnhancedPortfolioPerformance | undefined = data?.data
+  const portfolio = perf?.portfolio_performance || []
+  const benchmark = perf?.benchmark_performance || []
+
+  const portfolioY = mode === 'value'
+    ? portfolio.map(p => p.total_value)
+    : portfolio.map(p => p.indexed_performance)
+
+  const benchmarkY = benchmark.map(b => b.indexed_performance)
+
+  return (
+    <div className="rounded-xl bg-gray-800/80 p-6 shadow-lg">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold text-white">Portfolio Performance</h3>
+        <div className="space-x-1">
+          {ranges.map(r => (
+            <button
+              key={r}
+              onClick={() => setRange(r)}
+              className={`px-2 py-1 text-xs rounded-md ${range === r ? 'bg-blue-600 text-white' : 'text-gray-300 hover:text-white'}`}
+            >
+              {r}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="mb-2 space-x-2">
+        <button
+          onClick={() => setMode('value')}
+          className={`px-2 py-1 text-xs rounded-md ${mode === 'value' ? 'bg-purple-600 text-white' : 'text-gray-300 hover:text-white'}`}
+        >
+          Value
+        </button>
+        <button
+          onClick={() => setMode('performance')}
+          className={`px-2 py-1 text-xs rounded-md ${mode === 'performance' ? 'bg-purple-600 text-white' : 'text-gray-300 hover:text-white'}`}
+        >
+          % Change
+        </button>
+      </div>
+      {isLoading ? (
+        <ChartSkeleton />
+      ) : (
+        <Plot
+          data={[
+            {
+              x: portfolio.map(p => p.date),
+              y: portfolioY,
+              type: 'scatter',
+              mode: 'lines',
+              name: 'Portfolio',
+              line: { color: '#3B82F6' }
+            },
+            {
+              x: benchmark.map(p => p.date),
+              y: benchmarkY,
+              type: 'scatter',
+              mode: 'lines',
+              name: perf?.benchmark_name || 'Benchmark',
+              line: { color: '#8B5CF6' }
+            }
+          ]}
+          layout={{
+            autosize: true,
+            margin: { t: 20, r: 10, b: 40, l: 40 },
+            paper_bgcolor: 'transparent',
+            plot_bgcolor: 'transparent',
+            transition: { duration: 500, easing: 'cubic-in-out' },
+            xaxis: { color: '#d1d5db' },
+            yaxis: { color: '#d1d5db', title: mode === 'value' ? 'Value' : '%' }
+          }}
+          config={{ displayModeBar: false, responsive: true }}
+          style={{ width: '100%', height: '400px' }}
+        />
+      )}
+    </div>
+  )
+}
