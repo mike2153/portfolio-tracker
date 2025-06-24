@@ -30,9 +30,22 @@ class ApiService {
     url: string,
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
+    // Dynamically import Supabase client to avoid SSR issues and circular deps
+    let authHeaders: Record<string, string> = {};
+    try {
+      const { supabase } = await import('@/lib/supabaseClient');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session && session.access_token) {
+        authHeaders['Authorization'] = `Bearer ${session.access_token}`;
+      }
+    } catch {
+      // supabase unavailable (e.g., during unit tests). Ignore.
+    }
+
     const defaultOptions: RequestInit = {
       headers: {
         'Content-Type': 'application/json',
+        ...authHeaders,
         ...options.headers,
       },
       ...options,
@@ -127,12 +140,24 @@ export const dashboardAPI = {
   // Internal helper to perform fetch with error handling
   async _safeFetch<T>(url: string): Promise<ApiResponse<T>> {
     try {
-    const response = await fetch(url);
-    if (!response.ok) {
+      // Attach Supabase JWT automatically
+      let headers: Record<string, string> = {};
+      try {
+        const { supabase } = await import('@/lib/supabaseClient');
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session && session.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
+      } catch {
+        // supabase not available in tests/SSR
+      }
+
+      const response = await fetch(url, { headers });
+      if (!response.ok) {
         return { ok: false, error: `HTTP error! status: ${response.status}` };
-    }
+      }
       const data = (await response.json()) as T;
-    return { ok: true, data };
+      return { ok: true, data };
     } catch (err: any) {
       return { ok: false, error: 'network_error', message: err?.message ?? String(err) };
     }

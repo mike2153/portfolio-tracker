@@ -4,7 +4,7 @@ from django.db.models import Q, Sum, Count, Case, When, Value, IntegerField
 from .utils import success_response, error_response, validation_error_response
 from django.http import JsonResponse
 from .services.transaction_service import get_transaction_service, get_price_update_service
-from .models import Transaction, UserSettings, UserApiRateLimit, Holding, Portfolio, CashContribution, PriceAlert, StockSymbol, DividendPayment
+from .models import Transaction, UserSettings, UserApiRateLimit, Holding, Portfolio, CashContribution, PriceAlert, StockSymbol, DividendPayment, CachedDailyPrice
 from django.http import JsonResponse
 from datetime import datetime, date, timedelta
 from typing import Optional, List, Dict, Any
@@ -93,10 +93,13 @@ class AllocationRow(Schema):
     group_key: str = Field(..., alias="groupKey")
     value: Decimal
     invested: Decimal
-    gain_value: Decimal
-    gain_percent: Decimal
+    gain_value: Decimal = Field(..., alias="gainValue")
+    gain_percent: Decimal = Field(..., alias="gainPercent")
     allocation: Decimal
-    accent_color: str
+    accent_color: str = Field(..., alias="accentColor")
+
+    class Config:
+        allow_population_by_field_name = True
 
 class AllocationResponse(Schema):
     rows: List[AllocationRow]
@@ -156,19 +159,75 @@ async def get_portfolio_allocation(request, groupBy: str = "sector"):
     """
     Provides data for the portfolio allocation table, grouped by a given category.
     """
-    # TODO: Replace with real data fetching and processing
-    allocation_data = [
-        {"groupKey": "Funds", "value": 51142.06, "invested": 57257.15, "gain_value": 3195.08, "gain_percent": 5.58, "allocation": 44.24, "accent_color": "blue"},
-        {"groupKey": "Industrials", "value": 18729.62, "invested": 19470.87, "gain_value": -1225.94, "gain_percent": -6.3, "allocation": 14.27, "accent_color": "green"},
-        {"groupKey": "Financials", "value": 14563.92, "invested": 13613.49, "gain_value": 10311.09, "gain_percent": 75.74, "allocation": 10.54, "accent_color": "purple"},
-        {"groupKey": "Cash", "value": 11804.06, "invested": 11804.06, "gain_value": 0, "gain_percent": 0, "allocation": 8.54, "accent_color": "gray"},
-        {"groupKey": "Healthcare", "value": 9797.59, "invested": 8463.80, "gain_value": 2275.97, "gain_percent": 26.89, "allocation": 7.09, "accent_color": "teal"},
+    user = getattr(request, "user", None) or await get_current_user(request)
+
+    # Fetch the user's portfolio and related holdings
+    portfolio: Optional[Portfolio] = await sync_to_async(
+        lambda: Portfolio.objects.filter(user_id=user.id).prefetch_related("holdings").first()
+    )()
+
+    if not portfolio:
+        portfolio = await sync_to_async(lambda: Portfolio.objects.create(user_id=user.id, name="My Portfolio"))()
+        # No holdings yet
+        return AllocationResponse(rows=[])
+
+    holdings: List[Holding] = await sync_to_async(lambda: list(portfolio.holdings.all()))()
+
+    if not holdings:
+        return AllocationResponse(rows=[])
+
+    # Helper palette for accent colours
+    COLOR_PALETTE = [
+        "blue", "green", "purple", "teal", "yellow", "red", "orange", "pink", "cyan", "indigo"
     ]
-    
-    # Convert dicts to Pydantic models
-    rows = [AllocationRow(**row) for row in allocation_data]
-    
-    return AllocationResponse(rows=rows)
+
+    rows_by_key: Dict[str, Dict[str, Any]] = {}
+
+    for idx, holding in enumerate(holdings):
+        # Determine grouping key
+        if groupBy.lower() == "sector":
+            group_key = holding.sector or "Unknown"
+        else:
+            group_key = holding.ticker
+
+        # Fetch latest price from cache; fall back to purchase price if not present
+        latest_price_obj = await sync_to_async(lambda: CachedDailyPrice.objects.filter(symbol=holding.ticker).order_by("-date").first())()
+        current_price: Decimal = latest_price_obj.close if latest_price_obj else holding.purchase_price
+
+        value = current_price * holding.shares
+        invested = (holding.purchase_price * holding.shares) + holding.commission
+
+        if group_key not in rows_by_key:
+            rows_by_key[group_key] = {
+                "groupKey": group_key,
+                "value": Decimal("0"),
+                "invested": Decimal("0"),
+                "gainValue": Decimal("0"),
+                "gainPercent": Decimal("0"),
+                "allocation": Decimal("0"),
+                "accentColor": COLOR_PALETTE[idx % len(COLOR_PALETTE)],
+            }
+
+        rows_by_key[group_key]["value"] += value
+        rows_by_key[group_key]["invested"] += invested
+
+    # Compute totals and final metrics
+    total_value: Decimal = sum((r["value"] for r in rows_by_key.values()), Decimal("0"))
+
+    for row in rows_by_key.values():
+        row["gainValue"] = row["value"] - row["invested"]
+        row["gainPercent"] = (
+            (row["gainValue"] / row["invested"]) * Decimal("100") if row["invested"] else Decimal("0")
+        )
+        row["allocation"] = (
+            (row["value"] / total_value) * Decimal("100") if total_value else Decimal("0")
+        )
+
+    # Convert to Pydantic models and sort by allocation descending
+    pydantic_rows = [AllocationRow(**row) for row in rows_by_key.values()]
+    pydantic_rows.sort(key=lambda r: r.allocation, reverse=True)
+
+    return AllocationResponse(rows=pydantic_rows)
 
 
 @router.get("/dashboard/gainers", response=GainersLosersResponse, summary="Get Top 5 Day Gainers")

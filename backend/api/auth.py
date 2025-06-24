@@ -5,12 +5,13 @@ from django.conf import settings
 from django.http import JsonResponse
 import os
 import logging
+from ninja.security import HttpBearer
 
 logger = logging.getLogger(__name__)
 
 class SupabaseUser:
     """Real Supabase user object"""
-    def __init__(self, user_id: str, email: str, user_metadata: dict = None):
+    def __init__(self, user_id: str, email: str, user_metadata: Optional[dict] = None):
         self.id = user_id
         self.email = email
         self.user_metadata = user_metadata or {}
@@ -116,3 +117,22 @@ def require_auth(view_func):
         return await view_func(request, *args, **kwargs)
     
     return wrapper 
+
+# =============================
+# Ninja HTTP Bearer integration
+# =============================
+
+class SupabaseBearer(HttpBearer):
+    """Ninja auth scheme that validates Supabase JWTs and returns a SupabaseUser."""
+
+    async def authenticate(self, request, token: str) -> Optional[
+        "SupabaseUser"
+    ]:  # noqa: F821
+        user = verify_supabase_token(token)
+        if user is None:
+            # Returning None tells Ninja authentication failed
+            return None
+
+        # Attach user to request so views can access `request.user`
+        request.user = user  # type: ignore[attr-defined]
+        return user 
