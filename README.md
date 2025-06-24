@@ -50,3 +50,10 @@ docker-compose up
 ```
 The compose file already defines environment variables for the backend and frontend containers. Refer to [`backend/env_example.txt`](backend/env_example.txt) for the variables that need values.
 
+## Historical Stock Data
+
+The endpoint `/api/stocks/{symbol}/historical` accepts a `period` query
+parameter. In addition to ranges like `1Y` or `5Y`, you can now pass
+`MAX` (or `ALL`) to retrieve all available historical data without any
+date filtering.
+
