@@ -307,8 +307,10 @@ describe('Portfolio Price Fetching', () => {
         
         // Check if return values are displayed (this would depend on your table structure)
         // The exact text matching would depend on your formatting functions
-        expect(screen.getByText(/52\.50|52\.5/)).toBeInTheDocument();
-        expect(screen.getByText(/253\.75|253\.8/)).toBeInTheDocument();
+        const matches52 = screen.getAllByText(/52\.50|52\.5/);
+        expect(matches52.length).toBeGreaterThan(0);
+        const matches254 = screen.getAllByText(/253\.75|253\.8/);
+        expect(matches254.length).toBeGreaterThan(0);
       });
     });
 

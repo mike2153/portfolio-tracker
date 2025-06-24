@@ -124,65 +124,48 @@ export { ApiError };
 
 // Dashboard API
 export const dashboardAPI = {
-  async getOverview(): Promise<ApiResponse<DashboardOverview>> {
-    const url = `${config.apiBaseUrl}${apiEndpoints.dashboard.overview()}`;
-    // This is a simplified call since makeRequest is private in the example
+  // Internal helper to perform fetch with error handling
+  async _safeFetch<T>(url: string): Promise<ApiResponse<T>> {
+    try {
     const response = await fetch(url);
     if (!response.ok) {
         return { ok: false, error: `HTTP error! status: ${response.status}` };
     }
-    const data = await response.json();
+      const data = (await response.json()) as T;
     return { ok: true, data };
+    } catch (err: any) {
+      return { ok: false, error: 'network_error', message: err?.message ?? String(err) };
+    }
+  },
+
+  async getOverview(): Promise<ApiResponse<DashboardOverview>> {
+    const url = `${config.apiBaseUrl}${apiEndpoints.dashboard.overview()}`;
+    return this._safeFetch<DashboardOverview>(url);
   },
 
   async getAllocation(groupBy: string = 'sector'): Promise<ApiResponse<Allocation>> {
     const url = `${config.apiBaseUrl}${apiEndpoints.dashboard.allocation(groupBy)}`;
-    const response = await fetch(url);
-    if (!response.ok) {
-        return { ok: false, error: `HTTP error! status: ${response.status}` };
-    }
-    const data = await response.json();
-    return { ok: true, data };
+    return this._safeFetch<Allocation>(url);
   },
 
   async getGainers(limit: number = 5): Promise<ApiResponse<GainerLoser>> {
     const url = `${config.apiBaseUrl}${apiEndpoints.dashboard.gainers(limit)}`;
-    const response = await fetch(url);
-    if (!response.ok) {
-        return { ok: false, error: `HTTP error! status: ${response.status}` };
-    }
-    const data = await response.json();
-    return { ok: true, data };
+    return this._safeFetch<GainerLoser>(url);
   },
 
   async getLosers(limit: number = 5): Promise<ApiResponse<GainerLoser>> {
     const url = `${config.apiBaseUrl}${apiEndpoints.dashboard.losers(limit)}`;
-    const response = await fetch(url);
-    if (!response.ok) {
-        return { ok: false, error: `HTTP error! status: ${response.status}` };
-    }
-    const data = await response.json();
-    return { ok: true, data };
+    return this._safeFetch<GainerLoser>(url);
   },
 
   async getDividendForecast(months: number = 12): Promise<ApiResponse<DividendForecast>> {
     const url = `${config.apiBaseUrl}${apiEndpoints.dashboard.dividendForecast(months)}`;
-    const response = await fetch(url);
-    if (!response.ok) {
-        return { ok: false, error: `HTTP error! status: ${response.status}` };
-    }
-    const data = await response.json();
-    return { ok: true, data };
+    return this._safeFetch<DividendForecast>(url);
   },
 
   async getFxRates(base: string = 'AUD'): Promise<ApiResponse<FxRates>> {
     const url = `${config.apiBaseUrl}${apiEndpoints.fx.latest(base)}`;
-    const response = await fetch(url);
-    if (!response.ok) {
-        return { ok: false, error: `HTTP error! status: ${response.status}` };
-    }
-    const data = await response.json();
-    return { ok: true, data };
+    return this._safeFetch<FxRates>(url);
   },
 };
 

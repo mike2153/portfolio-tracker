@@ -135,7 +135,7 @@ const TransactionsPage = () => {
 
   useEffect(() => {
     if (user) {
-      Promise.all([fetchTransactions(), fetchSummary()]);
+    Promise.all([fetchTransactions(), fetchSummary()]);
     }
   }, [user, fetchTransactions, fetchSummary]);
   

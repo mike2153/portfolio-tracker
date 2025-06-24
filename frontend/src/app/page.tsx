@@ -7,7 +7,7 @@ interface HealthStatus {
   status: string
   message: string
   database: string
-  symbols_loaded: number
+  symbols_loaded?: number
   data_ready: boolean
   external_apis: string
   version: string
@@ -105,7 +105,7 @@ export default function Home() {
                 <div className={`w-3 h-3 rounded-full ${getStatusDot(healthStatus.data_ready ? 'configured' : 'error')}`}></div>
                 <span className="text-sm text-gray-600">Market Data</span>
                 <span className={`text-sm font-medium ${getStatusColor(healthStatus.data_ready ? 'configured' : 'error')}`}>
-                  {healthStatus.symbols_loaded.toLocaleString()} symbols
+                  {typeof healthStatus.symbols_loaded === 'number' ? `${healthStatus.symbols_loaded.toLocaleString()} symbols` : 'N/A'}
                 </span>
               </div>
               

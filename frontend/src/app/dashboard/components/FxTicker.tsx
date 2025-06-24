@@ -35,16 +35,20 @@ const FxTicker = () => {
 };
 
 const FxRateItem = ({ rate }: { rate: FxRate }) => {
-    const isPositive = rate.change >= 0;
+    const rateValue = typeof rate.rate === 'number' ? rate.rate : Number(rate.rate);
+    const changeValue = typeof rate.change === 'number' ? rate.change : Number(rate.change);
+    const isPositive = changeValue >= 0;
     const TrendArrow = isPositive ? ArrowUp : ArrowDown;
 
     return (
         <div className="flex items-center space-x-2 text-sm">
             <span className="font-medium text-gray-400">{rate.pair}</span>
-            <span className="font-semibold text-white">${rate.rate.toFixed(2)}</span>
+            <span className="font-semibold text-white">
+                {isNaN(rateValue) ? 'N/A' : `$${rateValue.toFixed(2)}`}
+            </span>
             <span className={cn('flex items-center text-xs', isPositive ? 'text-green-400' : 'text-red-400')}>
                 <TrendArrow className="h-3 w-3" />
-                <span>{rate.change.toFixed(2)}%</span>
+                <span>{isNaN(changeValue) ? 'N/A' : `${changeValue.toFixed(2)}%`}</span>
             </span>
         </div>
     );

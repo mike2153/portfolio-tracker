@@ -1,10 +1,8 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { TransactionsPage } from './page'; // Adjust the import path as necessary
-import { transactionAPI } from '@/lib/api';
 
-// Mock the transactionAPI
+// Mocks need to be declared before component imports
 jest.mock('@/lib/api', () => ({
   transactionAPI: {
     getUserTransactions: jest.fn(),
@@ -13,6 +11,22 @@ jest.mock('@/lib/api', () => ({
     updateCurrentPrices: jest.fn(),
   },
 }));
+
+jest.mock('@/components/ui/Toast', () => ({
+  useToast: () => ({ addToast: jest.fn(), removeToast: jest.fn() }),
+}));
+
+jest.mock('@/lib/supabaseClient', () => ({
+  supabase: {
+    auth: {
+      getSession: jest.fn().mockResolvedValue({ data: { session: { user: { id: 'test-user-id' } } } }),
+      onAuthStateChange: jest.fn().mockReturnValue({ data: { subscription: { unsubscribe: jest.fn() } } })
+    },
+  },
+}));
+
+import TransactionsPage from './page';
+import { transactionAPI } from '@/lib/api';
 
 const mockTransactions = [
   { id: 1, transaction_type: 'BUY', ticker: 'AAPL', company_name: 'Apple Inc.', shares: 10, price_per_share: 150, transaction_date: '2023-01-15', total_amount: 1500, transaction_currency: 'USD', commission: 0, notes: '', created_at: '' },
