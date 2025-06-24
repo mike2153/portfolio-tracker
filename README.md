@@ -1,4 +1,4 @@
-# Portfolio Tracker
+# Portfolio Tracke
 
 A full-stack application consisting of a Django backend and a Next.js frontend. The project can be run locally or with Docker.
 
@@ -49,3 +49,4 @@ To run both services with Docker, simply execute:
 docker-compose up
 ```
 The compose file already defines environment variables for the backend and frontend containers. Refer to [`backend/env_example.txt`](backend/env_example.txt) for the variables that need values.
+
