@@ -12,7 +12,7 @@ interface KPICardProps {
 }
 
 const KPICard = ({ title, data, prefix = "", suffix = "" }: KPICardProps) => {
-  const { value, sub_label, delta_percent, is_positive } = data;
+  const { value, sub_label, deltaPercent, is_positive } = data;
 
   const TrendArrow = is_positive ? ArrowUp : ArrowDown;
 
@@ -27,10 +27,10 @@ const KPICard = ({ title, data, prefix = "", suffix = "" }: KPICardProps) => {
           {prefix}{Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{suffix}
         </p>
         <div className="mt-1 flex items-center space-x-2 text-xs">
-          {delta_percent && (
+          {deltaPercent && (
             <span className={cn('flex items-center', is_positive ? 'text-green-400' : 'text-red-400')}>
               <TrendArrow className="mr-1 h-4 w-4" />
-              {delta_percent.toFixed(1)}%
+              {deltaPercent.toFixed(1)}%
             </span>
           )}
           <p className="text-gray-500">{sub_label}</p>
