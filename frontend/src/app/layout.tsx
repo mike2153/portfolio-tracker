@@ -72,6 +72,9 @@ export default function RootLayout({
                       <Plus className="h-4 w-4" />
                       <span>Add</span>
                     </button>
+                    <Link href="/auth" className="flex items-center gap-2 rounded-md border border-gray-600 px-3 py-1.5 text-sm hover:bg-gray-700">
+                      <span>Sign Up</span>
+                    </Link>
                     {/* Currency switcher and user avatar can go here */}
                   </div>
                 </header>

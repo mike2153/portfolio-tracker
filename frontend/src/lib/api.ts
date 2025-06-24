@@ -112,7 +112,7 @@ class ApiService {
     return this.makeRequest(apiEndpoints.stockQuote(ticker));
   }
 
-  async deleteHolding(userId: string, holdingId: number): Promise<ApiResponse<any>> {
+  async removeHolding(userId: string, holdingId: number): Promise<ApiResponse<any>> {
     return this.makeRequest(apiEndpoints.deleteHolding(userId, holdingId), {
       method: 'DELETE',
     });

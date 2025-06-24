@@ -150,6 +150,16 @@ export default function PortfolioPage() {
         }
     }, [addToast]);
 
+    const formatCurrency = (value: number | undefined) => {
+        if (value === undefined) return '-';
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+    };
+
+    const formatPercent = (value: number | undefined) => {
+        if (value === undefined || !isFinite(value)) return '-';
+        return `${value.toFixed(2)}%`;
+    };
+
     const openAddModal = () => {
         addToast({
             type: 'info',
@@ -423,327 +433,36 @@ export default function PortfolioPage() {
         }
     };
 
-    // Remove holding handler
     const handleRemoveHolding = async (holding: Holding) => {
         if (!user) return;
-        const confirmed = window.confirm(`Remove ${holding.ticker}?`);
-        if (!confirmed) return;
-        const response = await apiService.deleteHolding(user.id, holding.id);
-        if (response.ok) {
-            addToast({ type: 'success', title: 'Removed', message: `${holding.ticker} removed.` });
-            fetchPortfolioData(user.id);
-        } else {
-            addToast({ type: 'error', title: 'Error', message: response.error || 'Failed to remove holding.' });
+        if (!window.confirm(`Are you sure you want to remove all holdings for ${holding.ticker}? This will delete all associated transactions.`)) {
+            return;
+        }
+
+        try {
+            const response = await apiService.removeHolding(user.id, holding.id);
+            if (response.ok) {
+                addToast({
+                    type: 'success',
+                    title: 'Holding Removed',
+                    message: `All transactions for ${holding.ticker} have been removed.`,
+                });
+                fetchPortfolioData(user.id);
+            } else {
+                addToast({
+                    type: 'error',
+                    title: 'Removal Failed',
+                    message: response.error || 'Could not remove holding.',
+                });
+            }
+        } catch (error) {
+            addToast({
+                type: 'error',
+                title: 'Error',
+                message: 'An unexpected error occurred while removing the holding.',
+            });
         }
     };
-
-    // Add helper for percent formatting if not present
-    const formatPercent = (value: number) => `${value >= 0 ? '+' : ''}${ValidationService.formatNumber(value, 2)}%`;
-
-    // Calculate total return $ and %
-    const totalReturnDollars = portfolioData?.holdings.reduce((sum, h) => {
-        const currentPrice = h.current_price || h.purchase_price;
-        return sum + (currentPrice - h.purchase_price) * h.shares;
-    }, 0) || 0;
-    const totalCost = portfolioData?.holdings.reduce((sum, h) => sum + h.purchase_price * h.shares, 0) || 0;
-    const totalReturnPercent = totalCost > 0 ? (totalReturnDollars / totalCost) * 100 : 0;
-
-    const HoldingRow = ({ holding, onEdit, onRemove }: HoldingRowProps) => {
-        const total_cost = holding.shares * holding.purchase_price;
-        // Use the current_price from the holding data directly, fallback to purchase_price if not available
-        const currentPrice = holding.current_price || holding.purchase_price;
-        
-        const pnl = holding.market_value - total_cost;
-        const pnl_percent = total_cost > 0 ? (pnl / total_cost) * 100 : 0;
-        const returnDollar = (currentPrice - holding.purchase_price) * holding.shares;
-        const returnPercent = holding.purchase_price > 0 ? ((currentPrice - holding.purchase_price) / holding.purchase_price) * 100 : 0;
-        const formatCurrency = (value: number) => ValidationService.formatCurrency(value);
-        const isMenuOpen = openMenuId === holding.id;
-    
-        return (
-            <tr className="border-b border-gray-200 hover:bg-gray-50">
-                <td className="px-4 py-3">
-                    <div className="font-bold text-gray-900">{holding.ticker}</div>
-                    <div className="text-sm text-gray-600 truncate">{holding.company_name}</div>
-                </td>
-                <td className="text-right font-medium text-gray-800 px-4 py-3">{ValidationService.formatNumber(holding.shares, 0)}</td>
-                <td className="text-right font-medium text-gray-800 px-4 py-3">{formatCurrency(holding.purchase_price)}</td>
-                <td className="text-right font-medium text-gray-800 px-4 py-3">{formatCurrency(currentPrice)}</td>
-                <td className="text-right font-medium text-gray-800 px-4 py-3">{formatCurrency(holding.market_value)}</td>
-                <td className="text-right font-medium text-gray-800 px-4 py-3">{formatCurrency(total_cost)}</td>
-                <td className="text-right font-medium text-gray-800 px-4 py-3">{formatCurrency(returnDollar)}</td>
-                <td className="text-right font-medium text-gray-800 px-4 py-3">{formatPercent(returnPercent)}</td>
-                <td className={`text-right font-medium px-4 py-3 ${pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>{pnl >= 0 ? '+' : ''}{formatCurrency(pnl)}</td>
-                <td className={`text-right font-medium px-4 py-3 ${pnl_percent >= 0 ? 'text-green-600' : 'text-red-600'}`}>{pnl_percent >= 0 ? '+' : ''}{ValidationService.formatNumber(pnl_percent, 2)}%</td>
-                <td className="text-center px-4 py-3 relative">
-                    <button 
-                        onClick={() => handleMenuToggle(holding.id)} 
-                        className="p-2 rounded-full hover:bg-gray-100"
-                    >
-                        <MoreVertical size={16} />
-                    </button>
-                    {isMenuOpen && (
-                        <div 
-                            className="absolute right-0 mt-2 w-32 bg-white rounded-md shadow-lg z-10 border border-gray-100"
-                            onMouseLeave={() => setOpenMenuId(null)}
-                        >
-                            <button 
-                                onClick={() => { onEdit(holding); handleMenuToggle(holding.id); }} 
-                                className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                            >
-                                <Edit size={14} className="mr-2" />
-                                Modify
-                            </button>
-                            <button 
-                                onClick={() => { onRemove(holding); handleMenuToggle(holding.id); }} 
-                                className="flex items-center w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
-                            >
-                                <Trash2 size={14} className="mr-2" />
-                                Remove
-                            </button>
-                        </div>
-                    )}
-                </td>
-            </tr>
-        );
-    };
-
-    const holdings = portfolioData?.holdings || [];
-    
-    // Modal rendering logic
-    const isEditing = !!editingHolding;
-    const totalAmount = Number(form.shares) * Number(form.purchase_price);
-    const holdingModal = showHoldingModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-                <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-xl">
-                    <div className="flex items-center justify-between">
-                        <h2 className="text-xl font-bold text-gray-900">{isEditing ? 'Edit Stock Holding' : 'Add Stock Holding'}</h2>
-                        <button 
-                            className="text-gray-400 hover:text-gray-600 transition-colors p-1" 
-                            onClick={closeHoldingModal}
-                            disabled={isSubmitting}
-                        >
-                            <X size={22} />
-                        </button>
-                    </div>
-                </div>
-                <form onSubmit={handleFormSubmit} className="p-6 space-y-6">
-                    {/* Ticker Search */}
-                    <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Stock Ticker</label>
-                        <div className="relative">
-                            <input
-                                name="ticker"
-                                value={form.ticker}
-                                onChange={e => {
-                                    handleFormChange(e);
-                                    if (!isEditing) handleTickerSearch(e.target.value);
-                                }}
-                                onFocus={handleTickerFocus}
-                                onBlur={handleTickerBlur}
-                                disabled={isEditing || isSubmitting}
-                                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 font-mono uppercase ${formErrors.ticker ? 'border-red-300' : 'border-gray-300'}`}
-                                placeholder="e.g., AAPL, MSFT, GOOGL"
-                                required
-                                autoComplete="off"
-                            />
-                            {searchLoading && !isEditing && (
-                                <div className="absolute right-3 top-3"><Loader2 className="animate-spin" size={18} /></div>
-                            )}
-                            {showSuggestions && tickerSuggestions.length > 0 && !isEditing && (
-                                <ul className="absolute left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg mt-1 z-20 max-h-48 overflow-y-auto">
-                                    {tickerSuggestions.map(s => (
-                                        <li
-                                            key={s.symbol}
-                                            className="px-4 py-2 cursor-pointer hover:bg-blue-50"
-                                            onMouseDown={() => handleSuggestionClick(s)}
-                                        >
-                                            <span className="font-mono font-bold">{s.symbol}</span> <span className="text-gray-600">{s.name}</span> <span className="text-xs text-gray-400">{s.exchange} ({s.exchange_code})</span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
-                        </div>
-                        {formErrors.ticker && <div className="text-xs text-red-500 mt-1">{formErrors.ticker}</div>}
-                    </div>
-
-                    {/* Purchase Date */}
-                    <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Purchase Date</label>
-                        <input
-                            name="purchase_date"
-                            type="date"
-                            value={form.purchase_date}
-                            onChange={handleDateChange}
-                            onBlur={handleDateBlur}
-                            disabled={isSubmitting}
-                            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${formErrors.purchase_date ? 'border-red-300' : 'border-gray-300'}`}
-                            required
-                        />
-                        {formErrors.purchase_date && <div className="text-xs text-red-500 mt-1">{formErrors.purchase_date}</div>}
-                    </div>
-
-                    {/* Purchase Price */}
-                    <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Purchase Price
-                            {loadingPrice && <span className="ml-2 text-xs text-blue-600">(Fetching closing price...)</span>}
-                        </label>
-                        <div className="relative">
-                            <input
-                                name="purchase_price"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={form.purchase_price}
-                                onChange={handleFormChange}
-                                disabled={isSubmitting || loadingPrice}
-                                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${formErrors.purchase_price ? 'border-red-300' : 'border-gray-300'} ${loadingPrice ? 'bg-gray-50' : ''}`}
-                                placeholder="0.00"
-                                required
-                            />
-                            {loadingPrice && (
-                                <div className="absolute right-3 top-3"><Loader2 className="animate-spin" size={18} /></div>
-                            )}
-                        </div>
-                        {formErrors.purchase_price && <div className="text-xs text-red-500 mt-1">{formErrors.purchase_price}</div>}
-                        <div className="text-xs text-gray-500 mt-1">
-                            {isEditing 
-                                ? "Change the purchase date to automatically fetch the closing price for that day"
-                                : "Select a purchase date to automatically fetch the closing price for that day"
-                            }
-                        </div>
-                    </div>
-
-                    {/* Quantity */}
-                    <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
-                        <input
-                            name="shares"
-                            type="number"
-                            min="0"
-                            step="1"
-                            value={form.shares}
-                            onChange={handleFormChange}
-                            disabled={isSubmitting}
-                            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${formErrors.shares ? 'border-red-300' : 'border-gray-300'}`}
-                            placeholder="0"
-                            required
-                        />
-                        {formErrors.shares && <div className="text-xs text-red-500 mt-1">{formErrors.shares}</div>}
-                    </div>
-
-                    {/* Commission */}
-                    <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Commission</label>
-                        <input
-                            name="commission"
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={form.commission}
-                            onChange={handleFormChange}
-                            disabled={isSubmitting}
-                            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${formErrors.commission ? 'border-red-300' : 'border-gray-300'}`}
-                            placeholder="0.00"
-                        />
-                        {formErrors.commission && <div className="text-xs text-red-500 mt-1">{formErrors.commission}</div>}
-                    </div>
-
-                    {/* Use Cash Balance */}
-                    <div className="mb-4 flex items-center">
-                        <input
-                            id="use_cash_balance"
-                            name="use_cash_balance"
-                            type="checkbox"
-                            checked={form.use_cash_balance}
-                            onChange={handleFormChange}
-                            disabled={isSubmitting}
-                            className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                        />
-                        <label htmlFor="use_cash_balance" className="ml-2 block text-sm text-gray-700">Use Cash Balance</label>
-                    </div>
-
-                    {/* Currency */}
-                    <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
-                        <select
-                            name="currency"
-                            value={form.currency}
-                            onChange={handleFormChange}
-                            disabled={isSubmitting}
-                            className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                        >
-                            <option value="USD">USD</option>
-                            <option value="EUR">EUR</option>
-                            <option value="GBP">GBP</option>
-                            <option value="JPY">JPY</option>
-                            <option value="CAD">CAD</option>
-                            <option value="AUD">AUD</option>
-                            <option value="CHF">CHF</option>
-                            <option value="HKD">HKD</option>
-                            <option value="SGD">SGD</option>
-                            <option value="CNY">CNY</option>
-                        </select>
-                    </div>
-
-                    {/* Exchange Rate on Date */}
-                    <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Exchange Rate on Date</label>
-                        <input
-                            name="fx_rate"
-                            type="number"
-                            min="0"
-                            step="0.0001"
-                            value={form.fx_rate}
-                            onChange={handleFormChange}
-                            disabled={isSubmitting}
-                            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${formErrors.fx_rate ? 'border-red-300' : 'border-gray-300'}`}
-                            placeholder="1.0"
-                        />
-                        {formErrors.fx_rate && <div className="text-xs text-red-500 mt-1">{formErrors.fx_rate}</div>}
-                    </div>
-
-                    {/* Total Amount */}
-                    <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Total Amount</label>
-                        <input
-                            type="text"
-                            value={isNaN(totalAmount) ? '' : totalAmount.toLocaleString(undefined, { style: 'currency', currency: form.currency || 'USD' })}
-                            readOnly
-                            className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-800 font-semibold"
-                        />
-                    </div>
-
-                    <div className="flex gap-3 pt-4 border-t border-gray-200">
-                        <button 
-                            type="button" 
-                            className="flex-1 px-4 py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors duration-200 disabled:opacity-50" 
-                            onClick={closeHoldingModal}
-                            disabled={isSubmitting}
-                        >
-                            Cancel
-                        </button>
-                        <button 
-                            type="submit" 
-                            className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-                            disabled={isSubmitting}
-                        >
-                            {isSubmitting ? (
-                                <>
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                                    {isEditing ? 'Updating...' : 'Adding...'}
-                                </>
-                            ) : (
-                                isEditing ? 'Update Holding' : 'Confirm Stock'
-                            )}
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    );
 
     if (loading) {
         return (
@@ -795,7 +514,7 @@ export default function PortfolioPage() {
                 </button>
             </div>
             
-            {holdings.length === 0 ? (
+            {portfolioData?.holdings.length === 0 ? (
                 <div className="text-center py-12 bg-white rounded-lg shadow border border-gray-200">
                     <h2 className="text-xl font-semibold text-gray-700 mb-2">No Holdings Yet</h2>
                     <p className="text-gray-500 mb-6">Start building your portfolio by adding your first stock holding.</p>
@@ -806,45 +525,312 @@ export default function PortfolioPage() {
             ) : (
                 <div className="overflow-x-auto">
                     <table className="min-w-full text-sm">
-                        <thead>
-                            <tr className="bg-gray-50 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                <th className="text-left px-4 py-3">Asset</th>
-                                <th className="text-right px-4 py-3">Shares</th>
-                                <th className="text-right px-4 py-3">Purchase Price</th>
-                                <th className="text-right px-4 py-3">Current Price</th>
-                                <th className="text-right px-4 py-3">Market Value</th>
-                                <th className="text-right px-4 py-3">Total Cost</th>
-                                <th className="text-right px-4 py-3">Return $</th>
-                                <th className="text-right px-4 py-3">Return %</th>
-                                <th className="text-right px-4 py-3">Gain / Loss</th>
-                                <th className="text-right px-4 py-3">% Change</th>
-                                <th className="text-center px-4 py-3">Actions</th>
+                        <thead className="bg-gray-700/50 text-xs uppercase text-gray-400">
+                            <tr>
+                                <th scope="col" className="px-6 py-3">Ticker</th>
+                                <th scope="col" className="px-6 py-3">Shares</th>
+                                <th scope="col" className="px-6 py-3 text-right">Cost Basis</th>
+                                <th scope="col" className="px-6 py-3 text-right">Current Price</th>
+                                <th scope="col" className="px-6 py-3 text-right">Market Value</th>
+                                <th scope="col" className="px-6 py-3 text-right">Open PNL</th>
+                                <th scope="col" className="px-6 py-3 text-right">Open PNL %</th>
+                                <th scope="col" className="px-6 py-3 text-center">Actions</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-200">
-                            {holdings.map(holding => (
-                                <HoldingRow 
-                                    key={holding.id} 
-                                    holding={holding}
-                                    onEdit={openEditModal}
-                                    onRemove={handleRemoveHolding}
-                                />
-                            ))}
+                        <tbody>
+                            {portfolioData?.holdings.map((holding) => {
+                                const costBasis = holding.shares * holding.purchase_price;
+                                const openPnl = holding.market_value - costBasis;
+                                const openPnlPercent = costBasis > 0 ? (openPnl / costBasis) * 100 : 0;
+                                const isGain = openPnl >= 0;
+
+                                return (
+                                    <tr key={holding.id} className="border-b border-gray-700 bg-gray-800 hover:bg-gray-700/50">
+                                        <th scope="row" className="whitespace-nowrap px-6 py-4 font-medium text-white">
+                                            <div className="flex items-center">
+                                                <div className="mr-2 h-8 w-8 rounded-full bg-gray-600"></div>
+                                                <div>
+                                                    <div className="font-bold">{holding.ticker}</div>
+                                                    <div className="text-xs text-gray-400">{holding.company_name}</div>
+                                                </div>
+                                            </div>
+                                        </th>
+                                        <td className="px-6 py-4">{holding.shares.toFixed(4)}</td>
+                                        <td className="px-6 py-4 text-right">{formatCurrency(costBasis)}</td>
+                                        <td className="px-6 py-4 text-right">{formatCurrency(holding.current_price)}</td>
+                                        <td className="px-6 py-4 text-right">{formatCurrency(holding.market_value)}</td>
+                                        <td className={`px-6 py-4 text-right font-medium ${isGain ? 'text-green-400' : 'text-red-400'}`}>
+                                            {formatCurrency(openPnl)}
+                                        </td>
+                                        <td className={`px-6 py-4 text-right font-medium ${isGain ? 'text-green-400' : 'text-red-400'}`}>
+                                            {formatPercent(openPnlPercent)}
+                                        </td>
+                                        <td className="relative px-6 py-4 text-center">
+                                            <button onClick={() => handleMenuToggle(holding.id)} className="rounded-md p-1.5 hover:bg-gray-600">
+                                                <MoreVertical size={20} />
+                                            </button>
+                                            {openMenuId === holding.id && (
+                                                <div className="absolute right-12 top-10 z-20 w-48 rounded-md border border-gray-600 bg-gray-700 shadow-lg">
+                                                    <button
+                                                        onClick={() => {
+                                                            openEditModal(holding);
+                                                            setOpenMenuId(null);
+                                                        }}
+                                                        className="flex w-full items-center px-4 py-2 text-left text-sm hover:bg-gray-600"
+                                                    >
+                                                        <Edit size={16} className="mr-2" /> Edit
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            handleRemoveHolding(holding)
+                                                            setOpenMenuId(null);
+                                                        }}
+                                                        className="flex w-full items-center px-4 py-2 text-left text-sm text-red-400 hover:bg-gray-600"
+                                                    >
+                                                        <Trash2 size={16} className="mr-2" /> Remove
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
-                        {/* Summary row for total PnL */}
-                        <tfoot>
-                            <tr className="bg-gray-100 font-bold">
-                                <td className="px-4 py-3 text-right" colSpan={6}>Total PnL</td>
-                                <td className="text-right px-4 py-3">{ValidationService.formatCurrency(totalReturnDollars)}</td>
-                                <td className="text-right px-4 py-3">{formatPercent(totalReturnPercent)}</td>
-                                <td colSpan={3}></td>
-                            </tr>
-                        </tfoot>
                     </table>
                 </div>
             )}
             
-            {holdingModal}
+            {showHoldingModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+                        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-xl">
+                            <div className="flex items-center justify-between">
+                                <h2 className="text-xl font-bold text-gray-900">{editingHolding ? 'Edit Stock Holding' : 'Add Stock Holding'}</h2>
+                                <button 
+                                    className="text-gray-400 hover:text-gray-600 transition-colors p-1" 
+                                    onClick={closeHoldingModal}
+                                    disabled={isSubmitting}
+                                >
+                                    <X size={22} />
+                                </button>
+                            </div>
+                        </div>
+                        <form onSubmit={handleFormSubmit} className="p-6 space-y-6">
+                            {/* Ticker Search */}
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Stock Ticker</label>
+                                <div className="relative">
+                                    <input
+                                        name="ticker"
+                                        value={form.ticker}
+                                        onChange={e => {
+                                            handleFormChange(e);
+                                            if (!editingHolding) handleTickerSearch(e.target.value);
+                                        }}
+                                        onFocus={handleTickerFocus}
+                                        onBlur={handleTickerBlur}
+                                        disabled={!!editingHolding || isSubmitting}
+                                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 font-mono uppercase ${formErrors.ticker ? 'border-red-300' : 'border-gray-300'}`}
+                                        placeholder="e.g., AAPL, MSFT, GOOGL"
+                                        required
+                                        autoComplete="off"
+                                    />
+                                    {searchLoading && !editingHolding && (
+                                        <div className="absolute right-3 top-3"><Loader2 className="animate-spin" size={18} /></div>
+                                    )}
+                                    {showSuggestions && tickerSuggestions.length > 0 && !editingHolding && (
+                                        <ul className="absolute left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg mt-1 z-20 max-h-48 overflow-y-auto">
+                                            {tickerSuggestions.map(s => (
+                                                <li
+                                                    key={s.symbol}
+                                                    className="px-4 py-2 cursor-pointer hover:bg-blue-50"
+                                                    onMouseDown={() => handleSuggestionClick(s)}
+                                                >
+                                                    <span className="font-mono font-bold">{s.symbol}</span> <span className="text-gray-600">{s.name}</span> <span className="text-xs text-gray-400">{s.exchange} ({s.exchange_code})</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </div>
+                                {formErrors.ticker && <div className="text-xs text-red-500 mt-1">{formErrors.ticker}</div>}
+                            </div>
+
+                            {/* Purchase Date */}
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Purchase Date</label>
+                                <input
+                                    name="purchase_date"
+                                    type="date"
+                                    value={form.purchase_date}
+                                    onChange={handleDateChange}
+                                    onBlur={handleDateBlur}
+                                    disabled={isSubmitting}
+                                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${formErrors.purchase_date ? 'border-red-300' : 'border-gray-300'}`}
+                                    required
+                                />
+                                {formErrors.purchase_date && <div className="text-xs text-red-500 mt-1">{formErrors.purchase_date}</div>}
+                            </div>
+
+                            {/* Purchase Price */}
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Purchase Price
+                                    {loadingPrice && <span className="ml-2 text-xs text-blue-600">(Fetching closing price...)</span>}
+                                </label>
+                                <div className="relative">
+                                    <input
+                                        name="purchase_price"
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        value={form.purchase_price}
+                                        onChange={handleFormChange}
+                                        disabled={isSubmitting || loadingPrice}
+                                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${formErrors.purchase_price ? 'border-red-300' : 'border-gray-300'} ${loadingPrice ? 'bg-gray-50' : ''}`}
+                                        placeholder="0.00"
+                                        required
+                                    />
+                                    {loadingPrice && (
+                                        <div className="absolute right-3 top-3"><Loader2 className="animate-spin" size={18} /></div>
+                                    )}
+                                </div>
+                                {formErrors.purchase_price && <div className="text-xs text-red-500 mt-1">{formErrors.purchase_price}</div>}
+                                <div className="text-xs text-gray-500 mt-1">
+                                    {editingHolding 
+                                        ? "Change the purchase date to automatically fetch the closing price for that day"
+                                        : "Select a purchase date to automatically fetch the closing price for that day"
+                                    }
+                                </div>
+                            </div>
+
+                            {/* Quantity */}
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+                                <input
+                                    name="shares"
+                                    type="number"
+                                    min="0"
+                                    step="1"
+                                    value={form.shares}
+                                    onChange={handleFormChange}
+                                    disabled={isSubmitting}
+                                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${formErrors.shares ? 'border-red-300' : 'border-gray-300'}`}
+                                    placeholder="0"
+                                    required
+                                />
+                                {formErrors.shares && <div className="text-xs text-red-500 mt-1">{formErrors.shares}</div>}
+                            </div>
+
+                            {/* Commission */}
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Commission</label>
+                                <input
+                                    name="commission"
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={form.commission}
+                                    onChange={handleFormChange}
+                                    disabled={isSubmitting}
+                                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${formErrors.commission ? 'border-red-300' : 'border-gray-300'}`}
+                                    placeholder="0.00"
+                                />
+                                {formErrors.commission && <div className="text-xs text-red-500 mt-1">{formErrors.commission}</div>}
+                            </div>
+
+                            {/* Use Cash Balance */}
+                            <div className="mb-4 flex items-center">
+                                <input
+                                    id="use_cash_balance"
+                                    name="use_cash_balance"
+                                    type="checkbox"
+                                    checked={form.use_cash_balance}
+                                    onChange={handleFormChange}
+                                    disabled={isSubmitting}
+                                    className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                />
+                                <label htmlFor="use_cash_balance" className="ml-2 block text-sm text-gray-700">Use Cash Balance</label>
+                            </div>
+
+                            {/* Currency */}
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
+                                <select
+                                    name="currency"
+                                    value={form.currency}
+                                    onChange={handleFormChange}
+                                    disabled={isSubmitting}
+                                    className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                >
+                                    <option value="USD">USD</option>
+                                    <option value="EUR">EUR</option>
+                                    <option value="GBP">GBP</option>
+                                    <option value="JPY">JPY</option>
+                                    <option value="CAD">CAD</option>
+                                    <option value="AUD">AUD</option>
+                                    <option value="CHF">CHF</option>
+                                    <option value="HKD">HKD</option>
+                                    <option value="SGD">SGD</option>
+                                    <option value="CNY">CNY</option>
+                                </select>
+                            </div>
+
+                            {/* Exchange Rate on Date */}
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Exchange Rate on Date</label>
+                                <input
+                                    name="fx_rate"
+                                    type="number"
+                                    min="0"
+                                    step="0.0001"
+                                    value={form.fx_rate}
+                                    onChange={handleFormChange}
+                                    disabled={isSubmitting}
+                                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${formErrors.fx_rate ? 'border-red-300' : 'border-gray-300'}`}
+                                    placeholder="1.0"
+                                />
+                                {formErrors.fx_rate && <div className="text-xs text-red-500 mt-1">{formErrors.fx_rate}</div>}
+                            </div>
+
+                            {/* Total Amount */}
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Total Amount</label>
+                                <input
+                                    type="text"
+                                    value={isNaN(Number(form.shares) * Number(form.purchase_price)) ? '' : (Number(form.shares) * Number(form.purchase_price)).toLocaleString(undefined, { style: 'currency', currency: form.currency || 'USD' })}
+                                    readOnly
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-800 font-semibold"
+                                />
+                            </div>
+
+                            <div className="flex gap-3 pt-4 border-t border-gray-200">
+                                <button 
+                                    type="button" 
+                                    className="flex-1 px-4 py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors duration-200 disabled:opacity-50" 
+                                    onClick={closeHoldingModal}
+                                    disabled={isSubmitting}
+                                >
+                                    Cancel
+                                </button>
+                                <button 
+                                    type="submit" 
+                                    className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                                    disabled={isSubmitting}
+                                >
+                                    {isSubmitting ? (
+                                        <>
+                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                            {editingHolding ? 'Updating...' : 'Adding...'}
+                                        </>
+                                    ) : (
+                                        editingHolding ? 'Update Holding' : 'Confirm Stock'
+                                    )}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 } 
