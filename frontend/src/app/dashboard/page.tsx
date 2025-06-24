@@ -3,8 +3,8 @@ import { dashboardAPI } from '@/lib/api';
 
 import KPIGrid from './components/KPIGrid';
 import AllocationTable from './components/AllocationTable';
-import GainLossCard from './components/GainLossCard';
-import DividendChart from './components/DividendChart';
+import PortfolioChart from './components/PortfolioChart';
+import DailyMovers from './components/DailyMovers';
 import FxTicker from './components/FxTicker';
 import { KPIGridSkeleton, ChartSkeleton, ListSkeleton, FxTickerSkeleton } from './components/Skeletons';
 
@@ -17,7 +17,7 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight text-white">My portfolio</h1>
+        <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">My portfolio</h1>
         {/* Add top right controls here */}
       </div>
 
@@ -33,23 +33,15 @@ export default async function DashboardPage() {
         <FxTicker />
       </Suspense>
       
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Suspense fallback={<ListSkeleton title="Top day gainers" />}>
-          {/* @ts-expect-error Server Component */}
-          <GainLossCard type="gainers" />
-        </Suspense>
-        <Suspense fallback={<ListSkeleton title="Top day losers" />}>
-          {/* @ts-expect-error Server Component */}
-          <GainLossCard type="losers" />
-        </Suspense>
-      </div>
+      <Suspense fallback={<ChartSkeleton />}>
+        {/* @ts-expect-error Server Component */}
+        <PortfolioChart />
+      </Suspense>
 
-      <div className="grid grid-cols-1 gap-6">
-        <Suspense fallback={<ChartSkeleton />}>
-            {/* @ts-expect-error Server Component */}
-            <DividendChart />
-        </Suspense>
-      </div>
+      <Suspense fallback={<ListSkeleton title="Daily movers" />}>
+        {/* @ts-expect-error Server Component */}
+        <DailyMovers />
+      </Suspense>
     </div>
   );
-} 
+}

@@ -12,6 +12,7 @@ import {
   GainerLoser,
   DividendForecast,
   FxRates,
+  EnhancedPortfolioPerformance,
 } from '@/types/api';
 
 class ApiError extends Error {
@@ -166,6 +167,19 @@ export const dashboardAPI = {
   async getFxRates(base: string = 'AUD'): Promise<ApiResponse<FxRates>> {
     const url = `${config.apiBaseUrl}${apiEndpoints.fx.latest(base)}`;
     return this._safeFetch<FxRates>(url);
+  },
+
+  async getPortfolioPerformance(
+    userId: string,
+    period: string = '1Y',
+    benchmark: string = '^GSPC'
+  ): Promise<ApiResponse<EnhancedPortfolioPerformance>> {
+    const url = `${config.apiBaseUrl}${apiEndpoints.dashboard.portfolioPerformance(
+      userId,
+      period,
+      encodeURIComponent(benchmark)
+    )}`;
+    return this._safeFetch<EnhancedPortfolioPerformance>(url);
   },
 };
 
