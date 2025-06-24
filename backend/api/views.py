@@ -16,11 +16,13 @@ from .schemas import *
 from .services.price_alert_service import get_price_alert_service
 #from .services.portfolio_benchmarking import PortfolioBenchmarking
 from .dashboard_views import dashboard_api_router
+from .portfolio_views import portfolio_api_router
 
 logger = logging.getLogger(__name__)
 
 router = Router()
 router.add_router("/", dashboard_api_router)
+router.add_router("/portfolio", portfolio_api_router)
 
 # =================
 # STOCK ANALYSIS ENDPOINTS
