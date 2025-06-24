@@ -4,6 +4,11 @@ from pydantic import Field
 from decimal import Decimal
 from functools import wraps
 from cachetools import TTLCache
+from collections import defaultdict
+from asgiref.sync import sync_to_async
+from datetime import date, timedelta
+from .models import Transaction, DividendPayment
+from .alpha_vantage_service import get_alpha_vantage_service
 from .auth import SupabaseUser, get_current_user, require_auth
 
 # =================
@@ -95,67 +100,183 @@ class FxResponse(Schema):
 # --- Dashboard Endpoints ---
 
 @dashboard_api_router.get("/dashboard/overview", response=OverviewResponse, summary="Get Dashboard KPI Overview")
+@async_ttl_cache(ttl=1800)
+
 @require_auth
-@async_ttl_cache(ttl=60)
 async def get_dashboard_overview(request):
+    user = await get_current_user(request)
+    transactions = await sync_to_async(list)(Transaction.objects.filter(user_id=user.id))
+
+    holdings = defaultdict(Decimal)
+    invested = defaultdict(Decimal)
+
+    for txn in transactions:
+        if txn.transaction_type == 'BUY':
+            holdings[txn.ticker] += txn.shares
+            invested[txn.ticker] += txn.total_amount
+        elif txn.transaction_type == 'SELL':
+            holdings[txn.ticker] -= txn.shares
+            invested[txn.ticker] -= txn.total_amount
+
+    av_service = get_alpha_vantage_service()
+    market_value = Decimal('0')
+    for ticker, shares in holdings.items():
+        if shares <= 0:
+            continue
+        quote = await sync_to_async(av_service.get_global_quote)(ticker)
+        price = Decimal(str(quote.get('price', '0'))) if quote else Decimal('0')
+        market_value += shares * price
+
+    invested_total = sum(invested.values())
+    profit = market_value - invested_total
+    delta_percent = (profit / invested_total * Decimal('100')) if invested_total != 0 else Decimal('0')
+
     return {
-        "marketValue": {"value": "138214.02", "sub_label": "AU$138,477.40 invested", "is_positive": True},
-        "totalProfit": {"value": "12257.01", "sub_label": "+AU$178.07 daily", "delta_percent": "8.9", "is_positive": True},
-        "irr": {"value": "11.48", "sub_label": "-0.33% current holdings", "is_positive": False},
-        "passiveIncome": {"value": "1.6", "sub_label": "AU$2,022.86 annually", "delta": "9.0", "is_positive": True}
+        "marketValue": {"value": str(round(market_value, 2)), "sub_label": f"AU${round(invested_total,2)} invested", "is_positive": market_value >= invested_total},
+        "totalProfit": {"value": str(round(profit, 2)), "sub_label": "", "deltaPercent": str(round(delta_percent, 2)), "is_positive": profit >= 0},
+        "irr": {"value": "0", "sub_label": "", "is_positive": profit >= 0},
+        "passiveIncome": {"value": "0", "sub_label": "", "is_positive": False}
     }
 
 @dashboard_api_router.get("/dashboard/allocation", response=AllocationResponse, summary="Get Portfolio Allocation")
+@async_ttl_cache(ttl=1800)
 @require_auth
-@async_ttl_cache(ttl=60)
+
 async def get_portfolio_allocation(request, groupBy: str = "sector"):
-    allocation_data = [
-        {"groupKey": "Funds", "value": "51142.06", "invested": "57257.15", "gainValue": "3195.08", "gainPercent": "5.58", "allocation": "44.24", "accentColor": "blue"},
-        {"groupKey": "Industrials", "value": "18729.62", "invested": "19470.87", "gainValue": "-1225.94", "gainPercent": "-6.3", "allocation": "14.27", "accentColor": "green"},
-        {"groupKey": "Financials", "value": "14563.92", "invested": "13613.49", "gainValue": "10311.09", "gainPercent": "75.74", "allocation": "10.54", "accentColor": "purple"},
-        {"groupKey": "Cash", "value": "11804.06", "invested": "11804.06", "gainValue": "0", "gainPercent": "0", "allocation": "8.54", "accentColor": "gray"},
-        {"groupKey": "Healthcare", "value": "9797.59", "invested": "8463.80", "gainValue": "2275.97", "gainPercent": "26.89", "allocation": "7.09", "accentColor": "teal"},
-    ]
-    return {"rows": allocation_data}
+    user = await get_current_user(request)
+    transactions = await sync_to_async(list)(Transaction.objects.filter(user_id=user.id))
+
+    holdings = defaultdict(Decimal)
+    invested = defaultdict(Decimal)
+
+    for txn in transactions:
+        if txn.transaction_type == 'BUY':
+            holdings[txn.ticker] += txn.shares
+            invested[txn.ticker] += txn.total_amount
+        elif txn.transaction_type == 'SELL':
+            holdings[txn.ticker] -= txn.shares
+            invested[txn.ticker] -= txn.total_amount
+
+    av_service = get_alpha_vantage_service()
+    prices = {}
+    total_value = Decimal('0')
+
+    for ticker, shares in holdings.items():
+        if shares <= 0:
+            continue
+        quote = await sync_to_async(av_service.get_global_quote)(ticker)
+        price = Decimal(str(quote.get('price', '0'))) if quote else Decimal('0')
+        prices[ticker] = price
+        total_value += shares * price
+
+    rows = []
+    for idx, (ticker, shares) in enumerate(holdings.items()):
+        if shares <= 0:
+            continue
+        value = shares * prices.get(ticker, Decimal('0'))
+        invested_amt = invested.get(ticker, Decimal('0'))
+        gain_value = value - invested_amt
+        gain_percent = (gain_value / invested_amt * Decimal('100')) if invested_amt != 0 else Decimal('0')
+        allocation = (value / total_value * Decimal('100')) if total_value != 0 else Decimal('0')
+        rows.append({
+            "groupKey": ticker,
+            "value": str(round(value, 2)),
+            "invested": str(round(invested_amt, 2)),
+            "gainValue": str(round(gain_value, 2)),
+            "gainPercent": str(round(gain_percent, 2)),
+            "allocation": str(round(allocation, 2)),
+            "accentColor": "blue"
+        })
+
+    return {"rows": rows}
 
 @dashboard_api_router.get("/dashboard/gainers", response=GainersLosersResponse, summary="Get Top 5 Day Gainers")
+@async_ttl_cache(ttl=1800)
 @require_auth
-@async_ttl_cache(ttl=60)
+
 async def get_top_gainers(request, limit: int = 5):
-    gainers_data = [
-        {"name": "iShares Core S&P 500 AUD", "ticker": "IVV", "value": "29550.15", "changePercent": "0.9", "changeValue": "262.33"},
-        {"name": "Vanguard US Total Market Shares Index ETF", "ticker": "VTS", "value": "14624.96", "changePercent": "0.95", "changeValue": "127.60"},
-        {"name": "Hims & Hers Health, Inc", "ticker": "HIMS", "value": "1605.50", "changePercent": "5.16", "changeValue": "78.75"},
-        {"name": "Betashares Nasdaq 100", "ticker": "NDQ", "value": "16966.95", "changePercent": "0.6", "changeValue": "101.70"},
-        {"name": "Tasmia Ltd", "ticker": "TEA", "value": "4779.16", "changePercent": "1.88", "changeValue": "87.96"},
-    ]
-    return {"items": gainers_data}
+    user = await get_current_user(request)
+    transactions = await sync_to_async(list)(Transaction.objects.filter(user_id=user.id))
+
+    tickers = {txn.ticker for txn in transactions if txn.transaction_type in ['BUY', 'SELL']}
+    av_service = get_alpha_vantage_service()
+    data = []
+
+    for ticker in tickers:
+        quote = await sync_to_async(av_service.get_global_quote)(ticker)
+        if not quote:
+            continue
+        price = Decimal(str(quote.get('price', '0')))
+        change = Decimal(str(quote.get('change', '0')))
+        change_percent = Decimal(str(quote.get('change_percent', '0')))
+        data.append({
+            "name": ticker,
+            "ticker": ticker,
+            "value": str(round(price, 2)),
+            "changePercent": str(round(change_percent, 2)),
+            "changeValue": str(round(change, 2))
+        })
+
+    data.sort(key=lambda x: Decimal(x["changePercent"]), reverse=True)
+    return {"items": data[:limit]}
 
 @dashboard_api_router.get("/dashboard/losers", response=GainersLosersResponse, summary="Get Top 5 Day Losers")
+@async_ttl_cache(ttl=1800)
 @require_auth
-@async_ttl_cache(ttl=60)
 async def get_top_losers(request, limit: int = 5):
-    losers_data = [
-        {"name": "Arista Networks, Inc", "ticker": "ANET", "value": "3622.50", "changePercent": "-4.42", "changeValue": "-167.58"},
-        {"name": "Brookside Energy Ltd", "ticker": "BRK", "value": "5983.29", "changePercent": "-3.48", "changeValue": "-216.20"},
-        {"name": "Terawulf Inc", "ticker": "WULF", "value": "4222.46", "changePercent": "-2.6", "changeValue": "-115.04"},
-        {"name": "Acrow Limited", "ticker": "ACF", "value": "5493.16", "changePercent": "-2.05", "changeValue": "-115.04"},
-        {"name": "Nu Holdings Ltd.", "ticker": "NU", "value": "3537.02", "changePercent": "-0.82", "changeValue": "-29.30"},
-    ]
-    return {"items": losers_data}
+    user = await get_current_user(request)
+    transactions = await sync_to_async(list)(Transaction.objects.filter(user_id=user.id))
+
+    tickers = {txn.ticker for txn in transactions if txn.transaction_type in ['BUY', 'SELL']}
+    av_service = get_alpha_vantage_service()
+    data = []
+
+    for ticker in tickers:
+        quote = await sync_to_async(av_service.get_global_quote)(ticker)
+        if not quote:
+            continue
+        price = Decimal(str(quote.get('price', '0')))
+        change = Decimal(str(quote.get('change', '0')))
+        change_percent = Decimal(str(quote.get('change_percent', '0')))
+        data.append({
+            "name": ticker,
+            "ticker": ticker,
+            "value": str(round(price, 2)),
+            "changePercent": str(round(change_percent, 2)),
+            "changeValue": str(round(change, 2))
+        })
+
+    data.sort(key=lambda x: Decimal(x["changePercent"]))
+    return {"items": data[:limit]}
 
 @dashboard_api_router.get("/dashboard/dividend-forecast", response=DividendForecastResponse, summary="Get 12-Month Dividend Forecast")
+@async_ttl_cache(ttl=1800)
 @require_auth
-@async_ttl_cache(ttl=3600)
 async def get_dividend_forecast(request, months: int = 12):
+    user = await get_current_user(request)
+    start_date = date.today()
+    end_date = start_date + timedelta(days=months * 30)
+
+    payments = await sync_to_async(list)(
+        DividendPayment.objects.filter(
+            holding__portfolio__user_id=user.id,
+            payment_date__gte=start_date,
+            payment_date__lte=end_date
+        )
+    )
+
+    month_totals: Dict[str, Decimal] = defaultdict(Decimal)
+    for p in payments:
+        month_key = p.payment_date.strftime("%b")
+        month_totals[month_key] += p.total_amount
+
     forecast_data = [
-        {"month": "Jul", "amount": "619"}, {"month": "Aug", "amount": "290"}, {"month": "Sep", "amount": "150"},
-        {"month": "Oct", "amount": "520"}, {"month": "Nov", "amount": "175"}, {"month": "Dec", "amount": "125"},
-        {"month": "Jan", "amount": "167"},
+        {"month": m, "amount": str(round(amt, 2))} for m, amt in month_totals.items()
     ]
-    total = sum(Decimal(d['amount']) for d in forecast_data)
-    avg = total / Decimal("12")
-    return {"forecast": forecast_data, "next12mTotal": total, "monthlyAvg": avg}
+    total = sum(month_totals.values())
+    avg = (total / Decimal(str(months))) if months else Decimal('0')
+
+    return {"forecast": forecast_data, "next12mTotal": str(round(total,2)), "monthlyAvg": str(round(avg,2))}
 
 @dashboard_api_router.get("/fx/latest", response=FxResponse, summary="Get Latest FX Rates")
 @require_auth
