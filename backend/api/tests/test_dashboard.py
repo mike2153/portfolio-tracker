@@ -111,3 +111,12 @@ def test_dividend_forecast(mock_get_av):
     assert 'next12mTotal' in data
     assert 'monthlyAvg' in data
 
+@pytest.mark.django_db
+def test_fx_latest():
+    """Test the FX latest endpoint."""
+    response = client.get("/api/fx/latest")
+    assert response.status_code == 200
+    data = response.json()
+    assert "rates" in data
+    assert len(data["rates"]) > 0
+    assert data["rates"][0]["pair"] == "USDAUD"
