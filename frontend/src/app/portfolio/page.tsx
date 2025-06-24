@@ -551,7 +551,7 @@ export default function PortfolioPage() {
             </div>
             
             {portfolioData?.holdings.length === 0 ? (
-                <div className="text-center py-12 bg-white rounded-lg shadow border border-gray-200">
+                <div className="text-center py-12 bg-white rounded-lg shadow border border-gray-200 text-gray-900">
                     <h2 className="text-xl font-semibold text-gray-700 mb-2">No Holdings Yet</h2>
                     <p className="text-gray-500 mb-6">Start building your portfolio by adding your first stock holding.</p>
                     <button className="btn-primary flex items-center mx-auto" onClick={openAddModal}>
@@ -641,8 +641,8 @@ export default function PortfolioPage() {
             
             {showHoldingModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-                        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-xl">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto text-gray-900">
+                        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-xl text-gray-900">
                             <div className="flex items-center justify-between">
                                 <h2 className="text-xl font-bold text-gray-900">{editingHolding ? 'Edit Stock Holding' : 'Add Stock Holding'}</h2>
                                 <button 
@@ -678,7 +678,7 @@ export default function PortfolioPage() {
                                         <div className="absolute right-3 top-3"><Loader2 className="animate-spin" size={18} /></div>
                                     )}
                                     {showSuggestions && tickerSuggestions.length > 0 && !editingHolding && (
-                                        <ul className="absolute left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg mt-1 z-20 max-h-48 overflow-y-auto">
+                                        <ul className="absolute left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg mt-1 z-20 max-h-48 overflow-y-auto text-gray-900">
                                             {tickerSuggestions.map(s => (
                                                 <li
                                                     key={s.symbol}

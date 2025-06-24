@@ -216,7 +216,7 @@ export default function PriceAlerts({ userId }: PriceAlertsProps) {
       {/* Statistics */}
       {statistics && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <div className="bg-white rounded-lg border border-gray-200 p-4 text-gray-900">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Alerts</p>
@@ -226,7 +226,7 @@ export default function PriceAlerts({ userId }: PriceAlertsProps) {
             </div>
           </div>
           
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <div className="bg-white rounded-lg border border-gray-200 p-4 text-gray-900">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Active Alerts</p>
@@ -236,7 +236,7 @@ export default function PriceAlerts({ userId }: PriceAlertsProps) {
             </div>
           </div>
           
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <div className="bg-white rounded-lg border border-gray-200 p-4 text-gray-900">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Triggered Alerts</p>
@@ -246,7 +246,7 @@ export default function PriceAlerts({ userId }: PriceAlertsProps) {
             </div>
           </div>
           
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <div className="bg-white rounded-lg border border-gray-200 p-4 text-gray-900">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Recent Activity</p>
@@ -263,7 +263,7 @@ export default function PriceAlerts({ userId }: PriceAlertsProps) {
 
       {/* Top Tickers Chart */}
       {statistics && statistics.top_tickers.length > 0 && (
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="bg-white rounded-lg border border-gray-200 p-6 text-gray-900">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Most Watched Stocks</h3>
           <Plot
             data={[
@@ -297,7 +297,7 @@ export default function PriceAlerts({ userId }: PriceAlertsProps) {
       {/* Create Alert Form */}
       {showCreateForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md text-gray-900">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Create Price Alert</h3>
             <form onSubmit={createAlert} className="space-y-4">
               <div>
@@ -369,7 +369,7 @@ export default function PriceAlerts({ userId }: PriceAlertsProps) {
       )}
 
       {/* Alerts List */}
-      <div className="bg-white rounded-lg border border-gray-200">
+      <div className="bg-white rounded-lg border border-gray-200 text-gray-900">
         <div className="px-6 py-4 border-b border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900">Your Alerts</h3>
         </div>

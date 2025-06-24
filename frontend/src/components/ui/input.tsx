@@ -182,7 +182,7 @@ const AutocompleteInput = React.forwardRef<HTMLInputElement, AutocompleteInputPr
         )}
 
         {isOpen && suggestions.length > 0 && (
-          <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+          <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto text-gray-900">
             {suggestions.map((option, index) => (
               <div
                 key={`${option.symbol}-${index}`}

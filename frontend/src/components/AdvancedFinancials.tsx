@@ -61,7 +61,7 @@ const MetricCard: React.FC<MetricCardProps> = ({ title, value, format, icon, tre
   }
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow">
+    <div className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow text-gray-900">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center space-x-2">
           <div className="text-blue-600">{icon}</div>
@@ -239,7 +239,7 @@ export default function AdvancedFinancialsComponent({ symbol }: AdvancedFinancia
         </div>
 
         {/* Valuation Ratios Chart */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="bg-white rounded-lg border border-gray-200 p-6 text-gray-900">
           <h4 className="text-md font-medium text-gray-900 mb-4">Valuation Ratios</h4>
           <Plot
             data={[
@@ -359,7 +359,7 @@ export default function AdvancedFinancialsComponent({ symbol }: AdvancedFinancia
         </div>
 
         {/* Performance Growth Chart */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="bg-white rounded-lg border border-gray-200 p-6 text-gray-900">
           <h4 className="text-md font-medium text-gray-900 mb-4">Growth Metrics (%)</h4>
           <Plot
             data={[
@@ -421,7 +421,7 @@ export default function AdvancedFinancialsComponent({ symbol }: AdvancedFinancia
           </div>
 
           {/* Profitability Margins Chart */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="bg-white rounded-lg border border-gray-200 p-6 text-gray-900">
             <h4 className="text-md font-medium text-gray-900 mb-4">Profit Margins</h4>
             <Plot
               data={[
