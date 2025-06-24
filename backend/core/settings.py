@@ -11,27 +11,20 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 from pathlib import Path
-import os
-from dotenv import load_dotenv
+import os           
 import dj_database_url
-
-# Load environment variables
-load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
-
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-f6yleci!8%_p7o9)eal3#$^5djqtdr5mfulzfl^uikf+)b1jiv')
+SECRET_KEY = os.environ['DJANGO_SECRET_KEY']
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
+DEBUG = os.environ.get('DEBUG', 'True').lower() == 'true'
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+# Hosts the app can serve
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
 
 # Application definition
@@ -110,7 +103,7 @@ LOGGING = {
     'loggers': {
         'django.db.backends': {
             'handlers': ['db_handler'],
-            'level': 'DEBUG',  # Capture all database queries
+            'level': 'DEBUG',
             'propagate': False,
         },
         'django': {
@@ -127,39 +120,37 @@ LOGGING = {
 
 
 # Database
-# https://docs.djangoproject.com/en/4.2/ref/settings/#databases
+                                                               
 
 # Always use Supabase PostgreSQL (both local development and production)
-# The DATABASE_URL should point to your Supabase database
+# The DATABASE_URL env var must be set
 DATABASES = {
     'default': dj_database_url.config(
-        default=os.environ.get('DATABASE_URL', 'postgresql://postgres:password@localhost:5432/postgres')
+        env='DATABASE_URL',
+        conn_max_age=600
     )
 }
 
 
 # Password validation
-# https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
+                                                                              
 
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
+     
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',},
+      
+     
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',},
+      
+     
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',},
+      
+     
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',},
+      
 ]
-
-
 # Internationalization
-# https://docs.djangoproject.com/en/4.2/topics/i18n/
-
+                                                
 LANGUAGE_CODE = 'en-us'
 
 TIME_ZONE = 'UTC'
@@ -168,31 +159,21 @@ USE_I18N = True
 
 USE_TZ = True
 
-
 # Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/4.2/howto/static-files/
-
 STATIC_URL = 'static/'
 
 # Default primary key field type
-# https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
-
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # CORS Configuration
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",  # Next.js development server
+    "http://localhost:3000",  # Next.js dev server
+    # add your production frontend URL(s) here
 ]
-
-# If you have a deployed frontend, add its URL here too:
-# CORS_ALLOWED_ORIGINS.append("https://your-frontend-domain.com")
-
 CORS_ALLOW_CREDENTIALS = True
-
-# Finnhub API settings
-FINNHUB_API_KEY = os.getenv('FINNHUB_API_KEY')
-
-# Supabase settings
-SUPABASE_URL = os.getenv('SUPABASE_URL')
-SUPABASE_JWT_SECRET = os.getenv('SUPABASE_JWT_SECRET')  # For validating JWTs
-SUPABASE_SERVICE_ROLE_KEY = os.getenv('SUPABASE_SERVICE_ROLE_KEY')  # For admin operations
+# API Keys & Service Secrets (injected via environment variables)
+FINNHUB_API_KEY        = os.environ['FINNHUB_API_KEY']
+ALPHA_VANTAGE_API_KEY  = os.environ['ALPHA_VANTAGE_API_KEY']       
+SUPABASE_URL             = os.environ['SUPABASE_URL']
+SUPABASE_JWT_SECRET      = os.environ['SUPABASE_JWT_SECRET']
+SUPABASE_SERVICE_ROLE_KEY= os.environ['SUPABASE_SERVICE_ROLE_KEY']
