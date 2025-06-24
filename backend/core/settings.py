@@ -172,7 +172,7 @@ CORS_ALLOWED_ORIGINS = [
 ]
 CORS_ALLOW_CREDENTIALS = True
 # API Keys & Service Secrets (injected via environment variables)
-FINNHUB_API_KEY        = os.environ['FINNHUB_API_KEY']
+#FINNHUB_API_KEY        = os.environ['FINNHUB_API_KEY']
 ALPHA_VANTAGE_API_KEY  = os.environ['ALPHA_VANTAGE_API_KEY']       
 SUPABASE_URL             = os.environ['SUPABASE_URL']
 SUPABASE_JWT_SECRET      = os.environ['SUPABASE_JWT_SECRET']
