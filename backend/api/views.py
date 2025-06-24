@@ -90,34 +90,40 @@ def get_company_overview(request, symbol: str):
 
 @router.get("/stocks/{symbol}/historical")
 def get_stock_historical(request, symbol: str, period: str = "1Y"):
-    """Get historical price data for different time periods"""
+    """Get historical price data for different time periods.
+
+    Passing ``MAX`` or ``ALL`` for ``period`` returns the full dataset
+    without any date filtering.
+    """
     try:
         # Map frontend periods to data filtering
         period_days = {
             "1W": 7, "1M": 30, "3M": 90, "6M": 180,
             "1Y": 365, "3Y": 1095, "5Y": 1825
         }
-        
-        days = period_days.get(period.upper(), 365)
-        
-        historical_data = alpha_vantage.get_daily_adjusted(symbol.upper())
-        
-        if not historical_data or not historical_data.get('data'):
-             raise HttpError(404, f"No historical data available for {symbol}")
 
-        # Filter data based on period
-        cutoff_date_dt = datetime.now() - timedelta(days=days)
-        
-        filtered_data = [
-            item for item in historical_data['data']
-            if datetime.strptime(item['date'], '%Y-%m-%d') >= cutoff_date_dt
-        ]
-        
+        historical_data = alpha_vantage.get_daily_adjusted(symbol.upper())
+
+        if not historical_data or not historical_data.get('data'):
+            raise HttpError(404, f"No historical data available for {symbol}")
+
+        period_upper = period.upper()
+
+        if period_upper in {"MAX", "ALL"}:
+            filtered_data = historical_data["data"]
+        else:
+            days = period_days.get(period_upper, 365)
+            cutoff_date_dt = datetime.now() - timedelta(days=days)
+            filtered_data = [
+                item for item in historical_data["data"]
+                if datetime.strptime(item["date"], "%Y-%m-%d") >= cutoff_date_dt
+            ]
+
         return {
             "symbol": symbol.upper(),
             "period": period,
             "data": filtered_data,
-            "last_refreshed": historical_data.get('last_refreshed')
+            "last_refreshed": historical_data.get("last_refreshed")
         }
     except Exception as e:
         raise HttpError(500, str(e))
