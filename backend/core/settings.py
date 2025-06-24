@@ -56,6 +56,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'api.middleware.SupabaseLoggingMiddleware',
 ]
 
 ROOT_URLCONF = 'core.urls'
@@ -82,9 +83,40 @@ WSGI_APPLICATION = 'core.wsgi.application'
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
+    'formatters': {
+        'supabase_formatter': {
+            'format': 'Superbase -> Backend: {message}',
+            'style': '{',
+        },
+        'backend_formatter': {
+            'format': 'Backend -> Superbase: {message}',
+            'style': '{',
+        },
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+        'db_handler': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'backend_formatter',
+        },
+    },
+    'loggers': {
+        'django.db.backends': {
+            'handlers': ['db_handler'],
+            'level': 'DEBUG',  # Capture all database queries
+            'propagate': False,
+        },
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
         },
     },
     'root': {

@@ -15,6 +15,20 @@ module.exports = {
           700: '#1d4ed8',
         },
       },
+      keyframes: {
+        'marquee-continuous': {
+            '0%': { transform: 'translateX(0%)' },
+            '100%': { transform: 'translateX(-100%)' },
+        },
+        shimmer: {
+            '0%': { transform: 'translateX(-100%)' },
+            '100%': { transform: 'translateX(100%)' },
+        },
+      },
+      animation: {
+          'marquee-continuous': 'marquee-continuous 30s linear infinite',
+          'shimmer': 'shimmer 2s infinite',
+      },
     },
   },
   plugins: [],

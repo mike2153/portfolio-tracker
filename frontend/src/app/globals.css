@@ -32,4 +32,14 @@
   .metric-label {
     @apply text-sm text-gray-600;
   }
-} 
+}
+
+/* This is a workaround for Tailwind's JIT compiler not picking up dynamic classes */
+.bg-blue-500 { background-color: #3b82f6; }
+.bg-green-500 { background-color: #22c55e; }
+.bg-purple-500 { background-color: #8b5cf6; }
+.bg-gray-500 { background-color: #6b7280; }
+.bg-teal-500 { background-color: #14b8a6; }
+.bg-yellow-500 { background-color: #eab308; }
+.bg-red-500 { background-color: #ef4444; }
+.bg-indigo-500 { background-color: #6366f1; } 
