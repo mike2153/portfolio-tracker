@@ -1,4 +1,5 @@
 import { apiEndpoints, config } from './config';
+import { supabase } from './supabaseClient';
 import {
   ApiResponse,
   PortfolioData,
@@ -12,6 +13,7 @@ import {
   GainerLoser,
   DividendForecast,
   FxRates,
+  EnhancedPortfolioPerformance,
 } from '@/types/api';
 
 class ApiError extends Error {
@@ -30,9 +32,13 @@ class ApiService {
     url: string,
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+
     const defaultOptions: RequestInit = {
       headers: {
         'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...options.headers,
       },
       ...options,
@@ -126,16 +132,7 @@ export { ApiError };
 export const dashboardAPI = {
   // Internal helper to perform fetch with error handling
   async _safeFetch<T>(url: string): Promise<ApiResponse<T>> {
-    try {
-    const response = await fetch(url);
-    if (!response.ok) {
-        return { ok: false, error: `HTTP error! status: ${response.status}` };
-    }
-      const data = (await response.json()) as T;
-    return { ok: true, data };
-    } catch (err: any) {
-      return { ok: false, error: 'network_error', message: err?.message ?? String(err) };
-    }
+    return apiService.makeRequest<T>(url);
   },
 
   async getOverview(): Promise<ApiResponse<DashboardOverview>> {
@@ -166,6 +163,19 @@ export const dashboardAPI = {
   async getFxRates(base: string = 'AUD'): Promise<ApiResponse<FxRates>> {
     const url = `${config.apiBaseUrl}${apiEndpoints.fx.latest(base)}`;
     return this._safeFetch<FxRates>(url);
+  },
+
+  async getPortfolioPerformance(
+    userId: string,
+    period: string = '1Y',
+    benchmark: string = '^GSPC'
+  ): Promise<ApiResponse<EnhancedPortfolioPerformance>> {
+    const url = `${config.apiBaseUrl}${apiEndpoints.dashboard.portfolioPerformance(
+      userId,
+      period,
+      encodeURIComponent(benchmark)
+    )}`;
+    return this._safeFetch<EnhancedPortfolioPerformance>(url);
   },
 };
 
