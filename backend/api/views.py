@@ -7,6 +7,7 @@ from .services.transaction_service import get_transaction_service, get_price_upd
 from .models import Transaction, UserSettings, UserApiRateLimit, Holding, Portfolio, CashContribution, PriceAlert, StockSymbol, DividendPayment
 from datetime import datetime, date, timedelta
 from typing import Optional, List, Dict, Any
+from difflib import SequenceMatcher
 from decimal import Decimal
 import os
 import logging
@@ -1225,6 +1226,15 @@ def search_symbols(request, q: str, limit: int = 10):
             
     except Exception as e:
         logger.error(f"[SYMBOL SEARCH] Error during Alpha Vantage search for '{q}': {e}", exc_info=True)
+
+    # Rank results by similarity to the query
+    for r in results:
+        r["_score"] = SequenceMatcher(None, q.upper(), r["symbol"].upper()).ratio()
+
+    results.sort(key=lambda x: x["_score"], reverse=True)
+
+    for r in results:
+        r.pop("_score", None)
 
     logger.info(f"[SYMBOL SEARCH] Returning {len(results)} combined results for '{q}'.")
     return {"ok": True, "results": results[:limit]}
