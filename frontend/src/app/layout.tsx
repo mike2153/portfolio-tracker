@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import Link from 'next/link'
 import { ToastProvider } from '@/components/ui/Toast'
 import { Providers } from '@/components/Providers'
+import { AuthProvider } from '@/components/AuthProvider'
 import { Home, BarChart2, Briefcase, Wrench, Users, Plus, Search, Sun, Moon, ChevronsUpDown, PlusCircle } from 'lucide-react'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -21,7 +22,8 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <body className={`${inter.className} bg-gray-900 text-gray-200`}>
         <Providers>
-          <ToastProvider>
+          <AuthProvider>
+            <ToastProvider>
             <div className="flex h-screen">
               {/* Sidebar Navigation */}
               <aside className="w-64 flex-shrink-0 bg-gray-800 p-6 flex flex-col justify-between">
@@ -84,6 +86,7 @@ export default function RootLayout({
               </div>
             </div>
           </ToastProvider>
+        </AuthProvider>
         </Providers>
       </body>
     </html>
