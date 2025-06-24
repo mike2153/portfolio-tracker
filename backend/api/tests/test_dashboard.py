@@ -63,6 +63,6 @@ def test_fx_latest():
     response = client.get("/api/fx/latest")
     assert response.status_code == 200
     data = response.json()
-    assert 'rates' in data
-    assert len(data['rates']) > 0
-    assert data['rates'][0]['pair'] == "USDAUD" 
+    assert "rates" in data
+    assert len(data["rates"]) > 0
+    assert data["rates"][0]["pair"] == "USDAUD"
