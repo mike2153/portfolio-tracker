@@ -195,4 +195,5 @@ FINNHUB_API_KEY = os.getenv('FINNHUB_API_KEY')
 # Supabase settings
 SUPABASE_URL = os.getenv('SUPABASE_URL')
 SUPABASE_JWT_SECRET = os.getenv('SUPABASE_JWT_SECRET')  # For validating JWTs
+SUPABASE_ANON_KEY = os.getenv('SUPABASE_ANON_KEY')
 SUPABASE_SERVICE_ROLE_KEY = os.getenv('SUPABASE_SERVICE_ROLE_KEY')  # For admin operations

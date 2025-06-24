@@ -3,6 +3,7 @@ import requests
 from typing import Optional
 from django.conf import settings
 from django.http import JsonResponse
+from ninja.security import HttpBearer
 import os
 import logging
 
@@ -104,15 +105,16 @@ async def get_current_user(request) -> SupabaseUser:
     logger.info(f"Authenticated user: {user.id} ({user.email})")
     return user
 
-def require_auth(view_func):
-    """Decorator to require authentication for API endpoints"""
-    async def wrapper(request, *args, **kwargs):
-        user = await get_current_user(request)
+
+class SupabaseAuth(HttpBearer):
+    """Ninja authentication class that verifies Supabase JWTs."""
+
+    def authenticate(self, request, token):
+        user = verify_supabase_token(token)
         if not user:
-            return JsonResponse({'error': 'Authentication required'}, status=401)
-        
-        # Add user to request for easy access
+            return None
         request.user = user
-        return await view_func(request, *args, **kwargs)
-    
-    return wrapper 
+        return token
+
+
+require_auth = SupabaseAuth()
