@@ -181,10 +181,21 @@ const TransactionsPage = () => {
   
   const fetchClosingPriceForDate = useCallback(async (ticker: string, date: string) => {
       if (!ticker || !date) return;
-      
+
+      const selected = new Date(date);
+      const diffYears = (Date.now() - selected.getTime()) / (1000 * 60 * 60 * 24 * 365);
+      let period: string;
+      if (diffYears <= 1) {
+          period = '1Y';
+      } else if (diffYears <= 5) {
+          period = '5Y';
+      } else {
+          period = 'max';
+      }
+
       setLoadingPrice(true);
       try {
-          const response = await apiService.getHistoricalData(ticker, 'max');
+          const response = await apiService.getHistoricalData(ticker, period);
           if (response.ok && response.data?.data) {
               const match = response.data.data.find((d: any) => d.date === date);
               if (match) {
