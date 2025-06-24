@@ -42,6 +42,7 @@ const mockPortfolioData = {
       company_name: 'Apple Inc.',
       shares: 10,
       purchase_price: 150.00,
+      current_price: 150.00,
       market_value: 1500.00,
       purchase_date: '2024-01-15',
       commission: 0,
@@ -55,6 +56,7 @@ const mockPortfolioData = {
       company_name: 'Alphabet Inc.',
       shares: 5,
       purchase_price: 2800.00,
+      current_price: 2800.00,
       market_value: 14000.00,
       purchase_date: '2024-01-10',
       commission: 0,
@@ -115,7 +117,7 @@ describe('Portfolio Price Fetching', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockedUseToast.mockReturnValue({ addToast: mockAddToast });
+    mockedUseToast.mockReturnValue({ addToast: mockAddToast, removeToast: jest.fn() });
     
     // Setup default API responses
     mockedApiService.getPortfolio.mockResolvedValue({
@@ -207,7 +209,9 @@ describe('Portfolio Price Fetching', () => {
             type: 'Equity'
           }],
           total: 1,
-          query: 'MSFT'
+          query: 'MSFT',
+          limit: 10,
+          source: 'AlphaVantage'
         }
       });
 
@@ -227,6 +231,7 @@ describe('Portfolio Price Fetching', () => {
             company_name: 'Microsoft Corporation',
             shares: 8,
             purchase_price: 400.00,
+            current_price: 400.00,
             market_value: 3200.00,
             purchase_date: '2024-01-16',
             commission: 0,
@@ -416,7 +421,7 @@ describe('Alpha Vantage Integration Tests', () => {
 
       requiredFields.forEach(field => {
         expect(mockQuoteData).toHaveProperty(field);
-        expect(mockQuoteData[field]).toBeDefined();
+        expect((mockQuoteData as any)[field]).toBeDefined();
       });
     });
   });
