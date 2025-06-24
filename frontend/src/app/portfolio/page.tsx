@@ -529,6 +529,7 @@ export default function PortfolioPage() {
                             <tr>
                                 <th scope="col" className="px-6 py-3">Ticker</th>
                                 <th scope="col" className="px-6 py-3">Shares</th>
+                                <th scope="col" className="px-6 py-3 text-right">Avg Cost</th>
                                 <th scope="col" className="px-6 py-3 text-right">Cost Basis</th>
                                 <th scope="col" className="px-6 py-3 text-right">Current Price</th>
                                 <th scope="col" className="px-6 py-3 text-right">Market Value</th>
@@ -540,6 +541,7 @@ export default function PortfolioPage() {
                         <tbody>
                             {portfolioData?.holdings.map((holding) => {
                                 const costBasis = holding.shares * holding.purchase_price;
+                                const avgCost = holding.purchase_price;
                                 const openPnl = holding.market_value - costBasis;
                                 const openPnlPercent = costBasis > 0 ? (openPnl / costBasis) * 100 : 0;
                                 const isGain = openPnl >= 0;
@@ -556,6 +558,7 @@ export default function PortfolioPage() {
                                             </div>
                                         </th>
                                         <td className="px-6 py-4">{holding.shares.toFixed(4)}</td>
+                                        <td className="px-6 py-4 text-right">{formatCurrency(avgCost)}</td>
                                         <td className="px-6 py-4 text-right">{formatCurrency(costBasis)}</td>
                                         <td className="px-6 py-4 text-right">{formatCurrency(holding.current_price)}</td>
                                         <td className="px-6 py-4 text-right">{formatCurrency(holding.market_value)}</td>

@@ -5,6 +5,8 @@ import { transactionAPI, apiService } from '@/lib/api';
 import { PlusCircle, Trash2, Edit, ChevronDown, ChevronUp, MoreVertical, X, Loader2 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { StockSymbol, AddHoldingFormData, FormErrors } from '@/types/api';
+import { supabase } from '@/lib/supabaseClient'
+import { User } from '@/types'
 
 // Debounce utility function
 function debounce(func: (...args: any[]) => void, delay: number) {
@@ -61,6 +63,7 @@ const TransactionsPage = () => {
   const [tickerSuggestions, setTickerSuggestions] = useState<StockSymbol[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const { addToast } = useToast();
+  const [user, setUser] = useState<User | null>(null);
 
   const initialFormState: AddHoldingFormData = {
     ticker: '',
@@ -80,16 +83,17 @@ const TransactionsPage = () => {
   const [form, setForm] = useState<AddHoldingFormData>(initialFormState);
 
   const fetchTransactions = useCallback(async () => {
+    if (!user) return;
     setLoading(true);
     setError(null);
     try {
-      const filters: any = {};
+      const filters: any = { user_id: user.id };
       if (typeFilter !== 'ALL') {
         filters.transaction_type = typeFilter;
       }
       const response = await transactionAPI.getUserTransactions(filters);
       if (response.ok && response.data) {
-        const txs = response.data.transactions ?? [];
+        const txs = (response.data.transactions ?? []) as Transaction[];
         setTransactions(txs);
       } else {
         setError(response.message || 'Failed to load transactions');
@@ -99,22 +103,41 @@ const TransactionsPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [typeFilter]);
+  }, [typeFilter, user]);
 
   const fetchSummary = useCallback(async () => {
+    if (!user) return;
     try {
-      const response = await transactionAPI.getTransactionSummary();
+      const response = await transactionAPI.getTransactionSummary(user.id);
       if (response.ok && response.data) {
         setSummary(response.data.summary);
       }
     } catch (err) {
       console.error('Error fetching summary:', err);
     }
+  }, [user]);
+
+  useEffect(() => {
+    // Fetch current session user then listen for auth changes
+    const init = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        setUser(session.user as unknown as User);
+      }
+    };
+    init();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user as unknown as User ?? null);
+    });
+    return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
-    Promise.all([fetchTransactions(), fetchSummary()]);
-  }, [fetchTransactions, fetchSummary]);
+    if (user) {
+      Promise.all([fetchTransactions(), fetchSummary()]);
+    }
+  }, [user, fetchTransactions, fetchSummary]);
   
   const debouncedSearch = useCallback(
     debounce(async (query: string) => {
@@ -124,7 +147,7 @@ const TransactionsPage = () => {
       }
       setSearchLoading(true);
       try {
-        const response = await apiService.searchSymbols(query, '', 10);
+        const response = await apiService.searchSymbols(query, 10);
         if (response.ok && response.data) {
           setTickerSuggestions(response.data.results);
         } else {
@@ -192,6 +215,7 @@ const TransactionsPage = () => {
 
   const handleAddTransactionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return; // Ensure a user is logged in
     setIsSubmitting(true);
     setError(null);
     try {
@@ -205,8 +229,8 @@ const TransactionsPage = () => {
           transaction_currency: form.currency,
           commission: parseFloat(form.commission || '0'),
           notes: form.notes || '',
-          user_id: 'test_user_123'
-      };
+          user_id: user.id,
+      } as const;
       const response = await transactionAPI.createTransaction(transactionData);
       if (response.ok) {
         addToast({ type: 'success', title: 'Transaction Added', message: `${transactionData.ticker} has been added.` });
