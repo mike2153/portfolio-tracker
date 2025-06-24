@@ -113,7 +113,7 @@ export default function AnalyticsPage() {
       icon: <Activity className="w-4 h-4" />,
       component: (
         <div className="space-y-6">
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="bg-white rounded-lg border border-gray-200 p-6 text-gray-900">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Stock Analysis</h3>
             <div className="flex space-x-4">
               <div className="flex-1">
@@ -196,7 +196,7 @@ function OverviewTab({ cacheStats }: OverviewTabProps) {
 
   if (!cacheStats) {
     return (
-      <div className="bg-white rounded-lg border border-gray-200 p-6 text-center">
+      <div className="bg-white rounded-lg border border-gray-200 p-6 text-center text-gray-900">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
         <p className="text-gray-600">Loading system statistics...</p>
       </div>
@@ -246,7 +246,7 @@ function OverviewTab({ cacheStats }: OverviewTabProps) {
       {/* System Status */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Cache Statistics */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="bg-white rounded-lg border border-gray-200 p-6 text-gray-900">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900 flex items-center">
               <Database className="w-5 h-5 mr-2 text-blue-600" />
@@ -292,7 +292,7 @@ function OverviewTab({ cacheStats }: OverviewTabProps) {
         </div>
 
         {/* Quick Actions */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="bg-white rounded-lg border border-gray-200 p-6 text-gray-900">
           <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
             <Zap className="w-5 h-5 mr-2 text-yellow-600" />
             Quick Actions
@@ -324,7 +324,7 @@ function OverviewTab({ cacheStats }: OverviewTabProps) {
 
       {/* Feature Highlights */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-shadow">
+        <div className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-shadow text-gray-900">
           <div className="flex items-center space-x-3 mb-4">
             <div className="bg-blue-100 p-2 rounded-lg">
               <BarChart3 className="w-6 h-6 text-blue-600" />
@@ -343,7 +343,7 @@ function OverviewTab({ cacheStats }: OverviewTabProps) {
           </ul>
         </div>
 
-        <div className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-shadow">
+        <div className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-shadow text-gray-900">
           <div className="flex items-center space-x-3 mb-4">
             <div className="bg-green-100 p-2 rounded-lg">
               <Target className="w-6 h-6 text-green-600" />
@@ -362,7 +362,7 @@ function OverviewTab({ cacheStats }: OverviewTabProps) {
           </ul>
         </div>
 
-        <div className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-shadow">
+        <div className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-shadow text-gray-900">
           <div className="flex items-center space-x-3 mb-4">
             <div className="bg-purple-100 p-2 rounded-lg">
               <Bell className="w-6 h-6 text-purple-600" />
@@ -383,7 +383,7 @@ function OverviewTab({ cacheStats }: OverviewTabProps) {
       </div>
 
       {/* Performance Overview Chart */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
+      <div className="bg-white rounded-lg border border-gray-200 p-6 text-gray-900">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">System Performance Overview</h3>
         <Plot
           data={[

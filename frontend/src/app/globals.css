@@ -18,11 +18,11 @@
   }
   
   .card {
-    @apply bg-white rounded-lg shadow-sm border p-6;
+    @apply bg-white rounded-lg shadow-sm border p-6 text-gray-900;
   }
-  
+
   .metric-card {
-    @apply bg-white rounded-lg shadow-sm border p-4 text-center;
+    @apply bg-white rounded-lg shadow-sm border p-4 text-center text-gray-900;
   }
   
   .metric-value {

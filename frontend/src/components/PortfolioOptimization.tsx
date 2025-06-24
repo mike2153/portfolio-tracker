@@ -45,7 +45,7 @@ const RiskGauge: React.FC<RiskGaugeProps> = ({ value, max, title, description })
   }
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4">
+    <div className="bg-white rounded-lg border border-gray-200 p-4 text-gray-900">
       <h4 className="text-sm font-medium text-gray-700 mb-2">{title}</h4>
       <div className="relative">
         <Plot
@@ -217,7 +217,7 @@ export default function PortfolioOptimization({ userId }: PortfolioOptimizationP
         <div className="space-y-6">
           {/* Portfolio Metrics */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="bg-white rounded-lg border border-gray-200 p-4 text-gray-900">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Expected Return</p>
@@ -229,7 +229,7 @@ export default function PortfolioOptimization({ userId }: PortfolioOptimizationP
               </div>
             </div>
             
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="bg-white rounded-lg border border-gray-200 p-4 text-gray-900">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Volatility</p>
@@ -241,7 +241,7 @@ export default function PortfolioOptimization({ userId }: PortfolioOptimizationP
               </div>
             </div>
             
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="bg-white rounded-lg border border-gray-200 p-4 text-gray-900">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Beta</p>
@@ -253,7 +253,7 @@ export default function PortfolioOptimization({ userId }: PortfolioOptimizationP
               </div>
             </div>
             
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="bg-white rounded-lg border border-gray-200 p-4 text-gray-900">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">VaR (95%)</p>
@@ -267,7 +267,7 @@ export default function PortfolioOptimization({ userId }: PortfolioOptimizationP
           </div>
 
           {/* Holdings Analysis Chart */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="bg-white rounded-lg border border-gray-200 p-6 text-gray-900">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Holdings Analysis</h3>
             <Plot
               data={[
@@ -308,7 +308,7 @@ export default function PortfolioOptimization({ userId }: PortfolioOptimizationP
           </div>
 
           {/* Risk vs Return Scatter */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="bg-white rounded-lg border border-gray-200 p-6 text-gray-900">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Risk vs Return Analysis</h3>
             <Plot
               data={[
@@ -349,7 +349,7 @@ export default function PortfolioOptimization({ userId }: PortfolioOptimizationP
         <div className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Sector Concentration */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="bg-white rounded-lg border border-gray-200 p-6 text-gray-900">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Sector Allocation</h3>
               <Plot
                 data={[
@@ -377,7 +377,7 @@ export default function PortfolioOptimization({ userId }: PortfolioOptimizationP
             </div>
 
             {/* Market Cap Concentration */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="bg-white rounded-lg border border-gray-200 p-6 text-gray-900">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Market Cap Allocation</h3>
               <Plot
                 data={[
@@ -407,7 +407,7 @@ export default function PortfolioOptimization({ userId }: PortfolioOptimizationP
 
           {/* Diversification Metrics */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="bg-white rounded-lg border border-gray-200 p-4 text-gray-900">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Concentration Risk Score</p>
@@ -419,7 +419,7 @@ export default function PortfolioOptimization({ userId }: PortfolioOptimizationP
               </div>
             </div>
             
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="bg-white rounded-lg border border-gray-200 p-4 text-gray-900">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Herfindahl Index</p>
@@ -431,7 +431,7 @@ export default function PortfolioOptimization({ userId }: PortfolioOptimizationP
               </div>
             </div>
             
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="bg-white rounded-lg border border-gray-200 p-4 text-gray-900">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Number of Holdings</p>
@@ -484,7 +484,7 @@ export default function PortfolioOptimization({ userId }: PortfolioOptimizationP
           </div>
 
           {/* Risk Factors */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="bg-white rounded-lg border border-gray-200 p-6 text-gray-900">
             <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
               <AlertTriangle className="w-5 h-5 mr-2 text-red-600" />
               Risk Factors
@@ -500,7 +500,7 @@ export default function PortfolioOptimization({ userId }: PortfolioOptimizationP
           </div>
 
           {/* Risk Recommendations */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="bg-white rounded-lg border border-gray-200 p-6 text-gray-900">
             <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
               <Shield className="w-5 h-5 mr-2 text-blue-600" />
               Risk Mitigation Recommendations
@@ -521,7 +521,7 @@ export default function PortfolioOptimization({ userId }: PortfolioOptimizationP
       {activeTab === 'recommendations' && (
         <div className="space-y-6">
           {/* Rebalancing Suggestions */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="bg-white rounded-lg border border-gray-200 p-6 text-gray-900">
             <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
               <Target className="w-5 h-5 mr-2 text-green-600" />
               Rebalancing Suggestions
@@ -550,7 +550,7 @@ export default function PortfolioOptimization({ userId }: PortfolioOptimizationP
           </div>
 
           {/* New Holdings Suggestions */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="bg-white rounded-lg border border-gray-200 p-6 text-gray-900">
             <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
               <Zap className="w-5 h-5 mr-2 text-purple-600" />
               Potential New Holdings
@@ -575,7 +575,7 @@ export default function PortfolioOptimization({ userId }: PortfolioOptimizationP
 
           {/* Other Recommendations */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="bg-white rounded-lg border border-gray-200 p-6 text-gray-900">
               <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                 <PieChart className="w-5 h-5 mr-2 text-blue-600" />
                 Diversification Suggestions
@@ -590,7 +590,7 @@ export default function PortfolioOptimization({ userId }: PortfolioOptimizationP
               </div>
             </div>
 
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="bg-white rounded-lg border border-gray-200 p-6 text-gray-900">
               <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                 <Shield className="w-5 h-5 mr-2 text-orange-600" />
                 Risk Reduction Suggestions
