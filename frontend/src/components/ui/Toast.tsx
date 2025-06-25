@@ -105,15 +105,15 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onRemove }) => {
     
     switch (toast.type) {
       case 'success':
-        return `${baseStyles} ${visibleStyles} bg-green-50 border-green-200 text-green-800`;
+        return `${baseStyles} ${visibleStyles} bg-green-800/40 border-green-600 text-green-200`;
       case 'error':
-        return `${baseStyles} ${visibleStyles} bg-red-50 border-red-200 text-red-800`;
+        return `${baseStyles} ${visibleStyles} bg-red-800/40 border-red-600 text-red-200`;
       case 'warning':
-        return `${baseStyles} ${visibleStyles} bg-yellow-50 border-yellow-200 text-yellow-800`;
+        return `${baseStyles} ${visibleStyles} bg-yellow-800/40 border-yellow-600 text-yellow-200`;
       case 'info':
-        return `${baseStyles} ${visibleStyles} bg-blue-50 border-blue-200 text-blue-800`;
+        return `${baseStyles} ${visibleStyles} bg-blue-800/40 border-blue-600 text-blue-200`;
       default:
-        return `${baseStyles} ${visibleStyles} bg-gray-50 border-gray-200 text-gray-800`;
+        return `${baseStyles} ${visibleStyles} bg-gray-800/80 border-gray-700 text-gray-100`;
     }
   };
 

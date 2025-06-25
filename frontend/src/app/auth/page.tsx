@@ -91,7 +91,7 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-gray-900 py-12 px-4 sm:px-6 lg:px-8 text-gray-100">
       <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
@@ -208,7 +208,7 @@ export default function AuthPage() {
         </form>
 
         {/* Production Notice */}
-        <div className="mt-6 p-4 bg-blue-50 rounded-md">
+        <div className="mt-6 p-4 bg-blue-900/20 rounded-md">
           <div className="flex">
             <div className="flex-shrink-0">
               <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
@@ -216,10 +216,10 @@ export default function AuthPage() {
               </svg>
             </div>
             <div className="ml-3">
-              <h3 className="text-sm font-medium text-blue-800">
+              <h3 className="text-sm font-medium text-blue-300">
                 Professional Platform
               </h3>
-              <div className="mt-2 text-sm text-blue-700">
+              <div className="mt-2 text-sm text-blue-200">
                 <p>
                   This is a production-grade financial analytics platform. All data is real-time and all user information is securely stored with enterprise-level security.
                 </p>

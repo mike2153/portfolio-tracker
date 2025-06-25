@@ -61,7 +61,7 @@ const MetricCard: React.FC<MetricCardProps> = ({ title, value, format, icon, tre
   }
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow text-gray-900">
+    <div className="bg-gray-900 rounded-lg border border-gray-700 p-4 hover:shadow-md transition-shadow text-gray-100">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center space-x-2">
           <div className="text-blue-600">{icon}</div>
@@ -134,8 +134,8 @@ export default function AdvancedFinancialsComponent({ symbol }: AdvancedFinancia
 
   if (!financials) {
     return (
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
-        <p className="text-gray-600">No financial data available for {symbol}</p>
+      <div className="bg-gray-800/80 border border-gray-700 rounded-lg p-8 text-center">
+        <p className="text-gray-400">No financial data available for {symbol}</p>
       </div>
     )
   }
@@ -175,11 +175,11 @@ export default function AdvancedFinancialsComponent({ symbol }: AdvancedFinancia
         <p className="text-blue-100">Comprehensive financial metrics for {symbol}</p>
         {financials.source && (
           <div className="mt-4 flex items-center space-x-2 text-sm">
-            <span className="bg-white/20 px-2 py-1 rounded">
+            <span className="bg-gray-800/40 px-2 py-1 rounded">
               Source: {financials.source === 'cache' ? 'Cached Data' : 'Live Data'}
             </span>
             {financials.cache_age_hours && (
-              <span className="bg-white/20 px-2 py-1 rounded">
+              <span className="bg-gray-800/40 px-2 py-1 rounded">
                 Updated: {financials.cache_age_hours}h ago
               </span>
             )}
@@ -239,8 +239,8 @@ export default function AdvancedFinancialsComponent({ symbol }: AdvancedFinancia
         </div>
 
         {/* Valuation Ratios Chart */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6 text-gray-900">
-          <h4 className="text-md font-medium text-gray-900 mb-4">Valuation Ratios</h4>
+        <div className="bg-gray-900 rounded-lg border border-gray-700 p-6 text-gray-100">
+          <h4 className="text-md font-medium text-gray-100 mb-4">Valuation Ratios</h4>
           <Plot
             data={[
               {
@@ -359,8 +359,8 @@ export default function AdvancedFinancialsComponent({ symbol }: AdvancedFinancia
         </div>
 
         {/* Performance Growth Chart */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6 text-gray-900">
-          <h4 className="text-md font-medium text-gray-900 mb-4">Growth Metrics (%)</h4>
+        <div className="bg-gray-900 rounded-lg border border-gray-700 p-6 text-gray-100">
+          <h4 className="text-md font-medium text-gray-100 mb-4">Growth Metrics (%)</h4>
           <Plot
             data={[
               {
@@ -421,8 +421,8 @@ export default function AdvancedFinancialsComponent({ symbol }: AdvancedFinancia
           </div>
 
           {/* Profitability Margins Chart */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6 text-gray-900">
-            <h4 className="text-md font-medium text-gray-900 mb-4">Profit Margins</h4>
+          <div className="bg-gray-900 rounded-lg border border-gray-700 p-6 text-gray-100">
+            <h4 className="text-md font-medium text-gray-100 mb-4">Profit Margins</h4>
             <Plot
               data={[
                 {

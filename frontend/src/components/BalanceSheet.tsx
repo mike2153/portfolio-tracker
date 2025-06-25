@@ -72,7 +72,7 @@ export default function BalanceSheet({ data }: BalanceSheetProps) {
   const priorReport = data.length > 1 ? data[1] : null
 
   return (
-    <div className="p-4 bg-white rounded-lg shadow text-gray-900">
+    <div className="p-4 bg-gray-900 rounded-lg shadow text-gray-100 border border-gray-700">
       <div className="text-sm text-gray-500 mb-4">
         <p><strong>Fiscal Date Ending:</strong> {report.fiscalDateEnding}</p>
         <p><strong>Reported Currency:</strong> {report.reportedCurrency}</p>

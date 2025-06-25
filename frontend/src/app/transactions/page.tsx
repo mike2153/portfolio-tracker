@@ -275,9 +275,9 @@ const TransactionsPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gray-900 p-6 text-gray-100">
       <div className="max-w-7xl mx-auto">
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6 text-gray-900">
+        <div className="bg-gray-900 rounded-lg shadow-sm p-6 mb-6 text-gray-100 border border-gray-700">
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Transactions</h1>
@@ -305,29 +305,29 @@ const TransactionsPage = () => {
 
         {summary && (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div className="bg-white p-4 rounded-lg shadow-sm text-gray-900">
+            <div className="bg-gray-900 p-4 rounded-lg shadow-sm text-gray-100 border border-gray-700">
               <h3 className="text-sm font-medium text-gray-500">Total Invested</h3>
               <p className="text-2xl font-bold text-green-600">{formatCurrency(summary.total_invested)}</p>
             </div>
-            <div className="bg-white p-4 rounded-lg shadow-sm text-gray-900">
+            <div className="bg-gray-900 p-4 rounded-lg shadow-sm text-gray-100 border border-gray-700">
               <h3 className="text-sm font-medium text-gray-500">Total Transactions</h3>
               <p className="text-2xl font-bold text-blue-600">{summary.total_transactions}</p>
             </div>
-            <div className="bg-white p-4 rounded-lg shadow-sm text-gray-900">
+            <div className="bg-gray-900 p-4 rounded-lg shadow-sm text-gray-100 border border-gray-700">
               <h3 className="text-sm font-medium text-gray-500">Unique Stocks</h3>
               <p className="text-2xl font-bold text-purple-600">{summary.unique_tickers}</p>
             </div>
-            <div className="bg-white p-4 rounded-lg shadow-sm text-gray-900">
+            <div className="bg-gray-900 p-4 rounded-lg shadow-sm text-gray-100 border border-gray-700">
               <h3 className="text-sm font-medium text-gray-500">Net Invested</h3>
               <p className="text-2xl font-bold text-gray-900">{formatCurrency(summary.net_invested)}</p>
             </div>
           </div>
         )}
         
-        <div className="bg-white rounded-lg shadow-sm text-gray-900">
+        <div className="bg-gray-900 rounded-lg shadow-sm text-gray-100 border border-gray-700">
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50">
+                <thead className="bg-gray-800/80">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Holding</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
@@ -337,15 +337,15 @@ const TransactionsPage = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200 text-gray-900">
+                <tbody className="bg-gray-900 divide-y divide-gray-700 text-gray-100">
                   {filteredTransactions.map((transaction) => (
-                    <tr key={transaction.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap"><div><div className="text-sm font-medium text-gray-900">{transaction.ticker}</div><div className="text-sm text-gray-500">{transaction.company_name}</div></div></td>
+                    <tr key={transaction.id} className="hover:bg-gray-700/50">
+                      <td className="px-6 py-4 whitespace-nowrap"><div><div className="text-sm font-medium text-gray-100">{transaction.ticker}</div><div className="text-sm text-gray-400">{transaction.company_name}</div></div></td>
                       <td className="px-6 py-4 whitespace-nowrap"><span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${transaction.transaction_type === 'BUY' ? 'bg-green-100 text-green-800' : transaction.transaction_type === 'SELL' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}`}>{transaction.transaction_type}</span></td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{transaction.shares}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatCurrency(transaction.price_per_share, transaction.transaction_currency)}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatCurrency(transaction.total_amount, transaction.transaction_currency)}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatDate(transaction.transaction_date)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-100">{transaction.shares}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-100">{formatCurrency(transaction.price_per_share, transaction.transaction_currency)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-100">{formatCurrency(transaction.total_amount, transaction.transaction_currency)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-100">{formatDate(transaction.transaction_date)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -356,10 +356,10 @@ const TransactionsPage = () => {
 
       {showAddForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full p-6 text-gray-900">
+          <div className="bg-gray-900 rounded-lg max-w-md w-full p-6 text-gray-100 border border-gray-700">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">Add Transaction</h3>
-              <button onClick={() => setShowAddForm(false)} className="text-gray-400 hover:text-gray-600"><X size={24} /></button>
+              <button onClick={() => setShowAddForm(false)} className="text-gray-400 hover:text-gray-200"><X size={24} /></button>
             </div>
             <form onSubmit={handleAddTransactionSubmit} className="space-y-4">
               <div>
@@ -375,12 +375,12 @@ const TransactionsPage = () => {
                 <input type="text" name="ticker" value={form.ticker} onChange={handleTickerChange} onFocus={() => setShowSuggestions(true)} onBlur={() => setTimeout(() => setShowSuggestions(false), 200)} className={`w-full p-2 border ${formErrors.ticker ? 'border-red-500' : 'border-gray-300'} rounded-lg`} placeholder="e.g., AAPL" required autoComplete="off" />
                 {formErrors.ticker && <p className="text-red-500 text-xs mt-1">{formErrors.ticker}</p>}
                 {showSuggestions && (
-                  <div className="absolute z-10 w-full bg-white border border-gray-300 rounded-lg mt-1 shadow-lg max-h-60 overflow-y-auto text-gray-900">
+                  <div className="absolute z-10 w-full bg-gray-900 border border-gray-700 rounded-lg mt-1 shadow-lg max-h-60 overflow-y-auto text-gray-100">
                     {searchLoading ? <div className="p-4 text-center">Loading...</div> : tickerSuggestions.length > 0 ? (
                       tickerSuggestions.map(s => (
-                        <div key={s.symbol} onMouseDown={() => handleSuggestionClick(s)} className="p-2 hover:bg-gray-100 cursor-pointer">
-                          <div className="font-bold">{s.symbol}</div>
-                          <div className="text-sm text-gray-600">{s.name}</div>
+                        <div key={s.symbol} onMouseDown={() => handleSuggestionClick(s)} className="p-2 hover:bg-gray-700/50 cursor-pointer">
+                          <div className="font-bold text-gray-100">{s.symbol}</div>
+                          <div className="text-sm text-gray-400">{s.name}</div>
                         </div>
                       ))
                     ) : <div className="p-4 text-center text-gray-500">No results found.</div>}
@@ -424,7 +424,7 @@ const TransactionsPage = () => {
                 <textarea name="notes" value={form.notes} onChange={handleFormChange} className="w-full p-2 border border-gray-300 rounded-lg" rows={2} placeholder="Additional notes..." />
               </div>
               <div className="flex gap-4 pt-4">
-                <button type="button" onClick={() => setShowAddForm(false)} className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium">Cancel</button>
+                <button type="button" onClick={() => setShowAddForm(false)} className="flex-1 px-4 py-2 border border-gray-700 rounded-lg text-gray-200 hover:bg-gray-700 font-medium">Cancel</button>
                 <button type="submit" disabled={isSubmitting} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center font-medium">
                   {isSubmitting ? <Loader2 className="animate-spin mr-2" /> : null}
                   {isSubmitting ? 'Adding...' : 'Add Transaction'}

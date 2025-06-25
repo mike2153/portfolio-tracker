@@ -181,14 +181,14 @@ export default function PriceAlerts({ userId }: PriceAlertsProps) {
             <button
               onClick={checkAlerts}
               disabled={loading}
-              className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+              className="bg-gray-800/50 hover:bg-gray-700/50 px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
               <span>Check Now</span>
             </button>
             <button
               onClick={() => setShowCreateForm(true)}
-              className="bg-white text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg flex items-center space-x-2 font-medium transition-colors"
+              className="bg-gray-900 text-blue-300 hover:bg-blue-800 px-4 py-2 rounded-lg flex items-center space-x-2 font-medium transition-colors"
             >
               <Plus className="w-4 h-4" />
               <span>New Alert</span>
@@ -216,7 +216,7 @@ export default function PriceAlerts({ userId }: PriceAlertsProps) {
       {/* Statistics */}
       {statistics && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white rounded-lg border border-gray-200 p-4 text-gray-900">
+          <div className="bg-gray-900 rounded-lg border border-gray-700 p-4 text-gray-100">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Alerts</p>
@@ -226,7 +226,7 @@ export default function PriceAlerts({ userId }: PriceAlertsProps) {
             </div>
           </div>
           
-          <div className="bg-white rounded-lg border border-gray-200 p-4 text-gray-900">
+          <div className="bg-gray-900 rounded-lg border border-gray-700 p-4 text-gray-100">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Active Alerts</p>
@@ -236,7 +236,7 @@ export default function PriceAlerts({ userId }: PriceAlertsProps) {
             </div>
           </div>
           
-          <div className="bg-white rounded-lg border border-gray-200 p-4 text-gray-900">
+          <div className="bg-gray-900 rounded-lg border border-gray-700 p-4 text-gray-100">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Triggered Alerts</p>
@@ -246,7 +246,7 @@ export default function PriceAlerts({ userId }: PriceAlertsProps) {
             </div>
           </div>
           
-          <div className="bg-white rounded-lg border border-gray-200 p-4 text-gray-900">
+          <div className="bg-gray-900 rounded-lg border border-gray-700 p-4 text-gray-100">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Recent Activity</p>
@@ -263,7 +263,7 @@ export default function PriceAlerts({ userId }: PriceAlertsProps) {
 
       {/* Top Tickers Chart */}
       {statistics && statistics.top_tickers.length > 0 && (
-        <div className="bg-white rounded-lg border border-gray-200 p-6 text-gray-900">
+        <div className="bg-gray-900 rounded-lg border border-gray-700 p-6 text-gray-100">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Most Watched Stocks</h3>
           <Plot
             data={[
@@ -297,8 +297,8 @@ export default function PriceAlerts({ userId }: PriceAlertsProps) {
       {/* Create Alert Form */}
       {showCreateForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md text-gray-900">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Create Price Alert</h3>
+          <div className="bg-gray-900 rounded-lg p-6 w-full max-w-md text-gray-100">
+            <h3 className="text-lg font-semibold text-gray-100 mb-4">Create Price Alert</h3>
             <form onSubmit={createAlert} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -358,7 +358,7 @@ export default function PriceAlerts({ userId }: PriceAlertsProps) {
                 <button
                   type="button"
                   onClick={() => setShowCreateForm(false)}
-                  className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400"
+                  className="flex-1 bg-gray-700 text-gray-200 py-2 px-4 rounded-md hover:bg-gray-600"
                 >
                   Cancel
                 </button>
@@ -369,9 +369,9 @@ export default function PriceAlerts({ userId }: PriceAlertsProps) {
       )}
 
       {/* Alerts List */}
-      <div className="bg-white rounded-lg border border-gray-200 text-gray-900">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Your Alerts</h3>
+      <div className="bg-gray-900 rounded-lg border border-gray-700 text-gray-100">
+        <div className="px-6 py-4 border-b border-gray-700">
+          <h3 className="text-lg font-semibold text-gray-100">Your Alerts</h3>
         </div>
         
         {alerts.length === 0 ? (
@@ -387,9 +387,9 @@ export default function PriceAlerts({ userId }: PriceAlertsProps) {
             </button>
           </div>
         ) : (
-          <div className="divide-y divide-gray-200">
+          <div className="divide-y divide-gray-700">
             {alerts.map((alert) => (
-              <div key={alert.id} className="p-6 hover:bg-gray-50">
+              <div key={alert.id} className="p-6 hover:bg-gray-700/50">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
                     <div className={`p-2 rounded-full ${
@@ -410,7 +410,7 @@ export default function PriceAlerts({ userId }: PriceAlertsProps) {
                     
                     <div>
                       <div className="flex items-center space-x-2">
-                        <h4 className="font-medium text-gray-900">{alert.ticker}</h4>
+                        <h4 className="font-medium text-gray-100">{alert.ticker}</h4>
                         <span className={`px-2 py-1 rounded text-xs font-medium ${
                           alert.alert_type === 'above' 
                             ? 'bg-green-100 text-green-800' 
@@ -424,7 +424,7 @@ export default function PriceAlerts({ userId }: PriceAlertsProps) {
                           {alert.alert_type} ${alert.target_price.toFixed(2)}
                         </span>
                       </div>
-                      <div className="text-sm text-gray-500 mt-1">
+                      <div className="text-sm text-gray-400 mt-1">
                         Created: {formatDate(alert.created_at)}
                         {alert.triggered_at && (
                           <span className="ml-4">
@@ -437,18 +437,18 @@ export default function PriceAlerts({ userId }: PriceAlertsProps) {
                   
                   <div className="flex items-center space-x-2">
                     <span className={`px-2 py-1 rounded text-xs font-medium ${
-                      alert.triggered_at 
-                        ? 'bg-orange-100 text-orange-800'
-                        : alert.is_active 
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-gray-100 text-gray-800'
+                      alert.triggered_at
+                        ? 'bg-orange-800/40 text-orange-200'
+                        : alert.is_active
+                          ? 'bg-green-800/40 text-green-200'
+                          : 'bg-gray-800/40 text-gray-200'
                     }`}>
                       {alert.triggered_at ? 'Triggered' : alert.is_active ? 'Active' : 'Inactive'}
                     </span>
                     
                     <button
                       onClick={() => deleteAlert(alert.id)}
-                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                      className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-900/30 rounded-md transition-colors"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>

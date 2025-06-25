@@ -67,7 +67,7 @@ export default function Home() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Hero Section */}
       <div className="text-center mb-12">
-        <h1 className="text-4xl font-bold text-gray-900 mb-4">
+        <h1 className="text-4xl font-bold text-gray-100 mb-4">
           Professional Financial Analytics Platform
         </h1>
         <p className="text-xl text-gray-600 mb-8">
@@ -176,19 +176,19 @@ export default function Home() {
       <div className="card bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
         <h2 className="text-2xl font-bold mb-6">Live Portfolio Demo</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="metric-card bg-white">
+          <div className="metric-card bg-gray-900">
             <div className="metric-value text-green-600">+12.5%</div>
             <div className="metric-label">Total Return</div>
           </div>
-          <div className="metric-card bg-white">
+          <div className="metric-card bg-gray-900">
             <div className="metric-value">1.24</div>
             <div className="metric-label">Sharpe Ratio</div>
           </div>
-          <div className="metric-card bg-white">
+          <div className="metric-card bg-gray-900">
             <div className="metric-value">0.85</div>
             <div className="metric-label">Beta</div>
           </div>
-          <div className="metric-card bg-white">
+          <div className="metric-card bg-gray-900">
             <div className="metric-value text-red-600">-8.2%</div>
             <div className="metric-label">Max Drawdown</div>
           </div>

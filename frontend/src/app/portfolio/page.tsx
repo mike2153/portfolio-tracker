@@ -551,9 +551,9 @@ export default function PortfolioPage() {
             </div>
             
             {portfolioData?.holdings.length === 0 ? (
-                <div className="text-center py-12 bg-white rounded-lg shadow border border-gray-200 text-gray-900">
-                    <h2 className="text-xl font-semibold text-gray-700 mb-2">No Holdings Yet</h2>
-                    <p className="text-gray-500 mb-6">Start building your portfolio by adding your first stock holding.</p>
+                <div className="text-center py-12 bg-gray-900 rounded-lg shadow border border-gray-700 text-gray-100">
+                    <h2 className="text-xl font-semibold text-gray-100 mb-2">No Holdings Yet</h2>
+                    <p className="text-gray-400 mb-6">Start building your portfolio by adding your first stock holding.</p>
                     <button className="btn-primary flex items-center mx-auto" onClick={openAddModal}>
                         <PlusCircle className="mr-2" size={20} /> Add Your First Stock
                     </button>
@@ -641,10 +641,10 @@ export default function PortfolioPage() {
             
             {showHoldingModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto text-gray-900">
-                        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-xl text-gray-900">
+                    <div className="bg-gray-900 rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto text-gray-100">
+                        <div className="sticky top-0 bg-gray-900 border-b border-gray-700 px-6 py-4 rounded-t-xl text-gray-100">
                             <div className="flex items-center justify-between">
-                                <h2 className="text-xl font-bold text-gray-900">{editingHolding ? 'Edit Stock Holding' : 'Add Stock Holding'}</h2>
+                                <h2 className="text-xl font-bold text-gray-100">{editingHolding ? 'Edit Stock Holding' : 'Add Stock Holding'}</h2>
                                 <button 
                                     className="text-gray-400 hover:text-gray-600 transition-colors p-1" 
                                     onClick={closeHoldingModal}
@@ -678,14 +678,14 @@ export default function PortfolioPage() {
                                         <div className="absolute right-3 top-3"><Loader2 className="animate-spin" size={18} /></div>
                                     )}
                                     {showSuggestions && tickerSuggestions.length > 0 && !editingHolding && (
-                                        <ul className="absolute left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg mt-1 z-20 max-h-48 overflow-y-auto text-gray-900">
+                                        <ul className="absolute left-0 right-0 bg-gray-900 border border-gray-700 rounded-lg shadow-lg mt-1 z-20 max-h-48 overflow-y-auto text-gray-100">
                                             {tickerSuggestions.map(s => (
                                                 <li
                                                     key={s.symbol}
-                                                    className="px-4 py-2 cursor-pointer hover:bg-blue-50"
+                                                    className="px-4 py-2 cursor-pointer hover:bg-gray-700/50"
                                                     onMouseDown={() => handleSuggestionClick(s)}
                                                 >
-                                                    <span className="font-mono font-bold">{s.symbol}</span> <span className="text-gray-600">{s.name}</span> <span className="text-xs text-gray-400">{s.exchange} ({s.exchange_code})</span>
+                                                    <span className="font-mono font-bold text-gray-100">{s.symbol}</span> <span className="text-gray-400">{s.name}</span> <span className="text-xs text-gray-500">{s.exchange} ({s.exchange_code})</span>
                                                 </li>
                                             ))}
                                         </ul>
@@ -725,7 +725,7 @@ export default function PortfolioPage() {
                                         value={form.purchase_price}
                                         onChange={handleFormChange}
                                         disabled={isSubmitting || loadingPrice}
-                                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${formErrors.purchase_price ? 'border-red-300' : 'border-gray-300'} ${loadingPrice ? 'bg-gray-50' : ''}`}
+                                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${formErrors.purchase_price ? 'border-red-300' : 'border-gray-300'} ${loadingPrice ? 'bg-gray-800/80' : ''}`}
                                         placeholder="0.00"
                                         required
                                     />
@@ -838,14 +838,14 @@ export default function PortfolioPage() {
                                     type="text"
                                     value={isNaN(Number(form.shares) * Number(form.purchase_price)) ? '' : (Number(form.shares) * Number(form.purchase_price)).toLocaleString(undefined, { style: 'currency', currency: form.currency || 'USD' })}
                                     readOnly
-                                    className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-800 font-semibold"
+                                    className="w-full px-4 py-3 border border-gray-700 rounded-lg bg-gray-800 text-gray-100 font-semibold"
                                 />
                             </div>
 
-                            <div className="flex gap-3 pt-4 border-t border-gray-200">
+                            <div className="flex gap-3 pt-4 border-t border-gray-700">
                                 <button 
                                     type="button" 
-                                    className="flex-1 px-4 py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors duration-200 disabled:opacity-50" 
+                                    className="flex-1 px-4 py-3 text-gray-200 bg-gray-700 hover:bg-gray-600 rounded-lg font-medium transition-colors duration-200 disabled:opacity-50"
                                     onClick={closeHoldingModal}
                                     disabled={isSubmitting}
                                 >
