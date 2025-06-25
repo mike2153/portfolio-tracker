@@ -24,6 +24,34 @@ router = Router()
 router.add_router("/portfolio", portfolio_api_router)
 
 # =================
+# FX RATES ENDPOINT
+# =================
+
+@router.get("/fx/latest")
+def get_latest_fx_rates(request, base: str = "AUD"):
+    """Return placeholder FX rates for dashboard ticker.
+
+    This stub prevents front-end 404s during development / automated tests.
+    Replace with real data source (e.g. Alpha Vantage FX endpoint) when ready.
+    """
+
+    base = base.upper()
+    pairs = ["USD", "EUR", "GBP", "JPY"]
+    rates = []
+    for target in pairs:
+        if target == base:
+            continue
+        # Dummy rate values – use 1.0 for same-currency, else example numbers.
+        rate_value = 1.0 if target == "USD" else 0.65
+        rates.append({
+            "pair": f"{base}{target}",
+            "rate": rate_value,
+            "change": 0.0,
+        })
+
+    return success_response({"rates": rates})
+
+# =================
 # STOCK ANALYSIS ENDPOINTS
 # =================
 
@@ -201,7 +229,7 @@ def get_user_portfolio(request, user_id: str):
             total_portfolio_value += market_value
             
             holdings_data.append({
-                "id": holding.id,
+                "id": holding.id,  # type: ignore[attr-defined]
                 "ticker": holding.ticker,
                 "company_name": holding.company_name,
                 "shares": float(holding.shares),
@@ -298,7 +326,7 @@ def add_holding(request, user_id: str, holding_data: HoldingSchema):
         _create_dividend_records_for_holding(holding)
         
         return success_response({
-            "holding_id": holding.id,
+            "holding_id": holding.id,  # type: ignore[attr-defined]
             "remaining_cash": float(portfolio.cash_balance),
             "ticker": holding.ticker,
             "shares": float(holding.shares)
@@ -367,7 +395,7 @@ def update_holding(request, user_id: str, holding_id: int, holding_data: Holding
 
         return success_response({
             "message": "Holding updated successfully",
-            "holding_id": holding.id,
+            "holding_id": holding.id,  # type: ignore[attr-defined]
             "ticker": holding.ticker,
             "shares": float(holding.shares),
             "current_price": float(holding.purchase_price),
@@ -404,7 +432,7 @@ def add_cash_contribution(request, user_id: str, cash_data: CashContributionSche
         portfolio.cash_balance += Decimal(str(cash_data.amount))
         portfolio.save()
         
-        return {"message": "Cash contribution added successfully", "contribution_id": contribution.id, "new_cash_balance": float(portfolio.cash_balance)}
+        return {"message": "Cash contribution added successfully", "contribution_id": contribution.id, "new_cash_balance": float(portfolio.cash_balance)}  # type: ignore[attr-defined]
     except Exception as e:
         raise HttpError(500, str(e))
 
@@ -474,7 +502,7 @@ def create_price_alert(request, user_id: str, alert_data: PriceAlertSchema):
             alert_type=alert_data.alert_type,
             target_price=float(alert_data.target_price)  # <-- Cast to float
         )
-        return {"ok": True, "alert_id": alert.id}
+        return {"ok": True, "alert_id": alert.id}  # type: ignore[attr-defined]
     except ValueError as e:
         return JsonResponse({"ok": False, "error": str(e)}, status=400)
     except Exception:
@@ -490,7 +518,7 @@ def get_price_alerts(request, user_id: str, active_only: bool = True):
         alert_data = []
         for alert in alerts:
             alert_data.append({
-                'id': alert.id,
+                'id': alert.id,  # type: ignore[attr-defined]
                 'ticker': alert.ticker,
                 'alert_type': alert.alert_type,
                 'target_price': float(alert.target_price),
@@ -892,7 +920,7 @@ def create_transaction(request):
             try:
                 service = get_alpha_vantage_service()
                 overview = service.get_company_overview(transaction_data['ticker'])
-                transaction_data['company_name'] = overview.get('Name', transaction_data['ticker'])
+                transaction_data['company_name'] = overview.get('Name', transaction_data['ticker']) if overview else transaction_data['ticker']
                 logger.debug(f"[TransactionAPI] Company name: {transaction_data['company_name']}")
             except Exception as e:
                 logger.warning(f"[TransactionAPI] Could not fetch company name: {e}")

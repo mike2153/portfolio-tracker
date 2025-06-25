@@ -118,8 +118,8 @@ class TestAlphaVantageService(unittest.TestCase):
         
         self.assertIsNotNone(result, "API request returned None")
         if result:
-        self.assertEqual(result['symbol'], 'AAPL')
-        self.assertEqual(result['price'], 150.00)
+            self.assertEqual(result['symbol'], 'AAPL')
+            self.assertEqual(result['price'], 150.00)
         print("✓ Successfully parsed API response")
     
     @patch('requests.get')
@@ -213,8 +213,8 @@ class TestAlphaVantageService(unittest.TestCase):
         
         self.assertIsNotNone(result, "API request returned None")
         if result:
-        self.assertEqual(result['symbol'], 'AAPL')
-        self.assertEqual(mock_get.call_count, 3)
+            self.assertEqual(result['symbol'], 'AAPL')
+            self.assertEqual(mock_get.call_count, 3)
         print("✓ Retry logic worked correctly")
     
     def test_api_usage_stats(self):
@@ -232,8 +232,8 @@ class TestAlphaVantageService(unittest.TestCase):
         
         self.assertIn('requests_last_minute', stats)
         self.assertIn('rate_limit', stats)
-        self.assertIn('cache_entries', stats)
-        self.assertIn('service_status', stats)
+        self.assertIn('cache_size', stats)
+        self.assertIn('api_key_configured', stats)
         
         self.assertEqual(stats['requests_last_minute'], 2)
         self.assertEqual(stats['rate_limit'], self.service.MAX_REQUESTS_PER_MINUTE)
@@ -287,17 +287,18 @@ class TestAlphaVantageService(unittest.TestCase):
         
         self.assertIsNotNone(result, "API request returned None")
         if result:
-        self.assertEqual(result['symbol'], 'AAPL')
-        self.assertIn('data', result)
-        self.assertEqual(len(result['data']), 2)
+            self.assertEqual(result['symbol'], 'AAPL')
+            self.assertIn('data', result)
+            self.assertEqual(len(result['data']), 2)
         
         # Check data is sorted by date (oldest first)
-        self.assertEqual(result['data'][0]['date'], '2023-12-01')
-        self.assertEqual(result['data'][1]['date'], '2023-12-02')
-        
-        # Check data parsing
-        self.assertEqual(result['data'][0]['close'], 154.00)
-        self.assertEqual(result['data'][0]['dividend_amount'], 0.25)
+        if result and 'data' in result and len(result['data']) >= 2:
+            self.assertEqual(result['data'][0]['date'], '2023-12-01')
+            self.assertEqual(result['data'][1]['date'], '2023-12-02')
+            
+            # Check data parsing
+            self.assertEqual(result['data'][0]['close'], 154.00)
+            self.assertEqual(result['data'][0]['dividend_amount'], 0.25)
         print("✓ Historical data parsing is correct")
 
 

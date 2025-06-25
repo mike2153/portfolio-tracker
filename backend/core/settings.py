@@ -13,7 +13,10 @@ from dotenv import load_dotenv
 from pathlib import Path
 import os           
 import dj_database_url
-load_dotenv() 
+
+# Load environment variables from the apikeys file
+apikeys_path = Path(__file__).resolve().parent.parent / 'apikeys'
+load_dotenv(apikeys_path) 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -24,7 +27,7 @@ SECRET_KEY = os.environ['DJANGO_SECRET_KEY']
 DEBUG = os.environ.get('DEBUG', 'True').lower() == 'true'
 
 # Hosts the app can serve
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,testserver').split(',')
 
 
 # Application definition

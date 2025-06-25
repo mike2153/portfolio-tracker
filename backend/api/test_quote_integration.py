@@ -225,11 +225,11 @@ class TestAlphaVantageQuoteIntegration(TestCase):
         service = AlphaVantageService()
         stats = service.get_api_usage_stats()
         
-        self.assertIn('total_requests_today', stats)
         self.assertIn('requests_last_minute', stats)
+        self.assertIn('rate_limit', stats)
         self.assertIn('cache_size', stats)
-        self.assertIn('rate_limit_max', stats)
-        self.assertEqual(stats['rate_limit_max'], 60)
+        self.assertIn('api_key_configured', stats)
+        self.assertEqual(stats['rate_limit'], 60)
 
 
 class TestQuoteIntegrationRealAPI(TestCase):

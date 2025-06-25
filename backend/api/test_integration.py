@@ -167,8 +167,8 @@ class TestIntegrationErrorHandling(unittest.TestCase):
         
         self.assertIn('requests_last_minute', stats)
         self.assertIn('rate_limit', stats)
-        self.assertIn('cache_entries', stats)
-        self.assertIn('service_status', stats)
+        self.assertIn('cache_size', stats)
+        self.assertIn('api_key_configured', stats)
         
         self.assertEqual(stats['requests_last_minute'], 2)
         self.assertEqual(stats['rate_limit'], self.alpha_service.MAX_REQUESTS_PER_MINUTE)
