@@ -139,6 +139,8 @@ const TransactionsPage = () => {
     }
   }, [user, fetchTransactions, fetchSummary]);
   
+  const latestQueryRef = React.useRef('');
+
   const debouncedSearch = useCallback(
     debounce(async (query: string) => {
       if (query.length < 1) {
@@ -148,10 +150,12 @@ const TransactionsPage = () => {
       setSearchLoading(true);
       try {
         const response = await apiService.searchSymbols(query, 10);
-        if (response.ok && response.data) {
-          setTickerSuggestions(response.data.results);
-        } else {
-          setTickerSuggestions([]);
+        if (latestQueryRef.current === query) {
+          if (response.ok && response.data) {
+            setTickerSuggestions(response.data.results);
+          } else {
+            setTickerSuggestions([]);
+          }
         }
       } finally {
         setSearchLoading(false);
@@ -163,6 +167,8 @@ const TransactionsPage = () => {
   const handleTickerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const { value } = e.target;
       setForm(prev => ({ ...prev, ticker: value.toUpperCase() }));
+      latestQueryRef.current = value;
+      setTickerSuggestions([]);
       setShowSuggestions(true);
       debouncedSearch(value);
   };
