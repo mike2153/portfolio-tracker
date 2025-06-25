@@ -1,9 +1,10 @@
-from django.test import TestCase
+import pytest
 from unittest.mock import patch
 
-class HistoricalDataEndpointTest(TestCase):
+@pytest.mark.django_db
+class HistoricalDataEndpointTest:
     @patch('api.views.alpha_vantage')
-    def test_historical_period_all_returns_full_dataset(self, mock_alpha_vantage):
+    def test_historical_period_all_returns_full_dataset(self, mock_alpha_vantage, ninja_client):
         mock_alpha_vantage.get_daily_adjusted.return_value = {
             'data': [
                 {'date': '2024-01-02', 'adjusted_close': 170.0},
@@ -12,8 +13,8 @@ class HistoricalDataEndpointTest(TestCase):
             'last_refreshed': '2024-01-02'
         }
 
-        response = self.client.get('/api/stocks/AAPL/historical?period=MAX')
-        self.assertEqual(response.status_code, 200)
+        response = ninja_client.get('/stocks/AAPL/historical?period=MAX')
+        assert response.status_code == 200
         data = response.json()
-        self.assertEqual(len(data['data']), 2)
+        assert len(data['data']) == 2
 

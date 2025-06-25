@@ -6,14 +6,17 @@ from django.http import JsonResponse
 from .services.transaction_service import get_transaction_service, get_price_update_service
 from .models import Transaction, UserSettings, UserApiRateLimit, Holding, Portfolio, CashContribution, PriceAlert, StockSymbol, DividendPayment
 from datetime import datetime, date, timedelta
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 from difflib import SequenceMatcher
 from decimal import Decimal
 import os
 import logging
 from .services.metrics_calculator import calculate_advanced_metrics
 from .alpha_vantage_service import alpha_vantage, get_alpha_vantage_service
-from .schemas import *
+from .schemas import (
+    HoldingSchema, PortfolioSchema, CashContributionSchema, 
+    PriceAlertSchema, DividendConfirmationSchema
+)
 from .services.price_alert_service import get_price_alert_service
 #from .services.portfolio_benchmarking import PortfolioBenchmarking
 from .portfolio_views import portfolio_api_router
@@ -239,7 +242,7 @@ def get_user_portfolio(request, user_id: str):
             })
         # Fix: Default cash_balance to Decimal('0.00') if None
         cash_balance = portfolio.cash_balance if portfolio.cash_balance is not None else Decimal('0.00')
-        return {
+        portfolio_data = {
             "cash_balance": float(cash_balance),
             "holdings": holdings_data,
             "summary": {
@@ -247,6 +250,7 @@ def get_user_portfolio(request, user_id: str):
                 "total_value": float(total_portfolio_value + cash_balance)
             }
         }
+        return success_response(portfolio_data)
     except Exception as e:
         logger.error(f"Failed to get user portfolio for {user_id}: {e}", exc_info=True)
         raise HttpError(500, "An error occurred while fetching portfolio data.")
@@ -271,7 +275,7 @@ def get_portfolio_performance(request, user_id: str, period: str = "1Y", benchma
         result = calculate_enhanced_portfolio_performance(user_id, period, benchmark)
         
         logger.info(f"Successfully calculated portfolio performance for user {user_id}")
-        return result
+        return success_response(result)
         
     except ValueError as e:
         logger.warning(f"Validation error in portfolio performance: {e}")
@@ -617,7 +621,7 @@ def _calculate_current_portfolio_value(portfolio: Portfolio) -> Decimal:
             total_value += holding.shares * holding.purchase_price
     return total_value
 
-def _create_dividend_records_for_holding(holding: Holding):
+def _create_dividend_records_for_holding(holding: Holding) -> None:
     """Auto-create dividend records for a holding based on historical data"""
     try:
         historical_data = alpha_vantage.get_daily_adjusted(holding.ticker)
@@ -648,13 +652,13 @@ def _create_dividend_records_for_holding(holding: Holding):
         logger.error(f"Error creating dividend records for {holding.ticker}: {e}", exc_info=True)
 
 @router.get("/alpha_vantage/stats")
-def get_alpha_vantage_stats(request):
+def get_alpha_vantage_stats(request) -> Dict[str, Any]:
     """Get Alpha Vantage API usage statistics"""
     av_service = get_alpha_vantage_service()
     return av_service.get_api_usage_stats()
 
 @router.get("/cache/stats")
-def get_cache_stats(request):
+def get_cache_stats(request) -> Dict[str, Any]:
     """Get market data cache statistics"""
     try:
         from .services.market_data_cache import get_market_data_cache_service
@@ -733,7 +737,7 @@ class ErrorResponse(Schema):
     response={200: AdvancedFinancialsResponse, 400: ErrorResponse, 404: ErrorResponse, 500: ErrorResponse},
     summary="Get Advanced Financial Metrics for a Stock"
 )
-def advanced_financials(request, symbol: str):
+def advanced_financials(request, symbol: str) -> Tuple[int, Dict[str, Any]]:
     """
     Provides a comprehensive set of derived financial metrics for a given stock,
     logically grouped into categories.
@@ -801,7 +805,7 @@ def advanced_financials(request, symbol: str):
         return 500, {"ok": False, "error": "An internal server error occurred."}
 
 @router.get("/portfolios/{user_id}/optimization")
-def get_portfolio_optimization(request, user_id: str):
+def get_portfolio_optimization(request, user_id: str) -> Dict[str, Any]:
     """Get comprehensive portfolio optimization analysis including risk assessment"""
     try:
         from .services.portfolio_optimization import get_portfolio_optimization_service
@@ -809,10 +813,10 @@ def get_portfolio_optimization(request, user_id: str):
         optimization_service = get_portfolio_optimization_service()
         analysis = optimization_service.analyze_portfolio(user_id)
         
-        return {
+        return success_response({
             "analysis": analysis,
             "status": "success"
-        }
+        })
     except ValueError as e:
         logger.error(f"Portfolio not found for optimization analysis: {user_id}")
         raise HttpError(404, str(e))
@@ -822,7 +826,7 @@ def get_portfolio_optimization(request, user_id: str):
 
 
 @router.get("/portfolios/{user_id}/risk-assessment")
-def get_portfolio_risk_assessment(request, user_id: str):
+def get_portfolio_risk_assessment(request, user_id: str) -> Dict[str, Any]:
     """Get detailed portfolio risk assessment"""
     try:
         from .services.portfolio_optimization import get_portfolio_optimization_service
@@ -843,10 +847,10 @@ def get_portfolio_risk_assessment(request, user_id: str):
             'analysis_date': analysis['analysis_date']
         }
         
-        return {
+        return success_response({
             "risk_analysis": risk_data,
             "status": "success"
-        }
+        })
     except ValueError as e:
         logger.error(f"Portfolio not found for risk assessment: {user_id}")
         raise HttpError(404, str(e))
@@ -856,7 +860,7 @@ def get_portfolio_risk_assessment(request, user_id: str):
 
 
 @router.get("/portfolios/{user_id}/diversification")
-def get_portfolio_diversification(request, user_id: str):
+def get_portfolio_diversification(request, user_id: str) -> Dict[str, Any]:
     """Get portfolio diversification analysis"""
     try:
         from .services.portfolio_optimization import get_portfolio_optimization_service
@@ -872,10 +876,10 @@ def get_portfolio_diversification(request, user_id: str):
             'analysis_date': analysis['analysis_date']
         }
         
-        return {
+        return success_response({
             "diversification_analysis": diversification_data,
             "status": "success"
-        }
+        })
     except ValueError as e:
         logger.error(f"Portfolio not found for diversification analysis: {user_id}")
         raise HttpError(404, str(e))
@@ -885,7 +889,7 @@ def get_portfolio_diversification(request, user_id: str):
 
 
 @router.post("/transactions/create")
-def create_transaction(request):
+def create_transaction(request) -> Dict[str, Any]:
     """
     Create a new transaction (BUY/SELL/DIVIDEND).
     
@@ -958,7 +962,7 @@ def create_transaction(request):
 
 
 @router.get("/transactions/user")
-def get_user_transactions(request):
+def get_user_transactions(request) -> Dict[str, Any]:
     """
     Get user's transaction history with optional filtering.
     

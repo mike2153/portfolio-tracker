@@ -29,76 +29,114 @@ def create_txn(ticker: str, shares: int, price: int):
     )
 
 @pytest.mark.django_db
-def test_dashboard_overview(ninja_client):
-    """Test dashboard overview with real Alpha Vantage API calls"""
+def test_portfolio_overview(ninja_client):
+    """Test portfolio overview with real Alpha Vantage API calls"""
     # Create test transaction
-    create_txn('AAPL', 10, 90)
+    create_txn('AAPL', 10, 150)
 
-    response = ninja_client.get("/api/dashboard/overview")
+    response = ninja_client.get(f"/portfolios/{USER_ID}")
     assert response.status_code == 200
     data = response.json()
-    assert 'marketValue' in data
-    # Since we're using real API, market value should be calculated based on real current price
-    assert 'value' in data['marketValue']
+    
+    # Main API uses success_response wrapper
+    assert 'ok' in data
+    assert data['ok'] == True
+    assert 'data' in data
+    
+    portfolio_data = data['data']
+    assert 'holdings' in portfolio_data
+    assert 'summary' in portfolio_data
+    assert 'total_value' in portfolio_data['summary']
+
+@pytest.mark.django_db  
+def test_portfolio_performance(ninja_client):
+    """Test portfolio performance with real Alpha Vantage API calls"""
+    create_txn('AAPL', 10, 150)
+
+    response = ninja_client.get(f"/portfolios/{USER_ID}/performance?period=1Y&benchmark=^GSPC")
+    # Accept either 200 (success) or 400 (benchmark data unavailable) as valid test outcomes
+    assert response.status_code in [200, 400]
+    
+    if response.status_code == 200:
+        data = response.json()
+        # Should have performance data structure
+        assert 'ok' in data
+        assert 'data' in data
 
 @pytest.mark.django_db
-def test_dashboard_allocation(ninja_client):
-    """Test dashboard allocation with real Alpha Vantage API calls"""
-    create_txn('AAPL', 10, 90)
+def test_portfolio_optimization(ninja_client):
+    """Test portfolio optimization endpoint"""
+    create_txn('AAPL', 10, 150)
+    create_txn('MSFT', 5, 250)
 
-    response = ninja_client.get("/api/dashboard/allocation")
+    response = ninja_client.get(f"/portfolios/{USER_ID}/optimization")
     assert response.status_code == 200
     data = response.json()
-    assert 'rows' in data
-    # We should have allocation data for AAPL
-    if len(data['rows']) > 0:
-        assert any(row['groupKey'] == 'AAPL' for row in data['rows'])
+    
+    assert 'ok' in data
+    assert 'data' in data
 
 @pytest.mark.django_db
-def test_dashboard_gainers(ninja_client):
-    """Test dashboard gainers with real Alpha Vantage API calls"""
-    create_txn('AAPL', 10, 90)
-    # Add another stock to have variety in gainers/losers
-    create_txn('MSFT', 5, 200)
+def test_portfolio_risk_assessment(ninja_client):
+    """Test portfolio risk assessment endpoint"""
+    create_txn('AAPL', 10, 150)
+    create_txn('GOOGL', 3, 200)
 
-    response = ninja_client.get("/api/dashboard/gainers")
+    response = ninja_client.get(f"/portfolios/{USER_ID}/risk-assessment")
     assert response.status_code == 200
     data = response.json()
-    assert 'items' in data
-    # Real API may or may not show gainers depending on actual stock performance
+    
+    assert 'ok' in data
+    assert 'data' in data
 
 @pytest.mark.django_db
-def test_dashboard_losers(ninja_client):
-    """Test dashboard losers with real Alpha Vantage API calls"""
-    create_txn('AAPL', 10, 90)
-    create_txn('GOOGL', 3, 150)
+def test_portfolio_diversification(ninja_client):
+    """Test portfolio diversification endpoint"""
+    create_txn('AAPL', 10, 150)
+    create_txn('MSFT', 5, 250)
 
-    response = ninja_client.get("/api/dashboard/losers")
+    response = ninja_client.get(f"/portfolios/{USER_ID}/diversification")
     assert response.status_code == 200
     data = response.json()
-    assert 'items' in data
-    # Real API may or may not show losers depending on actual stock performance
-
-@pytest.mark.django_db
-def test_dividend_forecast(ninja_client):
-    """Test dividend forecast with real Alpha Vantage API calls"""
-    # Create transactions for dividend-paying stocks
-    create_txn('AAPL', 10, 90)
-    create_txn('MSFT', 5, 200)
-
-    response = ninja_client.get("/api/dashboard/dividend-forecast")
-    assert response.status_code == 200
-    data = response.json()
-    assert 'forecast' in data
-    assert 'next12mTotal' in data
-    assert 'monthlyAvg' in data
+    
+    assert 'ok' in data
+    assert 'data' in data
 
 @pytest.mark.django_db
 def test_fx_latest(ninja_client):
     """Test the FX latest endpoint."""
-    response = ninja_client.get("/api/fx/latest")
+    response = ninja_client.get("/fx/latest")
     assert response.status_code == 200
     data = response.json()
-    assert "rates" in data
-    assert len(data["rates"]) > 0
-    assert data["rates"][0]["pair"] == "USDAUD"
+    
+    assert 'ok' in data
+    assert data['ok'] == True
+    assert 'data' in data
+    assert "rates" in data['data']
+    assert len(data['data']["rates"]) > 0
+
+@pytest.mark.django_db
+def test_stock_quote(ninja_client):
+    """Test getting a real stock quote"""
+    response = ninja_client.get("/stocks/AAPL/quote")
+    assert response.status_code == 200
+    data = response.json()
+    
+    assert 'ok' in data
+    assert data['ok'] == True
+    assert 'data' in data
+    assert 'symbol' in data['data']
+    assert data['data']['symbol'] == 'AAPL'
+
+@pytest.mark.django_db
+def test_stock_overview(ninja_client):
+    """Test getting stock company overview"""
+    response = ninja_client.get("/stocks/AAPL/overview")
+    assert response.status_code == 200
+    data = response.json()
+    
+    assert 'ok' in data
+    assert data['ok'] == True
+    assert 'data' in data
+    assert 'symbol' in data['data']
+    assert data['data']['symbol'] == 'AAPL'

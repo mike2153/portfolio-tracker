@@ -1,6 +1,7 @@
 # backend/api/services/metrics_calculator.py
 import logging
 from typing import Any, Dict, List, Optional
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +62,154 @@ def _calculate_cagr(reports: List[Dict[str, Any]], key: str, years: int) -> Opti
         return cagr
     except (ZeroDivisionError, ValueError):
         return None
+
+
+class AdvancedMetricsCalculator:
+    """Advanced financial metrics calculator for portfolio analysis."""
+    
+    def __init__(self):
+        """Initialize the calculator."""
+        pass
+    
+    def calculate_sharpe_ratio(self, returns: List[float], risk_free_rate: float = 0.02) -> Optional[float]:
+        """Calculate Sharpe ratio."""
+        if not returns or len(returns) < 2:
+            return None
+        
+        try:
+            returns_array = np.array(returns)
+            excess_returns = returns_array - risk_free_rate / 252  # Daily risk-free rate
+            
+            if np.std(excess_returns) == 0:
+                return None
+            
+            sharpe = np.mean(excess_returns) / np.std(excess_returns) * np.sqrt(252)
+            return float(sharpe)
+        except Exception as e:
+            logger.error(f"Error calculating Sharpe ratio: {e}")
+            return None
+    
+    def calculate_beta(self, stock_returns: List[float], market_returns: List[float]) -> Optional[float]:
+        """Calculate beta coefficient."""
+        if not stock_returns or not market_returns or len(stock_returns) != len(market_returns):
+            return None
+        
+        try:
+            stock_array = np.array(stock_returns)
+            market_array = np.array(market_returns)
+            
+            covariance = np.cov(stock_array, market_array)[0][1]
+            market_variance = np.var(market_array)
+            
+            if market_variance == 0:
+                return None
+            
+            beta = covariance / market_variance
+            return float(beta)
+        except Exception as e:
+            logger.error(f"Error calculating beta: {e}")
+            return None
+    
+    def calculate_volatility(self, returns: List[float]) -> Optional[float]:
+        """Calculate annualized volatility."""
+        if not returns or len(returns) < 2:
+            return None
+        
+        try:
+            returns_array = np.array(returns)
+            volatility = np.std(returns_array) * np.sqrt(252)
+            return float(volatility)
+        except Exception as e:
+            logger.error(f"Error calculating volatility: {e}")
+            return None
+    
+    def calculate_max_drawdown(self, price_data: List[Dict[str, Any]]) -> Optional[float]:
+        """Calculate maximum drawdown."""
+        if not price_data:
+            return None
+        
+        try:
+            prices = [float(item['close']) for item in price_data]
+            if not prices:
+                return None
+            
+            peak = prices[0]
+            max_drawdown = 0.0
+            
+            for price in prices:
+                if price > peak:
+                    peak = price
+                drawdown = (peak - price) / peak
+                if drawdown > max_drawdown:
+                    max_drawdown = drawdown
+            
+            return float(max_drawdown)
+        except Exception as e:
+            logger.error(f"Error calculating max drawdown: {e}")
+            return None
+    
+    def calculate_var_95(self, returns: List[float]) -> Optional[float]:
+        """Calculate 95% Value at Risk."""
+        if not returns or len(returns) < 20:
+            return None
+        
+        try:
+            returns_array = np.array(returns)
+            var_95 = np.percentile(returns_array, 5)
+            return float(var_95)
+        except Exception as e:
+            logger.error(f"Error calculating VaR 95%: {e}")
+            return None
+    
+    def calculate_all_metrics(self, price_data: List[Dict[str, Any]], benchmark_data: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Calculate all advanced metrics."""
+        if not price_data or len(price_data) < 2:
+            return {}
+        
+        try:
+            # Calculate returns
+            prices = [float(item['close']) for item in price_data]
+            returns = []
+            for i in range(1, len(prices)):
+                ret = (prices[i] - prices[i-1]) / prices[i-1]
+                returns.append(ret)
+            
+            # Calculate benchmark returns if available
+            benchmark_returns = []
+            if benchmark_data and len(benchmark_data) >= len(price_data):
+                benchmark_prices = [float(item['close']) for item in benchmark_data[:len(price_data)]]
+                for i in range(1, len(benchmark_prices)):
+                    ret = (benchmark_prices[i] - benchmark_prices[i-1]) / benchmark_prices[i-1]
+                    benchmark_returns.append(ret)
+            
+            # Calculate metrics
+            metrics = {
+                'sharpe_ratio': self.calculate_sharpe_ratio(returns),
+                'volatility': self.calculate_volatility(returns),
+                'max_drawdown': self.calculate_max_drawdown(price_data),
+                'var_95': self.calculate_var_95(returns),
+                'beta': None,
+                'alpha': None
+            }
+            
+            # Calculate beta and alpha if benchmark data is available
+            if benchmark_returns and len(benchmark_returns) == len(returns):
+                metrics['beta'] = self.calculate_beta(returns, benchmark_returns)
+                
+                if metrics['beta'] is not None:
+                    # Simple alpha calculation
+                    avg_return = np.mean(returns) if returns else 0
+                    avg_benchmark_return = np.mean(benchmark_returns) if benchmark_returns else 0
+                    risk_free_rate = 0.02 / 252  # Daily risk-free rate
+                    
+                    alpha = (avg_return - risk_free_rate) - metrics['beta'] * (avg_benchmark_return - risk_free_rate)
+                    metrics['alpha'] = float(alpha) * 252  # Annualized
+            
+            return metrics
+        except Exception as e:
+            logger.error(f"Error calculating all metrics: {e}")
+            return {}
+
 
 # Main Calculation Function
 def calculate_advanced_metrics(

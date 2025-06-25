@@ -22,4 +22,7 @@ django-filter
 django-ninja-extra
 djangorestframework
 uvicorn
-cachetools 
+cachetools
+pytest-django
+PyJWT
+python-jose 

@@ -1,9 +1,7 @@
 from unittest.mock import patch, MagicMock
-import os
+import pytest
 from django.test import TestCase
-from ninja.testing import TestClient
 
-from ..api import api
 from ..models import StockSymbol
 
 
@@ -20,28 +18,25 @@ def create_symbol(symbol: str, name: str):
     )
 
 
+@pytest.mark.django_db
+class SymbolSearchRankingTest:
+    def setup_method(self):
+        """Clean up any existing symbols before each test."""
+        StockSymbol.objects.all().delete()
 
-
-class SymbolSearchRankingTest(TestCase):
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        os.environ["NINJA_SKIP_REGISTRY"] = "True"
-        cls.client = TestClient(api)
-
-    def test_local_ranking(self):
+    def test_local_ranking(self, ninja_client):
         create_symbol("AAPL", "Apple Inc")
         create_symbol("AAL", "American Airlines")
         create_symbol("AAP", "Advance Auto Parts")
 
-        response = self.client.get("/api/symbols/search?q=AA&limit=3")
-        self.assertEqual(response.status_code, 200)
+        response = ninja_client.get("/api/symbols/search?q=AA&limit=3")
+        assert response.status_code == 200
         data = response.json()
         symbols = [r["symbol"] for r in data["results"]]
-        self.assertEqual(symbols, ["AAL", "AAP", "AAPL"])
+        assert symbols == ["AAL", "AAP", "AAPL"]
 
     @patch("api.views.get_alpha_vantage_service")
-    def test_remote_result_ranking(self, mock_get_av):
+    def test_remote_result_ranking(self, mock_get_av, ninja_client):
         create_symbol("AAL", "American Airlines")
         mock_service = MagicMock()
         mock_service.symbol_search.return_value = {
@@ -57,8 +52,8 @@ class SymbolSearchRankingTest(TestCase):
         }
         mock_get_av.return_value = mock_service
 
-        response = self.client.get("/api/symbols/search?q=AAPL&limit=2")
-        self.assertEqual(response.status_code, 200)
+        response = ninja_client.get("/api/symbols/search?q=AAPL&limit=2")
+        assert response.status_code == 200
         data = response.json()
         symbols = [r["symbol"] for r in data["results"]]
-        self.assertEqual(symbols, ["AAPL"])
+        assert symbols == ["AAPL"]

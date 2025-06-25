@@ -2,7 +2,7 @@
 import logging
 from datetime import datetime, date, timedelta
 from decimal import Decimal
-from typing import Dict, Optional, Tuple, Any
+from typing import Dict, Optional, Tuple, Any, List
 from ..models import Portfolio, Holding
 from ..alpha_vantage_service import get_alpha_vantage_service
 
@@ -17,6 +17,210 @@ SUPPORTED_BENCHMARKS = {
     '^FTSE': 'FTSE 100',
     '^N225': 'Nikkei 225'
 }
+
+class PortfolioBenchmarkingService:
+    """Service for portfolio benchmarking and performance analysis."""
+    
+    def __init__(self):
+        """Initialize the benchmarking service."""
+        self.av_service = get_alpha_vantage_service()
+    
+    def calculate_enhanced_portfolio_performance(
+        self, 
+        user_id: str, 
+        benchmark_symbol: str = 'SPY', 
+        period: str = '1y'
+    ) -> Dict[str, Any]:
+        """
+        Calculate enhanced portfolio performance with benchmarking.
+        
+        Args:
+            user_id: User identifier
+            benchmark_symbol: Benchmark symbol (e.g., 'SPY', '^GSPC')
+            period: Time period for analysis
+            
+        Returns:
+            Dictionary containing performance metrics
+        """
+        try:
+            # Get portfolio
+            portfolio = Portfolio.objects.get(user_id=user_id)
+            holdings = Holding.objects.filter(portfolio=portfolio)
+            
+            if not holdings.exists():
+                return {
+                    'portfolio_return': None,
+                    'benchmark_return': None,
+                    'alpha': None,
+                    'beta': None,
+                    'error': 'No holdings found in portfolio'
+                }
+            
+            # Calculate current portfolio value
+            portfolio_value = self.calculate_portfolio_value(user_id)
+            current_value = portfolio_value.get('total_value', 0)
+            
+            # Get benchmark performance
+            benchmark_perf = self.get_benchmark_performance(benchmark_symbol, period)
+            
+            # Simple portfolio return calculation (could be enhanced with historical data)
+            cost_basis = portfolio_value.get('total_cost', 0)
+            if cost_basis > 0:
+                portfolio_return = ((current_value - cost_basis) / cost_basis) * 100
+            else:
+                portfolio_return = 0
+            
+            return {
+                'portfolio_return': round(portfolio_return, 2),
+                'benchmark_return': benchmark_perf.get('return'),
+                'alpha': None,  # Would need historical data for proper calculation
+                'beta': None,   # Would need historical data for proper calculation
+                'volatility': benchmark_perf.get('volatility')
+            }
+            
+        except Portfolio.DoesNotExist:
+            raise ValueError("Portfolio not found")
+        except Exception as e:
+            logger.error(f"Error calculating portfolio performance: {e}")
+            raise ValueError(f"Failed to calculate portfolio performance: {str(e)}")
+    
+    def get_portfolio_holdings_with_prices(self, user_id: str) -> List[Dict[str, Any]]:
+        """Get portfolio holdings with current market prices."""
+        try:
+            portfolio = Portfolio.objects.get(user_id=user_id)
+            holdings = Holding.objects.filter(portfolio=portfolio)
+            
+            holdings_with_prices = []
+            
+            for holding in holdings:
+                try:
+                    # Get current price
+                    quote_data = self.av_service.get_global_quote(holding.ticker)
+                    current_price = None
+                    
+                    if quote_data:
+                        current_price = float(quote_data.get('price', 0))
+                    
+                    holdings_with_prices.append({
+                        'ticker': holding.ticker,
+                        'company_name': holding.company_name,
+                        'shares': holding.shares,
+                        'purchase_price': holding.purchase_price,
+                        'purchase_date': holding.purchase_date,
+                        'current_price': current_price,
+                        'market_value': float(holding.shares * current_price) if current_price else None,
+                        'cost_basis': float(holding.shares * holding.purchase_price),
+                        'gain_loss': (float(holding.shares * current_price) - float(holding.shares * holding.purchase_price)) if current_price else None
+                    })
+                    
+                except Exception as e:
+                    logger.warning(f"Error getting price for {holding.ticker}: {e}")
+                    holdings_with_prices.append({
+                        'ticker': holding.ticker,
+                        'company_name': holding.company_name,
+                        'shares': holding.shares,
+                        'purchase_price': holding.purchase_price,
+                        'purchase_date': holding.purchase_date,
+                        'current_price': None,
+                        'market_value': None,
+                        'cost_basis': float(holding.shares * holding.purchase_price),
+                        'gain_loss': None
+                    })
+            
+            return holdings_with_prices
+            
+        except Portfolio.DoesNotExist:
+            raise ValueError("Portfolio not found")
+    
+    def calculate_portfolio_value(self, user_id: str) -> Dict[str, Any]:
+        """Calculate total portfolio value and metrics."""
+        try:
+            portfolio = Portfolio.objects.get(user_id=user_id)
+            holdings = Holding.objects.filter(portfolio=portfolio)
+            
+            total_cost = Decimal('0')
+            total_value = Decimal('0')
+            
+            for holding in holdings:
+                cost_basis = holding.shares * holding.purchase_price
+                total_cost += cost_basis
+                
+                try:
+                    # Get current price
+                    quote_data = self.av_service.get_global_quote(holding.ticker)
+                    if quote_data:
+                        current_price = Decimal(str(quote_data.get('price', 0)))
+                        market_value = holding.shares * current_price
+                        total_value += market_value
+                    else:
+                        # If no current price, use purchase price as fallback
+                        total_value += cost_basis
+                        
+                except Exception as e:
+                    logger.warning(f"Error getting price for {holding.ticker}: {e}")
+                    # Use purchase price as fallback
+                    total_value += cost_basis
+            
+            # Add cash balance
+            total_value += portfolio.cash_balance
+            
+            gain_loss = total_value - total_cost
+            gain_loss_percent = (gain_loss / total_cost * 100) if total_cost > 0 else Decimal('0')
+            
+            return {
+                'total_value': float(total_value),
+                'total_cost': float(total_cost),
+                'total_gain_loss': float(gain_loss),
+                'gain_loss_percent': float(gain_loss_percent),
+                'cash_balance': float(portfolio.cash_balance)
+            }
+            
+        except Portfolio.DoesNotExist:
+            raise ValueError("Portfolio not found")
+    
+    def get_benchmark_performance(self, symbol: str, period: str) -> Dict[str, Any]:
+        """Get benchmark performance data."""
+        try:
+            # Get historical data for the benchmark
+            historical_data = self.av_service.get_daily_adjusted(symbol, outputsize='compact')
+            
+            if not historical_data or not historical_data.get('data'):
+                raise ValueError(f"Failed to retrieve market data for benchmark symbol '{symbol}'")
+            
+            data_points = historical_data['data']
+            if len(data_points) < 2:
+                return {'return': None, 'volatility': None}
+            
+            # Calculate simple return between first and last data points
+            start_price = float(data_points[-1]['adjusted_close'])  # Oldest
+            end_price = float(data_points[0]['adjusted_close'])     # Most recent
+            
+            simple_return = ((end_price - start_price) / start_price) * 100 if start_price > 0 else 0
+            
+            # Calculate volatility from daily returns
+            returns = []
+            for i in range(len(data_points) - 1):
+                current_price = float(data_points[i]['adjusted_close'])
+                prev_price = float(data_points[i + 1]['adjusted_close'])
+                daily_return = (current_price - prev_price) / prev_price
+                returns.append(daily_return)
+            
+            # Calculate standard deviation as volatility measure
+            if len(returns) > 1:
+                mean_return = sum(returns) / len(returns)
+                variance = sum((r - mean_return) ** 2 for r in returns) / (len(returns) - 1)
+                volatility = (variance ** 0.5) * (252 ** 0.5)  # Annualized
+            else:
+                volatility = 0
+            
+            return {
+                'return': round(simple_return, 2),
+                'volatility': round(volatility, 4)
+            }
+            
+        except Exception as e:
+            logger.error(f"Error calculating benchmark performance for {symbol}: {e}")
+            raise ValueError(f"Failed to retrieve market data for benchmark symbol '{symbol}'")
 
 def _parse_period_to_dates(period: str) -> Tuple[date, int]:
     """

@@ -1,13 +1,5 @@
-import os
-import sys
 import pytest
 from ninja.testing import TestClient
-
-# Set up Django before any imports
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "backend.core.settings")
-
-import django
-django.setup()
 
 # Import the main API instance
 from ..api import api

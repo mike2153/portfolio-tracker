@@ -9,14 +9,10 @@ https://docs.djangoproject.com/en/4.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
-from dotenv import load_dotenv
 from pathlib import Path
-import os           
+import os
 import dj_database_url
 
-# Load environment variables from the apikeys file
-apikeys_path = Path(__file__).resolve().parent.parent / 'apikeys'
-load_dotenv(apikeys_path) 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -24,7 +20,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ['DJANGO_SECRET_KEY']
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'True').lower() == 'true'
+DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
 
 # Hosts the app can serve
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,testserver').split(',')
@@ -40,7 +36,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'corsheaders',
-    'api.apps.ApiConfig',
+    'api',
 ]
 
 MIDDLEWARE = [
@@ -175,8 +171,7 @@ CORS_ALLOWED_ORIGINS = [
 ]
 CORS_ALLOW_CREDENTIALS = True
 # API Keys & Service Secrets (injected via environment variables)
-#FINNHUB_API_KEY        = os.environ['FINNHUB_API_KEY']
-ALPHA_VANTAGE_API_KEY  = os.environ['ALPHA_VANTAGE_API_KEY']       
-SUPABASE_URL             = os.environ['SUPABASE_URL']
-SUPABASE_JWT_SECRET      = os.environ['SUPABASE_JWT_SECRET']
-SUPABASE_SERVICE_ROLE_KEY= os.environ['SUPABASE_SERVICE_ROLE_KEY']
+ALPHA_VANTAGE_API_KEY  = os.environ.get('ALPHA_VANTAGE_API_KEY')
+SUPABASE_URL             = os.environ.get('SUPABASE_URL')
+SUPABASE_JWT_SECRET      = os.environ.get('SUPABASE_JWT_SECRET')
+SUPABASE_SERVICE_ROLE_KEY= os.environ.get('SUPABASE_SERVICE_ROLE_KEY')

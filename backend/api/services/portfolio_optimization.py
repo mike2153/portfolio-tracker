@@ -145,65 +145,48 @@ class PortfolioOptimizationService:
         
         # First pass: calculate total portfolio value
         for holding in holdings:
-            try:
-                quote = self.av_service.get_global_quote(str(holding.ticker))
-                current_price = Decimal(str(quote['price'])) if quote and quote.get('price') else Decimal(str(holding.purchase_price))
-                current_value = Decimal(str(holding.shares)) * current_price
-                total_portfolio_value += current_value
-            except Exception as e:
-                logger.warning(f"Could not get current price for {holding.ticker}: {e}")
-                current_value = Decimal(str(holding.shares)) * Decimal(str(holding.purchase_price))
-                total_portfolio_value += current_value
+            quote = self.av_service.get_global_quote(str(holding.ticker))
+            if not quote or not quote.get('price'):
+                raise ValueError(f"Could not get current price for {holding.ticker}. API call failed or returned no data.")
+            
+            current_price = Decimal(str(quote['price']))
+            current_value = Decimal(str(holding.shares)) * current_price
+            total_portfolio_value += current_value
         
         # Second pass: create analysis objects
         for holding in holdings:
-            try:
-                # Get current market data
-                quote = self.av_service.get_global_quote(str(holding.ticker))
-                overview = self.av_service.get_company_overview(str(holding.ticker))
-                
-                current_price = Decimal(str(quote['price'])) if quote and quote.get('price') else Decimal(str(holding.purchase_price))
-                current_value = float(Decimal(str(holding.shares)) * current_price)
-                weight = float(current_value / float(total_portfolio_value)) if total_portfolio_value > 0 else 0
-                
-                # Calculate expected return and volatility (simplified)
-                expected_return = self._estimate_expected_return(str(holding.ticker), quote or {}, overview or {})
-                volatility = self._estimate_volatility(str(holding.ticker), overview or {})
-                beta = float(overview.get('Beta', 1.0)) if overview else 1.0
-                
-                # Get sector and market cap
-                sector = self.sector_mappings.get(str(holding.ticker), 'Unknown')
-                market_cap = self._classify_market_cap(overview.get('MarketCapitalization') if overview else None)
-                
-                holding_analysis = HoldingAnalysis(
-                    ticker=str(holding.ticker),
-                    weight=weight,
-                    expected_return=expected_return,
-                    volatility=volatility,
-                    beta=beta,
-                    sector=sector,
-                    market_cap=market_cap,
-                    current_value=current_value
-                )
-                
-                holdings_data.append(holding_analysis)
-                
-            except Exception as e:
-                logger.error(f"Error analyzing holding {holding.ticker}: {e}")
-                # Add basic analysis even if we can't get market data
-                current_value = float(Decimal(str(holding.shares)) * Decimal(str(holding.purchase_price)))
-                weight = float(current_value / float(total_portfolio_value)) if total_portfolio_value > 0 else 0
-                
-                holdings_data.append(HoldingAnalysis(
-                    ticker=str(holding.ticker),
-                    weight=weight,
-                    expected_return=0.08,  # Default expected return
-                    volatility=0.20,  # Default volatility
-                    beta=1.0,
-                    sector=self.sector_mappings.get(str(holding.ticker), 'Unknown'),
-                    market_cap='Unknown',
-                    current_value=current_value
-                ))
+            # Get current market data
+            quote = self.av_service.get_global_quote(str(holding.ticker))
+            overview = self.av_service.get_company_overview(str(holding.ticker))
+            
+            if not quote or not quote.get('price'):
+                raise ValueError(f"Could not retrieve a valid quote for {holding.ticker} during analysis.")
+
+            current_price = Decimal(str(quote['price']))
+            current_value = float(Decimal(str(holding.shares)) * current_price)
+            weight = float(current_value / float(total_portfolio_value)) if total_portfolio_value > 0 else 0
+            
+            # Calculate expected return and volatility (simplified)
+            expected_return = self._estimate_expected_return(str(holding.ticker), quote or {}, overview or {})
+            volatility = self._estimate_volatility(str(holding.ticker), overview or {})
+            beta = float(overview.get('Beta', 1.0)) if overview else 1.0
+            
+            # Get sector and market cap
+            sector = self.sector_mappings.get(str(holding.ticker), 'Unknown')
+            market_cap = self._classify_market_cap(overview.get('MarketCapitalization') if overview else None)
+            
+            holding_analysis = HoldingAnalysis(
+                ticker=str(holding.ticker),
+                weight=weight,
+                expected_return=expected_return,
+                volatility=volatility,
+                beta=beta,
+                sector=sector,
+                market_cap=market_cap,
+                current_value=current_value
+            )
+            
+            holdings_data.append(holding_analysis)
         
         return holdings_data
     
@@ -466,24 +449,107 @@ class PortfolioOptimizationService:
             return 0.20
     
     def _classify_market_cap(self, market_cap_str: Optional[str]) -> str:
-        """Classify market cap into categories"""
+        """Classify market capitalization"""
         if not market_cap_str or market_cap_str == 'None':
             return 'Unknown'
         
         try:
             market_cap = float(market_cap_str)
-            if market_cap > 200_000_000_000:  # > $200B
-                return 'Mega Cap'
-            elif market_cap > 10_000_000_000:  # > $10B
+            if market_cap >= 10_000_000_000:  # $10B+
                 return 'Large Cap'
-            elif market_cap > 2_000_000_000:  # > $2B
+            elif market_cap >= 2_000_000_000:  # $2B-$10B
                 return 'Mid Cap'
-            elif market_cap > 300_000_000:  # > $300M
-                return 'Small Cap'
             else:
-                return 'Micro Cap'
+                return 'Small Cap'
         except (ValueError, TypeError):
             return 'Unknown'
+
+    def calculate_correlation_matrix(self, tickers: List[str]) -> Optional[Dict[str, Any]]:
+        """Calculate correlation matrix for given tickers"""
+        if not tickers or len(tickers) < 2:
+            logger.warning("Need at least 2 tickers to calculate correlation matrix")
+            return None
+        
+        try:
+            from .market_data_cache import get_market_data_cache_service
+            
+            cache_service = get_market_data_cache_service()
+            price_data = {}
+            
+            # Get historical price data for each ticker
+            for ticker in tickers:
+                try:
+                    daily_prices = cache_service.get_daily_prices(ticker, use_cache=True)
+                    if daily_prices and 'data' in daily_prices and len(daily_prices['data']) > 30:  # Need sufficient data points
+                        # Extract closing prices
+                        prices = [float(price['close']) for price in daily_prices['data']]
+                        if len(prices) > 1:
+                            # Calculate returns
+                            returns = []
+                            for i in range(1, len(prices)):
+                                ret = (prices[i] - prices[i-1]) / prices[i-1]
+                                returns.append(ret)
+                            price_data[ticker] = returns
+                    else:
+                        logger.warning(f"Insufficient price data for {ticker}")
+                except Exception as e:
+                    logger.warning(f"Could not get price data for {ticker}: {e}")
+            
+            # Calculate correlation matrix
+            if len(price_data) < 2:
+                logger.warning("Insufficient valid price data to calculate correlations")
+                return None
+            
+            # Ensure all return series have the same length
+            min_length = min(len(returns) for returns in price_data.values())
+            normalized_data = {ticker: returns[-min_length:] for ticker, returns in price_data.items()}
+            
+            correlation_matrix = {}
+            for ticker1 in normalized_data:
+                correlation_matrix[ticker1] = {}
+                for ticker2 in normalized_data:
+                    if ticker1 == ticker2:
+                        correlation_matrix[ticker1][ticker2] = 1.0
+                    else:
+                        # Calculate correlation coefficient
+                        returns1 = np.array(normalized_data[ticker1])
+                        returns2 = np.array(normalized_data[ticker2])
+                        
+                        if len(returns1) > 1 and len(returns2) > 1:
+                            correlation = np.corrcoef(returns1, returns2)[0, 1]
+                            # Handle NaN values
+                            if np.isnan(correlation):
+                                correlation = 0.0
+                            correlation_matrix[ticker1][ticker2] = float(correlation)
+                        else:
+                            correlation_matrix[ticker1][ticker2] = 0.0
+            
+            # Calculate additional metrics
+            avg_correlation = 0.0
+            correlation_count = 0
+            for ticker1 in correlation_matrix:
+                for ticker2 in correlation_matrix[ticker1]:
+                    if ticker1 != ticker2:
+                        avg_correlation += correlation_matrix[ticker1][ticker2]
+                        correlation_count += 1
+            
+            if correlation_count > 0:
+                avg_correlation /= correlation_count
+            
+            return {
+                'correlation_matrix': correlation_matrix,
+                'average_correlation': avg_correlation,
+                'tickers': list(normalized_data.keys()),
+                'data_points': min_length,
+                'status': 'success'
+            }
+            
+        except Exception as e:
+            logger.error(f"Error calculating correlation matrix: {e}")
+            return {
+                'error': str(e),
+                'status': 'error'
+            }
 
 # Singleton instance
 _portfolio_optimization_service_instance = None

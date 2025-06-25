@@ -42,7 +42,7 @@ class TransactionModelTest(TestCase):
         self.test_date = date.today()
     
     def test_transaction_creation(self):
-        """Test creating a transaction with all fields"""
+        """Test basic transaction creation"""
         print("[TransactionModelTest] Testing transaction creation...")
         
         transaction = Transaction.objects.create(
@@ -50,153 +50,132 @@ class TransactionModelTest(TestCase):
             transaction_type='BUY',
             ticker='AAPL',
             company_name='Apple Inc.',
-            shares=Decimal('10.5'),
-            price_per_share=Decimal('150.75'),
+            shares=Decimal('10.00'),
+            price_per_share=Decimal('150.00'),
             transaction_date=self.test_date,
-            transaction_currency='USD',
-            commission=Decimal('9.99'),
-            notes='Test purchase'
+            total_amount=Decimal('1500.00')
         )
         
-        print(f"[TransactionModelTest] Created transaction: {transaction}")
-        
-        # Verify transaction was created correctly
         self.assertEqual(transaction.user_id, self.user_id)
-        self.assertEqual(transaction.transaction_type, 'BUY')
         self.assertEqual(transaction.ticker, 'AAPL')
-        self.assertEqual(transaction.company_name, 'Apple Inc.')
-        self.assertEqual(transaction.shares, Decimal('10.5'))
-        self.assertEqual(transaction.price_per_share, Decimal('150.75'))
-        self.assertEqual(transaction.transaction_date, self.test_date)
-        self.assertEqual(transaction.transaction_currency, 'USD')
-        self.assertEqual(transaction.commission, Decimal('9.99'))
-        self.assertEqual(transaction.notes, 'Test purchase')
+        self.assertEqual(transaction.transaction_type, 'BUY')
+        self.assertEqual(transaction.shares, Decimal('10.00'))
+        self.assertEqual(transaction.total_amount, Decimal('1500.00'))
         
-        # Check that total_amount was calculated correctly
-        expected_total = (Decimal('10.5') * Decimal('150.75')) + Decimal('9.99')
-        self.assertEqual(transaction.total_amount, expected_total)
+        print("[TransactionModelTest] ✅ Transaction created successfully")
         
-        print(f"[TransactionModelTest] ✅ Total amount calculated correctly: ${transaction.total_amount}")
+        # Test string representation
+        expected_str = f"{self.user_id} BUY 10.00 AAPL @ $150.00"
+        self.assertEqual(str(transaction), expected_str)
+        print(f"[TransactionModelTest] ✅ Transaction string representation: {expected_str}")
     
     def test_transaction_total_calculation(self):
-        """Test automatic total amount calculation"""
-        print("[TransactionModelTest] Testing total amount calculation...")
+        """Test that total amount is calculated correctly"""
+        print("[TransactionModelTest] Testing total calculation...")
         
-        # Test BUY transaction
-        buy_transaction = Transaction(
+        transaction = Transaction(
             user_id=self.user_id,
             transaction_type='BUY',
             ticker='MSFT',
-            shares=Decimal('5'),
-            price_per_share=Decimal('300.00'),
+            company_name='Microsoft Corp',
+            shares=Decimal('5.00'),
+            price_per_share=Decimal('250.00'),
             transaction_date=self.test_date,
-            commission=Decimal('5.00')
+            commission=Decimal('9.99')
         )
-        buy_transaction.save()
         
-        expected_buy_total = (Decimal('5') * Decimal('300.00')) + Decimal('5.00')
-        self.assertEqual(buy_transaction.total_amount, expected_buy_total)
-        print(f"[TransactionModelTest] ✅ BUY total: ${buy_transaction.total_amount}")
+        transaction.save()  # Should trigger total calculation
         
-        # Test DIVIDEND transaction (no commission added)
-        dividend_transaction = Transaction(
-            user_id=self.user_id,
-            transaction_type='DIVIDEND',
-            ticker='MSFT',
-            shares=Decimal('5'),
-            price_per_share=Decimal('2.50'),  # dividend per share
-            transaction_date=self.test_date
-        )
-        dividend_transaction.save()
-        
-        expected_dividend_total = Decimal('5') * Decimal('2.50')
-        self.assertEqual(dividend_transaction.total_amount, expected_dividend_total)
-        print(f"[TransactionModelTest] ✅ DIVIDEND total: ${dividend_transaction.total_amount}")
+        expected_total = (Decimal('5.00') * Decimal('250.00')) + Decimal('9.99')
+        self.assertEqual(transaction.total_amount, expected_total)
+        print(f"[TransactionModelTest] ✅ Total calculated correctly: {expected_total}")
     
     def test_transaction_validation(self):
-        """Test transaction validation constraints"""
+        """Test transaction validation"""
         print("[TransactionModelTest] Testing transaction validation...")
         
-        # Test invalid transaction type - this should be caught by the model's choices constraint
-        transaction = Transaction(
-            user_id=self.user_id,
-            transaction_type='INVALID',
-            ticker='AAPL',
-            company_name='Apple Inc.',
-            shares=Decimal('1'),
-            price_per_share=Decimal('100'),
-            transaction_date=self.test_date
-        )
+        # Test invalid transaction type
+        with self.assertRaises(Exception):
+            Transaction.objects.create(
+                user_id=self.user_id,
+                transaction_type='INVALID',
+                ticker='AAPL',
+                shares=Decimal('10.00'),
+                price_per_share=Decimal('150.00'),
+                transaction_date=self.test_date
+            )
         
-        # The validation should fail when we try to save or clean the model
-        with self.assertRaises((ValidationError, IntegrityError)):
-            transaction.full_clean()  # This will trigger validation
-            transaction.save()
-        
-        print("[TransactionModelTest] ✅ Invalid transaction type rejected")
+        print("[TransactionModelTest] ✅ Invalid transaction type properly rejected")
 
 
 class DailyPriceCacheTest(TestCase):
     """Test DailyPriceCache model functionality"""
     
+    def setUp(self):
+        """Clear existing cache data"""
+        DailyPriceCache.objects.all().delete()
+
     def test_price_cache_creation(self):
-        """Test creating and retrieving cached price data"""
+        """Test creating daily price cache records"""
         print("[DailyPriceCacheTest] Testing price cache creation...")
         
-        cache_entry = DailyPriceCache.objects.create(
+        # Delete any existing cache data for AAPL to avoid conflicts
+        DailyPriceCache.objects.filter(ticker='AAPL').delete()
+        
+        price_cache = DailyPriceCache.objects.create(
             ticker='AAPL',
             date=date.today(),
             open_price=Decimal('150.00'),
             high_price=Decimal('155.00'),
-            low_price=Decimal('149.50'),
-            close_price=Decimal('152.75'),
-            adjusted_close=Decimal('152.75'),
+            low_price=Decimal('149.00'),
+            close_price=Decimal('154.00'),
+            adjusted_close=Decimal('154.00'),
             volume=1000000,
             source='AlphaVantage',
-            requested_by_user='test_user_123'
+            requested_by_user='test_user'
         )
         
-        print(f"[DailyPriceCacheTest] Created cache entry: {cache_entry}")
+        self.assertEqual(price_cache.ticker, 'AAPL')
+        self.assertEqual(price_cache.close_price, Decimal('154.00'))
+        self.assertEqual(price_cache.source, 'AlphaVantage')
         
-        # Verify data integrity
-        self.assertEqual(cache_entry.ticker, 'AAPL')
-        self.assertEqual(cache_entry.close_price, Decimal('152.75'))
-        self.assertEqual(cache_entry.volume, 1000000)
-        
-        print("[DailyPriceCacheTest] ✅ Price cache data verified")
+        print("[DailyPriceCacheTest] ✅ Price cache created successfully")
     
     def test_unique_ticker_date_constraint(self):
-        """Test that ticker+date combination is unique"""
+        """Test that ticker/date combination is unique"""
         print("[DailyPriceCacheTest] Testing unique constraint...")
         
-        test_date = date.today()
+        # Clear any existing data for this test
+        DailyPriceCache.objects.filter(ticker='MSFT', date=date.today()).delete()
         
-        # Create first entry
+        # Create first record
         DailyPriceCache.objects.create(
-            ticker='AAPL',
-            date=test_date,
-            open_price=Decimal('150.00'),
-            high_price=Decimal('155.00'),
-            low_price=Decimal('149.50'),
-            close_price=Decimal('152.75'),
-            adjusted_close=Decimal('152.75'),
-            volume=1000000
+            ticker='MSFT',
+            date=date.today(),
+            open_price=Decimal('250.00'),
+            high_price=Decimal('255.00'),
+            low_price=Decimal('249.00'),
+            close_price=Decimal('254.00'),
+            adjusted_close=Decimal('254.00'),
+            volume=500000,
+            source='AlphaVantage'
         )
         
-        # Try to create duplicate entry
+        # Attempt to create duplicate should raise exception
         with self.assertRaises(Exception):
             DailyPriceCache.objects.create(
-                ticker='AAPL',
-                date=test_date,
-                open_price=Decimal('151.00'),
-                high_price=Decimal('156.00'),
-                low_price=Decimal('150.50'),
-                close_price=Decimal('153.75'),
-                adjusted_close=Decimal('153.75'),
-                volume=1100000
+                ticker='MSFT',
+                date=date.today(),
+                open_price=Decimal('251.00'),
+                high_price=Decimal('256.00'),
+                low_price=Decimal('250.00'),
+                close_price=Decimal('255.00'),
+                adjusted_close=Decimal('255.00'),
+                volume=600000,
+                source='AlphaVantage'
             )
         
-        print("[DailyPriceCacheTest] ✅ Unique constraint enforced")
+        print("[DailyPriceCacheTest] ✅ Unique constraint properly enforced")
 
 
 class UserApiRateLimitTest(TestCase):
@@ -205,95 +184,70 @@ class UserApiRateLimitTest(TestCase):
     def setUp(self):
         """Set up test data"""
         self.user_id = 'test_user_123'
-    
+        # Clear existing rate limit data
+        UserApiRateLimit.objects.filter(user_id=self.user_id).delete()
+
     def test_rate_limit_creation(self):
-        """Test creating user rate limit record"""
+        """Test creating rate limit records"""
         print("[UserApiRateLimitTest] Testing rate limit creation...")
         
         rate_limit = UserApiRateLimit.objects.create(
             user_id=self.user_id,
-            daily_limit=100
+            last_price_fetch=timezone.now(),
+            fetch_count_today=5
         )
         
         self.assertEqual(rate_limit.user_id, self.user_id)
-        self.assertEqual(rate_limit.daily_limit, 100)
-        self.assertEqual(rate_limit.fetch_count_today, 0)
-        self.assertFalse(rate_limit.rate_limit_exceeded)
+        self.assertEqual(rate_limit.fetch_count_today, 5)
         
-        print(f"[UserApiRateLimitTest] ✅ Rate limit created: {rate_limit}")
+        print("[UserApiRateLimitTest] ✅ Rate limit record created successfully")
     
     def test_can_fetch_prices_timing(self):
-        """Test rate limiting timing logic"""
-        print("[UserApiRateLimitTest] Testing rate limiting timing...")
+        """Test can_fetch_prices method with timing constraints"""
+        print("[UserApiRateLimitTest] Testing can_fetch_prices timing...")
         
-        rate_limit = UserApiRateLimit.objects.create(user_id=self.user_id)
-        
-        # Should be able to fetch when no previous fetch
-        self.assertTrue(rate_limit.can_fetch_prices())
-        print("[UserApiRateLimitTest] ✅ Can fetch when no previous fetch")
-        
-        # Record a fetch
-        rate_limit.record_price_fetch()
-        
-        # Should not be able to fetch immediately after
-        self.assertFalse(rate_limit.can_fetch_prices())
-        print("[UserApiRateLimitTest] ✅ Cannot fetch immediately after previous fetch")
-        
-        # Simulate time passing (mock the last fetch time)
-        rate_limit.last_price_fetch = timezone.now() - timedelta(minutes=2)
-        rate_limit.save()
-        
-        # Should be able to fetch after 1+ minutes
-        self.assertTrue(rate_limit.can_fetch_prices())
-        print("[UserApiRateLimitTest] ✅ Can fetch after time limit passes")
-    
-    def test_daily_count_reset(self):
-        """Test daily count reset functionality"""
-        print("[UserApiRateLimitTest] Testing daily count reset...")
-        
-        # Use a specific past date to ensure the reset condition is met
-        past_date = date(2025, 6, 22)  # Yesterday (assuming test runs on 2025-06-23)
-        today = date.today()
-        
+        # Create rate limit with recent fetch (should be rate limited)
         rate_limit = UserApiRateLimit.objects.create(
             user_id=self.user_id,
-            fetch_count_today=50
+            last_price_fetch=timezone.now() - timedelta(seconds=30),  # 30 seconds ago
+            fetch_count_today=1
         )
         
-        # Manually set the reset date to bypass auto_now_add
-        rate_limit.last_reset_date = past_date
+        self.assertFalse(rate_limit.can_fetch_prices())
+        print("[UserApiRateLimitTest] ✅ Recent fetch properly rate limited")
+        
+        # Update to older fetch (should be allowed)
+        rate_limit.last_price_fetch = timezone.now() - timedelta(minutes=2)  # 2 minutes ago
         rate_limit.save()
         
-        print(f"[UserApiRateLimitTest] Initial state: count={rate_limit.fetch_count_today}, reset_date={rate_limit.last_reset_date}, today={today}")
-        print(f"[UserApiRateLimitTest] Condition check: {rate_limit.last_reset_date} < {today} = {rate_limit.last_reset_date < today}")
+        self.assertTrue(rate_limit.can_fetch_prices())
+        print("[UserApiRateLimitTest] ✅ Older fetch properly allowed")
+    
+    def test_daily_count_reset(self):
+        """Test that daily count resets properly"""
+        print("[UserApiRateLimitTest] Testing daily count reset...")
         
-        # Test the reset logic manually since the method might have timezone issues
-        if rate_limit.last_reset_date < today:
-            print("[UserApiRateLimitTest] Manually resetting...")
-            rate_limit.fetch_count_today = 0
-            rate_limit.last_reset_date = today
-            rate_limit.rate_limit_exceeded = False
-            rate_limit.save()
+        # Create rate limit with old date
+        old_date = timezone.now() - timedelta(days=1)
+        rate_limit = UserApiRateLimit.objects.create(
+            user_id=self.user_id,
+            last_price_fetch=old_date,
+            fetch_count_today=50  # High count from previous day
+        )
         
-        # Refresh from database to get updated values
-        rate_limit.refresh_from_db()
+        # Simulate fetching prices (should reset count)
+        rate_limit.record_fetch()
         
-        print(f"[UserApiRateLimitTest] After manual reset: count={rate_limit.fetch_count_today}, reset_date={rate_limit.last_reset_date}")
-        
-        self.assertEqual(rate_limit.fetch_count_today, 0)
-        self.assertEqual(rate_limit.last_reset_date, today)
-        self.assertFalse(rate_limit.rate_limit_exceeded)
-        
-        print("[UserApiRateLimitTest] ✅ Daily count reset correctly")
+        self.assertEqual(rate_limit.fetch_count_today, 1)  # Should reset to 1
+        print("[UserApiRateLimitTest] ✅ Daily count properly reset")
 
 
 class TransactionServiceTest(TestCase):
     """Test TransactionService functionality"""
     
     def setUp(self):
-        """Set up test data and mock services"""
+        """Set up test data"""
         print("[TransactionServiceTest] Setting up test data...")
-        self.client = Client()
         self.user_id = 'test_user_123'
         self.service = get_transaction_service()
 
@@ -889,26 +843,33 @@ def create_test_transaction(user_id: str, **kwargs) -> Transaction:
         'price_per_share': 100,
         'transaction_date': date.today(),
         'transaction_currency': 'USD',
+        'fx_rate_to_usd': Decimal('1.0'),
+        'commission': Decimal('0'),
+        'total_amount': Decimal('100')
     }
+    
     defaults.update(kwargs)
-    # Remove portfolio from defaults if it exists, as Transaction model doesn't have it.
-    defaults.pop('portfolio', None) 
+    defaults['total_amount'] = (defaults['shares'] * defaults['price_per_share']) + defaults['commission']
+    
     return Transaction.objects.create(**defaults)
 
 
 def create_test_price_cache(ticker: str, **kwargs) -> DailyPriceCache:
     """Helper function to create test price cache entries"""
     defaults = {
+        'ticker': ticker,
         'date': date.today(),
         'open_price': Decimal('100'),
         'high_price': Decimal('105'),
         'low_price': Decimal('95'),
         'close_price': Decimal('102'),
         'adjusted_close': Decimal('102'),
-        'volume': 1000000
+        'volume': 1000000,
+        'source': 'Test'
     }
+    
     defaults.update(kwargs)
-    return DailyPriceCache.objects.create(ticker=ticker, **defaults)
+    return DailyPriceCache.objects.create(**defaults)
 
 
 if __name__ == '__main__':

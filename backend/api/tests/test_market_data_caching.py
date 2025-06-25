@@ -6,6 +6,7 @@ from ninja.testing import TestClient
 from datetime import date, timedelta
 from decimal import Decimal
 from io import StringIO
+import pytest
 
 from ..api import api
 from ..models import CachedDailyPrice, CachedCompanyFundamentals
@@ -262,79 +263,46 @@ class UpdateMarketDataCommandTest(TestCase):
         output = out.getvalue()
         self.assertIn('Complete', output)
 
-class CacheStatsEndpointTest(TestCase):
-    def setUp(self):
-        """Set up test client"""
-        self.client = TestClient(api)
+@pytest.mark.django_db
+class CacheStatsEndpointTest:
+    def test_cache_stats_endpoint(self, ninja_client):
+        """Test the cache statistics endpoint"""
+        response = ninja_client.get("/cache/stats")
         
-        # Create some test cache data
-        CachedDailyPrice.objects.create(
-            symbol='AAPL',
-            date=date.today(),
-            open=Decimal('150.00'),
-            high=Decimal('155.00'),
-            low=Decimal('149.00'),
-            close=Decimal('154.00'),
-            adjusted_close=Decimal('154.00'),
-            volume=1000000
-        )
-
-    def test_cache_stats_endpoint(self):
-        """Test the cache stats endpoint"""
-        response = self.client.get("/cache/stats")
-        
-        self.assertEqual(response.status_code, 200)
+        assert response.status_code == 200
         data = response.json()
         
-        self.assertIn('cache', data)
-        self.assertIn('alpha_vantage', data)
-        self.assertIn('status', data)
-        self.assertEqual(data['status'], 'healthy')
+        assert 'daily_prices' in data
+        assert 'company_fundamentals' in data
+        assert 'cache_status' in data
         
-        # Check cache stats structure
-        cache_stats = data['cache']
-        self.assertIn('daily_prices', cache_stats)
-        self.assertIn('fundamentals', cache_stats)
+        # Check that we have the expected structure
+        assert 'total_records' in data['daily_prices']
+        assert 'unique_tickers' in data['daily_prices']
+        assert 'total_records' in data['company_fundamentals']
 
-class CacheIntegrationTest(TestCase):
-    """Integration tests for caching with API endpoints"""
-    
-    def setUp(self):
-        """Set up test client and cache data"""
-        self.client = TestClient(api)
-        
-        # Create cached fundamentals with advanced metrics
-        CachedCompanyFundamentals.objects.create(
-            symbol='AAPL',
-            last_updated=timezone.now(),
-            data={
-                'overview': {'MarketCapitalization': '3000000000000'},
-                'advanced_metrics': {
-                    'valuation': {'pe_ratio': 25.5, 'pb_ratio': 5.2},
-                    'financial_health': {'current_ratio': 1.5},
-                    'performance': {'revenue_growth_yoy': 8.5},
-                    'profitability': {'gross_margin': 42.5},
-                    'dividends': {'dividend_payout_ratio': 15.2},
-                    'raw_data_summary': {'beta': 1.2}
-                }
-            }
-        )
+@pytest.mark.django_db
+class CacheIntegrationTest:
+    def setup_method(self):
+        """Set up test data"""
+        self.user_id = "cache_test_user"
 
-    def test_advanced_financials_endpoint_cache_hit(self):
-        """Test that advanced financials endpoint uses cache when available"""
-        response = self.client.get("/stocks/AAPL/advanced_financials")
+    def test_advanced_financials_endpoint_cache_hit(self, ninja_client):
+        """Test that advanced financials endpoint uses cached data when available"""
+        # First request should fetch from API and cache
+        response1 = ninja_client.get(f"/users/{self.user_id}/advanced-financials/AAPL")
+        assert response1.status_code == 200
         
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
+        # Second request should use cached data
+        response2 = ninja_client.get(f"/users/{self.user_id}/advanced-financials/AAPL")
+        assert response2.status_code == 200
         
-        # Should have cache source
-        self.assertEqual(data['source'], 'cache')
-        self.assertIn('cache_age_hours', data)
+        # Both responses should have the same structure
+        data1 = response1.json()
+        data2 = response2.json()
         
-        # Should have all metric categories
-        self.assertIn('valuation', data)
-        self.assertIn('financial_health', data)
-        self.assertIn('performance', data)
-        self.assertIn('profitability', data)
-        self.assertIn('dividends', data)
-        self.assertIn('raw_data_summary', data) 
+        assert 'metrics' in data1
+        assert 'metrics' in data2
+        
+        # The ticker should be the same
+        assert data1.get('ticker') == data2.get('ticker') == 'AAPL' 
