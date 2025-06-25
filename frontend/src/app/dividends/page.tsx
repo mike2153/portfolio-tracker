@@ -259,13 +259,13 @@ export default function DividendsPage() {
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 font-medium text-gray-700">Ex-Date</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-700">Payment Date</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-700">Per Share</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-700">Total Amount</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-700">Status</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-700">Action</th>
+                    <tr className="border-b border-gray-700">
+                      <th className="text-left py-3 px-4 font-medium text-gray-300">Ex-Date</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-300">Payment Date</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-300">Per Share</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-300">Total Amount</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-300">Status</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-300">Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -273,16 +273,16 @@ export default function DividendsPage() {
                       .sort((a: DividendPayment, b: DividendPayment) => 
                         new Date(b.ex_date).getTime() - new Date(a.ex_date).getTime())
                       .map((dividend: DividendPayment) => (
-                      <tr key={dividend.id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="py-3 px-4">{new Date(dividend.ex_date).toLocaleDateString()}</td>
-                        <td className="py-3 px-4">{new Date(dividend.payment_date).toLocaleDateString()}</td>
-                        <td className="py-3 px-4">${dividend.amount_per_share.toFixed(4)}</td>
-                        <td className="py-3 px-4 font-semibold">${dividend.total_amount.toFixed(2)}</td>
+                      <tr key={dividend.id} className="border-b border-gray-700 hover:bg-gray-700/50">
+                        <td className="py-3 px-4 text-gray-100">{new Date(dividend.ex_date).toLocaleDateString()}</td>
+                        <td className="py-3 px-4 text-gray-100">{new Date(dividend.payment_date).toLocaleDateString()}</td>
+                        <td className="py-3 px-4 text-gray-100">${dividend.amount_per_share.toFixed(4)}</td>
+                        <td className="py-3 px-4 font-semibold text-gray-100">${dividend.total_amount.toFixed(2)}</td>
                         <td className="py-3 px-4">
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                             dividend.confirmed_received
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-yellow-100 text-yellow-800'
+                              ? 'bg-green-800/40 text-green-200'
+                              : 'bg-yellow-800/40 text-yellow-200'
                           }`}>
                             {dividend.confirmed_received ? 'Confirmed' : 'Pending'}
                           </span>

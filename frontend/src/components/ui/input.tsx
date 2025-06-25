@@ -182,22 +182,22 @@ const AutocompleteInput = React.forwardRef<HTMLInputElement, AutocompleteInputPr
         )}
 
         {isOpen && suggestions.length > 0 && (
-          <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto text-gray-900">
+          <div className="absolute z-50 w-full mt-1 bg-gray-900 border border-gray-700 rounded-md shadow-lg max-h-60 overflow-auto text-gray-100">
             {suggestions.map((option, index) => (
               <div
                 key={`${option.symbol}-${index}`}
                 className={cn(
-                  "px-3 py-2 cursor-pointer hover:bg-gray-100 flex justify-between items-center",
-                  index === highlightedIndex && "bg-gray-100"
+                  "px-3 py-2 cursor-pointer hover:bg-gray-700/50 flex justify-between items-center",
+                  index === highlightedIndex && "bg-gray-700/50"
                 )}
                 onClick={() => handleOptionSelect(option)}
               >
                 <div className="flex flex-col">
-                  <span className="font-medium text-gray-900">{option.symbol}</span>
-                  <span className="text-sm text-gray-600 truncate">{option.name}</span>
+                  <span className="font-medium text-gray-100">{option.symbol}</span>
+                  <span className="text-sm text-gray-400 truncate">{option.name}</span>
                 </div>
                 {option.exchange && (
-                  <span className="text-xs text-gray-500 bg-gray-200 px-2 py-1 rounded">
+                  <span className="text-xs text-gray-500 bg-gray-700 px-2 py-1 rounded">
                     {option.exchange}
                   </span>
                 )}

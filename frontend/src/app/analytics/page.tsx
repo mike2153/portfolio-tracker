@@ -67,7 +67,7 @@ export default function AnalyticsPage() {
     return (
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">Advanced Analytics</h1>
+          <h1 className="text-3xl font-bold text-gray-100 mb-4">Advanced Analytics</h1>
           <p className="text-gray-600 mb-8">Please sign in to view comprehensive portfolio analytics</p>
           <a href="/auth" className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors">
             Sign In
@@ -113,8 +113,8 @@ export default function AnalyticsPage() {
       icon: <Activity className="w-4 h-4" />,
       component: (
         <div className="space-y-6">
-          <div className="bg-white rounded-lg border border-gray-200 p-6 text-gray-900">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Stock Analysis</h3>
+          <div className="bg-gray-900 rounded-lg border border-gray-700 p-6 text-gray-100">
+            <h3 className="text-lg font-semibold text-gray-100 mb-4">Stock Analysis</h3>
             <div className="flex space-x-4">
               <div className="flex-1">
                 <input
@@ -144,12 +144,12 @@ export default function AnalyticsPage() {
     <div className="max-w-7xl mx-auto px-4 py-8">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Advanced Analytics</h1>
+        <h1 className="text-3xl font-bold text-gray-100 mb-2">Advanced Analytics</h1>
         <p className="text-gray-600">Comprehensive portfolio analysis and financial insights</p>
       </div>
 
       {/* Navigation Tabs */}
-      <div className="border-b border-gray-200 mb-8">
+      <div className="border-b border-gray-700 mb-8">
         <nav className="flex space-x-8">
           {tabs.map((tab) => (
             <button
@@ -196,7 +196,7 @@ function OverviewTab({ cacheStats }: OverviewTabProps) {
 
   if (!cacheStats) {
     return (
-      <div className="bg-white rounded-lg border border-gray-200 p-6 text-center text-gray-900">
+      <div className="bg-gray-900 rounded-lg border border-gray-700 p-6 text-center text-gray-100">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
         <p className="text-gray-600">Loading system statistics...</p>
       </div>
@@ -213,7 +213,7 @@ function OverviewTab({ cacheStats }: OverviewTabProps) {
           and advanced risk assessment tools.
         </p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white/10 rounded-lg p-4">
+          <div className="bg-gray-900/10 rounded-lg p-4">
             <div className="flex items-center space-x-3">
               <Target className="w-8 h-8 text-white" />
               <div>
@@ -222,7 +222,7 @@ function OverviewTab({ cacheStats }: OverviewTabProps) {
               </div>
             </div>
           </div>
-          <div className="bg-white/10 rounded-lg p-4">
+          <div className="bg-gray-900/10 rounded-lg p-4">
             <div className="flex items-center space-x-3">
               <Bell className="w-8 h-8 text-white" />
               <div>
@@ -231,7 +231,7 @@ function OverviewTab({ cacheStats }: OverviewTabProps) {
               </div>
             </div>
           </div>
-          <div className="bg-white/10 rounded-lg p-4">
+          <div className="bg-gray-900/10 rounded-lg p-4">
             <div className="flex items-center space-x-3">
               <Activity className="w-8 h-8 text-white" />
               <div>
@@ -246,9 +246,9 @@ function OverviewTab({ cacheStats }: OverviewTabProps) {
       {/* System Status */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Cache Statistics */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6 text-gray-900">
+        <div className="bg-gray-900 rounded-lg border border-gray-700 p-6 text-gray-100">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+            <h3 className="text-lg font-semibold text-gray-100 flex items-center">
               <Database className="w-5 h-5 mr-2 text-blue-600" />
               Market Data Cache
             </h3>
@@ -292,8 +292,8 @@ function OverviewTab({ cacheStats }: OverviewTabProps) {
         </div>
 
         {/* Quick Actions */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6 text-gray-900">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+        <div className="bg-gray-900 rounded-lg border border-gray-700 p-6 text-gray-100">
+          <h3 className="text-lg font-semibold text-gray-100 mb-4 flex items-center">
             <Zap className="w-5 h-5 mr-2 text-yellow-600" />
             Quick Actions
           </h3>
@@ -324,12 +324,12 @@ function OverviewTab({ cacheStats }: OverviewTabProps) {
 
       {/* Feature Highlights */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-shadow text-gray-900">
+        <div className="bg-gray-900 rounded-lg border border-gray-700 p-6 hover:shadow-lg transition-shadow text-gray-100">
           <div className="flex items-center space-x-3 mb-4">
             <div className="bg-blue-100 p-2 rounded-lg">
               <BarChart3 className="w-6 h-6 text-blue-600" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900">Advanced Metrics</h3>
+            <h3 className="text-lg font-semibold text-gray-100">Advanced Metrics</h3>
           </div>
           <p className="text-gray-600 mb-4">
             Comprehensive financial analysis with TTM calculations, CAGR growth rates, 
@@ -343,12 +343,12 @@ function OverviewTab({ cacheStats }: OverviewTabProps) {
           </ul>
         </div>
 
-        <div className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-shadow text-gray-900">
+        <div className="bg-gray-900 rounded-lg border border-gray-700 p-6 hover:shadow-lg transition-shadow text-gray-100">
           <div className="flex items-center space-x-3 mb-4">
             <div className="bg-green-100 p-2 rounded-lg">
               <Target className="w-6 h-6 text-green-600" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900">Portfolio Optimization</h3>
+            <h3 className="text-lg font-semibold text-gray-100">Portfolio Optimization</h3>
           </div>
           <p className="text-gray-600 mb-4">
             AI-powered portfolio analysis with risk assessment, diversification insights, 
@@ -362,12 +362,12 @@ function OverviewTab({ cacheStats }: OverviewTabProps) {
           </ul>
         </div>
 
-        <div className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-shadow text-gray-900">
+        <div className="bg-gray-900 rounded-lg border border-gray-700 p-6 hover:shadow-lg transition-shadow text-gray-100">
           <div className="flex items-center space-x-3 mb-4">
             <div className="bg-purple-100 p-2 rounded-lg">
               <Bell className="w-6 h-6 text-purple-600" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900">Smart Alerts</h3>
+            <h3 className="text-lg font-semibold text-gray-100">Smart Alerts</h3>
           </div>
           <p className="text-gray-600 mb-4">
             Real-time price monitoring with intelligent alert system and 
@@ -383,8 +383,8 @@ function OverviewTab({ cacheStats }: OverviewTabProps) {
       </div>
 
       {/* Performance Overview Chart */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6 text-gray-900">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">System Performance Overview</h3>
+      <div className="bg-gray-900 rounded-lg border border-gray-700 p-6 text-gray-100">
+        <h3 className="text-lg font-semibold text-gray-100 mb-4">System Performance Overview</h3>
         <Plot
           data={[
             {
