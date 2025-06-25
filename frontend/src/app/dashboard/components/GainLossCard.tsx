@@ -15,31 +15,52 @@ interface GainLossCardProps {
 }
 
 const GainLossCard = ({ type }: GainLossCardProps) => {
+    console.log(`[GainLossCard] Component mounting for type: ${type}`);
+    
     const isGainers = type === 'gainers';
     const [userId, setUserId] = useState<string | null>(null);
 
     useEffect(() => {
+        console.log(`[GainLossCard] useEffect: Checking user session for ${type}...`);
         const init = async () => {
             const { data: { session } } = await supabase.auth.getSession();
+            console.log(`[GainLossCard] Session user ID for ${type}:`, session?.user?.id);
             if (session?.user) {
                 setUserId(session.user.id);
+                console.log(`[GainLossCard] User ID set for ${type}:`, session.user.id);
+            } else {
+                console.log(`[GainLossCard] No user session found for ${type}`);
             }
         };
         init();
-    }, []);
+    }, [type]);
 
-    const { data, isLoading, isError } = useQuery({
+    const { data, isLoading, isError, error } = useQuery({
         queryKey: ['dashboard', type, userId],
-        queryFn: () => isGainers ? dashboardAPI.getGainers() : dashboardAPI.getLosers(),
+        queryFn: async () => {
+            console.log(`[GainLossCard] Making API call for ${type}...`);
+            const result = isGainers ? await dashboardAPI.getGainers() : await dashboardAPI.getLosers();
+            console.log(`[GainLossCard] API response for ${type}:`, result);
+            return result;
+        },
         enabled: !!userId,
     });
 
+    console.log(`[GainLossCard] Query state for ${type}:`, { data, isLoading, isError, error });
+
     const title = isGainers ? 'Top day gainers' : 'Top day losers';
 
-    if (isLoading) return <ListSkeleton title={title} />;
-    if (isError) return <div className="text-red-500">Error loading {type}</div>;
+    if (isLoading) {
+        console.log(`[GainLossCard] Still loading ${type}, showing skeleton`);
+        return <ListSkeleton title={title} />;
+    }
+    if (isError) {
+        console.log(`[GainLossCard] Error occurred for ${type}:`, error);
+        return <div className="text-red-500">Error loading {type}</div>;
+    }
 
     const items = data?.data?.items || [];
+    console.log(`[GainLossCard] Items for ${type}:`, items);
 
     return (
         <div className="rounded-xl bg-gray-800/80 p-6 shadow-lg">

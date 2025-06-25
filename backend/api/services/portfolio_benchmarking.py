@@ -10,12 +10,13 @@ logger = logging.getLogger(__name__)
 
 # Supported benchmarks with their Alpha Vantage symbols
 SUPPORTED_BENCHMARKS = {
-    '^GSPC': 'S&P 500',
-    '^IXIC': 'NASDAQ Composite', 
-    '^DJI': 'Dow Jones Industrial Average',
-    '^AXJO': 'ASX 200',
-    '^FTSE': 'FTSE 100',
-    '^N225': 'Nikkei 225'
+    'SPY': 'S&P 500',
+    'QQQ': 'NASDAQ Composite', 
+    'DIA': 'Dow Jones Industrial Average',
+    'EWA': 'ASX 200',
+    'EWU': 'FTSE 100',
+    'EWJ': 'Nikkei 225',
+
 }
 
 class PortfolioBenchmarkingService:
@@ -287,7 +288,7 @@ def _calculate_cagr(start_value: float, end_value: float, years: float) -> Optio
 def calculate_enhanced_portfolio_performance(
     user_id: str, 
     period: str = "1Y", 
-    benchmark: str = "^GSPC"
+    benchmark: str = "SPY"
 ) -> Dict[str, Any]:
     """
     Calculate enhanced portfolio performance with comprehensive benchmarking.
@@ -300,54 +301,67 @@ def calculate_enhanced_portfolio_performance(
     Returns:
         Dictionary containing portfolio and benchmark performance data
     """
-    logger.debug(f"Calculating enhanced portfolio performance for user {user_id}, period {period}, benchmark {benchmark}")
+    logger.info(f"[PORTFOLIO_BENCHMARK] Starting calculation for user {user_id}, period {period}, benchmark {benchmark}")
     
     # Validate benchmark
     if benchmark not in SUPPORTED_BENCHMARKS:
+        logger.error(f"[PORTFOLIO_BENCHMARK] Unsupported benchmark: {benchmark}. Supported: {list(SUPPORTED_BENCHMARKS.keys())}")
         raise ValueError(f"Unsupported benchmark: {benchmark}. Supported benchmarks: {list(SUPPORTED_BENCHMARKS.keys())}")
     
     # Get portfolio
     try:
         portfolio = Portfolio.objects.get(user_id=user_id)
         holdings = Holding.objects.filter(portfolio=portfolio)
+        logger.info(f"[PORTFOLIO_BENCHMARK] Found portfolio with {holdings.count()} holdings")
+        logger.debug(f"[PORTFOLIO_BENCHMARK] Holdings: {[h.ticker for h in holdings]}")
     except Portfolio.DoesNotExist:
+        logger.error(f"[PORTFOLIO_BENCHMARK] Portfolio not found for user {user_id}")
         raise ValueError("Portfolio not found")
     
     # Parse period
     start_date, days = _parse_period_to_dates(period)
-    logger.debug(f"Calculated date range: {start_date} to {date.today()} ({days} days)")
+    logger.info(f"[PORTFOLIO_BENCHMARK] Calculated date range: {start_date} to {date.today()} ({days} days)")
     
     # Get Alpha Vantage service
     av_service = get_alpha_vantage_service()
+    logger.debug(f"[PORTFOLIO_BENCHMARK] Got Alpha Vantage service: {av_service}")
     
     # Collect all tickers (portfolio + benchmark)
     tickers = list(set([holding.ticker for holding in holdings]))
     all_tickers = tickers + [benchmark]
     
     # Fetch historical data for all tickers
-    logger.debug(f"Fetching historical data for tickers: {all_tickers}")
+    logger.info(f"[PORTFOLIO_BENCHMARK] Fetching historical data for tickers: {all_tickers}")
     all_historical_data = {}
     failed_tickers = []
     
     for ticker in all_tickers:
         try:
+            logger.info(f"[PORTFOLIO_BENCHMARK] Fetching data for ticker: {ticker}")
             historical_data = av_service.get_daily_adjusted(ticker, outputsize='full')
+            logger.debug(f"[PORTFOLIO_BENCHMARK] Raw API response for {ticker}: {historical_data}")
+            
             if historical_data and historical_data.get('data'):
                 # Convert to dict with date as key for easier lookup
                 all_historical_data[ticker] = {
                     item['date']: float(item['adjusted_close']) 
                     for item in historical_data.get('data', [])
                 }
-                logger.debug(f"Retrieved {len(all_historical_data[ticker])} data points for {ticker}")
+                logger.info(f"[PORTFOLIO_BENCHMARK] Retrieved {len(all_historical_data[ticker])} data points for {ticker}")
+                # Log sample data
+                sample_dates = list(all_historical_data[ticker].keys())[:3]
+                logger.debug(f"[PORTFOLIO_BENCHMARK] Sample data for {ticker}: {[(d, all_historical_data[ticker][d]) for d in sample_dates]}")
             else:
                 failed_tickers.append(ticker)
-                logger.warning(f"Could not retrieve historical data for '{ticker}'")
+                logger.warning(f"[PORTFOLIO_BENCHMARK] Could not retrieve historical data for '{ticker}' - empty response")
+                logger.debug(f"[PORTFOLIO_BENCHMARK] Full response for {ticker}: {historical_data}")
         except Exception as e:
-            logger.error(f"Error fetching data for {ticker}: {e}")
+            logger.error(f"[PORTFOLIO_BENCHMARK] Error fetching data for {ticker}: {e}", exc_info=True)
             failed_tickers.append(ticker)
     
     # Check if benchmark data is available
     if benchmark in failed_tickers:
+        logger.error(f"[PORTFOLIO_BENCHMARK] Benchmark {benchmark} failed to fetch data")
         raise ValueError(f"Failed to retrieve market data for benchmark symbol '{benchmark}'")
     
     # Generate date range for analysis

@@ -11,35 +11,35 @@ import { KPIGridSkeleton, ChartSkeleton, ListSkeleton, FxTickerSkeleton } from '
 export const revalidate = 60; // Revalidate data every 60 seconds
 
 export default async function DashboardPage() {
+  console.log('[Dashboard] Server component starting...');
+  
   // Fetch initial data on the server
+  console.log('[Dashboard] Fetching overview data...');
   const overviewDataResult = await dashboardAPI.getOverview();
+  console.log('[Dashboard] Overview data result:', overviewDataResult);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">My portfolio</h1>
+        <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">My Portfolio</h1>
         {/* Add top right controls here */}
       </div>
 
       <KPIGrid initialData={overviewDataResult.ok ? overviewDataResult.data : undefined} />
 
       <Suspense fallback={<ChartSkeleton />}>
-        {/* @ts-expect-error Server Component */}
         <AllocationTable />
       </Suspense>
 
       <Suspense fallback={<FxTickerSkeleton />}>
-        {/* @ts-expect-error Server Component */}
         <FxTicker />
       </Suspense>
       
       <Suspense fallback={<ChartSkeleton />}>
-        {/* @ts-expect-error Server Component */}
         <PortfolioChart />
       </Suspense>
 
       <Suspense fallback={<ListSkeleton title="Daily movers" />}>
-        {/* @ts-expect-error Server Component */}
         <DailyMovers />
       </Suspense>
     </div>

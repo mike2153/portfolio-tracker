@@ -12,42 +12,70 @@ const Plot = dynamic(() => import('react-plotly.js'), { ssr: false })
 
 const ranges = ['1M', '3M', 'YTD', '1Y', '3Y', '5Y', 'ALL']
 const benchmarks = [
-  { symbol: '^GSPC', name: 'S&P 500' },
-  { symbol: '^IXIC', name: 'Nasdaq' },
-  { symbol: '^DJI', name: 'Dow Jones' },
+  { symbol: 'SPY', name: 'S&P 500' },
+  { symbol: 'QQQ', name: 'Nasdaq' },
+  { symbol: 'DIA', name: 'Dow Jones' },
 ]
 
 type Mode = 'value' | 'performance'
 
 export default function PortfolioChart() {
+  console.log('[PortfolioChart] Component mounting...');
+  
   const [userId, setUserId] = useState<string | null>(null)
   const [range, setRange] = useState('1Y')
   const [mode, setMode] = useState<Mode>('value')
-  const [benchmark, setBenchmark] = useState('^GSPC')
+  const [benchmark, setBenchmark] = useState('SPY')
+
+  console.log('[PortfolioChart] Component state:', { userId, range, mode, benchmark });
 
   useEffect(() => {
+    console.log('[PortfolioChart] useEffect: Checking user session...');
     const init = async () => {
       const { data: { session } } = await supabase.auth.getSession()
-      if (session?.user) setUserId(session.user.id)
+      console.log('[PortfolioChart] Session user ID:', session?.user?.id);
+      if (session?.user) {
+        setUserId(session.user.id)
+        console.log('[PortfolioChart] User ID set to:', session.user.id);
+      } else {
+        console.log('[PortfolioChart] No user session found');
+      }
     }
     init()
   }, [])
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['portfolioPerformance', userId, range, benchmark],
-    queryFn: () => dashboardAPI.getPortfolioPerformance(userId!, range, benchmark),
+    queryFn: async () => {
+      console.log('[PortfolioChart] Making API call for portfolio performance...');
+      console.log('[PortfolioChart] API params:', { userId, range, benchmark });
+      const result = await dashboardAPI.getPortfolioPerformance(userId!, range, benchmark);
+      console.log('[PortfolioChart] API response:', result);
+      return result;
+    },
     enabled: !!userId
   })
 
+  console.log('[PortfolioChart] Query state:', { data, isLoading, error });
+
   const perf: EnhancedPortfolioPerformance | undefined = data?.data
+  console.log('[PortfolioChart] Parsed performance data:', perf);
+  
   const portfolio = perf?.portfolio_performance || []
   const benchmarkPerformance = perf?.benchmark_performance || []
+  
+  console.log('[PortfolioChart] Portfolio performance data length:', portfolio.length);
+  console.log('[PortfolioChart] Benchmark performance data length:', benchmarkPerformance.length);
+  console.log('[PortfolioChart] Sample portfolio data:', portfolio.slice(0, 3));
+  console.log('[PortfolioChart] Sample benchmark data:', benchmarkPerformance.slice(0, 3));
 
   const portfolioY = mode === 'value'
     ? portfolio.map(p => p.total_value)
     : portfolio.map(p => p.indexed_performance)
 
   const benchmarkY = benchmarkPerformance.map(b => b.indexed_performance)
+  
+  console.log('[PortfolioChart] Chart data Y values:', { portfolioY: portfolioY.slice(0, 5), benchmarkY: benchmarkY.slice(0, 5) });
 
   return (
     <div className="rounded-xl bg-gray-800/80 p-6 shadow-lg">

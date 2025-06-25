@@ -9,13 +9,20 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabaseClient';
 
 const AllocationTable = () => {
+  console.log('[AllocationTable] Component mounting...');
+  
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
+    console.log('[AllocationTable] useEffect: Checking user session...');
     const init = async () => {
       const { data: { session } } = await supabase.auth.getSession();
+      console.log('[AllocationTable] Session user ID:', session?.user?.id);
       if (session?.user) {
         setUserId(session.user.id);
+        console.log('[AllocationTable] User ID set to:', session.user.id);
+      } else {
+        console.log('[AllocationTable] No user session found');
       }
     };
     init();
@@ -23,14 +30,28 @@ const AllocationTable = () => {
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['dashboardAllocation', userId],
-    queryFn: () => dashboardAPI.getAllocation(),
+    queryFn: async () => {
+      console.log('[AllocationTable] Making API call for allocation data...');
+      const result = await dashboardAPI.getAllocation();
+      console.log('[AllocationTable] API response:', result);
+      return result;
+    },
     enabled: !!userId,
   });
 
-  if (isLoading) return <ChartSkeleton />;
-  if (isError) return <div className="text-red-500">Error loading allocation: {String(error)}</div>;
+  console.log('[AllocationTable] Query state:', { data, isLoading, isError, error });
+
+  if (isLoading) {
+    console.log('[AllocationTable] Still loading, showing skeleton');
+    return <ChartSkeleton />;
+  }
+  if (isError) {
+    console.log('[AllocationTable] Error occurred:', error);
+    return <div className="text-red-500">Error loading allocation: {String(error)}</div>;
+  }
 
   const rows = data?.data?.rows || [];
+  console.log('[AllocationTable] Allocation rows:', rows);
 
   return (
     <div className="rounded-xl bg-gray-800/80 p-6 shadow-lg">

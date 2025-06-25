@@ -99,18 +99,21 @@ class FxResponse(Schema):
 
 # --- Dashboard Endpoints ---
 
-@dashboard_api_router.get("/dashboard/overview", response=OverviewResponse, summary="Get Dashboard KPI Overview")
+@dashboard_api_router.get("/overview", response=OverviewResponse, summary="Get Dashboard KPI Overview")
 @async_ttl_cache(ttl=1800)
-
 @require_auth
 async def get_dashboard_overview(request):
+    print(f"[DASHBOARD DEBUG] get_dashboard_overview called for request: {request}")
     user = await get_current_user(request)
+    print(f"[DASHBOARD DEBUG] User retrieved: {user.id if user else 'None'}")
     transactions = await sync_to_async(list)(Transaction.objects.filter(user_id=user.id))
+    print(f"[DASHBOARD DEBUG] Found {len(transactions)} transactions for user")
 
     holdings = defaultdict(Decimal)
     invested = defaultdict(Decimal)
 
     for txn in transactions:
+        print(f"[DASHBOARD DEBUG] Processing transaction: {txn.transaction_type} {txn.shares} shares of {txn.ticker}")
         if txn.transaction_type == 'BUY':
             holdings[txn.ticker] += txn.shares
             invested[txn.ticker] += txn.total_amount
@@ -138,18 +141,21 @@ async def get_dashboard_overview(request):
         "passiveIncome": {"value": "0", "sub_label": "", "is_positive": False}
     }
 
-@dashboard_api_router.get("/dashboard/allocation", response=AllocationResponse, summary="Get Portfolio Allocation")
+@dashboard_api_router.get("/allocation", response=AllocationResponse, summary="Get Portfolio Allocation")
 @async_ttl_cache(ttl=1800)
 @require_auth
-
 async def get_portfolio_allocation(request, groupBy: str = "sector"):
+    print(f"[DASHBOARD DEBUG] get_portfolio_allocation called with groupBy: {groupBy}")
     user = await get_current_user(request)
+    print(f"[DASHBOARD DEBUG] User retrieved for allocation: {user.id if user else 'None'}")
     transactions = await sync_to_async(list)(Transaction.objects.filter(user_id=user.id))
+    print(f"[DASHBOARD DEBUG] Allocation: Found {len(transactions)} transactions for user")
 
     holdings = defaultdict(Decimal)
     invested = defaultdict(Decimal)
 
     for txn in transactions:
+        print(f"[DASHBOARD DEBUG] Allocation: Processing transaction: {txn.transaction_type} {txn.shares} shares of {txn.ticker}")
         if txn.transaction_type == 'BUY':
             holdings[txn.ticker] += txn.shares
             invested[txn.ticker] += txn.total_amount
@@ -188,21 +194,27 @@ async def get_portfolio_allocation(request, groupBy: str = "sector"):
             "accentColor": "blue"
         })
 
+    print(f"[DASHBOARD DEBUG] Allocation: Generated {len(rows)} allocation rows")
+    print(f"[DASHBOARD DEBUG] Allocation: Total portfolio value: {total_value}")
     return {"rows": rows}
 
-@dashboard_api_router.get("/dashboard/gainers", response=GainersLosersResponse, summary="Get Top 5 Day Gainers")
+@dashboard_api_router.get("/gainers", response=GainersLosersResponse, summary="Get Top 5 Day Gainers")
 @async_ttl_cache(ttl=1800)
 @require_auth
-
 async def get_top_gainers(request, limit: int = 5):
+    print(f"[DASHBOARD DEBUG] get_top_gainers called with limit: {limit}")
     user = await get_current_user(request)
+    print(f"[DASHBOARD DEBUG] User retrieved for gainers: {user.id if user else 'None'}")
     transactions = await sync_to_async(list)(Transaction.objects.filter(user_id=user.id))
+    print(f"[DASHBOARD DEBUG] Gainers: Found {len(transactions)} transactions for user")
 
     tickers = {txn.ticker for txn in transactions if txn.transaction_type in ['BUY', 'SELL']}
+    print(f"[DASHBOARD DEBUG] Gainers: Extracted {len(tickers)} unique tickers: {list(tickers)}")
     av_service = get_alpha_vantage_service()
     data = []
 
     for ticker in tickers:
+        print(f"[DASHBOARD DEBUG] Gainers: Fetching quote for ticker: {ticker}")
         quote = await sync_to_async(av_service.get_global_quote)(ticker)
         if not quote:
             continue
@@ -217,21 +229,28 @@ async def get_top_gainers(request, limit: int = 5):
             "changeValue": str(round(change, 2))
         })
 
+    print(f"[DASHBOARD DEBUG] Gainers: Processed {len(data)} tickers for gainers analysis")
     data.sort(key=lambda x: Decimal(x["changePercent"]), reverse=True)
+    print(f"[DASHBOARD DEBUG] Gainers: Returning top {limit} gainers: {[item['ticker'] for item in data[:limit]]}")
     return {"items": data[:limit]}
 
-@dashboard_api_router.get("/dashboard/losers", response=GainersLosersResponse, summary="Get Top 5 Day Losers")
+@dashboard_api_router.get("/losers", response=GainersLosersResponse, summary="Get Top 5 Day Losers")
 @async_ttl_cache(ttl=1800)
 @require_auth
 async def get_top_losers(request, limit: int = 5):
+    print(f"[DASHBOARD DEBUG] get_top_losers called with limit: {limit}")
     user = await get_current_user(request)
+    print(f"[DASHBOARD DEBUG] User retrieved for losers: {user.id if user else 'None'}")
     transactions = await sync_to_async(list)(Transaction.objects.filter(user_id=user.id))
+    print(f"[DASHBOARD DEBUG] Losers: Found {len(transactions)} transactions for user")
 
     tickers = {txn.ticker for txn in transactions if txn.transaction_type in ['BUY', 'SELL']}
+    print(f"[DASHBOARD DEBUG] Losers: Extracted {len(tickers)} unique tickers: {list(tickers)}")
     av_service = get_alpha_vantage_service()
     data = []
 
     for ticker in tickers:
+        print(f"[DASHBOARD DEBUG] Losers: Fetching quote for ticker: {ticker}")
         quote = await sync_to_async(av_service.get_global_quote)(ticker)
         if not quote:
             continue
@@ -246,14 +265,18 @@ async def get_top_losers(request, limit: int = 5):
             "changeValue": str(round(change, 2))
         })
 
+    print(f"[DASHBOARD DEBUG] Losers: Processed {len(data)} tickers for losers analysis")
     data.sort(key=lambda x: Decimal(x["changePercent"]))
+    print(f"[DASHBOARD DEBUG] Losers: Returning top {limit} losers: {[item['ticker'] for item in data[:limit]]}")
     return {"items": data[:limit]}
 
-@dashboard_api_router.get("/dashboard/dividend-forecast", response=DividendForecastResponse, summary="Get 12-Month Dividend Forecast")
+@dashboard_api_router.get("/dividend-forecast", response=DividendForecastResponse, summary="Get 12-Month Dividend Forecast")
 @async_ttl_cache(ttl=1800)
 @require_auth
 async def get_dividend_forecast(request, months: int = 12):
+    print(f"[DASHBOARD DEBUG] get_dividend_forecast called with months: {months}")
     user = await get_current_user(request)
+    print(f"[DASHBOARD DEBUG] User retrieved for dividend forecast: {user.id if user else 'None'}")
     start_date = date.today()
     end_date = start_date + timedelta(days=months * 30)
 
@@ -282,9 +305,11 @@ async def get_dividend_forecast(request, months: int = 12):
 @require_auth
 @async_ttl_cache(ttl=300)
 async def get_latest_fx_rates(request, base: str = "AUD"):
+    print(f"[DASHBOARD DEBUG] get_latest_fx_rates called with base: {base}")
     fx_data = [
         {"pair": "USDAUD", "rate": "1.57", "change": "0.75"},
         {"pair": "EURAUD", "rate": "1.79", "change": "0.62"},
         {"pair": "GBPAUD", "rate": "2.09", "change": "0.48"},
     ]
+    print(f"[DASHBOARD DEBUG] FX: Returning {len(fx_data)} FX rate pairs")
     return {"rates": fx_data} 
