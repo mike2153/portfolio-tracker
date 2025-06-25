@@ -11,6 +11,11 @@ import { EnhancedPortfolioPerformance } from '@/types/api'
 const Plot = dynamic(() => import('react-plotly.js'), { ssr: false })
 
 const ranges = ['1M', '3M', 'YTD', '1Y', '3Y', '5Y', 'ALL']
+const benchmarks = [
+  { symbol: '^GSPC', name: 'S&P 500' },
+  { symbol: '^IXIC', name: 'Nasdaq' },
+  { symbol: '^DJI', name: 'Dow Jones' },
+]
 
 type Mode = 'value' | 'performance'
 
@@ -18,6 +23,7 @@ export default function PortfolioChart() {
   const [userId, setUserId] = useState<string | null>(null)
   const [range, setRange] = useState('1Y')
   const [mode, setMode] = useState<Mode>('value')
+  const [benchmark, setBenchmark] = useState('^GSPC')
 
   useEffect(() => {
     const init = async () => {
@@ -28,20 +34,20 @@ export default function PortfolioChart() {
   }, [])
 
   const { data, isLoading } = useQuery({
-    queryKey: ['portfolioPerformance', userId, range],
-    queryFn: () => dashboardAPI.getPortfolioPerformance(userId!, range),
+    queryKey: ['portfolioPerformance', userId, range, benchmark],
+    queryFn: () => dashboardAPI.getPortfolioPerformance(userId!, range, benchmark),
     enabled: !!userId
   })
 
   const perf: EnhancedPortfolioPerformance | undefined = data?.data
   const portfolio = perf?.portfolio_performance || []
-  const benchmark = perf?.benchmark_performance || []
+  const benchmarkPerformance = perf?.benchmark_performance || []
 
   const portfolioY = mode === 'value'
     ? portfolio.map(p => p.total_value)
     : portfolio.map(p => p.indexed_performance)
 
-  const benchmarkY = benchmark.map(b => b.indexed_performance)
+  const benchmarkY = benchmarkPerformance.map(b => b.indexed_performance)
 
   return (
     <div className="rounded-xl bg-gray-800/80 p-6 shadow-lg">
@@ -58,6 +64,19 @@ export default function PortfolioChart() {
             </button>
           ))}
         </div>
+      </div>
+      <div className="mb-2">
+        <select
+          value={benchmark}
+          onChange={e => setBenchmark(e.target.value)}
+          className="px-2 py-1 text-xs rounded-md bg-gray-700 text-white"
+        >
+          {benchmarks.map(b => (
+            <option key={b.symbol} value={b.symbol}>
+              {b.name}
+            </option>
+          ))}
+        </select>
       </div>
       <div className="mb-2 space-x-2">
         <button
@@ -87,7 +106,7 @@ export default function PortfolioChart() {
               line: { color: '#3B82F6' }
             },
             {
-              x: benchmark.map(p => p.date),
+              x: benchmarkPerformance.map(p => p.date),
               y: benchmarkY,
               type: 'scatter',
               mode: 'lines',
