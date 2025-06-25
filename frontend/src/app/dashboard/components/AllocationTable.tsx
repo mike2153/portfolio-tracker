@@ -1,15 +1,30 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { dashboardAPI } from '@/lib/api';
 import { ChartSkeleton } from './Skeletons';
 import { AllocationRow } from '@/types/api';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/lib/supabaseClient';
 
 const AllocationTable = () => {
+  const [userId, setUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const init = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        setUserId(session.user.id);
+      }
+    };
+    init();
+  }, []);
+
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ['dashboardAllocation'],
+    queryKey: ['dashboardAllocation', userId],
     queryFn: () => dashboardAPI.getAllocation(),
+    enabled: !!userId,
   });
 
   if (isLoading) return <ChartSkeleton />;

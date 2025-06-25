@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { dashboardAPI } from '@/lib/api';
 import { ListSkeleton } from './Skeletons';
@@ -7,6 +8,7 @@ import { GainerLoserRow } from '@/types/api';
 import { ArrowUp, ArrowDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
+import { supabase } from '@/lib/supabaseClient';
 
 interface GainLossCardProps {
     type: 'gainers' | 'losers';
@@ -14,9 +16,22 @@ interface GainLossCardProps {
 
 const GainLossCard = ({ type }: GainLossCardProps) => {
     const isGainers = type === 'gainers';
+    const [userId, setUserId] = useState<string | null>(null);
+
+    useEffect(() => {
+        const init = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+                setUserId(session.user.id);
+            }
+        };
+        init();
+    }, []);
+
     const { data, isLoading, isError } = useQuery({
-        queryKey: ['dashboard', type],
+        queryKey: ['dashboard', type, userId],
         queryFn: () => isGainers ? dashboardAPI.getGainers() : dashboardAPI.getLosers(),
+        enabled: !!userId,
     });
 
     const title = isGainers ? 'Top day gainers' : 'Top day losers';
