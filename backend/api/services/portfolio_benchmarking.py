@@ -187,7 +187,10 @@ def calculate_enhanced_portfolio_performance(
     # Calculate portfolio returns
     base_portfolio_value = portfolio_performance[0]['total_value']
     for point in portfolio_performance:
-        point['performance_return'] = ((point['total_value'] / base_portfolio_value) - 1) * 100
+        perf = ((point['total_value'] / base_portfolio_value) - 1) * 100
+        point['performance_return'] = perf
+        # For frontend consistency, also expose indexed_performance
+        point['indexed_performance'] = perf
     
     # Calculate benchmark performance
     logger.debug(f"Calculating benchmark performance for {benchmark}")
@@ -206,10 +209,13 @@ def calculate_enhanced_portfolio_performance(
         
         for d in sorted_benchmark_dates:
             price = relevant_benchmark_prices[d]
+            perf = ((price / base_benchmark_price) - 1) * 100
             benchmark_performance.append({
                 'date': d,
                 'total_value': price,
-                'performance_return': ((price / base_benchmark_price) - 1) * 100
+                'performance_return': perf,
+                # Duplicate value for chart consistency
+                'indexed_performance': perf
             })
     
     # Calculate summary metrics
