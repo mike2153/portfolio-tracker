@@ -6,17 +6,74 @@ import { ChartSkeleton } from './Skeletons';
 import { ResponsiveContainer, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar } from 'recharts';
 
 const DividendChart = () => {
+    console.log('[DividendChart] Component mounting...');
+    
     const { data, isLoading, isError } = useQuery({
         queryKey: ['dividendForecast'],
-        queryFn: () => dashboardAPI.getDividendForecast(),
+        queryFn: async () => {
+            console.log('[DividendChart] Making API call for dividend forecast...');
+            const result = await dashboardAPI.getDividendForecast();
+            console.log('[DividendChart] API response:', result);
+            return result;
+        },
     });
 
-    if (isLoading) return <ChartSkeleton />;
-    if (isError) return <div className="text-red-500">Error loading dividend forecast</div>;
+    // Add defensive function to safely format currency values
+    const safeFormatCurrency = (val: any): string => {
+        console.log(`[DividendChart] safeFormatCurrency called with:`, val, 'type:', typeof val);
+        
+        // Handle null/undefined
+        if (val == null) {
+            console.log(`[DividendChart] safeFormatCurrency: value is null/undefined, returning 0`);
+            return '0';
+        }
+        
+        // If it's already a number
+        if (typeof val === 'number') {
+            console.log(`[DividendChart] safeFormatCurrency: value is number, using toLocaleString`);
+            return val.toLocaleString();
+        }
+        
+        // If it's a string, try to parse it
+        if (typeof val === 'string') {
+            console.log(`[DividendChart] safeFormatCurrency: value is string, attempting to parse`);
+            const parsed = parseFloat(val);
+            if (!isNaN(parsed)) {
+                console.log(`[DividendChart] safeFormatCurrency: successfully parsed string to number:`, parsed);
+                return parsed.toLocaleString();
+            } else {
+                console.log(`[DividendChart] safeFormatCurrency: failed to parse string, returning raw value`);
+                return val;
+            }
+        }
+        
+        // Fallback for any other type
+        console.log(`[DividendChart] safeFormatCurrency: unknown type, converting to string`);
+        return String(val);
+    };
+
+    if (isLoading) {
+        console.log('[DividendChart] Still loading, showing skeleton');
+        return <ChartSkeleton />;
+    }
+    if (isError) {
+        console.log('[DividendChart] Error occurred:', error);
+        return <div className="text-red-500">Error loading dividend forecast</div>;
+    }
 
     const chartData = data?.data?.forecast || [];
     const next12m = data?.data?.next12mTotal || 0;
     const monthlyAvg = data?.data?.monthlyAvg || 0;
+
+    console.log('[DividendChart] Dividend data:', {
+        chartData,
+        next12m,
+        next12mType: typeof next12m,
+        monthlyAvg,
+        monthlyAvgType: typeof monthlyAvg,
+        safeNext12m: safeFormatCurrency(next12m),
+        safeMonthlyAvg: safeFormatCurrency(monthlyAvg)
+    });
 
     return (
         <div className="rounded-xl bg-gray-800/80 p-6 shadow-lg">
@@ -24,7 +81,7 @@ const DividendChart = () => {
                 <div>
                     <h3 className="text-lg font-semibold text-white">Future payments</h3>
                     <div className="text-sm text-gray-400">Next 12m / Monthly</div>
-                    <div className="text-xl font-bold text-white">${Number(next12m).toLocaleString()} / ${Number(monthlyAvg).toLocaleString()}</div>
+                    <div className="text-xl font-bold text-white">${safeFormatCurrency(next12m)} / ${safeFormatCurrency(monthlyAvg)}</div>
                 </div>
                 <button className="text-sm text-blue-400 hover:underline">Calendar</button>
             </div>

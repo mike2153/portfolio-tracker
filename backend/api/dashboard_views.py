@@ -58,24 +58,24 @@ class OverviewResponse(Schema):
     passive_income: KPIValue = Field(..., alias="passiveIncome")
 
 class AllocationRow(Schema):
-    group_key: str = Field(..., alias="groupKey")
+    groupKey: str
     value: Decimal
     invested: Decimal
-    gain_value: Decimal = Field(..., alias="gainValue")
-    gain_percent: Decimal = Field(..., alias="gainPercent")
+    gainValue: Decimal
+    gainPercent: Decimal
     allocation: Decimal
-    accent_color: str = Field(..., alias="accentColor")
+    accentColor: str
 
 class AllocationResponse(Schema):
     rows: List[AllocationRow]
 
 class GainerLoserRow(Schema):
-    logo_url: Optional[str] = Field(None, alias="logoUrl")
+    logoUrl: Optional[str] = None
     name: str
     ticker: str
     value: Decimal
-    change_percent: Decimal = Field(..., alias="changePercent")
-    change_value: Decimal = Field(..., alias="changeValue")
+    changePercent: Decimal
+    changeValue: Decimal
 
 class GainersLosersResponse(Schema):
     items: List[GainerLoserRow]
@@ -175,6 +175,8 @@ async def get_portfolio_allocation(request, groupBy: str = "sector"):
         prices[ticker] = price
         total_value += shares * price
 
+    print(f"[DASHBOARD DEBUG] Allocation: Total portfolio value calculated: {total_value}")
+
     rows = []
     for idx, (ticker, shares) in enumerate(holdings.items()):
         if shares <= 0:
@@ -184,18 +186,30 @@ async def get_portfolio_allocation(request, groupBy: str = "sector"):
         gain_value = value - invested_amt
         gain_percent = (gain_value / invested_amt * Decimal('100')) if invested_amt != 0 else Decimal('0')
         allocation = (value / total_value * Decimal('100')) if total_value != 0 else Decimal('0')
-        rows.append({
+        
+        # Fix: Ensure allocation is properly converted to Decimal for consistent number type
+        allocation_decimal = Decimal(str(round(float(allocation), 2)))
+        
+        print(f"[DASHBOARD DEBUG] Allocation: Processing {ticker} - value: {value}, allocation: {allocation_decimal} (type: {type(allocation_decimal)})")
+        
+        row_data = {
             "groupKey": ticker,
             "value": str(round(value, 2)),
             "invested": str(round(invested_amt, 2)),
             "gainValue": str(round(gain_value, 2)),
             "gainPercent": str(round(gain_percent, 2)),
-            "allocation": str(round(allocation, 2)),
+            "allocation": allocation_decimal,  # Now properly returning as Decimal
             "accentColor": "blue"
-        })
+        }
+        
+        print(f"[DASHBOARD DEBUG] Allocation: Row data for {ticker}: {row_data}")
+        rows.append(row_data)
 
     print(f"[DASHBOARD DEBUG] Allocation: Generated {len(rows)} allocation rows")
-    print(f"[DASHBOARD DEBUG] Allocation: Total portfolio value: {total_value}")
+    print(f"[DASHBOARD DEBUG] Allocation: Final rows data types - checking allocation types:")
+    for row in rows:
+        print(f"[DASHBOARD DEBUG] Allocation: {row['groupKey']} allocation type: {type(row['allocation'])}, value: {row['allocation']}")
+    
     return {"rows": rows}
 
 @dashboard_api_router.get("/gainers", response=GainersLosersResponse, summary="Get Top 5 Day Gainers")
@@ -221,18 +235,36 @@ async def get_top_gainers(request, limit: int = 5):
         price = Decimal(str(quote.get('price', '0')))
         change = Decimal(str(quote.get('change', '0')))
         change_percent = Decimal(str(quote.get('change_percent', '0')))
-        data.append({
+        
+        # Fix: Ensure all numeric fields are returned as proper Decimal types
+        price_decimal = Decimal(str(round(float(price), 2)))
+        change_decimal = Decimal(str(round(float(change), 2)))
+        change_percent_decimal = Decimal(str(round(float(change_percent), 2)))
+        
+        print(f"[DASHBOARD DEBUG] Gainers: Processing {ticker} - price: {price_decimal} (type: {type(price_decimal)}), change: {change_decimal} (type: {type(change_decimal)}), change_percent: {change_percent_decimal} (type: {type(change_percent_decimal)})")
+        
+        item_data = {
+            "logoUrl": None,
             "name": ticker,
             "ticker": ticker,
-            "value": str(round(price, 2)),
-            "changePercent": str(round(change_percent, 2)),
-            "changeValue": str(round(change, 2))
-        })
+            "value": str(round(price, 2)),  # Keep as string for display formatting
+            "changePercent": change_percent_decimal,  # Now returning as Decimal
+            "changeValue": change_decimal  # Now returning as Decimal
+        }
+        
+        print(f"[DASHBOARD DEBUG] Gainers: Item data for {ticker}: {item_data}")
+        data.append(item_data)
 
     print(f"[DASHBOARD DEBUG] Gainers: Processed {len(data)} tickers for gainers analysis")
-    data.sort(key=lambda x: Decimal(x["changePercent"]), reverse=True)
+    data.sort(key=lambda x: float(x["changePercent"]), reverse=True)
     print(f"[DASHBOARD DEBUG] Gainers: Returning top {limit} gainers: {[item['ticker'] for item in data[:limit]]}")
-    return {"items": data[:limit]}
+    
+    final_items = data[:limit]
+    print(f"[DASHBOARD DEBUG] Gainers: Final items data types - checking numeric fields:")
+    for item in final_items:
+        print(f"[DASHBOARD DEBUG] Gainers: {item['ticker']} changePercent type: {type(item['changePercent'])}, changeValue type: {type(item['changeValue'])}")
+    
+    return {"items": final_items}
 
 @dashboard_api_router.get("/losers", response=GainersLosersResponse, summary="Get Top 5 Day Losers")
 @async_ttl_cache(ttl=1800)
@@ -257,18 +289,36 @@ async def get_top_losers(request, limit: int = 5):
         price = Decimal(str(quote.get('price', '0')))
         change = Decimal(str(quote.get('change', '0')))
         change_percent = Decimal(str(quote.get('change_percent', '0')))
-        data.append({
+        
+        # Fix: Ensure all numeric fields are returned as proper Decimal types
+        price_decimal = Decimal(str(round(float(price), 2)))
+        change_decimal = Decimal(str(round(float(change), 2)))
+        change_percent_decimal = Decimal(str(round(float(change_percent), 2)))
+        
+        print(f"[DASHBOARD DEBUG] Losers: Processing {ticker} - price: {price_decimal} (type: {type(price_decimal)}), change: {change_decimal} (type: {type(change_decimal)}), change_percent: {change_percent_decimal} (type: {type(change_percent_decimal)})")
+        
+        item_data = {
+            "logoUrl": None,
             "name": ticker,
             "ticker": ticker,
-            "value": str(round(price, 2)),
-            "changePercent": str(round(change_percent, 2)),
-            "changeValue": str(round(change, 2))
-        })
+            "value": str(round(price, 2)),  # Keep as string for display formatting
+            "changePercent": change_percent_decimal,  # Now returning as Decimal
+            "changeValue": change_decimal  # Now returning as Decimal
+        }
+        
+        print(f"[DASHBOARD DEBUG] Losers: Item data for {ticker}: {item_data}")
+        data.append(item_data)
 
     print(f"[DASHBOARD DEBUG] Losers: Processed {len(data)} tickers for losers analysis")
-    data.sort(key=lambda x: Decimal(x["changePercent"]))
+    data.sort(key=lambda x: float(x["changePercent"]))
     print(f"[DASHBOARD DEBUG] Losers: Returning top {limit} losers: {[item['ticker'] for item in data[:limit]]}")
-    return {"items": data[:limit]}
+    
+    final_items = data[:limit]
+    print(f"[DASHBOARD DEBUG] Losers: Final items data types - checking numeric fields:")
+    for item in final_items:
+        print(f"[DASHBOARD DEBUG] Losers: {item['ticker']} changePercent type: {type(item['changePercent'])}, changeValue type: {type(item['changeValue'])}")
+    
+    return {"items": final_items}
 
 @dashboard_api_router.get("/dividend-forecast", response=DividendForecastResponse, summary="Get 12-Month Dividend Forecast")
 @async_ttl_cache(ttl=1800)
