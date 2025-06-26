@@ -236,6 +236,8 @@ const TransactionsPage = () => {
     setIsSubmitting(true);
     setError(null);
     try {
+      addToast({ type: 'info', title: 'Submitting', message: 'Adding transaction...' });
+      setShowAddForm(false); // Close form optimistically to improve UX
       const transactionData = {
           transaction_type: form.transaction_type || 'BUY',
           ticker: form.ticker.toUpperCase(),
@@ -251,7 +253,6 @@ const TransactionsPage = () => {
       const response = await transactionAPI.createTransaction(transactionData);
       if (response.ok) {
         addToast({ type: 'success', title: 'Transaction Added', message: `${transactionData.ticker} has been added.` });
-        setShowAddForm(false);
         await Promise.all([fetchTransactions(), fetchSummary()]);
       } else {
         setError(response.message || 'Failed to create transaction');
@@ -325,7 +326,9 @@ const TransactionsPage = () => {
             </div>
             <div className="bg-gray-900 p-4 rounded-lg shadow-sm text-gray-100 border border-gray-700">
               <h3 className="text-sm font-medium text-gray-500">Net Invested</h3>
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(summary.net_invested)}</p>
+              <p className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+                {formatCurrency(summary.net_invested)}
+              </p>
             </div>
           </div>
         )}
@@ -348,7 +351,7 @@ const TransactionsPage = () => {
                     <tr key={transaction.id} className="hover:bg-gray-700/50">
                       <td className="px-6 py-4 whitespace-nowrap"><div><div className="text-sm font-medium text-gray-100">{transaction.ticker}</div><div className="text-sm text-gray-400">{transaction.company_name}</div></div></td>
                       <td className="px-6 py-4 whitespace-nowrap"><span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${transaction.transaction_type === 'BUY' ? 'bg-green-100 text-green-800' : transaction.transaction_type === 'SELL' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}`}>{transaction.transaction_type}</span></td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-100">{transaction.shares}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-100">{Math.round(transaction.shares).toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-100">{formatCurrency(transaction.price_per_share, transaction.transaction_currency)}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-100">{formatCurrency(transaction.total_amount, transaction.transaction_currency)}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-100">{formatDate(transaction.transaction_date)}</td>
@@ -369,16 +372,16 @@ const TransactionsPage = () => {
             </div>
             <form onSubmit={handleAddTransactionSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Transaction Type</label>
-                <select name="transaction_type" value={form.transaction_type} onChange={handleFormChange} className="w-full p-2 border border-gray-300 rounded-lg" required>
+                <label className="block text-sm font-medium text-gray-800 mb-1 text-on-white">Transaction Type</label>
+                <select name="transaction_type" value={form.transaction_type} onChange={handleFormChange} className="w-full p-2 border border-gray-600 rounded-lg" required>
                   <option value="BUY">Buy</option>
                   <option value="SELL">Sell</option>
                   <option value="DIVIDEND">Dividend</option>
                 </select>
               </div>
               <div className="relative">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Ticker Symbol</label>
-                <input type="text" name="ticker" value={form.ticker} onChange={handleTickerChange} onFocus={() => setShowSuggestions(true)} onBlur={() => setTimeout(() => setShowSuggestions(false), 200)} className={`w-full p-2 border ${formErrors.ticker ? 'border-red-500' : 'border-gray-300'} rounded-lg`} placeholder="e.g., AAPL" required autoComplete="off" />
+                <label className="block text-sm font-medium text-gray-800 mb-1 text-on-white">Ticker Symbol</label>
+                <input type="text" name="ticker" value={form.ticker} onChange={handleTickerChange} onFocus={() => setShowSuggestions(true)} onBlur={() => setTimeout(() => setShowSuggestions(false), 200)} className={`w-full p-2 border ${formErrors.ticker ? 'border-red-500' : 'border-gray-600'} rounded-lg`} placeholder="e.g., AAPL" required autoComplete="off" />
                 {formErrors.ticker && <p className="text-red-500 text-xs mt-1">{formErrors.ticker}</p>}
                 {showSuggestions && (
                   <div className="absolute z-10 w-full bg-gray-900 border border-gray-700 rounded-lg mt-1 shadow-lg max-h-60 overflow-y-auto text-gray-100">
@@ -395,39 +398,48 @@ const TransactionsPage = () => {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Number of Shares</label>
-                  <input type="number" name="shares" step="0.000001" min="0" value={form.shares} onChange={handleFormChange} className={`w-full p-2 border ${formErrors.shares ? 'border-red-500' : 'border-gray-300'} rounded-lg`} required />
+                  <label className="block text-sm font-medium text-gray-800 mb-1 text-on-white">Number of Shares</label>
+                  <input type="number" name="shares" step="1" min="0" value={form.shares} onChange={handleFormChange} className={`w-full p-2 border ${formErrors.shares ? 'border-red-500' : 'border-gray-600'} rounded-lg`} required />
                   {formErrors.shares && <p className="text-red-500 text-xs mt-1">{formErrors.shares}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Price per Share</label>
-                  <input type="number" name="purchase_price" step="0.01" min="0" value={form.purchase_price} onChange={handleFormChange} className={`w-full p-2 border ${formErrors.purchase_price ? 'border-red-500' : 'border-gray-300'} rounded-lg`} required />
+                  <label className="block text-sm font-medium text-gray-800 mb-1 text-on-white">Price per Share</label>
+                  <input type="number" name="purchase_price" step="0.01" min="0" value={form.purchase_price} onChange={handleFormChange} className={`w-full p-2 border ${formErrors.purchase_price ? 'border-red-500' : 'border-gray-600'} rounded-lg`} required />
                   {formErrors.purchase_price && <p className="text-red-500 text-xs mt-1">{formErrors.purchase_price}</p>}
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Transaction Date</label>
-                <input type="date" name="purchase_date" value={form.purchase_date} onChange={handleFormChange} onBlur={handleDateBlur} className={`w-full p-2 border ${formErrors.purchase_date ? 'border-red-500' : 'border-gray-300'} rounded-lg`} required />
+                <label className="block text-sm font-medium text-gray-800 mb-1 text-on-white">Transaction Date</label>
+                <input type="date" name="purchase_date" value={form.purchase_date} onChange={handleFormChange} onBlur={handleDateBlur} className={`w-full p-2 border ${formErrors.purchase_date ? 'border-red-500' : 'border-gray-600'} rounded-lg`} required />
                 {formErrors.purchase_date && <p className="text-red-500 text-xs mt-1">{formErrors.purchase_date}</p>}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
-                    <select name="currency" value={form.currency} onChange={handleFormChange} className="w-full p-2 border border-gray-300 rounded-lg">
+                    <label className="block text-sm font-medium text-gray-800 mb-1 text-on-white">Currency</label>
+                    <select name="currency" value={form.currency} onChange={handleFormChange} className="w-full p-2 border border-gray-600 rounded-lg">
                         <option value="USD">USD</option>
                         <option value="EUR">EUR</option>
                         <option value="GBP">GBP</option>
+                        <option value="AUD">AUD</option>
+                        <option value="CAD">CAD</option>
+                        <option value="CHF">CHF</option>
+                        <option value="CNY">CNY</option>
+                        <option value="JPY">JPY</option>
+                        <option value="KRW">KRW</option>
+                        <option value="MXN">MXN</option>
+                        <option value="NZD">NZD</option>
+                        <option value="RUB">RUB</option>
                     </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Commission (optional)</label>
-                  <input type="number" name="commission" step="0.01" min="0" value={form.commission} onChange={handleFormChange} className={`w-full p-2 border ${formErrors.commission ? 'border-red-500' : 'border-gray-300'} rounded-lg`} placeholder="0.00" />
+                  <label className="block text-sm font-medium text-gray-800 mb-1 text-on-white">Commission (optional)</label>
+                  <input type="number" name="commission" step="0.01" min="0" value={form.commission} onChange={handleFormChange} className={`w-full p-2 border ${formErrors.commission ? 'border-red-500' : 'border-gray-600'} rounded-lg`} placeholder="0.00" />
                   {formErrors.commission && <p className="text-red-500 text-xs mt-1">{formErrors.commission}</p>}
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
-                <textarea name="notes" value={form.notes} onChange={handleFormChange} className="w-full p-2 border border-gray-300 rounded-lg" rows={2} placeholder="Additional notes..." />
+                <label className="block text-sm font-medium text-gray-800 mb-1 text-on-white">Notes (optional)</label>
+                <textarea name="notes" value={form.notes} onChange={handleFormChange} className="w-full p-2 border border-gray-600 rounded-lg" rows={2} placeholder="Additional notes..." />
               </div>
               <div className="flex gap-4 pt-4">
                 <button type="button" onClick={() => setShowAddForm(false)} className="flex-1 px-4 py-2 border border-gray-700 rounded-lg text-gray-200 hover:bg-gray-700 font-medium">Cancel</button>

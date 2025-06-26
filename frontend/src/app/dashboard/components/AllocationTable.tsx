@@ -9,20 +9,20 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabaseClient';
 
 const AllocationTable = () => {
-  console.log('[AllocationTable] Component mounting...');
+  //console.log('[AllocationTable] Component mounting...');
   
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log('[AllocationTable] useEffect: Checking user session...');
+    //console.log('[AllocationTable] useEffect: Checking user session...');
     const init = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      console.log('[AllocationTable] Session user ID:', session?.user?.id);
+      //console.log('[AllocationTable] Session user ID:', session?.user?.id);
       if (session?.user) {
         setUserId(session.user.id);
-        console.log('[AllocationTable] User ID set to:', session.user.id);
+        //console.log('[AllocationTable] User ID set to:', session.user.id);
       } else {
-        console.log('[AllocationTable] No user session found');
+        //console.log('[AllocationTable] No user session found');
       }
     };
     init();
@@ -31,21 +31,22 @@ const AllocationTable = () => {
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['dashboardAllocation', userId],
     queryFn: async () => {
-      console.log('[AllocationTable] Making API call for allocation data...');
+      //console.log('[AllocationTable] Making API call for allocation data...');
       const result = await dashboardAPI.getAllocation();
-      console.log('[AllocationTable] API response:', result);
-      console.log('[AllocationTable] API response data type:', typeof result.data);
-      console.log('[AllocationTable] API response rows:', result?.data?.rows);
+      //console.log('[AllocationTable] API response:', result);
+      //////console.log('[AllocationTable] API response data type:', typeof result.data);
+      ////console.log('[AllocationTable] API response rows:', result?.data?.rows);
       
       // Add debugging for each row's allocation field
       if (result?.data?.rows) {
         result.data.rows.forEach((row: any, index: number) => {
-          console.log(`[AllocationTable] Row ${index} (${row.groupKey}):`, {
+        /*  console.log(`[AllocationTable] Row ${index} (${row.groupKey}):`, {
             allocation: row.allocation,
             allocationType: typeof row.allocation,
             allocationValue: row.allocation,
             canCallToFixed: typeof row.allocation === 'number' || (typeof row.allocation === 'string' && !isNaN(parseFloat(row.allocation)))
           });
+          */
         });
       }
       
@@ -54,7 +55,7 @@ const AllocationTable = () => {
     enabled: !!userId,
   });
 
-  console.log('[AllocationTable] Query state:', { data, isLoading, isError, error });
+  //console.log('[AllocationTable] Query state:', { data, isLoading, isError, error });
 
   if (isLoading) {
     console.log('[AllocationTable] Still loading, showing skeleton');
@@ -66,40 +67,40 @@ const AllocationTable = () => {
   }
 
   const rows = data?.data?.rows || [];
-  console.log('[AllocationTable] Allocation rows:', rows);
-  console.log('[AllocationTable] Number of rows:', rows.length);
+  //console.log('[AllocationTable] Allocation rows:', rows);
+  //console.log('[AllocationTable] Number of rows:', rows.length);
 
   // Add defensive function to safely format allocation
   const safeFormatAllocation = (allocation: any): string => {
-    console.log('[AllocationTable] safeFormatAllocation called with:', allocation, 'type:', typeof allocation);
+    //console.log('[AllocationTable] safeFormatAllocation called with:', allocation, 'type:', typeof allocation);
     
     // Handle null/undefined
     if (allocation == null) {
-      console.log('[AllocationTable] safeFormatAllocation: allocation is null/undefined, returning 0.00%');
+      //console.log('[AllocationTable] safeFormatAllocation: allocation is null/undefined, returning 0.00%');
       return '0.00%';
     }
     
     // If it's already a number
     if (typeof allocation === 'number') {
-      console.log('[AllocationTable] safeFormatAllocation: allocation is number, using toFixed');
+      //console.log('[AllocationTable] safeFormatAllocation: allocation is number, using toFixed');
       return `${allocation.toFixed(2)}%`;
     }
     
     // If it's a string, try to parse it
     if (typeof allocation === 'string') {
-      console.log('[AllocationTable] safeFormatAllocation: allocation is string, attempting to parse');
+      //console.log('[AllocationTable] safeFormatAllocation: allocation is string, attempting to parse');
       const parsed = parseFloat(allocation);
       if (!isNaN(parsed)) {
-        console.log('[AllocationTable] safeFormatAllocation: successfully parsed string to number:', parsed);
+        //console.log('[AllocationTable] safeFormatAllocation: successfully parsed string to number:', parsed);
         return `${parsed.toFixed(2)}%`;
       } else {
-        console.log('[AllocationTable] safeFormatAllocation: failed to parse string, returning raw value');
+        //console.log('[AllocationTable] safeFormatAllocation: failed to parse string, returning raw value');
         return `${allocation}%`;
       }
     }
     
     // Fallback for any other type
-    console.log('[AllocationTable] safeFormatAllocation: unknown type, converting to string');
+    //
     return `${String(allocation)}%`;
   };
 
@@ -121,12 +122,12 @@ const AllocationTable = () => {
           </thead>
           <tbody>
             {rows.map((row: AllocationRow, index: number) => {
-              console.log(`[AllocationTable] Rendering row ${index}:`, row);
-              console.log(`[AllocationTable] Row ${index} allocation details:`, {
-                allocation: row.allocation,
+              //console.log(`[AllocationTable] Rendering row ${index}:`, row);
+              //console.log(`[AllocationTable] Row ${index} allocation details:`, {
+                /*allocation: row.allocation,
                 type: typeof row.allocation,
                 value: row.allocation
-              });
+              });*/
               
               return (
                 <tr key={row.groupKey} className="border-b border-gray-700/50 hover:bg-gray-700/30">

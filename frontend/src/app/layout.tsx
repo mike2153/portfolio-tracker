@@ -1,10 +1,12 @@
 import './globals.css'
 import { Inter } from 'next/font/google'
 import Link from 'next/link'
+import SidebarLink from '@/components/SidebarLink'
 import { ToastProvider } from '@/components/ui/Toast'
 import { Providers } from '@/components/Providers'
 import { AuthProvider } from '@/components/AuthProvider'
 import { Home, BarChart2, Briefcase, Wrench, Users, Plus, Search, Sun, Moon, ChevronsUpDown, PlusCircle } from 'lucide-react'
+import { patchConsole } from '@/lib/debug'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -18,6 +20,9 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  // Disable verbose console output in production unless explicitly enabled
+  patchConsole();
+
   return (
     <html lang="en" className="dark">
       <body className={`${inter.className} bg-gray-900 text-gray-200`}>
@@ -30,30 +35,12 @@ export default function RootLayout({
                 <div>
                   <h1 className="text-2xl font-bold text-white mb-10">FinSoft</h1>
                   <nav className="space-y-2">
-                    <Link href="/dashboard" className="flex items-center space-x-3 rounded-md bg-gray-700 px-3 py-2 text-white">
-                      <Home className="h-5 w-5" />
-                      <span>Dashboard</span>
-                    </Link>
-                    <Link href="/analytics" className="flex items-center space-x-3 rounded-md px-3 py-2 hover:bg-gray-700/50">
-                      <BarChart2 className="h-5 w-5" />
-                      <span>Analytics</span>
-                    </Link>
-                    <Link href="/portfolio" className="flex items-center space-x-3 rounded-md px-3 py-2 hover:bg-gray-700/50">
-                      <Briefcase className="h-5 w-5" />
-                      <span>Portfolio</span>
-                    </Link>
-                    <Link href="/transactions" className="flex items-center space-x-3 rounded-md px-3 py-2 hover:bg-gray-700/50">
-                      <PlusCircle className="h-5 w-5" />
-                      <span>Transactions</span>
-                    </Link>
-                    <Link href="/tools" className="flex items-center space-x-3 rounded-md px-3 py-2 hover:bg-gray-700/50">
-                      <Wrench className="h-5 w-5" />
-                      <span>Tools</span>
-                    </Link>
-                    <Link href="/community" className="flex items-center space-x-3 rounded-md px-3 py-2 hover:bg-gray-700/50">
-                      <Users className="h-5 w-5" />
-                      <span>Community</span>
-                    </Link>
+                    <SidebarLink href="/dashboard" icon={<Home className="h-5 w-5" />}>Dashboard</SidebarLink>
+                    <SidebarLink href="/analytics" icon={<BarChart2 className="h-5 w-5" />}>Analytics</SidebarLink>
+                    <SidebarLink href="/portfolio" icon={<Briefcase className="h-5 w-5" />}>Portfolio</SidebarLink>
+                    <SidebarLink href="/transactions" icon={<PlusCircle className="h-5 w-5" />}>Transactions</SidebarLink>
+                    <SidebarLink href="/tools" icon={<Wrench className="h-5 w-5" />}>Tools</SidebarLink>
+                    <SidebarLink href="/community" icon={<Users className="h-5 w-5" />}>Community</SidebarLink>
                   </nav>
                 </div>
                 {/* User profile section can go here */}

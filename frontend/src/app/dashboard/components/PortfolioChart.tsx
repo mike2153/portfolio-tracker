@@ -5,8 +5,8 @@ import dynamic from 'next/dynamic'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabaseClient'
 import { dashboardAPI } from '@/lib/api'
+import { debug } from '@/lib/debug'
 import { ChartSkeleton } from './Skeletons'
-import { EnhancedPortfolioPerformance } from '@/types/api'
 
 const Plot = dynamic(() => import('react-plotly.js'), { ssr: false })
 
@@ -18,27 +18,30 @@ const benchmarks = [
 ]
 
 type Mode = 'value' | 'performance'
+type PerfPoint = { total_value: number; indexed_performance: number; date: string };
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 export default function PortfolioChart() {
-  console.log('[PortfolioChart] Component mounting...');
+  debug('[PortfolioChart] Component mounting...');
   
   const [userId, setUserId] = useState<string | null>(null)
   const [range, setRange] = useState('1Y')
   const [mode, setMode] = useState<Mode>('value')
   const [benchmark, setBenchmark] = useState('SPY')
 
-  console.log('[PortfolioChart] Component state:', { userId, range, mode, benchmark });
+  debug('[PortfolioChart] Component state:', { userId, range, mode, benchmark });
 
   useEffect(() => {
-    console.log('[PortfolioChart] useEffect: Checking user session...');
+    debug('[PortfolioChart] useEffect: Checking user session...');
     const init = async () => {
       const { data: { session } } = await supabase.auth.getSession()
-      console.log('[PortfolioChart] Session user ID:', session?.user?.id);
+      debug('[PortfolioChart] Session user ID:', session?.user?.id);
       if (session?.user) {
         setUserId(session.user.id)
-        console.log('[PortfolioChart] User ID set to:', session.user.id);
+        debug('[PortfolioChart] User ID set to:', session.user.id);
       } else {
-        console.log('[PortfolioChart] No user session found');
+        debug('[PortfolioChart] No user session found');
       }
     }
     init()
@@ -47,42 +50,55 @@ export default function PortfolioChart() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['portfolioPerformance', userId, range, benchmark],
     queryFn: async () => {
-      console.log('[PortfolioChart] Making API call for portfolio performance...');
-      console.log('[PortfolioChart] API params:', { userId, range, benchmark });
+      debug('[PortfolioChart] Making API call for portfolio performance...');
+      debug('[PortfolioChart] API params:', { userId, range, benchmark });
+      debug('[Benchmark] Fetching index:', benchmark);
       const result = await dashboardAPI.getPortfolioPerformance(userId!, range, benchmark);
-      console.log('[PortfolioChart] API response:', result);
+      debug('[PortfolioChart] API response:', result);
+      if (result.ok && result.data) {
+        const prices = (result.data as any)?.data?.benchmark_performance ?? (result.data as any)?.benchmark_performance;
+        if (prices) {
+          debug('[Benchmark] Close prices:', prices);
+        }
+      }
       return result;
     },
-    enabled: !!userId
+    enabled: !!userId,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
   })
 
-  console.log('[PortfolioChart] Query state:', { data, isLoading, error });
+  debug('[PortfolioChart] Query state:', { data, isLoading, error });
 
-  const perfRaw = data?.data as any;
-  // Transform snake_case keys to camelCase if needed
+  // The APIResponse structure is { ok, message, data: { ...performanceData } }
+  const perfRaw = (data?.data as any)?.data ?? (data?.data as any) ?? {};
+  console.log('[PortfolioChart] Raw API payload:', perfRaw);
+
   const perf = perfRaw ? {
     portfolioPerformance: perfRaw.portfolio_performance || perfRaw.portfolioPerformance || [],
     benchmarkPerformance: perfRaw.benchmark_performance || perfRaw.benchmarkPerformance || [],
     benchmark_name: perfRaw.benchmark_name || perfRaw.benchmarkName || benchmark,
   } : undefined;
+  console.log('[PortfolioChart] Transformed perf:', perf);
 
-  console.log('[PortfolioChart] 🔍 Raw performance data:', perfRaw);
-  console.log('[PortfolioChart] 🎯 Transformed performance data:', perf);
-
-  const portfolio = perf?.portfolioPerformance || [];
-  const benchmarkPerformance = perf?.benchmarkPerformance || [];
+  const portfolio: PerfPoint[] = (perf?.portfolioPerformance as any[]) || [];
+  console.log('[PortfolioChart] portfolioPerformance length:', portfolio.length);
+  const benchmarkPerformance: PerfPoint[] = (perf?.benchmarkPerformance as any[]) || [];
+  console.log('[PortfolioChart] benchmarkPerformance length:', benchmarkPerformance.length);
   
-  console.log('[PortfolioChart] Portfolio performance data length:', portfolio.length);
-  console.log('[PortfolioChart] Benchmark performance data length:', benchmarkPerformance.length);
-  console.log('[PortfolioChart] Sample portfolio data:', portfolio.slice(0, 3));
-  console.log('[PortfolioChart] Sample benchmark data:', benchmarkPerformance.slice(0, 3));
+  debug('[PortfolioChart] Sample portfolio data:', portfolio.slice(0, 3));
+  debug('[PortfolioChart] Sample benchmark data:', benchmarkPerformance.slice(0, 3));
 
   const portfolioY = mode === 'value'
-    ? portfolio.map(p => p.total_value)
-    : portfolio.map(p => p.indexed_performance)
+    ? portfolio.map((p) => p.total_value)
+    : portfolio.map((p) => p.indexed_performance);
 
-  const benchmarkY = benchmarkPerformance.map(b => b.indexed_performance)
-  
+  const benchmarkY = mode === 'value'
+    ? benchmarkPerformance.map((b) => b.total_value)
+    : benchmarkPerformance.map((b) => b.indexed_performance);
+
+  debug('[PortfolioChart] Benchmark Y data for mode', mode, benchmarkY.slice(0, 5));
+
   console.log('[PortfolioChart] Chart data Y values:', { portfolioY: portfolioY.slice(0, 5), benchmarkY: benchmarkY.slice(0, 5) });
 
   return (
@@ -147,7 +163,7 @@ export default function PortfolioChart() {
               type: 'scatter',
               mode: 'lines',
               name: perf?.benchmark_name || 'Benchmark',
-              line: { color: '#8B5CF6' }
+              line: { color: '#A78BFA' }
             }
           ]}
           layout={{

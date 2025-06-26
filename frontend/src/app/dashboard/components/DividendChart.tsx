@@ -6,58 +6,58 @@ import { ChartSkeleton } from './Skeletons';
 import { ResponsiveContainer, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar } from 'recharts';
 
 const DividendChart = () => {
-    console.log('[DividendChart] Component mounting...');
+    //console.log('[DividendChart] Component mounting...');
     
     const { data, isLoading, isError } = useQuery({
         queryKey: ['dividendForecast'],
         queryFn: async () => {
-            console.log('[DividendChart] Making API call for dividend forecast...');
+            //console.log('[DividendChart] Making API call for dividend forecast...');
             const result = await dashboardAPI.getDividendForecast();
-            console.log('[DividendChart] API response:', result);
+            //console.log('[DividendChart] API response:', result);
             return result;
         },
     });
 
     // Add defensive function to safely format currency values
     const safeFormatCurrency = (val: any): string => {
-        console.log(`[DividendChart] safeFormatCurrency called with:`, val, 'type:', typeof val);
+        //console.log(`[DividendChart] safeFormatCurrency called with:`, val, 'type:', typeof val);
         
         // Handle null/undefined
         if (val == null) {
-            console.log(`[DividendChart] safeFormatCurrency: value is null/undefined, returning 0`);
+            //console.log(`[DividendChart] safeFormatCurrency: value is null/undefined, returning 0`);
             return '0';
         }
         
         // If it's already a number
         if (typeof val === 'number') {
-            console.log(`[DividendChart] safeFormatCurrency: value is number, using toLocaleString`);
+            //console.log(`[DividendChart] safeFormatCurrency: value is number, using toLocaleString`);
             return val.toLocaleString();
         }
         
         // If it's a string, try to parse it
         if (typeof val === 'string') {
-            console.log(`[DividendChart] safeFormatCurrency: value is string, attempting to parse`);
+            //console.log(`[DividendChart] safeFormatCurrency: value is string, attempting to parse`);
             const parsed = parseFloat(val);
             if (!isNaN(parsed)) {
-                console.log(`[DividendChart] safeFormatCurrency: successfully parsed string to number:`, parsed);
+                //console.log(`[DividendChart] safeFormatCurrency: successfully parsed string to number:`, parsed);
                 return parsed.toLocaleString();
             } else {
-                console.log(`[DividendChart] safeFormatCurrency: failed to parse string, returning raw value`);
+                //console.log(`[DividendChart] safeFormatCurrency: failed to parse string, returning raw value`);
                 return val;
             }
         }
         
         // Fallback for any other type
-        console.log(`[DividendChart] safeFormatCurrency: unknown type, converting to string`);
+        //console.log(`[DividendChart] safeFormatCurrency: unknown type, converting to string`);
         return String(val);
     };
 
     if (isLoading) {
-        console.log('[DividendChart] Still loading, showing skeleton');
+        //console.log('[DividendChart] Still loading, showing skeleton');
         return <ChartSkeleton />;
     }
     if (isError) {
-        console.log('[DividendChart] Error occurred:', error);
+        //console.log('[DividendChart] Error occurred:', error);
         return <div className="text-red-500">Error loading dividend forecast</div>;
     }
 

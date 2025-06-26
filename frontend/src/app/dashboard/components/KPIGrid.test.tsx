@@ -16,10 +16,10 @@ describe('KPIGrid', () => {
     render(<KPIGrid initialData={mockOverviewData} />);
 
     // Check for titles
-    expect(screen.getByText('Value')).toBeInTheDocument();
-    expect(screen.getByText('Total profit')).toBeInTheDocument();
+    expect(screen.getByText('Portfolio Value')).toBeInTheDocument();
+    expect(screen.getByText('Total Return')).toBeInTheDocument();
     expect(screen.getByText('IRR')).toBeInTheDocument();
-    expect(screen.getByText('Passive income')).toBeInTheDocument();
+    expect(screen.getByText('Dividend Yield')).toBeInTheDocument();
 
     // Check for values
     expect(screen.getByText('AU$138,214.02')).toBeInTheDocument();

@@ -12,11 +12,11 @@ interface KPICardProps {
 }
 
 const KPICard = ({ title, data, prefix = "", suffix = "" }: KPICardProps) => {
-  console.log(`[KPICard] 🚀 Enhanced KPI card rendering for: ${title}`);
-  console.log(`[KPICard] 📊 Raw data received:`, data);
-  console.log(`[KPICard] 📊 Data type:`, typeof data);
-  console.log(`[KPICard] 📊 Data keys:`, data ? Object.keys(data) : 'null');
-  console.log(`[KPICard] 🎯 Props - title: "${title}", prefix: "${prefix}", suffix: "${suffix}"`);
+//  console.log(`[KPICard] 🚀 Enhanced KPI card rendering for: ${title}`);
+ // console.log(`[KPICard] 📊 Raw data received:`, data);
+  //console.log(`[KPICard] 📊 Data type:`, typeof data);
+  //console.log(`[KPICard] 📊 Data keys:`, data ? Object.keys(data) : 'null');
+  //console.log(`[KPICard] 🎯 Props - title: "${title}", prefix: "${prefix}", suffix: "${suffix}"`);
   
   if (!data || typeof data !== 'object') {
     console.error(`[KPICard] ❌ Invalid data for ${title}:`, data);
@@ -35,77 +35,81 @@ const KPICard = ({ title, data, prefix = "", suffix = "" }: KPICardProps) => {
   
   const { value, sub_label, deltaPercent, is_positive } = data;
   
+  /*
   console.log(`[KPICard] 🔍 Extracted fields for ${title}:`);
   console.log(`[KPICard]   - value: "${value}" (type: ${typeof value})`);
   console.log(`[KPICard]   - sub_label: "${sub_label}" (type: ${typeof sub_label})`);
   console.log(`[KPICard]   - deltaPercent: "${deltaPercent}" (type: ${typeof deltaPercent})`);
   console.log(`[KPICard]   - is_positive: ${is_positive} (type: ${typeof is_positive})`);
-
+*/
   // Add defensive function to safely format value
   const safeFormatValue = (val: any): string => {
-    console.log(`[KPICard] safeFormatValue called with:`, val, 'type:', typeof val);
+    //console.log(`[KPICard] safeFormatValue called with:`, val, 'type:', typeof val);
     
     // Handle null/undefined
     if (val == null) {
-      console.log(`[KPICard] safeFormatValue: value is null/undefined, returning 0.00`);
+      //console.log(`[KPICard] safeFormatValue: value is null/undefined, returning 0.00`);
       return '0.00';
     }
     
     // If it's already a number
     if (typeof val === 'number') {
-      console.log(`[KPICard] safeFormatValue: value is number, using toLocaleString`);
+  //    console.log(`[KPICard] safeFormatValue: value is number, using toLocaleString`);
+      if (isNaN(val)) {
+        return '—';
+      }
       return val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
     
     // If it's a string, try to parse it
     if (typeof val === 'string') {
-      console.log(`[KPICard] safeFormatValue: value is string, attempting to parse`);
+  //    console.log(`[KPICard] safeFormatValue: value is string, attempting to parse`);
       const parsed = parseFloat(val);
       if (!isNaN(parsed)) {
-        console.log(`[KPICard] safeFormatValue: successfully parsed string to number:`, parsed);
+        //console.log(`[KPICard] safeFormatValue: successfully parsed string to number:`, parsed);
         return parsed.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       } else {
-        console.log(`[KPICard] safeFormatValue: failed to parse string, returning raw value`);
-        return val;
+        //console.log(`[KPICard] safeFormatValue: failed to parse string, returning raw value`);
+        return '—';
       }
     }
     
     // Fallback for any other type
-    console.log(`[KPICard] safeFormatValue: unknown type, converting to string`);
+    //console.log(`[KPICard] safeFormatValue: unknown type, converting to string`);
     return String(val);
   };
 
   // Add defensive function to safely format delta percentage
   const safeFormatDelta = (delta: any): string => {
-    console.log(`[KPICard] safeFormatDelta called with:`, delta, 'type:', typeof delta);
+  //  //console.log(`[KPICard] safeFormatDelta called with:`, delta, 'type:', typeof delta);
     
     // Handle null/undefined
     if (delta == null) {
-      console.log(`[KPICard] safeFormatDelta: delta is null/undefined, returning 0.0`);
+      //console.log(`[KPICard] safeFormatDelta: delta is null/undefined, returning 0.0`);
       return '0.0';
     }
     
     // If it's already a number
     if (typeof delta === 'number') {
-      console.log(`[KPICard] safeFormatDelta: delta is number, using toFixed`);
+  //    console.log(`[KPICard] safeFormatDelta: delta is number, using toFixed`);
       return delta.toFixed(1);
     }
     
     // If it's a string, try to parse it
     if (typeof delta === 'string') {
-      console.log(`[KPICard] safeFormatDelta: delta is string, attempting to parse`);
+  //    console.log(`[KPICard] safeFormatDelta: delta is string, attempting to parse`);
       const parsed = parseFloat(delta);
       if (!isNaN(parsed)) {
-        console.log(`[KPICard] safeFormatDelta: successfully parsed string to number:`, parsed);
+        //console.log(`[KPICard] safeFormatDelta: successfully parsed string to number:`, parsed);
         return parsed.toFixed(1);
       } else {
-        console.log(`[KPICard] safeFormatDelta: failed to parse string, returning raw value`);
+        //console.log(`[KPICard] safeFormatDelta: failed to parse string, returning raw value`);
         return delta;
       }
     }
     
     // Fallback for any other type
-    console.log(`[KPICard] safeFormatDelta: unknown type, converting to string`);
+    //console.log(`[KPICard] safeFormatDelta: unknown type, converting to string`);
     return String(delta);
   };
 
@@ -114,7 +118,7 @@ const KPICard = ({ title, data, prefix = "", suffix = "" }: KPICardProps) => {
   const finalSafeValue = safeFormatValue(value);
   const finalSafeDelta = deltaPercent ? safeFormatDelta(deltaPercent) : null;
   const finalDisplayValue = `${prefix}${finalSafeValue}${suffix}`;
-  
+  /*
   console.log(`[KPICard] 🎯 Final render data for ${title}:`);
   console.log(`[KPICard]   - Raw value: "${value}" (${typeof value})`);
   console.log(`[KPICard]   - Safe formatted value: "${finalSafeValue}"`);
@@ -123,7 +127,7 @@ const KPICard = ({ title, data, prefix = "", suffix = "" }: KPICardProps) => {
   console.log(`[KPICard]   - Delta percent: "${deltaPercent}" -> "${finalSafeDelta}"`);
   console.log(`[KPICard]   - Is positive: ${is_positive}`);
   console.log(`[KPICard]   - Trend color: ${is_positive ? 'green' : 'red'}`);
-
+*/
   return (
     <div className="relative rounded-xl border border-gray-700 bg-gray-800/50 p-4 shadow-md backdrop-blur-sm">
       <div className="flex items-center justify-between">

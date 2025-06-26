@@ -42,4 +42,19 @@
 .bg-teal-500 { background-color: #14b8a6; }
 .bg-yellow-500 { background-color: #eab308; }
 .bg-red-500 { background-color: #ef4444; }
-.bg-indigo-500 { background-color: #6366f1; } 
+.bg-indigo-500 { background-color: #6366f1; }
+
+.text-on-white {
+  @apply text-white;
+}
+
+/* Dark theme form controls */
+@layer base {
+  input[type='text'],
+  input[type='number'],
+  input[type='date'],
+  select,
+  textarea {
+    @apply bg-slate-700 text-white border-gray-600 placeholder-gray-400;
+  }
+} 

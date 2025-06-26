@@ -525,9 +525,7 @@ export default function PortfolioPage() {
         <div className="p-4 sm:p-6 lg:p-8">
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-3xl font-bold text-gray-900">My Portfolio</h1>
-                <button className="btn-primary flex items-center" onClick={openAddModal}>
-                    <PlusCircle className="mr-2" size={20} /> Add Stock
-                </button>
+                {/* Removed Add Stock button as requested */}
             </div>
             
             {quotesLoading && (
@@ -579,7 +577,7 @@ export default function PortfolioPage() {
                                                 </div>
                                             </div>
                                         </th>
-                                        <td className="px-6 py-4">{holding.shares.toFixed(4)}</td>
+                                        <td className="px-6 py-4">{Math.round(holding.shares).toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
                                         <td className="px-6 py-4 text-right">{formatCurrency(avgCost)}</td>
                                         <td className="px-6 py-4 text-right">{formatCurrency(costBasis)}</td>
                                         <td className="px-6 py-4 text-right">{formatCurrency(holding.current_price)}</td>

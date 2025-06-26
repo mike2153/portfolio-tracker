@@ -133,8 +133,9 @@ class AdvancedFinancialMetricsService:
                 if self._validate_transaction(txn):
                     valid_transactions.append(txn)
                 else:
-                    print(f"[AdvancedFinancialMetrics] ❌ Invalid transaction found: {txn.id}, skipping")
-                    logger.warning(f"[AdvancedFinancialMetrics] Invalid transaction found: {txn.id}, skipping")
+                    txn_id = getattr(txn, 'id', 'N/A')
+                    print(f"[AdvancedFinancialMetrics] ❌ Invalid transaction found: {txn_id}, skipping")
+                    logger.warning(f"[AdvancedFinancialMetrics] Invalid transaction found: {txn_id}, skipping")
             
             print(f"[AdvancedFinancialMetrics] ✅ Validated {len(valid_transactions)}/{len(transactions)} transactions")
             logger.info(f"[AdvancedFinancialMetrics] Validated {len(valid_transactions)}/{len(transactions)} transactions")
@@ -150,17 +151,17 @@ class AdvancedFinancialMetricsService:
         try:
             # Check required fields
             if not all([txn.ticker, txn.transaction_type, txn.shares, txn.price_per_share, txn.transaction_date]):
-                logger.debug(f"[AdvancedFinancialMetrics] Transaction {txn.id} missing required fields")
+                logger.debug(f"[AdvancedFinancialMetrics] Transaction {getattr(txn, 'id', 'N/A')} missing required fields")
                 return False
             
             # Check numeric values
             if txn.shares <= 0 or txn.price_per_share <= 0:
-                logger.debug(f"[AdvancedFinancialMetrics] Transaction {txn.id} has invalid numeric values")
+                logger.debug(f"[AdvancedFinancialMetrics] Transaction {getattr(txn, 'id', 'N/A')} has invalid numeric values")
                 return False
             
             # Check transaction type
             if txn.transaction_type not in ['BUY', 'SELL', 'DIVIDEND']:
-                logger.debug(f"[AdvancedFinancialMetrics] Transaction {txn.id} has invalid type: {txn.transaction_type}")
+                logger.debug(f"[AdvancedFinancialMetrics] Transaction {getattr(txn, 'id', 'N/A')} has invalid type: {txn.transaction_type}")
                 return False
             
             return True
@@ -194,7 +195,7 @@ class AdvancedFinancialMetricsService:
                         logger.debug(f"[AdvancedFinancialMetrics] SELL: {ticker} -{shares} shares, -${amount}")
                         
                 except Exception as e:
-                    logger.error(f"[AdvancedFinancialMetrics] Error processing transaction {txn.id}: {e}")
+                    logger.error(f"[AdvancedFinancialMetrics] Error processing transaction {getattr(txn, 'id', 'N/A')}: {e}")
                     continue
             
             # Get current prices and calculate market value
@@ -309,10 +310,10 @@ class AdvancedFinancialMetricsService:
             if days_invested >= 365:
                 # Annualized return for periods >= 1 year
                 years = days_invested / 365.25
-                irr_annual = (((current_value / initial_investment) ** (1 / years)) - 1) * 100
+                irr_annual = (((float(current_value) / float(initial_investment)) ** (1 / years)) - 1) * 100
             else:
                 # Project return for periods < 1 year
-                irr_annual = (total_return * 365.25 / days_invested) * 100
+                irr_annual = float(total_return) * 365.25 / days_invested * 100
             
             logger.debug(f"[AdvancedFinancialMetrics] IRR calculated: {irr_annual:.2f}%")
             
@@ -344,26 +345,48 @@ class AdvancedFinancialMetricsService:
         logger.debug(f"[AdvancedFinancialMetrics] Getting benchmark return for {benchmark_symbol} since {start_date}")
         
         try:
-            # This is simplified - in production, you'd fetch historical data
-            # For now, return a reasonable default based on typical S&P 500 returns
-            days = (date.today() - start_date).days
-            
-            if benchmark_symbol.upper() in ['SPY', 'SPX', '^GSPC']:
-                # Approximate S&P 500 return (~10% annually)
-                annual_return = 10.0
+            # Fetch historical daily data for the benchmark ETF/index
+            data_resp = await sync_to_async(self.av_service.get_daily_adjusted)(benchmark_symbol, outputsize='full')
+
+            if not data_resp or 'data' not in data_resp:
+                logger.warning(f"[AdvancedFinancialMetrics] No historical data for benchmark {benchmark_symbol}. Falling back to default 8% return")
+                return 8.0
+
+            prices = data_resp['data']
+            # Find closing price on or immediately after the start_date
+            start_price_entry = next((p for p in prices if p['date'] >= start_date.isoformat()), None)
+            end_price_entry = prices[-1] if prices else None
+
+            if not start_price_entry or not end_price_entry:
+                logger.warning(f"[AdvancedFinancialMetrics] Incomplete price series for {benchmark_symbol}. Falling back to default 8% return")
+                return 8.0
+
+            start_close = start_price_entry['close']
+            end_close = end_price_entry['close']
+
+            if start_close <= 0:
+                logger.warning(f"[AdvancedFinancialMetrics] Invalid start close price for {benchmark_symbol}. Falling back to default 8% return")
+                return 8.0
+
+            # Calculate total return as a decimal
+            total_return_decimal = (end_close - start_close) / start_close
+
+            # Annualize the benchmark return to match IRR calculation
+            end_date_obj = datetime.strptime(end_price_entry['date'], '%Y-%m-%d').date()
+            days_invested = (end_date_obj - start_date).days
+
+            if days_invested <= 0:
+                return 0.0
+
+            if days_invested >= 365:
+                years = days_invested / 365.25
+                annualized_return = ((1 + total_return_decimal) ** (1 / years) - 1) * 100
             else:
-                # Default market return
-                annual_return = 8.0
-            
-            if days >= 365:
-                years = days / 365.25
-                benchmark_return = annual_return
-            else:
-                # Project annual return
-                benchmark_return = annual_return
-            
-            logger.debug(f"[AdvancedFinancialMetrics] Estimated benchmark return: {benchmark_return:.2f}%")
-            return benchmark_return
+                # Project return for periods < 1 year
+                annualized_return = (total_return_decimal * 365.25 / days_invested) * 100
+
+            logger.debug(f"[AdvancedFinancialMetrics] Benchmark {benchmark_symbol} from {start_price_entry['date']} close {start_close} -> {end_price_entry['date']} close {end_close} = {total_return_decimal * 100:.2f}%. Annualized to {annualized_return:.2f}% over {days_invested} days.")
+            return float(annualized_return)
             
         except Exception as e:
             logger.error(f"[AdvancedFinancialMetrics] Error getting benchmark return: {e}")

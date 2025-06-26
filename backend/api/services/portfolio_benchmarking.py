@@ -1,10 +1,11 @@
 # backend/api/services/portfolio_benchmarking.py
 import logging
 from datetime import datetime, date, timedelta
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from typing import Dict, Optional, Tuple, Any, List
-from ..models import Portfolio, Holding
+from ..models import Portfolio, Holding, Transaction
 from ..alpha_vantage_service import get_alpha_vantage_service
+from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
@@ -32,17 +33,7 @@ class PortfolioBenchmarkingService:
         benchmark_symbol: str = 'SPY', 
         period: str = '1y'
     ) -> Dict[str, Any]:
-        """
-        Calculate enhanced portfolio performance with benchmarking.
-        
-        Args:
-            user_id: User identifier
-            benchmark_symbol: Benchmark symbol (e.g., 'SPY', '^GSPC')
-            period: Time period for analysis
-            
-        Returns:
-            Dictionary containing performance metrics
-        """
+
         try:
             # Get portfolio
             portfolio = Portfolio.objects.get(user_id=user_id)
@@ -223,7 +214,7 @@ class PortfolioBenchmarkingService:
             logger.error(f"Error calculating benchmark performance for {symbol}: {e}")
             raise ValueError(f"Failed to retrieve market data for benchmark symbol '{symbol}'")
 
-def _parse_period_to_dates(period: str) -> Tuple[date, int]:
+def _parse_period_to_dates(period: str, first_transaction_date: Optional[date] = None) -> Tuple[date, int]:
     """
     Parse period string to start date and number of days.
     
@@ -254,9 +245,11 @@ def _parse_period_to_dates(period: str) -> Tuple[date, int]:
         start_date = today - timedelta(days=365*5)
         days = 365*5
     elif period == 'ALL':
-        # Use a reasonable default for "all" - 10 years
-        start_date = today - timedelta(days=365*10)
-        days = 365*10
+        if first_transaction_date:
+            start_date = first_transaction_date
+        else:
+            # Fallback if no transactions
+            start_date = today - timedelta(days=365*10)
     else:
         # Default to 1Y
         start_date = today - timedelta(days=365)
@@ -317,10 +310,31 @@ def calculate_enhanced_portfolio_performance(
     except Portfolio.DoesNotExist:
         logger.error(f"[PORTFOLIO_BENCHMARK] Portfolio not found for user {user_id}")
         raise ValueError("Portfolio not found")
-    
-    # Parse period
-    start_date, days = _parse_period_to_dates(period)
+
+    user_txns = Transaction.objects.filter(user_id=user_id).order_by('transaction_date')
+    first_txn = user_txns.first()
+
+    if not first_txn:
+        logger.warning(f"[PORTFOLIO_BENCHMARK] No transactions for user {user_id}, returning empty response.")
+        return _empty_performance_response(period, benchmark)
+
+    first_transaction_date = first_txn.transaction_date
+
+    # Parse period, using the actual first transaction date for 'ALL'
+    start_date, days = _parse_period_to_dates(period, first_transaction_date)
     logger.info(f"[PORTFOLIO_BENCHMARK] Calculated date range: {start_date} to {date.today()} ({days} days)")
+    
+    # If measuring a shorter period and first transaction predates it, carry initial exposure
+    if period != 'ALL' and first_transaction_date < start_date:
+        start_str = start_date.strftime('%Y-%m-%d')
+        init_amount = cash_flows.get(first_transaction_date.strftime('%Y-%m-%d'), Decimal('0'))
+        if start_str in all_historical_data.get(benchmark, {}):
+            price0 = Decimal(str(all_historical_data[benchmark][start_str]))
+            if price0 > 0 and init_amount != 0:
+                shares0 = (init_amount / price0).to_integral_value(ROUND_HALF_UP)
+                benchmark_shares = shares0
+                pending_cash = Decimal('0')
+                logger.debug(f"[{benchmark}] Initial exposure: invested {init_amount} on {first_transaction_date} at price {price0} → {shares0} shares for period start {start_str}")
     
     # Get Alpha Vantage service
     av_service = get_alpha_vantage_service()
@@ -410,36 +424,98 @@ def calculate_enhanced_portfolio_performance(
         # For frontend consistency, also expose indexed_performance
         point['indexed_performance'] = perf
     
-    # Calculate benchmark performance
-    logger.debug(f"Calculating benchmark performance for {benchmark}")
-    benchmark_performance = []
+    # ---- Cash-weighted benchmark ---------------------------------------
+    logger.debug(f"[PORTFOLIO_BENCHMARK] Building cash-weighted benchmark series for {benchmark}")
+
+    benchmark_performance: List[Dict[str, Any]] = []
     benchmark_prices = all_historical_data.get(benchmark, {})
-    
-    # Filter benchmark prices to the analysis period
-    relevant_benchmark_prices = {
-        d: p for d, p in benchmark_prices.items() 
-        if start_date <= datetime.strptime(d, '%Y-%m-%d').date() <= date.today()
-    }
-    
-    if relevant_benchmark_prices:
-        sorted_benchmark_dates = sorted(relevant_benchmark_prices.keys())
-        base_benchmark_price = relevant_benchmark_prices[sorted_benchmark_dates[0]]
-        
-        for d in sorted_benchmark_dates:
-            price = relevant_benchmark_prices[d]
-            perf = ((price / base_benchmark_price) - 1) * 100
+    logger.debug(f"[PORTFOLIO_BENCHMARK] Benchmark {benchmark} price points fetched: {len(benchmark_prices)}")
+    if benchmark_prices:
+        sample_keys = list(benchmark_prices.keys())[:5]
+        logger.debug(f"[PORTFOLIO_BENCHMARK] Sample prices: {[(d, benchmark_prices[d]) for d in sample_keys]}")
+
+    # Build cash-flow map from transactions (BUY positive, SELL negative)
+    cash_flows: Dict[str, Decimal] = defaultdict(Decimal)
+    for txn in user_txns:  # Re-use the already fetched queryset
+        if txn.transaction_type in ("BUY", "SELL"):
+            sign = Decimal('1') if txn.transaction_type == 'BUY' else Decimal('-1')
+            cash_flows[txn.transaction_date.strftime('%Y-%m-%d')] += sign * Decimal(str(txn.total_amount))
+
+    benchmark_shares = Decimal('0')
+    pending_cash = Decimal('0')
+    for current_date in date_range:
+        d_str = current_date.strftime('%Y-%m-%d')
+
+        if d_str in cash_flows:
+            pending_cash += cash_flows[d_str]
+
+        if d_str in benchmark_prices and pending_cash != 0:
+            price_dec = Decimal(str(benchmark_prices[d_str]))
+            if price_dec > 0:
+                ideal_shares_to_trade = pending_cash / price_dec
+                shares_to_trade = ideal_shares_to_trade.to_integral_value(rounding=ROUND_HALF_UP)
+
+                if shares_to_trade != Decimal('0'):
+                    trade_cost = shares_to_trade * price_dec
+                    benchmark_shares += shares_to_trade
+                    pending_cash -= trade_cost
+                    logger.debug(f"[{benchmark}] Executed rounded trade of {shares_to_trade} shares at {price_dec}. Cost: {trade_cost}. Remaining cash: {pending_cash}")
+
+        # Daily valuation if price exists
+        if d_str in benchmark_prices:
+            price_today = Decimal(str(benchmark_prices[d_str]))
+            value_today = benchmark_shares * price_today
             benchmark_performance.append({
-                'date': d,
-                'total_value': price,
-                'performance_return': perf,
-                # Duplicate value for chart consistency
-                'indexed_performance': perf
+                'date': d_str,
+                'total_value': float(value_today)
             })
+            logger.debug(f"[{benchmark}] {d_str} value {value_today}")
+
+    # Calculate benchmark returns if we have any value points
+    if benchmark_performance:
+        # find first non-zero value to avoid division by zero
+        base_bench = next((p['total_value'] for p in benchmark_performance if p['total_value'] > 0), None)
+        if base_bench is None:
+            logger.debug(f"[PORTFOLIO_BENCHMARK] Benchmark series has no positive value – returns set to 0")
+            for pt in benchmark_performance:
+                pt['performance_return'] = 0
+                pt['indexed_performance'] = 0
+        else:
+            for pt in benchmark_performance:
+                perf = ((pt['total_value'] / base_bench) - 1) * 100
+                pt['performance_return'] = perf
+                pt['indexed_performance'] = perf
     
-    # Calculate summary metrics
-    portfolio_total_return = portfolio_performance[-1]['performance_return'] if portfolio_performance else 0
-    benchmark_total_return = benchmark_performance[-1]['performance_return'] if benchmark_performance else 0
+    # Debug: log first and latest benchmark close prices and % return
+    if benchmark_prices:
+        first_date = min(benchmark_prices.keys())
+        last_date = max(benchmark_prices.keys())
+        try:
+            first_price = float(benchmark_prices[first_date])
+            last_price = float(benchmark_prices[last_date])
+            pct_ret = ((last_price / first_price) - 1) * 100 if first_price else 0
+            logger.debug(f"[{benchmark}] First price {first_date}: {first_price:.2f} → Latest {last_date}: {last_price:.2f} | Return {pct_ret:.2f}%")
+        except (ValueError, ZeroDivisionError):
+            logger.debug(f"[{benchmark}] Unable to compute debug price return (first_price={benchmark_prices[first_date]}, last_price={benchmark_prices[last_date]})")
+
+    # Calculate summary metrics using a money-weighted approach for the final % return
+    total_net_invested = sum(cash_flows.values())
+
+    final_portfolio_value = Decimal(str(portfolio_performance[-1]['total_value'])) if portfolio_performance else Decimal('0')
+    final_benchmark_value = Decimal(str(benchmark_performance[-1]['total_value'])) if benchmark_performance else Decimal('0')
+
+    # Calculate final PnL based on net invested capital
+    portfolio_pnl = final_portfolio_value - total_net_invested
+    benchmark_pnl = final_benchmark_value - total_net_invested
+
+    # Calculate final return percentages for the summary display
+    portfolio_total_return = (float(portfolio_pnl) / float(total_net_invested) * 100) if total_net_invested > 0 else 0.0
+    benchmark_total_return = (float(benchmark_pnl) / float(total_net_invested) * 100) if total_net_invested > 0 else 0.0
+
     outperformance = portfolio_total_return - benchmark_total_return
+    
+    # Note: The 'performance_return' values inside the lists are for plotting the chart.
+    # The summary values above are the money-weighted returns.
     
     # Calculate CAGR
     years = days / 365.25  # Account for leap years
