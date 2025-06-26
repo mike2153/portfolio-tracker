@@ -1,0 +1,2949 @@
+{
+  "config": {
+    "configFile": "C:\\Users\\mike2\\Documents\\WebProject\\e2e_test_suite\\playwright.config.ts",
+    "rootDir": "C:/Users/mike2/Documents/WebProject/e2e_test_suite/tests",
+    "forbidOnly": true,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 1,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "html",
+        {
+          "outputFolder": "test-results/html-report"
+        }
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results/results.json"
+        }
+      ],
+      [
+        "junit",
+        {
+          "outputFile": "test-results/results.xml"
+        }
+      ],
+      [
+        "list",
+        null
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "C:/Users/mike2/Documents/WebProject/e2e_test_suite/test-results/artifacts",
+        "repeatEach": 1,
+        "retries": 2,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "setup",
+        "name": "setup",
+        "testDir": "C:/Users/mike2/Documents/WebProject/e2e_test_suite/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "/.*\\.setup\\.ts/"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "C:/Users/mike2/Documents/WebProject/e2e_test_suite/test-results/artifacts",
+        "repeatEach": 1,
+        "retries": 2,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "C:/Users/mike2/Documents/WebProject/e2e_test_suite/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "C:/Users/mike2/Documents/WebProject/e2e_test_suite/test-results/artifacts",
+        "repeatEach": 1,
+        "retries": 2,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "firefox",
+        "name": "firefox",
+        "testDir": "C:/Users/mike2/Documents/WebProject/e2e_test_suite/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "C:/Users/mike2/Documents/WebProject/e2e_test_suite/test-results/artifacts",
+        "repeatEach": 1,
+        "retries": 2,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "webkit",
+        "name": "webkit",
+        "testDir": "C:/Users/mike2/Documents/WebProject/e2e_test_suite/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "C:/Users/mike2/Documents/WebProject/e2e_test_suite/test-results/artifacts",
+        "repeatEach": 1,
+        "retries": 2,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "Mobile Chrome",
+        "name": "Mobile Chrome",
+        "testDir": "C:/Users/mike2/Documents/WebProject/e2e_test_suite/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "C:/Users/mike2/Documents/WebProject/e2e_test_suite/test-results/artifacts",
+        "repeatEach": 1,
+        "retries": 2,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "Mobile Safari",
+        "name": "Mobile Safari",
+        "testDir": "C:/Users/mike2/Documents/WebProject/e2e_test_suite/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "C:/Users/mike2/Documents/WebProject/e2e_test_suite/test-results/artifacts",
+        "repeatEach": 1,
+        "retries": 2,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "Microsoft Edge",
+        "name": "Microsoft Edge",
+        "testDir": "C:/Users/mike2/Documents/WebProject/e2e_test_suite/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "C:/Users/mike2/Documents/WebProject/e2e_test_suite/test-results/artifacts",
+        "repeatEach": 1,
+        "retries": 2,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "Google Chrome",
+        "name": "Google Chrome",
+        "testDir": "C:/Users/mike2/Documents/WebProject/e2e_test_suite/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "shard": null,
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.53.1",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "simple-login-test.spec.ts",
+      "file": "simple-login-test.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Simple Login Test",
+          "file": "simple-login-test.spec.ts",
+          "line": 7,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Can login and reach dashboard with working KPIs",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 13447,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "🧪 Testing simple login flow...\n"
+                        },
+                        {
+                          "text": "🚀 Navigating to home page...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold\n"
+                        },
+                        {
+                          "text": "📡 API Call: 200 http://localhost:8000/api/health\n"
+                        },
+                        {
+                          "text": "📡 API Call: 200 http://localhost:8000/api/health\n"
+                        },
+                        {
+                          "text": "📸 Screenshot: home page\n"
+                        },
+                        {
+                          "text": "📍 Home URL: http://localhost:3000/auth\n"
+                        },
+                        {
+                          "text": "🎯 Attempting to access dashboard directly...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🚀 Enhanced KPI Grid component rendering with initial data: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 📊 Initial data type: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 📊 Initial data keys: null\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🎯 Query state: {isLoading: false, isError: false, error: null, hasApiData: false, hasInitialData: false}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🎯 Using processed data: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🎯 Data validation check: {hasData: false, hasMarketValue: no, hasTotalProfit: no, hasIRR: no, hasPassiveIncome: no}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] ❌ No data available, showing skeleton\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🚀 Enhanced KPI Grid component rendering with initial data: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 📊 Initial data type: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 📊 Initial data keys: null\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🎯 Query state: {isLoading: false, isError: false, error: null, hasApiData: false, hasInitialData: false}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🎯 Using processed data: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🎯 Data validation check: {hasData: false, hasMarketValue: no, hasTotalProfit: no, hasIRR: no, hasPassiveIncome: no}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] ❌ No data available, showing skeleton\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🔐 useEffect: Checking user session...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🔐 useEffect: Checking user session...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Component mounting...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Query state: {data: undefined, isLoading: false, isError: false, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Allocation rows: []\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Number of rows: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Component mounting...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Query state: {data: undefined, isLoading: false, isError: false, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Allocation rows: []\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Number of rows: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Component mounting...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Component state: {userId: null, range: 1Y, mode: value, benchmark: SPY}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Query state: {data: undefined, isLoading: false, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Parsed performance data: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Portfolio performance data length: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Benchmark performance data length: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Sample portfolio data: []\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Sample benchmark data: []\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Chart data Y values: {portfolioY: Array(0), benchmarkY: Array(0)}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Component mounting...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Component state: {userId: null, range: 1Y, mode: value, benchmark: SPY}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Query state: {data: undefined, isLoading: false, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Parsed performance data: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Portfolio performance data length: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Benchmark performance data length: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Sample portfolio data: []\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Sample benchmark data: []\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Chart data Y values: {portfolioY: Array(0), benchmarkY: Array(0)}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Component mounting for type: gainers\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Query state for gainers: {data: undefined, isLoading: false, isError: false, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Items for gainers: []\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Number of items for gainers: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Component mounting for type: gainers\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Query state for gainers: {data: undefined, isLoading: false, isError: false, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Items for gainers: []\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Number of items for gainers: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Component mounting...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Query state: {data: undefined, isLoading: false, isError: false, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Allocation rows: []\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Number of rows: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Component mounting...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Query state: {data: undefined, isLoading: false, isError: false, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Allocation rows: []\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Number of rows: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Component mounting...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Component state: {userId: null, range: 1Y, mode: value, benchmark: SPY}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Query state: {data: undefined, isLoading: false, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Parsed performance data: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Portfolio performance data length: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Benchmark performance data length: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Sample portfolio data: []\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Sample benchmark data: []\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Chart data Y values: {portfolioY: Array(0), benchmarkY: Array(0)}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Component mounting...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Component state: {userId: null, range: 1Y, mode: value, benchmark: SPY}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Query state: {data: undefined, isLoading: false, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Parsed performance data: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Portfolio performance data length: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Benchmark performance data length: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Sample portfolio data: []\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Sample benchmark data: []\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Chart data Y values: {portfolioY: Array(0), benchmarkY: Array(0)}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Component mounting for type: gainers\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Query state for gainers: {data: undefined, isLoading: false, isError: false, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Items for gainers: []\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Number of items for gainers: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Component mounting for type: gainers\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Query state for gainers: {data: undefined, isLoading: false, isError: false, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Items for gainers: []\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Number of items for gainers: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Component mounting for type: losers\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Query state for losers: {data: undefined, isLoading: false, isError: false, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Items for losers: []\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Number of items for losers: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Component mounting for type: losers\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Query state for losers: {data: undefined, isLoading: false, isError: false, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Items for losers: []\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Number of items for losers: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] useEffect: Checking user session...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 🚀 Starting request to: http://localhost:8000/api/fx/latest?base=AUD\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 📝 Request options: {}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] useEffect: Checking user session...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] useEffect: Checking user session for gainers...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] useEffect: Checking user session for losers...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] useEffect: Checking user session...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] useEffect: Checking user session...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] useEffect: Checking user session for gainers...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] useEffect: Checking user session for losers...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🔐 Session user ID: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] ❌ No user session found\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🔐 Session user ID: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] ❌ No user session found\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Session user ID: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] No user session found\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 🔐 Auth token available: false\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 🔐 Token preview: none\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 📤 Final request headers: {Content-Type: application/json}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 📡 Making fetch request to: http://localhost:8000/api/fx/latest?base=AUD\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Session user ID: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] No user session found\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Session user ID for gainers: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] No user session found for gainers\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Session user ID for losers: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] No user session found for losers\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Session user ID: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] No user session found\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Session user ID: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] No user session found\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Session user ID for gainers: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] No user session found for gainers\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Session user ID for losers: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] No user session found for losers\n"
+                        },
+                        {
+                          "text": "📡 API Call: 200 http://localhost:8000/api/fx/latest?base=AUD\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 📨 Response received: {status: 200, statusText: OK, ok: true, url: http://localhost:8000/api/fx/latest?base=AUD, headers: Object}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 📄 Raw success response text: {\"ok\": true, \"message\": \"Success\", \"data\": {\"rates\": [{\"pair\": \"AUDUSD\", \"rate\": 1.0, \"change\": 0.0}, {\"pair\": \"AUDEUR\", \"rate\": 0.65, \"change\": 0.0}, {\"pair\": \"AUDGBP\", \"rate\": 0.65, \"change\": 0.0}, {\"pair\": \"AUDJPY\", \"rate\": 0.65, \"change\": 0.0}]}}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 📊 Parsed response data: {ok: true, message: Success, data: Object}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] ✅ Request completed successfully for http://localhost:8000/api/fx/latest?base=AUD\n"
+                        },
+                        {
+                          "text": "📍 Dashboard URL: http://localhost:3000/auth\n"
+                        },
+                        {
+                          "text": "🔐 Redirected to auth - login required\n"
+                        },
+                        {
+                          "text": "📸 Screenshot: auth page\n"
+                        },
+                        {
+                          "text": "📝 Filling login form...\n"
+                        },
+                        {
+                          "text": "📧 Using email: 3200163@proton.me\n"
+                        },
+                        {
+                          "text": "📸 Screenshot: form filled\n"
+                        },
+                        {
+                          "text": "🚀 Submitting login form...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🚀 Enhanced KPI Grid component rendering with initial data: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 📊 Initial data type: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 📊 Initial data keys: null\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🎯 Query state: {isLoading: false, isError: false, error: null, hasApiData: false, hasInitialData: false}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🎯 Using processed data: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🎯 Data validation check: {hasData: false, hasMarketValue: no, hasTotalProfit: no, hasIRR: no, hasPassiveIncome: no}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] ❌ No data available, showing skeleton\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🚀 Enhanced KPI Grid component rendering with initial data: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 📊 Initial data type: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 📊 Initial data keys: null\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🎯 Query state: {isLoading: false, isError: false, error: null, hasApiData: false, hasInitialData: false}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🎯 Using processed data: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🎯 Data validation check: {hasData: false, hasMarketValue: no, hasTotalProfit: no, hasIRR: no, hasPassiveIncome: no}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] ❌ No data available, showing skeleton\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🔐 useEffect: Checking user session...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🔐 useEffect: Checking user session...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Component mounting...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Query state: {data: undefined, isLoading: false, isError: false, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Allocation rows: []\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Number of rows: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Component mounting...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Query state: {data: undefined, isLoading: false, isError: false, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Allocation rows: []\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Number of rows: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Component mounting...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Component state: {userId: null, range: 1Y, mode: value, benchmark: SPY}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Query state: {data: undefined, isLoading: false, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Parsed performance data: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Portfolio performance data length: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Benchmark performance data length: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Sample portfolio data: []\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Sample benchmark data: []\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Chart data Y values: {portfolioY: Array(0), benchmarkY: Array(0)}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Component mounting...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Component state: {userId: null, range: 1Y, mode: value, benchmark: SPY}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Query state: {data: undefined, isLoading: false, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Parsed performance data: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Portfolio performance data length: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Benchmark performance data length: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Sample portfolio data: []\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Sample benchmark data: []\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Chart data Y values: {portfolioY: Array(0), benchmarkY: Array(0)}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Component mounting for type: gainers\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Query state for gainers: {data: undefined, isLoading: false, isError: false, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Items for gainers: []\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Number of items for gainers: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Component mounting for type: gainers\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Query state for gainers: {data: undefined, isLoading: false, isError: false, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Items for gainers: []\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Number of items for gainers: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Component mounting for type: losers\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Query state for losers: {data: undefined, isLoading: false, isError: false, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Items for losers: []\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Number of items for losers: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Component mounting for type: losers\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Query state for losers: {data: undefined, isLoading: false, isError: false, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Items for losers: []\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Number of items for losers: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] useEffect: Checking user session...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 🚀 Starting request to: http://localhost:8000/api/fx/latest?base=AUD\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 📝 Request options: {}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] useEffect: Checking user session...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] useEffect: Checking user session for gainers...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] useEffect: Checking user session for losers...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] useEffect: Checking user session...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] useEffect: Checking user session...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] useEffect: Checking user session for gainers...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] useEffect: Checking user session for losers...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🔐 Session user ID: 28eff71a-87bd-433f-bd6c-8701801e2261\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🔐 User ID set to: 28eff71a-87bd-433f-bd6c-8701801e2261\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🚀 Enhanced KPI Grid component rendering with initial data: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 📊 Initial data type: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 📊 Initial data keys: null\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🎯 Query state: {isLoading: true, isError: false, error: null, hasApiData: false, hasInitialData: false}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🎯 Using processed data: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🎯 Data validation check: {hasData: false, hasMarketValue: no, hasTotalProfit: no, hasIRR: no, hasPassiveIncome: no}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] ⏳ Loading data, showing skeleton\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🚀 Enhanced KPI Grid component rendering with initial data: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 📊 Initial data type: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 📊 Initial data keys: null\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🎯 Query state: {isLoading: true, isError: false, error: null, hasApiData: false, hasInitialData: false}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🎯 Using processed data: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🎯 Data validation check: {hasData: false, hasMarketValue: no, hasTotalProfit: no, hasIRR: no, hasPassiveIncome: no}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] ⏳ Loading data, showing skeleton\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 📡 Making API call for dashboard overview...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 📡 User ID for API call: 28eff71a-87bd-433f-bd6c-8701801e2261\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 🚀 Starting request to: http://localhost:8000/api/dashboard/overview\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 📝 Request options: {}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🔐 Session user ID: 28eff71a-87bd-433f-bd6c-8701801e2261\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🔐 User ID set to: 28eff71a-87bd-433f-bd6c-8701801e2261\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🚀 Enhanced KPI Grid component rendering with initial data: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 📊 Initial data type: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 📊 Initial data keys: null\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🎯 Query state: {isLoading: true, isError: false, error: null, hasApiData: false, hasInitialData: false}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🎯 Using processed data: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🎯 Data validation check: {hasData: false, hasMarketValue: no, hasTotalProfit: no, hasIRR: no, hasPassiveIncome: no}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] ⏳ Loading data, showing skeleton\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🚀 Enhanced KPI Grid component rendering with initial data: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 📊 Initial data type: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 📊 Initial data keys: null\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🎯 Query state: {isLoading: true, isError: false, error: null, hasApiData: false, hasInitialData: false}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🎯 Using processed data: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🎯 Data validation check: {hasData: false, hasMarketValue: no, hasTotalProfit: no, hasIRR: no, hasPassiveIncome: no}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] ⏳ Loading data, showing skeleton\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Session user ID: 28eff71a-87bd-433f-bd6c-8701801e2261\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] User ID set to: 28eff71a-87bd-433f-bd6c-8701801e2261\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Component mounting...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Query state: {data: undefined, isLoading: true, isError: false, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Still loading, showing skeleton\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Component mounting...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Query state: {data: undefined, isLoading: true, isError: false, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Still loading, showing skeleton\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Making API call for allocation data...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 🚀 Starting request to: http://localhost:8000/api/dashboard/allocation?groupBy=sector\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 📝 Request options: {}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 🔐 Auth token available: true\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 🔐 Token preview: eyJhbGciOiJIUzI1NiIs...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 📤 Final request headers: {Content-Type: application/json, Authorization: Bearer eyJhbGciOiJIUzI1NiIsImtpZCI6ImVJdWpzR3M5UVR…sc2V9.j6TpdCSCYpN6kqA1NrKLB2NbL7qNNeIRty0fWSu4wFE}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 📡 Making fetch request to: http://localhost:8000/api/fx/latest?base=AUD\n"
+                        },
+                        {
+                          "text": "📡 API Call: 200 http://localhost:8000/api/fx/latest?base=AUD\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 📨 Response received: {status: 200, statusText: OK, ok: true, url: http://localhost:8000/api/fx/latest?base=AUD, headers: Object}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Session user ID: 28eff71a-87bd-433f-bd6c-8701801e2261\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] User ID set to: 28eff71a-87bd-433f-bd6c-8701801e2261\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Component mounting...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Component state: {userId: 28eff71a-87bd-433f-bd6c-8701801e2261, range: 1Y, mode: value, benchmark: SPY}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Query state: {data: undefined, isLoading: true, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Parsed performance data: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Portfolio performance data length: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Benchmark performance data length: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Sample portfolio data: []\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Sample benchmark data: []\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Chart data Y values: {portfolioY: Array(0), benchmarkY: Array(0)}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Component mounting...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Component state: {userId: 28eff71a-87bd-433f-bd6c-8701801e2261, range: 1Y, mode: value, benchmark: SPY}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Query state: {data: undefined, isLoading: true, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Parsed performance data: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Portfolio performance data length: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Benchmark performance data length: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Sample portfolio data: []\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Sample benchmark data: []\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Chart data Y values: {portfolioY: Array(0), benchmarkY: Array(0)}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Making API call for portfolio performance...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] API params: {userId: 28eff71a-87bd-433f-bd6c-8701801e2261, range: 1Y, benchmark: SPY}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 🚀 Starting request to: http://localhost:8000/api/portfolios/28eff71a-87bd-433f-bd6c-8701801e2261/performance?period=1Y&benchmark=SPY\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 📝 Request options: {}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 📄 Raw success response text: {\"ok\": true, \"message\": \"Success\", \"data\": {\"rates\": [{\"pair\": \"AUDUSD\", \"rate\": 1.0, \"change\": 0.0}, {\"pair\": \"AUDEUR\", \"rate\": 0.65, \"change\": 0.0}, {\"pair\": \"AUDGBP\", \"rate\": 0.65, \"change\": 0.0}, {\"pair\": \"AUDJPY\", \"rate\": 0.65, \"change\": 0.0}]}}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 📊 Parsed response data: {ok: true, message: Success, data: Object}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] ✅ Request completed successfully for http://localhost:8000/api/fx/latest?base=AUD\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Session user ID for gainers: 28eff71a-87bd-433f-bd6c-8701801e2261\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] User ID set for gainers: 28eff71a-87bd-433f-bd6c-8701801e2261\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Component mounting for type: gainers\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Query state for gainers: {data: undefined, isLoading: true, isError: false, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Still loading gainers, showing skeleton\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Component mounting for type: gainers\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Query state for gainers: {data: undefined, isLoading: true, isError: false, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Still loading gainers, showing skeleton\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Making API call for gainers...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 🚀 Starting request to: http://localhost:8000/api/dashboard/gainers?limit=5\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 📝 Request options: {}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Session user ID for losers: 28eff71a-87bd-433f-bd6c-8701801e2261\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] User ID set for losers: 28eff71a-87bd-433f-bd6c-8701801e2261\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Component mounting for type: losers\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Query state for losers: {data: undefined, isLoading: true, isError: false, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Still loading losers, showing skeleton\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Component mounting for type: losers\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Query state for losers: {data: undefined, isLoading: true, isError: false, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Still loading losers, showing skeleton\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Making API call for losers...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 🚀 Starting request to: http://localhost:8000/api/dashboard/losers?limit=5\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 📝 Request options: {}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Session user ID: 28eff71a-87bd-433f-bd6c-8701801e2261\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] User ID set to: 28eff71a-87bd-433f-bd6c-8701801e2261\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Component mounting...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Query state: {data: undefined, isLoading: true, isError: false, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Still loading, showing skeleton\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Component mounting...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Query state: {data: undefined, isLoading: true, isError: false, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Still loading, showing skeleton\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Session user ID: 28eff71a-87bd-433f-bd6c-8701801e2261\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] User ID set to: 28eff71a-87bd-433f-bd6c-8701801e2261\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Component mounting...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Component state: {userId: 28eff71a-87bd-433f-bd6c-8701801e2261, range: 1Y, mode: value, benchmark: SPY}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Query state: {data: undefined, isLoading: true, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Parsed performance data: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Portfolio performance data length: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Benchmark performance data length: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Sample portfolio data: []\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Sample benchmark data: []\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Chart data Y values: {portfolioY: Array(0), benchmarkY: Array(0)}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Component mounting...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Component state: {userId: 28eff71a-87bd-433f-bd6c-8701801e2261, range: 1Y, mode: value, benchmark: SPY}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Query state: {data: undefined, isLoading: true, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Parsed performance data: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Portfolio performance data length: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Benchmark performance data length: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Sample portfolio data: []\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Sample benchmark data: []\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [PortfolioChart] Chart data Y values: {portfolioY: Array(0), benchmarkY: Array(0)}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Session user ID for gainers: 28eff71a-87bd-433f-bd6c-8701801e2261\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] User ID set for gainers: 28eff71a-87bd-433f-bd6c-8701801e2261\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Session user ID for losers: 28eff71a-87bd-433f-bd6c-8701801e2261\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] User ID set for losers: 28eff71a-87bd-433f-bd6c-8701801e2261\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Component mounting for type: losers\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Query state for losers: {data: undefined, isLoading: true, isError: false, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Still loading losers, showing skeleton\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Component mounting for type: losers\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Query state for losers: {data: undefined, isLoading: true, isError: false, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Still loading losers, showing skeleton\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 🔐 Auth token available: true\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 🔐 Token preview: eyJhbGciOiJIUzI1NiIs...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 📤 Final request headers: {Content-Type: application/json, Authorization: Bearer eyJhbGciOiJIUzI1NiIsImtpZCI6ImVJdWpzR3M5UVR…sc2V9.j6TpdCSCYpN6kqA1NrKLB2NbL7qNNeIRty0fWSu4wFE}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 📡 Making fetch request to: http://localhost:8000/api/dashboard/overview\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 🔐 Auth token available: true\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 🔐 Token preview: eyJhbGciOiJIUzI1NiIs...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 📤 Final request headers: {Content-Type: application/json, Authorization: Bearer eyJhbGciOiJIUzI1NiIsImtpZCI6ImVJdWpzR3M5UVR…sc2V9.j6TpdCSCYpN6kqA1NrKLB2NbL7qNNeIRty0fWSu4wFE}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 📡 Making fetch request to: http://localhost:8000/api/dashboard/allocation?groupBy=sector\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 🔐 Auth token available: true\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 🔐 Token preview: eyJhbGciOiJIUzI1NiIs...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 📤 Final request headers: {Content-Type: application/json, Authorization: Bearer eyJhbGciOiJIUzI1NiIsImtpZCI6ImVJdWpzR3M5UVR…sc2V9.j6TpdCSCYpN6kqA1NrKLB2NbL7qNNeIRty0fWSu4wFE}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 📡 Making fetch request to: http://localhost:8000/api/portfolios/28eff71a-87bd-433f-bd6c-8701801e2261/performance?period=1Y&benchmark=SPY\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 🔐 Auth token available: true\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 🔐 Token preview: eyJhbGciOiJIUzI1NiIs...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 📤 Final request headers: {Content-Type: application/json, Authorization: Bearer eyJhbGciOiJIUzI1NiIsImtpZCI6ImVJdWpzR3M5UVR…sc2V9.j6TpdCSCYpN6kqA1NrKLB2NbL7qNNeIRty0fWSu4wFE}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 📡 Making fetch request to: http://localhost:8000/api/dashboard/gainers?limit=5\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 🔐 Auth token available: true\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 🔐 Token preview: eyJhbGciOiJIUzI1NiIs...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 📤 Final request headers: {Content-Type: application/json, Authorization: Bearer eyJhbGciOiJIUzI1NiIsImtpZCI6ImVJdWpzR3M5UVR…sc2V9.j6TpdCSCYpN6kqA1NrKLB2NbL7qNNeIRty0fWSu4wFE}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 📡 Making fetch request to: http://localhost:8000/api/dashboard/losers?limit=5\n"
+                        },
+                        {
+                          "text": "📡 API Call: 200 http://localhost:8000/api/dashboard/allocation?groupBy=sector\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 📨 Response received: {status: 200, statusText: OK, ok: true, url: http://localhost:8000/api/dashboard/allocation?groupBy=sector, headers: Object}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 📄 Raw success response text: {\"rows\": [{\"groupKey\": \"WULF\", \"value\": \"380.00\", \"invested\": \"251.00\", \"gainValue\": \"129.00\", \"gainPercent\": \"51.39\", \"allocation\": \"1.65\", \"accentColor\": \"blue\"}, {\"groupKey\": \"AAAIF\", \"value\": \"6.76\", \"invested\": \"123.00\", \"gainValue\": \"-116.24\", \"gainPercent\": \"-94.50\", \"allocation\": \"0.03\", \"accentColor\": \"blue\"}, {\"groupKey\": \"AAA\", \"value\": \"2505.00\", \"invested\": \"2439.00\", \"gainValue\": \"66.00\", \"gainPercent\": \"2.71\", \"allocation\": \"10.87\", \"accentColor\": \"blue\"}, {\"groupKey\": \"AAPL\", \"value\": \"20156.00\", \"invested\": \"17114.00\", \"gainValue\": \"3042.00\", \"gainPercent\": \"17.77\", \"allocation\": \"87.45\", \"accentColor\": \"blue\"}]}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 📊 Parsed response data: {rows: Array(4)}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] ✅ Request completed successfully for http://localhost:8000/api/dashboard/allocation?groupBy=sector\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] API response: {ok: true, data: Object}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] API response data type: object\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] API response rows: [Object, Object, Object, Object]\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Row 0 (WULF): {allocation: 1.65, allocationType: string, allocationValue: 1.65, canCallToFixed: true}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Row 1 (AAAIF): {allocation: 0.03, allocationType: string, allocationValue: 0.03, canCallToFixed: true}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Row 2 (AAA): {allocation: 10.87, allocationType: string, allocationValue: 10.87, canCallToFixed: true}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Row 3 (AAPL): {allocation: 87.45, allocationType: string, allocationValue: 87.45, canCallToFixed: true}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Component mounting...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Query state: {data: Object, isLoading: false, isError: false, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Allocation rows: [Object, Object, Object, Object]\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Number of rows: 4\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Rendering row 0: {groupKey: WULF, value: 380.00, invested: 251.00, gainValue: 129.00, gainPercent: 51.39}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Row 0 allocation details: {allocation: 1.65, type: string, value: 1.65}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] safeFormatAllocation called with: 1.65 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] safeFormatAllocation: allocation is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] safeFormatAllocation: successfully parsed string to number: 1.65\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Rendering row 1: {groupKey: AAAIF, value: 6.76, invested: 123.00, gainValue: -116.24, gainPercent: -94.50}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Row 1 allocation details: {allocation: 0.03, type: string, value: 0.03}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] safeFormatAllocation called with: 0.03 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] safeFormatAllocation: allocation is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] safeFormatAllocation: successfully parsed string to number: 0.03\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Rendering row 2: {groupKey: AAA, value: 2505.00, invested: 2439.00, gainValue: 66.00, gainPercent: 2.71}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Row 2 allocation details: {allocation: 10.87, type: string, value: 10.87}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] safeFormatAllocation called with: 10.87 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] safeFormatAllocation: allocation is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] safeFormatAllocation: successfully parsed string to number: 10.87\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Rendering row 3: {groupKey: AAPL, value: 20156.00, invested: 17114.00, gainValue: 3042.00, gainPercent: 17.77}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Row 3 allocation details: {allocation: 87.45, type: string, value: 87.45}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] safeFormatAllocation called with: 87.45 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] safeFormatAllocation: allocation is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] safeFormatAllocation: successfully parsed string to number: 87.45\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Component mounting...\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Query state: {data: Object, isLoading: false, isError: false, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Allocation rows: [Object, Object, Object, Object]\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Number of rows: 4\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Rendering row 0: {groupKey: WULF, value: 380.00, invested: 251.00, gainValue: 129.00, gainPercent: 51.39}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Row 0 allocation details: {allocation: 1.65, type: string, value: 1.65}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] safeFormatAllocation called with: 1.65 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] safeFormatAllocation: allocation is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] safeFormatAllocation: successfully parsed string to number: 1.65\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Rendering row 1: {groupKey: AAAIF, value: 6.76, invested: 123.00, gainValue: -116.24, gainPercent: -94.50}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Row 1 allocation details: {allocation: 0.03, type: string, value: 0.03}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] safeFormatAllocation called with: 0.03 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] safeFormatAllocation: allocation is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] safeFormatAllocation: successfully parsed string to number: 0.03\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Rendering row 2: {groupKey: AAA, value: 2505.00, invested: 2439.00, gainValue: 66.00, gainPercent: 2.71}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Row 2 allocation details: {allocation: 10.87, type: string, value: 10.87}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] safeFormatAllocation called with: 10.87 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] safeFormatAllocation: allocation is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] safeFormatAllocation: successfully parsed string to number: 10.87\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Rendering row 3: {groupKey: AAPL, value: 20156.00, invested: 17114.00, gainValue: 3042.00, gainPercent: 17.77}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] Row 3 allocation details: {allocation: 87.45, type: string, value: 87.45}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] safeFormatAllocation called with: 87.45 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] safeFormatAllocation: allocation is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [AllocationTable] safeFormatAllocation: successfully parsed string to number: 87.45\n"
+                        },
+                        {
+                          "text": "📡 API Call: 200 http://localhost:8000/api/dashboard/overview\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 📨 Response received: {status: 200, statusText: OK, ok: true, url: http://localhost:8000/api/dashboard/overview, headers: Object}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 📄 Raw success response text: {\"market_value\": {\"value\": \"141234.57\", \"sub_label\": \"+AU$47560.47 (+50.77%)\", \"delta\": null, \"delta_percent\": null, \"is_positive\": true}, \"total_profit\": {\"value\": \"47560.47\", \"sub_label\": \"Total P&L: +50.77%\", \"delta\": null, \"delta_percent\": null, \"is_positive\": true}, \"irr\": {\"value\": \"0.00\", \"sub_label\": \"vs SPY: +0.0%\", \"delta\": null, \"delta_percent\": null, \"is_positive\": false}, \"passive_income\": {\"value\": \"0.00\", \"sub_label\": \"0.00% yield (AU$0.00 annual)\", \"delta\": null, \"delta_percent\": null, \"is_positive\": false}}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 📊 Parsed response data: {market_value: Object, total_profit: Object, irr: Object, passive_income: Object}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] ✅ Request completed successfully for http://localhost:8000/api/dashboard/overview\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 📡 Raw API result: {ok: true, data: Object}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 📡 API result type: object\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 📡 API result.ok: true\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 📡 API result.data: {market_value: Object, total_profit: Object, irr: Object, passive_income: Object}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 📡 API result.error: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] ✅ API call successful, returning result\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🚀 Enhanced KPI Grid component rendering with initial data: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 📊 Initial data type: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 📊 Initial data keys: null\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🎯 Query state: {isLoading: false, isError: false, error: null, hasApiData: true, hasInitialData: false}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🎯 Using processed data: {market_value: Object, total_profit: Object, irr: Object, passive_income: Object}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🎯 Data validation check: {hasData: true, hasMarketValue: no, hasTotalProfit: no, hasIRR: yes, hasPassiveIncome: no}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] ✅ Rendering enhanced KPI cards with data structure:\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid]   📈 Portfolio Value (marketValue): undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid]   📊 Portfolio Beta (totalProfit): undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid]   📈 IRR (irr): {value: 0.00, sub_label: vs SPY: +0.0%, delta: null, delta_percent: null, is_positive: false}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid]   💰 Dividend Yield (passiveIncome): undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🔍 Validating Portfolio Value KPI data: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] ⚠️  Portfolio Value KPI data is null/undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🔍 Validating Portfolio Beta KPI data: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] ⚠️  Portfolio Beta KPI data is null/undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🔍 Validating IRR KPI data: {value: 0.00, sub_label: vs SPY: +0.0%, delta: null, delta_percent: null, is_positive: false}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] ✅ IRR KPI validation passed\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🔍 Validating Dividend Yield KPI data: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] ⚠️  Dividend Yield KPI data is null/undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🚀 Enhanced KPI Grid component rendering with initial data: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 📊 Initial data type: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 📊 Initial data keys: null\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🎯 Query state: {isLoading: false, isError: false, error: null, hasApiData: true, hasInitialData: false}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🎯 Using processed data: {market_value: Object, total_profit: Object, irr: Object, passive_income: Object}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🎯 Data validation check: {hasData: true, hasMarketValue: no, hasTotalProfit: no, hasIRR: yes, hasPassiveIncome: no}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] ✅ Rendering enhanced KPI cards with data structure:\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid]   📈 Portfolio Value (marketValue): undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid]   📊 Portfolio Beta (totalProfit): undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid]   📈 IRR (irr): {value: 0.00, sub_label: vs SPY: +0.0%, delta: null, delta_percent: null, is_positive: false}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid]   💰 Dividend Yield (passiveIncome): undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🔍 Validating Portfolio Value KPI data: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] ⚠️  Portfolio Value KPI data is null/undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🔍 Validating Portfolio Beta KPI data: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] ⚠️  Portfolio Beta KPI data is null/undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🔍 Validating IRR KPI data: {value: 0.00, sub_label: vs SPY: +0.0%, delta: null, delta_percent: null, is_positive: false}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] ✅ IRR KPI validation passed\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] 🔍 Validating Dividend Yield KPI data: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPIGrid] ⚠️  Dividend Yield KPI data is null/undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 🚀 Enhanced KPI card rendering for: Portfolio Value\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 📊 Raw data received: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 📊 Data type: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 📊 Data keys: null\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 🎯 Props - title: \"Portfolio Value\", prefix: \"\", suffix: \"\"\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] ❌ Invalid data for Portfolio Value: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 🚀 Enhanced KPI card rendering for: Portfolio Value\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 📊 Raw data received: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 📊 Data type: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 📊 Data keys: null\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 🎯 Props - title: \"Portfolio Value\", prefix: \"\", suffix: \"\"\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] ❌ Invalid data for Portfolio Value: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 🚀 Enhanced KPI card rendering for: IRR\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 📊 Raw data received: {value: 0.00, sub_label: vs SPY: +0.0%, delta: null, delta_percent: null, is_positive: false}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 📊 Data type: object\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 📊 Data keys: [value, sub_label, delta, delta_percent, is_positive]\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 🎯 Props - title: \"IRR\", prefix: \"\", suffix: \"\"\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 🔍 Extracted fields for IRR:\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard]   - value: \"0.00\" (type: string)\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard]   - sub_label: \"vs SPY: +0.0%\" (type: string)\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard]   - deltaPercent: \"undefined\" (type: undefined)\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard]   - is_positive: false (type: boolean)\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] safeFormatValue called with: 0.00 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] safeFormatValue: value is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] safeFormatValue: successfully parsed string to number: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 🎯 Final render data for IRR:\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard]   - Raw value: \"0.00\" (string)\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard]   - Safe formatted value: \"0.00\"\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard]   - Final display value: \"0.00\"\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard]   - Sub label: \"vs SPY: +0.0%\"\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard]   - Delta percent: \"undefined\" -> \"null\"\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard]   - Is positive: false\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard]   - Trend color: red\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 🚀 Enhanced KPI card rendering for: IRR\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 📊 Raw data received: {value: 0.00, sub_label: vs SPY: +0.0%, delta: null, delta_percent: null, is_positive: false}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 📊 Data type: object\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 📊 Data keys: [value, sub_label, delta, delta_percent, is_positive]\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 🎯 Props - title: \"IRR\", prefix: \"\", suffix: \"\"\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 🔍 Extracted fields for IRR:\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard]   - value: \"0.00\" (type: string)\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard]   - sub_label: \"vs SPY: +0.0%\" (type: string)\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard]   - deltaPercent: \"undefined\" (type: undefined)\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard]   - is_positive: false (type: boolean)\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] safeFormatValue called with: 0.00 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] safeFormatValue: value is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] safeFormatValue: successfully parsed string to number: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 🎯 Final render data for IRR:\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard]   - Raw value: \"0.00\" (string)\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard]   - Safe formatted value: \"0.00\"\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard]   - Final display value: \"0.00\"\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard]   - Sub label: \"vs SPY: +0.0%\"\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard]   - Delta percent: \"undefined\" -> \"null\"\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard]   - Is positive: false\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard]   - Trend color: red\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 🚀 Enhanced KPI card rendering for: Dividend Yield\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 📊 Raw data received: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 📊 Data type: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 📊 Data keys: null\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 🎯 Props - title: \"Dividend Yield\", prefix: \"\", suffix: \"\"\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] ❌ Invalid data for Dividend Yield: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 🚀 Enhanced KPI card rendering for: Dividend Yield\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 📊 Raw data received: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 📊 Data type: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 📊 Data keys: null\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 🎯 Props - title: \"Dividend Yield\", prefix: \"\", suffix: \"\"\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] ❌ Invalid data for Dividend Yield: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 🚀 Enhanced KPI card rendering for: Portfolio Beta\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 📊 Raw data received: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 📊 Data type: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 📊 Data keys: null\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 🎯 Props - title: \"Portfolio Beta\", prefix: \"\", suffix: \"\"\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] ❌ Invalid data for Portfolio Beta: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 🚀 Enhanced KPI card rendering for: Portfolio Beta\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 📊 Raw data received: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 📊 Data type: undefined\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 📊 Data keys: null\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] 🎯 Props - title: \"Portfolio Beta\", prefix: \"\", suffix: \"\"\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [KPICard] ❌ Invalid data for Portfolio Beta: undefined\n"
+                        },
+                        {
+                          "text": "📡 API Call: 200 http://localhost:8000/api/dashboard/losers?limit=5\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 📨 Response received: {status: 200, statusText: OK, ok: true, url: http://localhost:8000/api/dashboard/losers?limit=5, headers: Object}\n"
+                        },
+                        {
+                          "text": "📡 API Call: 200 http://localhost:8000/api/dashboard/gainers?limit=5\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 📨 Response received: {status: 200, statusText: OK, ok: true, url: http://localhost:8000/api/dashboard/gainers?limit=5, headers: Object}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 📄 Raw success response text: {\"items\": [{\"logoUrl\": null, \"name\": \"WULF\", \"ticker\": \"WULF\", \"value\": \"3.80\", \"changePercent\": \"-1.04\", \"changeValue\": \"-0.04\"}, {\"logoUrl\": null, \"name\": \"AAAIF\", \"ticker\": \"AAAIF\", \"value\": \"0.06\", \"changePercent\": \"0.0\", \"changeValue\": \"0.0\"}, {\"logoUrl\": null, \"name\": \"AAA\", \"ticker\": \"AAA\", \"value\": \"25.05\", \"changePercent\": \"0.05\", \"changeValue\": \"0.01\"}, {\"logoUrl\": null, \"name\": \"AAPL\", \"ticker\": \"AAPL\", \"value\": \"201.56\", \"changePercent\": \"0.63\", \"changeValue\": \"1.26\"}]}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 📊 Parsed response data: {items: Array(4)}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] ✅ Request completed successfully for http://localhost:8000/api/dashboard/losers?limit=5\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] API response for losers: {ok: true, data: Object}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] API response data type for losers: object\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] API response items for losers: [Object, Object, Object, Object]\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] losers Item 0 (WULF): {changePercent: -1.04, changePercentType: string, changeValue: -0.04, changeValueType: string, canCallToFixed: true}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] losers Item 1 (AAAIF): {changePercent: 0.0, changePercentType: string, changeValue: 0.0, changeValueType: string, canCallToFixed: true}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] losers Item 2 (AAA): {changePercent: 0.05, changePercentType: string, changeValue: 0.01, changeValueType: string, canCallToFixed: true}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] losers Item 3 (AAPL): {changePercent: 0.63, changePercentType: string, changeValue: 1.26, changeValueType: string, canCallToFixed: true}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 📄 Raw success response text: {\"items\": [{\"logoUrl\": null, \"name\": \"AAPL\", \"ticker\": \"AAPL\", \"value\": \"201.56\", \"changePercent\": \"0.63\", \"changeValue\": \"1.26\"}, {\"logoUrl\": null, \"name\": \"AAA\", \"ticker\": \"AAA\", \"value\": \"25.05\", \"changePercent\": \"0.05\", \"changeValue\": \"0.01\"}, {\"logoUrl\": null, \"name\": \"AAAIF\", \"ticker\": \"AAAIF\", \"value\": \"0.06\", \"changePercent\": \"0.0\", \"changeValue\": \"0.0\"}, {\"logoUrl\": null, \"name\": \"WULF\", \"ticker\": \"WULF\", \"value\": \"3.80\", \"changePercent\": \"-1.04\", \"changeValue\": \"-0.04\"}]}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] 📊 Parsed response data: {items: Array(4)}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [API] ✅ Request completed successfully for http://localhost:8000/api/dashboard/gainers?limit=5\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] API response for gainers: {ok: true, data: Object}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] API response data type for gainers: object\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] API response items for gainers: [Object, Object, Object, Object]\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] gainers Item 0 (AAPL): {changePercent: 0.63, changePercentType: string, changeValue: 1.26, changeValueType: string, canCallToFixed: true}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] gainers Item 1 (AAA): {changePercent: 0.05, changePercentType: string, changeValue: 0.01, changeValueType: string, canCallToFixed: true}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] gainers Item 2 (AAAIF): {changePercent: 0.0, changePercentType: string, changeValue: 0.0, changeValueType: string, canCallToFixed: true}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] gainers Item 3 (WULF): {changePercent: -1.04, changePercentType: string, changeValue: -0.04, changeValueType: string, canCallToFixed: true}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Component mounting for type: losers\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Query state for losers: {data: Object, isLoading: false, isError: false, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Items for losers: [Object, Object, Object, Object]\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Number of items for losers: 4\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Rendering losers item 0: {logoUrl: null, name: WULF, ticker: WULF, value: 3.80, changePercent: -1.04}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] losers Item 0 numeric field details: {changePercent: -1.04, changePercentType: string, changeValue: -0.04, changeValueType: string}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 3.80 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 3.8\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: -1.04 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: -1.04\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: -0.04 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: -0.04\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Rendering losers item 1: {logoUrl: null, name: AAAIF, ticker: AAAIF, value: 0.06, changePercent: 0.0}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] losers Item 1 numeric field details: {changePercent: 0.0, changePercentType: string, changeValue: 0.0, changeValueType: string}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 0.06 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 0.06\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: 0.0 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 0.0 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Rendering losers item 2: {logoUrl: null, name: AAA, ticker: AAA, value: 25.05, changePercent: 0.05}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] losers Item 2 numeric field details: {changePercent: 0.05, changePercentType: string, changeValue: 0.01, changeValueType: string}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 25.05 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 25.05\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: 0.05 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: 0.05\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 0.01 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 0.01\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Rendering losers item 3: {logoUrl: null, name: AAPL, ticker: AAPL, value: 201.56, changePercent: 0.63}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] losers Item 3 numeric field details: {changePercent: 0.63, changePercentType: string, changeValue: 1.26, changeValueType: string}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 201.56 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 201.56\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: 0.63 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: 0.63\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 1.26 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 1.26\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Component mounting for type: losers\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Query state for losers: {data: Object, isLoading: false, isError: false, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Items for losers: [Object, Object, Object, Object]\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Number of items for losers: 4\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Rendering losers item 0: {logoUrl: null, name: WULF, ticker: WULF, value: 3.80, changePercent: -1.04}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] losers Item 0 numeric field details: {changePercent: -1.04, changePercentType: string, changeValue: -0.04, changeValueType: string}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 3.80 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 3.8\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: -1.04 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: -1.04\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: -0.04 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: -0.04\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Rendering losers item 1: {logoUrl: null, name: AAAIF, ticker: AAAIF, value: 0.06, changePercent: 0.0}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] losers Item 1 numeric field details: {changePercent: 0.0, changePercentType: string, changeValue: 0.0, changeValueType: string}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 0.06 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 0.06\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: 0.0 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 0.0 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Rendering losers item 2: {logoUrl: null, name: AAA, ticker: AAA, value: 25.05, changePercent: 0.05}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] losers Item 2 numeric field details: {changePercent: 0.05, changePercentType: string, changeValue: 0.01, changeValueType: string}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 25.05 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 25.05\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: 0.05 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: 0.05\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 0.01 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 0.01\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Rendering losers item 3: {logoUrl: null, name: AAPL, ticker: AAPL, value: 201.56, changePercent: 0.63}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] losers Item 3 numeric field details: {changePercent: 0.63, changePercentType: string, changeValue: 1.26, changeValueType: string}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 201.56 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 201.56\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: 0.63 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: 0.63\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 1.26 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 1.26\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Component mounting for type: gainers\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Query state for gainers: {data: Object, isLoading: false, isError: false, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Items for gainers: [Object, Object, Object, Object]\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Number of items for gainers: 4\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Rendering gainers item 0: {logoUrl: null, name: AAPL, ticker: AAPL, value: 201.56, changePercent: 0.63}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] gainers Item 0 numeric field details: {changePercent: 0.63, changePercentType: string, changeValue: 1.26, changeValueType: string}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 201.56 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 201.56\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: 0.63 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: 0.63\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 1.26 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 1.26\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Rendering gainers item 1: {logoUrl: null, name: AAA, ticker: AAA, value: 25.05, changePercent: 0.05}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] gainers Item 1 numeric field details: {changePercent: 0.05, changePercentType: string, changeValue: 0.01, changeValueType: string}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 25.05 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 25.05\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: 0.05 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: 0.05\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 0.01 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 0.01\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Rendering gainers item 2: {logoUrl: null, name: AAAIF, ticker: AAAIF, value: 0.06, changePercent: 0.0}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] gainers Item 2 numeric field details: {changePercent: 0.0, changePercentType: string, changeValue: 0.0, changeValueType: string}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 0.06 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 0.06\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: 0.0 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 0.0 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Rendering gainers item 3: {logoUrl: null, name: WULF, ticker: WULF, value: 3.80, changePercent: -1.04}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] gainers Item 3 numeric field details: {changePercent: -1.04, changePercentType: string, changeValue: -0.04, changeValueType: string}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 3.80 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 3.8\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: -1.04 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: -1.04\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: -0.04 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: -0.04\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Component mounting for type: gainers\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Query state for gainers: {data: Object, isLoading: false, isError: false, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Items for gainers: [Object, Object, Object, Object]\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Number of items for gainers: 4\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Rendering gainers item 0: {logoUrl: null, name: AAPL, ticker: AAPL, value: 201.56, changePercent: 0.63}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] gainers Item 0 numeric field details: {changePercent: 0.63, changePercentType: string, changeValue: 1.26, changeValueType: string}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 201.56 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 201.56\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: 0.63 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: 0.63\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 1.26 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 1.26\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Rendering gainers item 1: {logoUrl: null, name: AAA, ticker: AAA, value: 25.05, changePercent: 0.05}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] gainers Item 1 numeric field details: {changePercent: 0.05, changePercentType: string, changeValue: 0.01, changeValueType: string}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 25.05 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 25.05\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: 0.05 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: 0.05\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 0.01 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 0.01\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Rendering gainers item 2: {logoUrl: null, name: AAAIF, ticker: AAAIF, value: 0.06, changePercent: 0.0}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] gainers Item 2 numeric field details: {changePercent: 0.0, changePercentType: string, changeValue: 0.0, changeValueType: string}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 0.06 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 0.06\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: 0.0 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 0.0 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Rendering gainers item 3: {logoUrl: null, name: WULF, ticker: WULF, value: 3.80, changePercent: -1.04}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] gainers Item 3 numeric field details: {changePercent: -1.04, changePercentType: string, changeValue: -0.04, changeValueType: string}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 3.80 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 3.8\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: -1.04 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: -1.04\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: -0.04 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: -0.04\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Component mounting for type: gainers\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Query state for gainers: {data: Object, isLoading: false, isError: false, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Items for gainers: [Object, Object, Object, Object]\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Number of items for gainers: 4\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Rendering gainers item 0: {logoUrl: null, name: AAPL, ticker: AAPL, value: 201.56, changePercent: 0.63}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] gainers Item 0 numeric field details: {changePercent: 0.63, changePercentType: string, changeValue: 1.26, changeValueType: string}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 201.56 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 201.56\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: 0.63 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: 0.63\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 1.26 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 1.26\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Rendering gainers item 1: {logoUrl: null, name: AAA, ticker: AAA, value: 25.05, changePercent: 0.05}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] gainers Item 1 numeric field details: {changePercent: 0.05, changePercentType: string, changeValue: 0.01, changeValueType: string}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 25.05 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 25.05\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: 0.05 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: 0.05\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 0.01 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 0.01\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Rendering gainers item 2: {logoUrl: null, name: AAAIF, ticker: AAAIF, value: 0.06, changePercent: 0.0}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] gainers Item 2 numeric field details: {changePercent: 0.0, changePercentType: string, changeValue: 0.0, changeValueType: string}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 0.06 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 0.06\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: 0.0 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 0.0 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Rendering gainers item 3: {logoUrl: null, name: WULF, ticker: WULF, value: 3.80, changePercent: -1.04}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] gainers Item 3 numeric field details: {changePercent: -1.04, changePercentType: string, changeValue: -0.04, changeValueType: string}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 3.80 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 3.8\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: -1.04 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: -1.04\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: -0.04 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: -0.04\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Component mounting for type: gainers\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Query state for gainers: {data: Object, isLoading: false, isError: false, error: null}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Items for gainers: [Object, Object, Object, Object]\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Number of items for gainers: 4\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Rendering gainers item 0: {logoUrl: null, name: AAPL, ticker: AAPL, value: 201.56, changePercent: 0.63}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] gainers Item 0 numeric field details: {changePercent: 0.63, changePercentType: string, changeValue: 1.26, changeValueType: string}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 201.56 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 201.56\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: 0.63 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: 0.63\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 1.26 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 1.26\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Rendering gainers item 1: {logoUrl: null, name: AAA, ticker: AAA, value: 25.05, changePercent: 0.05}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] gainers Item 1 numeric field details: {changePercent: 0.05, changePercentType: string, changeValue: 0.01, changeValueType: string}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 25.05 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 25.05\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: 0.05 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: 0.05\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 0.01 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 0.01\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Rendering gainers item 2: {logoUrl: null, name: AAAIF, ticker: AAAIF, value: 0.06, changePercent: 0.0}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] gainers Item 2 numeric field details: {changePercent: 0.0, changePercentType: string, changeValue: 0.0, changeValueType: string}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 0.06 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 0.06\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: 0.0 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 0.0 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 0\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] Rendering gainers item 3: {logoUrl: null, name: WULF, ticker: WULF, value: 3.80, changePercent: -1.04}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] gainers Item 3 numeric field details: {changePercent: -1.04, changePercentType: string, changeValue: -0.04, changeValueType: string}\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 3.80 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 3.8\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: -1.04 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: -1.04\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: -0.04 type: string\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse\n"
+                        },
+                        {
+                          "text": "🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: -0.04\n"
+                        },
+                        {
+                          "text": "📍 After submit URL: http://localhost:3000/dashboard\n"
+                        },
+                        {
+                          "text": "📸 Screenshot: after submit\n"
+                        },
+                        {
+                          "text": "✅ Successfully redirected to dashboard!\n"
+                        },
+                        {
+                          "text": "📍 Final URL: http://localhost:3000/dashboard\n"
+                        },
+                        {
+                          "text": "🎯 Now on dashboard! Checking KPI components...\n"
+                        },
+                        {
+                          "text": "📸 Screenshot: dashboard loaded\n"
+                        },
+                        {
+                          "text": "📊 Found 8 KPI cards\n"
+                        },
+                        {
+                          "text": "🔍 KPI card 1: \"Portfolio Value\"\n"
+                        },
+                        {
+                          "text": "✅ Card 1 appears to have real data\n"
+                        },
+                        {
+                          "text": "🔍 KPI card 2: \"IRR\"\n"
+                        },
+                        {
+                          "text": "✅ Card 2 appears to have real data\n"
+                        },
+                        {
+                          "text": "🔍 KPI card 3: \"Dividend Yield\"\n"
+                        },
+                        {
+                          "text": "✅ Card 3 appears to have real data\n"
+                        },
+                        {
+                          "text": "🔍 KPI card 4: \"Portfolio Beta\"\n"
+                        },
+                        {
+                          "text": "✅ Card 4 appears to have real data\n"
+                        },
+                        {
+                          "text": "📸 Screenshot: final state\n"
+                        },
+                        {
+                          "text": "📡 Total API calls: 8\n"
+                        },
+                        {
+                          "text": "  📋 200 - http://localhost:8000/api/health\n"
+                        },
+                        {
+                          "text": "  📋 200 - http://localhost:8000/api/health\n"
+                        },
+                        {
+                          "text": "  📋 200 - http://localhost:8000/api/fx/latest?base=AUD\n"
+                        },
+                        {
+                          "text": "  📋 200 - http://localhost:8000/api/fx/latest?base=AUD\n"
+                        },
+                        {
+                          "text": "  📋 200 - http://localhost:8000/api/dashboard/allocation?groupBy=sector\n"
+                        },
+                        {
+                          "text": "  📋 200 - http://localhost:8000/api/dashboard/overview\n"
+                        },
+                        {
+                          "text": "  📋 200 - http://localhost:8000/api/dashboard/losers?limit=5\n"
+                        },
+                        {
+                          "text": "  📋 200 - http://localhost:8000/api/dashboard/gainers?limit=5\n"
+                        },
+                        {
+                          "text": "✅ Login test completed successfully!\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-26T10:18:58.009Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a646f40163bab44e9cdb-4040b97ddbb7bd452674",
+              "file": "simple-login-test.spec.ts",
+              "line": 9,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2025-06-26T10:18:57.188Z",
+    "duration": 14426.832999999999,
+    "expected": 1,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

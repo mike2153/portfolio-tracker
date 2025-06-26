@@ -10,13 +10,8 @@ import { KPIGridSkeleton, ChartSkeleton, ListSkeleton, FxTickerSkeleton } from '
 
 export const revalidate = 60; // Revalidate data every 60 seconds
 
-export default async function DashboardPage() {
-  console.log('[Dashboard] Server component starting...');
-  
-  // Fetch initial data on the server
-  console.log('[Dashboard] Fetching overview data...');
-  const overviewDataResult = await dashboardAPI.getOverview();
-  console.log('[Dashboard] Overview data result:', overviewDataResult);
+export default function DashboardPage() {
+  console.log('[Dashboard] 🚀 Dashboard page loading...');
 
   return (
     <div className="space-y-6">
@@ -25,7 +20,7 @@ export default async function DashboardPage() {
         {/* Add top right controls here */}
       </div>
 
-      <KPIGrid initialData={overviewDataResult.ok ? overviewDataResult.data : undefined} />
+      <KPIGrid />
 
       <Suspense fallback={<ChartSkeleton />}>
         <AllocationTable />

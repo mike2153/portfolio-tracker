@@ -149,6 +149,13 @@ export interface DashboardOverview {
   passiveIncome: KPIValue;
 }
 
+export interface EnhancedDashboardOverview {
+  marketValue: KPIValue;
+  irr: KPIValue;
+  dividendYield: KPIValue;
+  portfolioBeta: KPIValue;
+}
+
 export interface AllocationRow {
   groupKey: string;
   value: number;

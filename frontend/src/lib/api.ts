@@ -32,8 +32,13 @@ class ApiService {
     url: string,
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
+    console.log(`[API] 🚀 Starting request to: ${url}`);
+    console.log(`[API] 📝 Request options:`, options);
+    
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token;
+    console.log(`[API] 🔐 Auth token available: ${!!token}`);
+    console.log(`[API] 🔐 Token preview: ${token ? token.substring(0, 20) + '...' : 'none'}`);
 
     const defaultOptions: RequestInit = {
       headers: {
@@ -44,23 +49,43 @@ class ApiService {
       ...options,
     };
 
+    console.log(`[API] 📤 Final request headers:`, defaultOptions.headers);
+
     try {
-      console.log(`[API] Making request to: ${url}`);
+      console.log(`[API] 📡 Making fetch request to: ${url}`);
       const response = await fetch(url, defaultOptions);
+      
+      console.log(`[API] 📨 Response received:`, {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        url: response.url,
+        headers: Object.fromEntries(response.headers.entries())
+      });
 
       if (!response.ok) {
         let errorMessage = `HTTP error! status: ${response.status}`;
         let errorData: any = null;
 
         try {
-          errorData = await response.json();
+          const errorText = await response.text();
+          console.log(`[API] 📄 Raw error response text:`, errorText);
+          
+          errorData = JSON.parse(errorText);
           errorMessage = errorData.detail || errorData.message || errorData.error || errorMessage;
-        } catch {
+          console.log(`[API] 📊 Parsed error data:`, errorData);
+        } catch (parseError) {
           // If response is not JSON, use status text
+          console.log(`[API] ⚠️  Could not parse error response as JSON:`, parseError);
           errorMessage = response.statusText || errorMessage;
         }
 
-        console.error(`[API] Error response:`, { status: response.status, message: errorMessage, data: errorData });
+        console.error(`[API] ❌ Error response summary:`, { 
+          url,
+          status: response.status, 
+          message: errorMessage, 
+          data: errorData 
+        });
         
         return {
           ok: false,
@@ -68,15 +93,35 @@ class ApiService {
         };
       }
 
-      const data = await response.json();
-      console.log(`[API] Success response from ${url}:`, data);
+      const responseText = await response.text();
+      console.log(`[API] 📄 Raw success response text:`, responseText);
+      
+      let data;
+      try {
+        data = JSON.parse(responseText);
+        console.log(`[API] 📊 Parsed response data:`, data);
+      } catch (parseError) {
+        console.error(`[API] ❌ Could not parse success response as JSON:`, parseError);
+        return {
+          ok: false,
+          error: 'Invalid JSON response from server',
+        };
+      }
+      
+      console.log(`[API] ✅ Request completed successfully for ${url}`);
       
       return {
         ok: true,
         data,
       };
     } catch (error) {
-      console.error(`[API] Network error for ${url}:`, error);
+      console.error(`[API] ❌ Network/fetch error for ${url}:`, error);
+      console.error(`[API] ❌ Error details:`, {
+        name: error instanceof Error ? error.name : 'unknown',
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : 'no stack'
+      });
+      
       return {
         ok: false,
         error: error instanceof Error ? error.message : 'Network error occurred',

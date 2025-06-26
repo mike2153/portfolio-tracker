@@ -48,6 +48,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'api.middleware.DatabaseConnectionMiddleware',
     'api.middleware.SupabaseLoggingMiddleware',
 ]
 
@@ -126,7 +127,7 @@ LOGGING = {
 DATABASES = {
     'default': dj_database_url.config(
         env='DATABASE_URL',
-        conn_max_age=600
+        conn_max_age=60,  # Short connection age to prevent pool exhaustion
     )
 }
 

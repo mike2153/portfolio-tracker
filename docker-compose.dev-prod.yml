@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  # Load balancer (nginx) - same as prod
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.dev.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - backend-1
+    restart: unless-stopped
+
+  # Single backend for dev (but using prod dockerfile)
+  backend-1:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    volumes:
+      - ./backend:/app  # Mount source code for hot reloading
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
+      - DEBUG=True  # Enable debug for development
+      - ALLOWED_HOSTS=localhost,127.0.0.1,nginx,backend-1
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_JWT_SECRET=${SUPABASE_JWT_SECRET}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY}
+    command: python manage.py runserver 0.0.0.0:8000  # Dev server for hot reload
+    restart: unless-stopped
+
+  # Frontend - production build but with hot reload
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    volumes:
+      - ./frontend/src:/app/src  # Mount source for hot reload
+      - ./frontend/public:/app/public
+    environment:
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      - NEXT_PUBLIC_API_BASE_URL=http://nginx
+    restart: unless-stopped
+
+  # Redis for caching (same as prod)
+  redis:
+    image: redis:7-alpine
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+volumes:
+  redis_data: 

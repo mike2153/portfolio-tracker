@@ -24,14 +24,24 @@ def async_ttl_cache(ttl: int):
         sync_cache = TTLCache(maxsize=128, ttl=ttl)
         @wraps(func)
         async def wrapper(*args, **kwargs):
-            key_args = [a for a in args if not isinstance(a, SupabaseUser)]
-            key_kwargs = {k: v for k, v in kwargs.items() if not isinstance(v, SupabaseUser)}
-            key = tuple(key_args) + tuple(sorted(key_kwargs.items()))
+            # Create a safe cache key excluding request objects and users
+            key_parts = []
+            for arg in args:
+                if not hasattr(arg, 'method'):  # Skip request objects
+                    if not isinstance(arg, SupabaseUser):
+                        key_parts.append(str(arg))
+            
+            for k, v in kwargs.items():
+                if not isinstance(v, SupabaseUser) and not hasattr(v, 'method'):
+                    key_parts.append(f"{k}:{v}")
+            
+            cache_key = tuple(key_parts) or ('default',)
+            
             try:
-                return sync_cache[key]
+                return sync_cache[cache_key]
             except KeyError:
                 res = await func(*args, **kwargs)
-                sync_cache[key] = res
+                sync_cache[cache_key] = res
                 return res
         return wrapper
     return decorator
@@ -56,6 +66,12 @@ class OverviewResponse(Schema):
     total_profit: KPIValue = Field(..., alias="totalProfit")
     irr: KPIValue
     passive_income: KPIValue = Field(..., alias="passiveIncome")
+    
+    class Config:
+        populate_by_name = True
+        json_encoders = {
+            Decimal: str
+        }
 
 class AllocationRow(Schema):
     groupKey: str
@@ -99,46 +115,201 @@ class FxResponse(Schema):
 
 # --- Dashboard Endpoints ---
 
-@dashboard_api_router.get("/overview", response=OverviewResponse, summary="Get Dashboard KPI Overview")
+@dashboard_api_router.get("/overview", response=OverviewResponse, summary="Get Enhanced Dashboard KPI Overview")
 @async_ttl_cache(ttl=1800)
 @require_auth
 async def get_dashboard_overview(request):
-    print(f"[DASHBOARD DEBUG] get_dashboard_overview called for request: {request}")
-    user = await get_current_user(request)
-    print(f"[DASHBOARD DEBUG] User retrieved: {user.id if user else 'None'}")
-    transactions = await sync_to_async(list)(Transaction.objects.filter(user_id=user.id))
-    print(f"[DASHBOARD DEBUG] Found {len(transactions)} transactions for user")
+    print(f"[DASHBOARD DEBUG] ✨ Enhanced get_dashboard_overview called for request: {request}")
+    print(f"[DASHBOARD DEBUG] 🔍 Request method: {request.method}")
+    print(f"[DASHBOARD DEBUG] 🔍 Request headers: {dict(request.headers)}")
+    print(f"[DASHBOARD DEBUG] 🔍 Request path: {request.get_full_path()}")
+    
+    try:
+        # Get current user with extensive debugging
+        user = await get_current_user(request)
+        print(f"[DASHBOARD DEBUG] User retrieved: {user.id if user else 'None'}")
+        
+        if not user or not user.id:
+            print(f"[DASHBOARD DEBUG] ❌ No valid user found, returning default metrics")
+            return _get_dashboard_fallback_response()
+        
+        user_id = user.id
+        print(f"[DASHBOARD DEBUG] 🎯 Using user_id: {user_id}")
+        
+        # Check if user has portfolio data
+        print(f"[DASHBOARD DEBUG] 🔍 Checking database for user portfolio/transaction data...")
+        from .models import Portfolio, Holding, Transaction
+        
+        try:
+            portfolio_count = await sync_to_async(Portfolio.objects.filter(user_id=user_id).count)()
+            holding_count = await sync_to_async(Holding.objects.filter(portfolio__user_id=user_id).count)()
+            transaction_count = await sync_to_async(Transaction.objects.filter(user_id=user_id).count)()
+            
+            print(f"[DASHBOARD DEBUG] 📊 Database check results:")
+            print(f"[DASHBOARD DEBUG]   - Portfolios: {portfolio_count}")
+            print(f"[DASHBOARD DEBUG]   - Holdings: {holding_count}")
+            print(f"[DASHBOARD DEBUG]   - Transactions: {transaction_count}")
+            
+            if portfolio_count == 0 and holding_count == 0 and transaction_count == 0:
+                print(f"[DASHBOARD DEBUG] ⚠️ No portfolio data found for user {user_id}")
+                print(f"[DASHBOARD DEBUG] 💡 User needs to add holdings or transactions first")
+                print(f"[DASHBOARD DEBUG] 🔄 Returning fallback response with explanatory message")
+                return _get_dashboard_fallback_response()
+            
+            # If we have data, let's see what it is
+            if transaction_count > 0:
+                # Get a sample of transactions
+                sample_transactions = await sync_to_async(list)(
+                    Transaction.objects.filter(user_id=user_id)[:3]
+                )
+                print(f"[DASHBOARD DEBUG] 📝 Sample transactions:")
+                for txn in sample_transactions:
+                    print(f"[DASHBOARD DEBUG]   - {txn.transaction_type} {txn.shares} {txn.ticker} @ ${txn.price_per_share} on {txn.transaction_date}")
+                    
+        except Exception as db_error:
+            print(f"[DASHBOARD DEBUG] ❌ Database check failed: {db_error}")
+            import traceback
+            print(f"[DASHBOARD DEBUG] Database error traceback: {traceback.format_exc()}")
+        
+        print(f"[DASHBOARD DEBUG] 🚀 Starting enhanced financial metrics calculation for user {user_id}")
+        
+        # Use the new advanced financial metrics service
+        from .services.advanced_financial_metrics import get_advanced_financial_metrics_service
+        
+        financial_service = get_advanced_financial_metrics_service()
+        print(f"[DASHBOARD DEBUG] Advanced financial metrics service loaded: {financial_service}")
+        
+        # Get enhanced metrics with comprehensive error handling
+        enhanced_metrics = await financial_service.calculate_enhanced_kpi_metrics(user_id, "SPY")
+        print(f"[DASHBOARD DEBUG] ✅ Enhanced metrics calculated successfully: {enhanced_metrics}")
+        
+        # Validate the response structure
+        if not enhanced_metrics or not isinstance(enhanced_metrics, dict):
+            print(f"[DASHBOARD DEBUG] ❌ Invalid enhanced metrics returned, using fallback")
+            return _get_dashboard_fallback_response()
+        
+        # Map enhanced metrics to the expected dashboard structure correctly
+        # Fix the mapping to align with the OverviewResponse schema
+        # Extract numeric values and format sub_labels properly
+        
+        # Helper function to extract numeric value from formatted string
+        def extract_numeric_value(value_str: str) -> Decimal:
+            if isinstance(value_str, (int, float)):
+                return Decimal(str(value_str))
+            
+            # Remove currency symbols, percentages, and other formatting
+            import re
+            numeric_part = re.sub(r'[^\d.-]', '', str(value_str))
+            try:
+                return Decimal(numeric_part) if numeric_part else Decimal('0')
+            except:
+                return Decimal('0')
+        
+        market_value_data = enhanced_metrics.get("marketValue", {})
+        irr_data = enhanced_metrics.get("irr", {})
+        beta_data = enhanced_metrics.get("portfolioBeta", {})
+        dividend_data = enhanced_metrics.get("dividendYield", {})
+        
+        print(f"[DASHBOARD DEBUG] 🔍 Enhanced metrics breakdown:")
+        print(f"[DASHBOARD DEBUG]   - marketValue: {market_value_data}")
+        print(f"[DASHBOARD DEBUG]   - irr: {irr_data}")
+        print(f"[DASHBOARD DEBUG]   - portfolioBeta: {beta_data}")
+        print(f"[DASHBOARD DEBUG]   - dividendYield: {dividend_data}")
+        
+        # Calculate total profit/loss from market value data
+        # Extract P&L from market value sub_label if available
+        market_value_str = market_value_data.get("value", "0")
+        market_sub_label = market_value_data.get("sub_label", "+AU$0.00 (+0.00%)")
+        
+        # Try to extract profit/loss from sub_label like "+AU$47560.47 (+50.77%)"
+        import re
+        profit_match = re.search(r'([+-]?)AU\$([0-9,\.]+)', market_sub_label)
+        profit_percent_match = re.search(r'\(([+-]?)([0-9,\.]+)%\)', market_sub_label)
+        
+        total_profit_value = "0.00"
+        total_profit_percent = "0.00%"
+        is_profit_positive = False
+        
+        if profit_match and profit_percent_match:
+            profit_sign = profit_match.group(1) if profit_match.group(1) else "+"
+            profit_amount = profit_match.group(2)
+            percent_sign = profit_percent_match.group(1) if profit_percent_match.group(1) else "+"
+            percent_value = profit_percent_match.group(2)
+            
+            total_profit_value = profit_amount
+            total_profit_percent = f"{percent_sign}{percent_value}%"
+            is_profit_positive = profit_sign == "+" or (profit_sign == "" and float(profit_amount.replace(",", "")) > 0)
+            
+            print(f"[DASHBOARD DEBUG] 💰 Extracted profit: {profit_sign}AU${profit_amount} ({percent_sign}{percent_value}%)")
+        
+        # Use snake_case field names to match the schema definition
+        validated_response = {
+            "market_value": {
+                "value": extract_numeric_value(market_value_data.get("value", "0")),
+                "sub_label": market_value_data.get("sub_label", "+AU$0.00 (+0.00%)"),
+                "is_positive": market_value_data.get("is_positive", True)
+            },
+            "total_profit": {  # Use the extracted profit/loss from market value
+                "value": extract_numeric_value(total_profit_value),
+                "sub_label": f"Total P&L: {total_profit_percent}",
+                "is_positive": is_profit_positive
+            },
+            "irr": {  # Use the actual IRR data
+                "value": extract_numeric_value(irr_data.get("value", "0")),
+                "sub_label": irr_data.get("sub_label", "vs SPY: +0.0%"),
+                "is_positive": irr_data.get("is_positive", False)
+            },
+            "passive_income": {
+                "value": extract_numeric_value(dividend_data.get("value", "0")),
+                "sub_label": dividend_data.get("sub_label", "0.00% yield (AU$0.00 annual)"),
+                "is_positive": dividend_data.get("is_positive", False)
+            }
+        }
+        
+        print(f"[DASHBOARD DEBUG] 📊 Mapped enhanced metrics to dashboard schema:")
+        print(f"[DASHBOARD DEBUG]   - Portfolio Value: {validated_response['market_value']}")
+        print(f"[DASHBOARD DEBUG]   - IRR (from enhanced): {validated_response['total_profit']}")
+        print(f"[DASHBOARD DEBUG]   - Portfolio Beta (IRR slot): {validated_response['irr']}")
+        print(f"[DASHBOARD DEBUG]   - Dividend Yield: {validated_response['passive_income']}")
+        
+        print(f"[DASHBOARD DEBUG] 🎯 Final validated response: {validated_response}")
+        print(f"[DASHBOARD DEBUG] ✅ Enhanced dashboard overview completed successfully")
+        
+        return validated_response
+        
+    except Exception as e:
+        print(f"[DASHBOARD DEBUG] ❌ Critical error in enhanced dashboard overview: {e}")
+        print(f"[DASHBOARD DEBUG] 🔄 Falling back to default response")
+        import traceback
+        print(f"[DASHBOARD DEBUG] Error traceback: {traceback.format_exc()}")
+        return _get_dashboard_fallback_response()
 
-    holdings = defaultdict(Decimal)
-    invested = defaultdict(Decimal)
 
-    for txn in transactions:
-        print(f"[DASHBOARD DEBUG] Processing transaction: {txn.transaction_type} {txn.shares} shares of {txn.ticker}")
-        if txn.transaction_type == 'BUY':
-            holdings[txn.ticker] += txn.shares
-            invested[txn.ticker] += txn.total_amount
-        elif txn.transaction_type == 'SELL':
-            holdings[txn.ticker] -= txn.shares
-            invested[txn.ticker] -= txn.total_amount
-
-    av_service = get_alpha_vantage_service()
-    market_value = Decimal('0')
-    for ticker, shares in holdings.items():
-        if shares <= 0:
-            continue
-        quote = await sync_to_async(av_service.get_global_quote)(ticker)
-        price = Decimal(str(quote.get('price', '0'))) if quote else Decimal('0')
-        market_value += shares * price
-
-    invested_total = sum(invested.values())
-    profit = market_value - invested_total
-    delta_percent = (profit / invested_total * Decimal('100')) if invested_total != 0 else Decimal('0')
-
+def _get_dashboard_fallback_response():
+    """Get fallback dashboard response when enhanced calculations fail"""
+    print(f"[DASHBOARD DEBUG] 🔄 Generating fallback dashboard response")
+    
     return {
-        "marketValue": {"value": str(round(market_value, 2)), "sub_label": f"AU${round(invested_total,2)} invested", "is_positive": market_value >= invested_total},
-        "totalProfit": {"value": str(round(profit, 2)), "sub_label": "", "deltaPercent": str(round(delta_percent, 2)), "is_positive": profit >= 0},
-        "irr": {"value": "0", "sub_label": "", "is_positive": profit >= 0},
-        "passiveIncome": {"value": "0", "sub_label": "", "is_positive": False}
+        "market_value": {
+            "value": Decimal("0.00"),
+            "sub_label": "+AU$0.00 (+0.00%)",
+            "is_positive": True
+        },
+        "total_profit": {
+            "value": Decimal("0.00"),
+            "sub_label": "vs SPY: +0.0%",
+            "is_positive": False
+        },
+        "irr": {
+            "value": Decimal("1.00"),
+            "sub_label": "vs SPY",
+            "is_positive": False
+        },
+        "passive_income": {
+            "value": Decimal("0.00"),
+            "sub_label": "0.00% yield (AU$0.00 annual)",
+            "is_positive": False
+        }
     }
 
 @dashboard_api_router.get("/allocation", response=AllocationResponse, summary="Get Portfolio Allocation")

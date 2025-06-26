@@ -1,6 +1,7 @@
 from typing import Any, Dict
 from django.http import JsonResponse
 import logging
+from django.db import connections
 
 logger = logging.getLogger(__name__)
 
@@ -70,4 +71,35 @@ def validation_error_response(errors: Dict[str, Any]) -> JsonResponse:
         error="Validation failed",
         status_code=422,
         data={"validation_errors": errors}
-    ) 
+    )
+
+def close_old_connections():
+    """
+    Explicitly close old database connections to prevent pool exhaustion.
+    Call this in long-running processes or after batch operations.
+    """
+    try:
+        for conn in connections.all():
+            conn.close_if_unusable_or_obsolete()
+        logger.info("Closed old database connections")
+    except Exception as e:
+        logger.error(f"Error closing database connections: {e}")
+
+def ensure_connection_health():
+    """
+    Ensure database connections are healthy and close stale ones.
+    """
+    try:
+        from django.db import connection
+        connection.ensure_connection()
+        if connection.is_usable():
+            logger.debug("Database connection is healthy")
+        else:
+            connection.close()
+            logger.warning("Closed unhealthy database connection")
+    except Exception as e:
+        logger.error(f"Database connection health check failed: {e}")
+        try:
+            connection.close()
+        except:
+            pass 

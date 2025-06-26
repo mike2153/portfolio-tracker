@@ -58,11 +58,19 @@ export default function PortfolioChart() {
 
   console.log('[PortfolioChart] Query state:', { data, isLoading, error });
 
-  const perf: EnhancedPortfolioPerformance | undefined = data?.data
-  console.log('[PortfolioChart] Parsed performance data:', perf);
-  
-  const portfolio = perf?.portfolio_performance || []
-  const benchmarkPerformance = perf?.benchmark_performance || []
+  const perfRaw = data?.data as any;
+  // Transform snake_case keys to camelCase if needed
+  const perf = perfRaw ? {
+    portfolioPerformance: perfRaw.portfolio_performance || perfRaw.portfolioPerformance || [],
+    benchmarkPerformance: perfRaw.benchmark_performance || perfRaw.benchmarkPerformance || [],
+    benchmark_name: perfRaw.benchmark_name || perfRaw.benchmarkName || benchmark,
+  } : undefined;
+
+  console.log('[PortfolioChart] 🔍 Raw performance data:', perfRaw);
+  console.log('[PortfolioChart] 🎯 Transformed performance data:', perf);
+
+  const portfolio = perf?.portfolioPerformance || [];
+  const benchmarkPerformance = perf?.benchmarkPerformance || [];
   
   console.log('[PortfolioChart] Portfolio performance data length:', portfolio.length);
   console.log('[PortfolioChart] Benchmark performance data length:', benchmarkPerformance.length);

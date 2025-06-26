@@ -14,7 +14,7 @@ from datetime import datetime, timedelta, date
 from decimal import Decimal
 from typing import Dict, List, Optional, Tuple, Any
 from django.db.models import Q, Sum, Count, Min, Max
-from django.db import transaction as db_transaction
+from django.db import transaction as db_transaction, connections
 from django.utils import timezone
 from django.core.cache import cache
 
@@ -23,6 +23,7 @@ from ..models import (
     ExchangeRate, Portfolio, Holding
 )
 from ..alpha_vantage_service import get_alpha_vantage_service
+from ..utils import close_old_connections, ensure_connection_health
 
 logger = logging.getLogger(__name__)
 
