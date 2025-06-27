@@ -13,7 +13,6 @@ import {
   GainerLoser,
   DividendForecast,
   FxRates,
-  EnhancedPortfolioPerformance,
 } from '@/types/api';
 
 class ApiError extends Error {
@@ -28,7 +27,7 @@ class ApiError extends Error {
 }
 
 class ApiService {
-  private async makeRequest<T>(
+  public async makeRequest<T>(
     url: string,
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
@@ -168,6 +167,28 @@ class ApiService {
       method: 'DELETE',
     });
   }
+
+  /**
+   * Delete a user transaction by ID
+   */
+  async deleteTransaction(transactionId: number): Promise<ApiResponse<any>> {
+    const url = `${config.apiBaseUrl}/api/transactions/${transactionId}`;
+    return this.makeRequest<any>(url, {
+      method: 'DELETE',
+    });
+  }
+
+  /**
+   * Update a user transaction by ID
+   */
+  async updateTransaction(transactionId: number, data: any): Promise<ApiResponse<any>> {
+    const url = `${config.apiBaseUrl}/api/transactions/${transactionId}`;
+    return this.makeRequest<any>(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+  }
 }
 
 export const apiService = new ApiService();
@@ -214,13 +235,13 @@ export const dashboardAPI = {
     userId: string,
     period: string = '1Y',
     benchmark: string = '^GSPC'
-  ): Promise<ApiResponse<EnhancedPortfolioPerformance>> {
+  ): Promise<ApiResponse<any>> {
     const url = `${config.apiBaseUrl}${apiEndpoints.dashboard.portfolioPerformance(
       userId,
       period,
       encodeURIComponent(benchmark)
     )}`;
-    return this._safeFetch<EnhancedPortfolioPerformance>(url);
+    return this._safeFetch<any>(url);
   },
 };
 

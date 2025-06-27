@@ -74,7 +74,7 @@ class TransactionService:
                     used_cash_balance=transaction_data.get('used_cash_balance', False)
                 )
                 
-                logger.info(f"[TransactionService] Created transaction {transaction_record.id} for {transaction_record.ticker}")
+                logger.info(f"[TransactionService] Created transaction {transaction_record.pk} for {transaction_record.ticker}")
                 
                 # Fetch and cache historical data if needed
                 if transaction_data['transaction_type'] in ['BUY', 'SELL']:
@@ -83,11 +83,11 @@ class TransactionService:
                 # Update portfolio calculations
                 self._update_portfolio_from_transactions(user_id)
                 
-                logger.info(f"[TransactionService] Transaction {transaction_record.id} created successfully")
+                logger.info(f"[TransactionService] Transaction {transaction_record.pk} created successfully")
                 
                 return {
                     'success': True,
-                    'transaction_id': transaction_record.id,
+                    'transaction_id': transaction_record.pk,
                     'ticker': transaction_record.ticker,
                     'message': f'{transaction_record.transaction_type} transaction created successfully'
                 }
@@ -212,7 +212,7 @@ class TransactionService:
                 
                 if price_date >= from_date:
                     # Create or update cache entry
-                    cache_entry, created = DailyPriceCache.objects.get_or_create(
+                    _, created = DailyPriceCache.objects.get_or_create(
                         ticker=ticker,
                         date=price_date,
                         defaults={
@@ -247,7 +247,7 @@ class TransactionService:
                 transaction.daily_close_price = price_cache.close_price
                 transaction.daily_volume = price_cache.volume
                 transaction.save(update_fields=['daily_close_price', 'daily_volume'])
-                logger.debug(f"[TransactionService] Updated transaction {transaction.id} with close price ${price_cache.close_price}")
+                logger.debug(f"[TransactionService] Updated transaction {transaction.pk} with close price ${price_cache.close_price}")
             else:
                 logger.warning(f"[TransactionService] No price data found for {transaction.ticker} on {transaction.transaction_date}")
                 
@@ -367,6 +367,49 @@ class TransactionService:
         except Exception as e:
             logger.error(f"[TransactionService] Error calculating holdings: {e}", exc_info=True)
             return {}
+
+    def delete_transaction(self, user_id: str, transaction_id: int) -> bool:
+        """
+        Delete a transaction by ID and refresh the portfolio holdings.
+        Returns True if deleted, False if not found.
+        """
+        from ..models import Transaction
+        try:
+            txn = Transaction.objects.get(id=transaction_id, user_id=user_id)
+            txn.delete()
+            # Rebuild holdings from remaining transactions
+            self._update_portfolio_from_transactions(user_id)
+            return True
+        except Transaction.DoesNotExist:
+            return False
+        except Exception:
+            # Log but do not raise
+            logger.error(f"[TransactionService] Error deleting transaction {transaction_id}", exc_info=True)
+            return False
+
+    def update_transaction(self, user_id: str, transaction_id: int, data: Dict[str, Any]) -> bool:
+        """
+        Update an existing transaction with new data and refresh portfolio.
+        Returns True if updated, False otherwise.
+        """
+        from ..models import Transaction
+        try:
+            txn = Transaction.objects.get(id=transaction_id, user_id=user_id)
+            # Update allowed fields
+            fields = ['transaction_type', 'ticker', 'company_name', 'shares', 'price_per_share', 'transaction_date', 'transaction_currency', 'commission', 'notes']
+            for f in fields:
+                if f in data:
+                    setattr(txn, f, data[f] if not f in ['shares','price_per_share','commission'] else Decimal(str(data[f])))
+            txn.save()
+            # Update close price and portfolio
+            self._update_transaction_with_close_price(txn)
+            self._update_portfolio_from_transactions(user_id)
+            return True
+        except Transaction.DoesNotExist:
+            return False
+        except Exception:
+            logger.error(f"[TransactionService] Error updating transaction {transaction_id}", exc_info=True)
+            return False
 
 
 class PriceUpdateService:

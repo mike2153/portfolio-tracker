@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { transactionAPI, apiService } from '@/lib/api';
 import { PlusCircle, Trash2, Edit, ChevronDown, ChevronUp, MoreVertical, X, Loader2 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
@@ -64,6 +65,8 @@ const TransactionsPage = () => {
   const [searchLoading, setSearchLoading] = useState(false);
   const { addToast } = useToast();
   const [user, setUser] = useState<User | null>(null);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const queryClient = useQueryClient();
 
   const initialFormState: AddHoldingFormData = {
     ticker: '',
@@ -116,6 +119,13 @@ const TransactionsPage = () => {
       console.error('Error fetching summary:', err);
     }
   }, [user]);
+
+  const refreshData = useCallback(() => {
+    fetchTransactions();
+    fetchSummary();
+    queryClient.invalidateQueries(); // Invalidate all queries to refresh dashboard
+    addToast({ type: 'info', title: 'Refreshing Data', message: 'Updating dashboard and transactions...' });
+  }, [fetchTransactions, fetchSummary, queryClient, addToast]);
 
   useEffect(() => {
     // Fetch current session user then listen for auth changes
@@ -227,42 +237,91 @@ const TransactionsPage = () => {
   
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
       const { name, value, type } = e.target;
-      setForm(prev => ({ ...prev, [name]: value }));
+      const isCheckbox = type === 'checkbox';
+      // @ts-ignore
+      const val = isCheckbox ? e.target.checked : value;
+      setForm(prev => ({ ...prev, [name]: val }));
   };
 
   const handleAddTransactionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return; // Ensure a user is logged in
+    if (!user) return;
     setIsSubmitting(true);
     setError(null);
+
+    const transactionData = {
+        transaction_type: form.transaction_type || 'BUY',
+        ticker: form.ticker.toUpperCase(),
+        company_name: form.company_name || form.ticker.toUpperCase(),
+        shares: parseFloat(form.shares),
+        price_per_share: parseFloat(form.purchase_price),
+        transaction_date: form.purchase_date,
+        transaction_currency: form.currency,
+        commission: parseFloat(form.commission || '0'),
+        notes: form.notes || '',
+    };
+
     try {
-      addToast({ type: 'info', title: 'Submitting', message: 'Adding transaction...' });
-      setShowAddForm(false); // Close form optimistically to improve UX
-      const transactionData = {
-          transaction_type: form.transaction_type || 'BUY',
-          ticker: form.ticker.toUpperCase(),
-          company_name: form.company_name || form.ticker.toUpperCase(),
-          shares: parseFloat(form.shares),
-          price_per_share: parseFloat(form.purchase_price),
-          transaction_date: form.purchase_date,
-          transaction_currency: form.currency,
-          commission: parseFloat(form.commission || '0'),
-          notes: form.notes || '',
-          user_id: user.id,
-      } as const;
-      const response = await transactionAPI.createTransaction(transactionData);
-      if (response.ok) {
-        addToast({ type: 'success', title: 'Transaction Added', message: `${transactionData.ticker} has been added.` });
-        await Promise.all([fetchTransactions(), fetchSummary()]);
+      const isEditing = !!editingTransaction;
+      addToast({ type: 'info', title: 'Submitting', message: `${isEditing ? 'Updating' : 'Adding'} transaction...` });
+      
+      let response;
+      if (isEditing) {
+        response = await apiService.updateTransaction(editingTransaction.id, transactionData);
       } else {
-        setError(response.message || 'Failed to create transaction');
-        addToast({ type: 'error', title: 'Submission Failed', message: response.message || 'Could not add transaction.' });
+        response = await transactionAPI.createTransaction({ ...transactionData, user_id: user.id });
+      }
+
+      if (response.ok) {
+        addToast({ type: 'success', title: `Transaction ${isEditing ? 'Updated' : 'Added'}`, message: `${transactionData.ticker} has been successfully ${isEditing ? 'updated' : 'added'}.` });
+        setShowAddForm(false);
+        setEditingTransaction(null);
+        refreshData();
+      } else {
+        setError(response.message || 'Failed to process transaction');
+        addToast({ type: 'error', title: 'Submission Failed', message: response.message || `Could not ${isEditing ? 'update' : 'add'} transaction.` });
       }
     } catch (err: any) {
-      setError(err.message || 'Error creating transaction');
+      setError(err.message || `Error ${editingTransaction ? 'updating' : 'creating'} transaction`);
       addToast({ type: 'error', title: 'Client-side Error', message: err.message });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleEditClick = (txn: Transaction) => {
+    setEditingTransaction(txn);
+    setForm({
+      ticker: txn.ticker,
+      company_name: txn.company_name,
+      exchange: '',
+      shares: txn.shares.toString(),
+      purchase_price: txn.price_per_share.toString(),
+      purchase_date: txn.transaction_date,
+      commission: txn.commission.toString(),
+      currency: txn.transaction_currency,
+      fx_rate: '1.0',
+      use_cash_balance: false,
+      notes: txn.notes,
+      transaction_type: txn.transaction_type
+    });
+    setShowAddForm(true);
+  };
+
+  const handleDeleteClick = async (txnId: number) => {
+    if (window.confirm('Are you sure you want to delete this transaction? This action cannot be undone.')) {
+      try {
+        addToast({ type: 'info', title: 'Deleting...', message: 'Removing transaction.' });
+        const response = await apiService.deleteTransaction(txnId);
+        if (response.ok) {
+          addToast({ type: 'success', title: 'Transaction Deleted', message: 'The transaction has been removed.' });
+          refreshData();
+        } else {
+          addToast({ type: 'error', title: 'Deletion Failed', message: response.error || 'Could not delete the transaction.' });
+        }
+      } catch (err: any) {
+        addToast({ type: 'error', title: 'Client-side Error', message: err.message });
+      }
     }
   };
 
@@ -344,6 +403,7 @@ const TransactionsPage = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Amount</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-gray-900 divide-y divide-gray-700 text-gray-100">
@@ -355,6 +415,10 @@ const TransactionsPage = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-100">{formatCurrency(transaction.price_per_share, transaction.transaction_currency)}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-100">{formatCurrency(transaction.total_amount, transaction.transaction_currency)}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-100">{formatDate(transaction.transaction_date)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap flex space-x-2">
+                        <Edit onClick={() => handleEditClick(transaction)} className="h-5 w-5 cursor-pointer text-gray-400 hover:text-gray-200" />
+                        <Trash2 onClick={() => handleDeleteClick(transaction.id)} className="h-5 w-5 cursor-pointer text-gray-400 hover:text-gray-200" />
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -367,8 +431,8 @@ const TransactionsPage = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-gray-900 rounded-lg max-w-md w-full p-6 text-gray-100 border border-gray-700">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Add Transaction</h3>
-              <button onClick={() => setShowAddForm(false)} className="text-gray-400 hover:text-gray-200"><X size={24} /></button>
+              <h3 className="text-lg font-semibold">{editingTransaction ? 'Edit' : 'Add'} Transaction</h3>
+              <button onClick={() => { setShowAddForm(false); setEditingTransaction(null); }} className="text-gray-400 hover:text-gray-200"><X size={24} /></button>
             </div>
             <form onSubmit={handleAddTransactionSubmit} className="space-y-4">
               <div>
@@ -442,10 +506,10 @@ const TransactionsPage = () => {
                 <textarea name="notes" value={form.notes} onChange={handleFormChange} className="w-full p-2 border border-gray-600 rounded-lg" rows={2} placeholder="Additional notes..." />
               </div>
               <div className="flex gap-4 pt-4">
-                <button type="button" onClick={() => setShowAddForm(false)} className="flex-1 px-4 py-2 border border-gray-700 rounded-lg text-gray-200 hover:bg-gray-700 font-medium">Cancel</button>
+                <button type="button" onClick={() => { setShowAddForm(false); setEditingTransaction(null); }} className="flex-1 px-4 py-2 border border-gray-700 rounded-lg text-gray-200 hover:bg-gray-700 font-medium">Cancel</button>
                 <button type="submit" disabled={isSubmitting} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center font-medium">
                   {isSubmitting ? <Loader2 className="animate-spin mr-2" /> : null}
-                  {isSubmitting ? 'Adding...' : 'Add Transaction'}
+                  {isSubmitting ? (editingTransaction ? 'Updating...' : 'Adding...') : (editingTransaction ? 'Update' : 'Add') + ' Transaction'}
                 </button>
               </div>
             </form>

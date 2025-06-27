@@ -13,13 +13,15 @@ import os
 import logging
 from .services.metrics_calculator import calculate_advanced_metrics
 from .alpha_vantage_service import alpha_vantage, get_alpha_vantage_service
+from .auth import get_current_user
 from .schemas import (
     HoldingSchema, PortfolioSchema, CashContributionSchema, 
     PriceAlertSchema, DividendConfirmationSchema
 )
 from .services.price_alert_service import get_price_alert_service
-#from .services.portfolio_benchmarking import PortfolioBenchmarking
+from .dashboard_views import clear_dashboard_caches
 from .portfolio_views import portfolio_api_router
+from asgiref.sync import sync_to_async
 
 logger = logging.getLogger(__name__)
 
@@ -211,9 +213,16 @@ def get_stock_news(request, symbol: str, limit: int = 20):
 
 @router.get("/portfolios/{user_id}")
 def get_user_portfolio(request, user_id: str):
-    """Get detailed portfolio holdings and summary"""
+    """Get detailed portfolio holdings and summary with cached price support"""
     try:
         portfolio, _ = Portfolio.objects.get_or_create(user_id=user_id)
+        
+        # Retrieve any cached current prices first to minimise external API calls
+        try:
+            price_cache_response = get_price_update_service().get_cached_prices(user_id)
+            cached_prices: Dict[str, Any] = price_cache_response.get("prices", {}) if isinstance(price_cache_response, dict) else {}
+        except Exception as _cache_err:  # pragma: no cover – cache failures should not break the endpoint
+            cached_prices = {}
         
         holdings_qs = portfolio.holdings.all()
         
@@ -221,26 +230,38 @@ def get_user_portfolio(request, user_id: str):
         holdings_data = []
         
         for holding in holdings_qs:
-            quote = alpha_vantage.get_global_quote(holding.ticker)
+            ticker_upper = holding.ticker.upper()
             
-            # Defensively get the current price
-            current_price = holding.purchase_price # Default to purchase price
-            if quote and isinstance(quote.get('price'), (int, float)) and quote['price'] > 0:
-                current_price = Decimal(str(quote['price']))
+            # Prefer cached price if available
+            cached_price_entry = cached_prices.get(ticker_upper)
+            current_price: Decimal
+            
+            if cached_price_entry and isinstance(cached_price_entry.get("price"), (int, float, Decimal)):
+                current_price = Decimal(str(cached_price_entry["price"]))
+            else:
+                # Fallback to live quote – wrap in try/except to ensure we never crash the endpoint
+                try:
+                    quote = alpha_vantage.get_global_quote(ticker_upper)
+                    price_from_quote = quote.get('price') if quote else None  # type: ignore[index]
+                    current_price = Decimal(str(price_from_quote)) if price_from_quote else holding.purchase_price
+                except Exception as _quote_err:  # pragma: no cover — network issues, etc.
+                    logger.warning(f"[get_user_portfolio] Failed to fetch live quote for {ticker_upper}: {_quote_err}")
+                    current_price = holding.purchase_price
             
             market_value = holding.shares * current_price
             total_portfolio_value += market_value
             
             holdings_data.append({
                 "id": holding.id,  # type: ignore[attr-defined]
-                "ticker": holding.ticker,
+                "ticker": ticker_upper,
                 "company_name": holding.company_name,
                 "shares": float(holding.shares),
                 "purchase_price": float(holding.purchase_price),
                 "market_value": float(market_value),
                 "current_price": float(current_price)
             })
-        # Fix: Default cash_balance to Decimal('0.00') if None
+        
+        # Default cash_balance to Decimal('0.00') if None
         cash_balance = portfolio.cash_balance if portfolio.cash_balance is not None else Decimal('0.00')
         portfolio_data = {
             "cash_balance": float(cash_balance),
@@ -960,6 +981,61 @@ def create_transaction(request) -> Dict[str, Any]:
             'message': 'An unexpected error occurred while creating the transaction'
         }
 
+@router.delete("/transactions/{int:txn_id}")
+async def delete_transaction(request, txn_id: int):
+    """
+    Delete a transaction by ID.
+    User is identified from authentication token.
+    """
+    try:
+        user = await get_current_user(request)
+        if not user or not user.id:
+            return 401, {"ok": False, "error": "Authentication required."}
+
+        service = get_transaction_service()
+        deleted = await sync_to_async(service.delete_transaction)(
+            user_id=user.id, transaction_id=txn_id
+        )
+
+        if deleted:
+            clear_dashboard_caches()
+            logger.info(f"Dashboard cache cleared due to transaction deletion by user {user.id}.")
+            return 200, {"ok": True, "message": "Transaction deleted"}
+        else:
+            return 404, {"ok": False, "error": "Transaction not found or not owned by user"}
+
+    except Exception as e:
+        logger.error(f"Error deleting transaction {txn_id}: {e}", exc_info=True)
+        return 500, {'ok': False, 'error': str(e)}
+
+@router.put("/transactions/{int:txn_id}")
+async def update_transaction(request, txn_id: int):
+    """
+    Update a transaction by ID.
+    User is identified from authentication token.
+    """
+    try:
+        user = await get_current_user(request)
+        if not user or not user.id:
+            return 401, {"ok": False, "error": "Authentication required."}
+
+        data = await request.json()
+
+        service = get_transaction_service()
+        updated = await sync_to_async(service.update_transaction)(
+            user_id=user.id, transaction_id=txn_id, data=data
+        )
+
+        if updated:
+            clear_dashboard_caches()
+            logger.info(f"Dashboard cache cleared due to transaction update by user {user.id}.")
+            return 200, {"ok": True, "message": "Transaction updated"}
+        else:
+            return 404, {"ok": False, "error": "Transaction not found or not owned by user"}
+            
+    except Exception as e:
+        logger.error(f"Error updating transaction {txn_id}: {e}", exc_info=True)
+        return 500, {'ok': False, 'error': str(e)}
 
 @router.get("/transactions/user")
 def get_user_transactions(request) -> Dict[str, Any]:

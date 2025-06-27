@@ -324,18 +324,6 @@ def calculate_enhanced_portfolio_performance(
     start_date, days = _parse_period_to_dates(period, first_transaction_date)
     logger.info(f"[PORTFOLIO_BENCHMARK] Calculated date range: {start_date} to {date.today()} ({days} days)")
     
-    # If measuring a shorter period and first transaction predates it, carry initial exposure
-    if period != 'ALL' and first_transaction_date < start_date:
-        start_str = start_date.strftime('%Y-%m-%d')
-        init_amount = cash_flows.get(first_transaction_date.strftime('%Y-%m-%d'), Decimal('0'))
-        if start_str in all_historical_data.get(benchmark, {}):
-            price0 = Decimal(str(all_historical_data[benchmark][start_str]))
-            if price0 > 0 and init_amount != 0:
-                shares0 = (init_amount / price0).to_integral_value(ROUND_HALF_UP)
-                benchmark_shares = shares0
-                pending_cash = Decimal('0')
-                logger.debug(f"[{benchmark}] Initial exposure: invested {init_amount} on {first_transaction_date} at price {price0} → {shares0} shares for period start {start_str}")
-    
     # Get Alpha Vantage service
     av_service = get_alpha_vantage_service()
     logger.debug(f"[PORTFOLIO_BENCHMARK] Got Alpha Vantage service: {av_service}")
@@ -436,13 +424,31 @@ def calculate_enhanced_portfolio_performance(
 
     # Build cash-flow map from transactions (BUY positive, SELL negative)
     cash_flows: Dict[str, Decimal] = defaultdict(Decimal)
-    for txn in user_txns:  # Re-use the already fetched queryset
+    for txn in user_txns:
         if txn.transaction_type in ("BUY", "SELL"):
             sign = Decimal('1') if txn.transaction_type == 'BUY' else Decimal('-1')
             cash_flows[txn.transaction_date.strftime('%Y-%m-%d')] += sign * Decimal(str(txn.total_amount))
 
     benchmark_shares = Decimal('0')
     pending_cash = Decimal('0')
+    # Carry initial exposure into benchmark_shares if first transaction occurred before period start
+    if period != 'ALL' and first_transaction_date <= start_date:
+        price_map = all_historical_data.get(benchmark, {})
+        # find the first trading date on or after start_date
+        start_str = start_date.strftime('%Y-%m-%d')
+        trading_dates = sorted(d for d in price_map.keys() if d >= start_str)
+        if trading_dates:
+            first_price_date = trading_dates[0]
+            price0 = Decimal(str(price_map[first_price_date]))
+            init_amt = cash_flows.get(first_transaction_date.strftime('%Y-%m-%d'), Decimal('0'))
+            if price0 > 0 and init_amt != 0:
+                shares0 = (init_amt / price0).to_integral_value(ROUND_HALF_UP)
+                benchmark_shares = shares0
+                pending_cash = Decimal('0')
+                logger.debug(f"[{benchmark}] Initial exposure: invested {init_amt} on {first_price_date} at price {price0} → {shares0} shares")
+        else:
+            logger.debug(f"[PORTFOLIO_BENCHMARK] No trading price for {benchmark} on or after {start_str}")
+
     for current_date in date_range:
         d_str = current_date.strftime('%Y-%m-%d')
 

@@ -12,31 +12,68 @@ from .alpha_vantage_service import get_alpha_vantage_service
 from .auth import SupabaseUser, get_current_user, require_auth
 
 # =================
-# AUTHENTICATION
+# CACHING
 # =================
 
-# TODO: Proper Supabase JWT authentication is handled in auth.py
+# Module-level caches for dashboard endpoints
+dashboard_main_cache = TTLCache(maxsize=128, ttl=1800)  # 30 mins for main data
+dashboard_fx_cache = TTLCache(maxsize=1, ttl=300)      # 5 mins for FX rates
+
+def clear_dashboard_caches():
+    """A utility function to be called when underlying data changes."""
+    dashboard_main_cache.clear()
+    dashboard_fx_cache.clear()
+    print("[CACHE] All dashboard caches have been cleared.")
+
+def _get_cache_for_ttl(ttl: int) -> TTLCache:
+    if ttl <= 300:
+        return dashboard_fx_cache
+    return dashboard_main_cache
 
 # --- ASYNC CACHING WRAPPER ---
 def async_ttl_cache(ttl: int):
     """A wrapper to make cachetools.func.ttl_cache compatible with async functions."""
     def decorator(func):
-        sync_cache = TTLCache(maxsize=128, ttl=ttl)
+        sync_cache = _get_cache_for_ttl(ttl)
         @wraps(func)
         async def wrapper(*args, **kwargs):
-            # Create a safe cache key excluding request objects and users
+            # Create a safe, user-specific cache key
             key_parts = []
+            user_id = "anonymous"
+
+            # Find user from args or kwargs to make key user-specific
+            current_user = None
+            if 'request' in kwargs and hasattr(kwargs['request'], 'user') and isinstance(kwargs['request'].user, SupabaseUser):
+                current_user = kwargs['request'].user
+            
+            if not current_user:
+                for arg in args:
+                    if isinstance(arg, SupabaseUser):
+                        current_user = arg
+                        break
+            if not current_user:
+                 for kw_v in kwargs.values():
+                    if isinstance(kw_v, SupabaseUser):
+                        current_user = kw_v
+                        break
+            
+            if not current_user and args and hasattr(args[0], 'user') and isinstance(args[0].user, SupabaseUser):
+                current_user = args[0].user
+
+            if current_user and current_user.id:
+                user_id = current_user.id
+
+            # Create a key from other args
             for arg in args:
-                if not hasattr(arg, 'method'):  # Skip request objects
-                    if not isinstance(arg, SupabaseUser):
-                        key_parts.append(str(arg))
+                if not hasattr(arg, 'method') and not isinstance(arg, SupabaseUser):
+                    key_parts.append(str(arg))
             
             for k, v in kwargs.items():
-                if not isinstance(v, SupabaseUser) and not hasattr(v, 'method'):
+                if not isinstance(v, SupabaseUser) and not hasattr(v, 'method') and k != 'request':
                     key_parts.append(f"{k}:{v}")
             
-            cache_key = tuple(key_parts) or ('default',)
-            
+            cache_key = (func.__name__, user_id, tuple(key_parts), tuple(sorted(kwargs.items())))
+
             try:
                 return sync_cache[cache_key]
             except KeyError:
@@ -322,6 +359,18 @@ async def get_portfolio_allocation(request, groupBy: str = "sector"):
     transactions = await sync_to_async(list)(Transaction.objects.filter(user_id=user.id))
     print(f"[DASHBOARD DEBUG] Allocation: Found {len(transactions)} transactions for user")
 
+    # ---------------------------------------------
+    # Try to load cached current prices first
+    # ---------------------------------------------
+    try:
+        from .services.transaction_service import get_price_update_service
+        cached_resp = get_price_update_service().get_cached_prices(user.id)
+        cached_prices: Dict[str, Any] = cached_resp.get("prices", {}) if isinstance(cached_resp, dict) else {}
+        print(f"[DASHBOARD DEBUG] Allocation: Retrieved {len(cached_prices)} cached price entries")
+    except Exception as cache_err:  # pragma: no cover
+        print(f"[DASHBOARD DEBUG] Allocation: Failed to fetch cached prices – {cache_err}")
+        cached_prices = {}
+
     holdings = defaultdict(Decimal)
     invested = defaultdict(Decimal)
 
@@ -335,14 +384,24 @@ async def get_portfolio_allocation(request, groupBy: str = "sector"):
             invested[txn.ticker] -= txn.total_amount
 
     av_service = get_alpha_vantage_service()
-    prices = {}
+    prices: Dict[str, Decimal] = {}
     total_value = Decimal('0')
 
     for ticker, shares in holdings.items():
         if shares <= 0:
             continue
-        quote = await sync_to_async(av_service.get_global_quote)(ticker)
-        price = Decimal(str(quote.get('price', '0'))) if quote else Decimal('0')
+
+        # Prefer cached price
+        if ticker in cached_prices and cached_prices[ticker].get("price"):
+            price = Decimal(str(cached_prices[ticker]["price"]))
+        else:
+            # Fallback to live quote but wrap errors
+            try:
+                quote = await sync_to_async(av_service.get_global_quote)(ticker)
+                price = Decimal(str(quote.get('price', '0'))) if quote else Decimal('0')
+            except Exception as quote_err:  # pragma: no cover
+                print(f"[DASHBOARD DEBUG] Allocation: Quote fetch failed for {ticker}: {quote_err}")
+                price = Decimal('0')
         prices[ticker] = price
         total_value += shares * price
 
@@ -393,6 +452,14 @@ async def get_top_gainers(request, limit: int = 5):
     transactions = await sync_to_async(list)(Transaction.objects.filter(user_id=user.id))
     print(f"[DASHBOARD DEBUG] Gainers: Found {len(transactions)} transactions for user")
 
+    # Cached prices
+    try:
+        from .services.transaction_service import get_price_update_service
+        cached_resp = get_price_update_service().get_cached_prices(user.id)
+        cached_prices: Dict[str, Any] = cached_resp.get("prices", {}) if isinstance(cached_resp, dict) else {}
+    except Exception:
+        cached_prices = {}
+
     tickers = {txn.ticker for txn in transactions if txn.transaction_type in ['BUY', 'SELL']}
     print(f"[DASHBOARD DEBUG] Gainers: Extracted {len(tickers)} unique tickers: {list(tickers)}")
     av_service = get_alpha_vantage_service()
@@ -400,12 +467,21 @@ async def get_top_gainers(request, limit: int = 5):
 
     for ticker in tickers:
         print(f"[DASHBOARD DEBUG] Gainers: Fetching quote for ticker: {ticker}")
-        quote = await sync_to_async(av_service.get_global_quote)(ticker)
-        if not quote:
-            continue
-        price = Decimal(str(quote.get('price', '0')))
-        change = Decimal(str(quote.get('change', '0')))
-        change_percent = Decimal(str(quote.get('change_percent', '0')))
+        if ticker in cached_prices and cached_prices[ticker].get("price"):
+            price = Decimal(str(cached_prices[ticker]["price"]))
+            change = Decimal(str(cached_prices[ticker].get("change", '0')))
+            change_percent = Decimal(str(cached_prices[ticker].get("change_percent", '0')))
+        else:
+            try:
+                quote = await sync_to_async(av_service.get_global_quote)(ticker)
+            except Exception as quote_err:
+                print(f"[DASHBOARD DEBUG] Gainers: Quote fetch failed for {ticker}: {quote_err}")
+                quote = None
+            if not quote:
+                continue
+            price = Decimal(str(quote.get('price', '0')))
+            change = Decimal(str(quote.get('change', '0')))
+            change_percent = Decimal(str(quote.get('change_percent', '0')))
         
         # Fix: Ensure all numeric fields are returned as proper Decimal types
         price_decimal = Decimal(str(round(float(price), 2)))
@@ -447,6 +523,14 @@ async def get_top_losers(request, limit: int = 5):
     transactions = await sync_to_async(list)(Transaction.objects.filter(user_id=user.id))
     print(f"[DASHBOARD DEBUG] Losers: Found {len(transactions)} transactions for user")
 
+    # Cached prices
+    try:
+        from .services.transaction_service import get_price_update_service
+        cached_resp = get_price_update_service().get_cached_prices(user.id)
+        cached_prices: Dict[str, Any] = cached_resp.get("prices", {}) if isinstance(cached_resp, dict) else {}
+    except Exception:
+        cached_prices = {}
+
     tickers = {txn.ticker for txn in transactions if txn.transaction_type in ['BUY', 'SELL']}
     print(f"[DASHBOARD DEBUG] Losers: Extracted {len(tickers)} unique tickers: {list(tickers)}")
     av_service = get_alpha_vantage_service()
@@ -454,12 +538,21 @@ async def get_top_losers(request, limit: int = 5):
 
     for ticker in tickers:
         print(f"[DASHBOARD DEBUG] Losers: Fetching quote for ticker: {ticker}")
-        quote = await sync_to_async(av_service.get_global_quote)(ticker)
-        if not quote:
-            continue
-        price = Decimal(str(quote.get('price', '0')))
-        change = Decimal(str(quote.get('change', '0')))
-        change_percent = Decimal(str(quote.get('change_percent', '0')))
+        if ticker in cached_prices and cached_prices[ticker].get("price"):
+            price = Decimal(str(cached_prices[ticker]["price"]))
+            change = Decimal(str(cached_prices[ticker].get("change", '0')))
+            change_percent = Decimal(str(cached_prices[ticker].get("change_percent", '0')))
+        else:
+            try:
+                quote = await sync_to_async(av_service.get_global_quote)(ticker)
+            except Exception as quote_err:
+                print(f"[DASHBOARD DEBUG] Losers: Quote fetch failed for {ticker}: {quote_err}")
+                quote = None
+            if not quote:
+                continue
+            price = Decimal(str(quote.get('price', '0')))
+            change = Decimal(str(quote.get('change', '0')))
+            change_percent = Decimal(str(quote.get('change_percent', '0')))
         
         # Fix: Ensure all numeric fields are returned as proper Decimal types
         price_decimal = Decimal(str(round(float(price), 2)))
