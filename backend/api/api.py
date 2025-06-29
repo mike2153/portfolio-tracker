@@ -2,6 +2,7 @@
 from ninja import NinjaAPI
 from .views import router as api_router
 from .dashboard_views import dashboard_api_router
+from .stock_research_views import stock_research_router
 
 # Initialise API instance once
 api = NinjaAPI()
@@ -32,6 +33,7 @@ def _safe_add_router(prefix: str, router_obj):
 
 _safe_add_router("/", api_router)
 _safe_add_router("/dashboard", dashboard_api_router)
+_safe_add_router("/research", stock_research_router)
 
 @api.get("/hello")
 def hello(request):

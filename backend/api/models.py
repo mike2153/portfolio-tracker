@@ -34,6 +34,11 @@ class StockSymbol(models.Model):
             models.Index(fields=['symbol', 'exchange_code']),
         ]
 
+    @property
+    def ticker(self):
+        """Alias for symbol field to match API expectations"""
+        return self.symbol
+
     def __str__(self):
         return f"{self.symbol} - {self.name} ({self.exchange_name})"
 
@@ -497,3 +502,42 @@ class ExchangeRate(models.Model):
     
     def __str__(self):
         return f"1 {self.base_currency} = {self.rate} {self.target_currency} ({self.date})"
+
+
+class UserWatchlist(models.Model):
+    """User's stock watchlist for tracking favorites"""
+    user_id = models.CharField(max_length=255, db_index=True)
+    ticker = models.CharField(max_length=20, db_index=True)
+    company_name = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'user_watchlist'
+        unique_together = ['user_id', 'ticker']
+        indexes = [
+            models.Index(fields=['user_id', 'ticker']),
+            models.Index(fields=['user_id']),
+        ]
+    
+    def __str__(self):
+        return f"{self.user_id} - {self.ticker}"
+
+
+class StockNote(models.Model):
+    """User notes for individual stocks"""
+    user_id = models.CharField(max_length=255, db_index=True)
+    ticker = models.CharField(max_length=20, db_index=True)
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'stock_notes'
+        indexes = [
+            models.Index(fields=['user_id', 'ticker']),
+            models.Index(fields=['user_id']),
+            models.Index(fields=['ticker']),
+        ]
+    
+    def __str__(self):
+        return f"{self.user_id} - {self.ticker} note"

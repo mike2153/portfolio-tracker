@@ -439,6 +439,30 @@ class AlphaVantageService:
             
         return data
 
+    # ------------------------------------------------------------------
+    # Back-compat helper wrappers – keep legacy view code working
+    # ------------------------------------------------------------------
+
+    # The stock_research_views module still calls these older method names.
+    # Provide thin wrappers so we don't have to refactor view code today.
+
+    def search_symbols(self, keywords: str):  # pragma: no cover
+        """Alias for symbol_search (legacy)."""
+        return self.symbol_search(keywords)
+
+    def get_stock_quote(self, symbol: str):  # pragma: no cover
+        """Alias for get_global_quote (legacy)."""
+        return self.get_global_quote(symbol)
+
+    def get_intraday_data(self, symbol: str, interval: str = "60min"):  # pragma: no cover
+        """Minimal intraday wrapper. Alpha Vantage intraday endpoint is rate-limited; we use daily data as a fallback."""
+        # NOTE: For now we just return daily adjusted data; upgrade if full intraday support is required.
+        return self.get_daily_adjusted(symbol, outputsize="compact")
+
+    def get_daily_data(self, symbol: str, outputsize: str = "full"):  # pragma: no cover
+        """Alias for get_daily_adjusted (legacy)."""
+        return self.get_daily_adjusted(symbol, outputsize=outputsize)
+
 def get_alpha_vantage_service() -> AlphaVantageService:
     """Get a singleton instance of the AlphaVantageService"""
     global _alpha_vantage_service
