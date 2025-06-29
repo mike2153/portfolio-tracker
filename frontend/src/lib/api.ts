@@ -146,7 +146,7 @@ class ApiService {
     });
   }
 
-  async searchSymbols(query: string, limit: number = 10): Promise<ApiResponse<SymbolSearchResponse>> {
+  async searchSymbols(query: string, limit: number = 50): Promise<ApiResponse<SymbolSearchResponse>> {
     return this.makeRequest<SymbolSearchResponse>(apiEndpoints.symbolsSearch(query, limit));
   }
 

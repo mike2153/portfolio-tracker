@@ -1,6 +1,6 @@
 from ninja import Schema, Router
 from ninja.errors import HttpError
-from django.db.models import Q, Sum, Count, Case, When, Value, IntegerField
+from django.db.models import Q, Sum, Count, Case, When, Value, IntegerField, Max
 from .utils import success_response, error_response, validation_error_response
 from django.http import JsonResponse
 from .services.transaction_service import get_transaction_service, get_price_update_service
@@ -1214,7 +1214,6 @@ def get_transaction_summary(request):
         dividend_transactions = transactions.filter(transaction_type='DIVIDEND').count()
         
         # Calculate total invested and received
-        from decimal import Decimal
         total_invested = transactions.filter(transaction_type='BUY').aggregate(
             total=Sum('total_amount')
         )['total'] or Decimal('0')
@@ -1283,73 +1282,198 @@ def health_check(request):
 
 
 @router.get("/symbols/search")
-def search_symbols(request, q: str, limit: int = 10):
+def search_symbols(request, q: str, limit: int = 50):
     """
     Search for stock symbols by ticker or company name.
-    First, it searches the local database. If fewer than `limit` results are found,
-    it queries the Alpha Vantage API for more symbols and combines the results.
+    Implements relevance scoring with the following priority:
+    1. Exact match of ticker symbol (case-insensitive)
+    2. Prefix match of ticker symbol
+    3. Prefix match of company name
+    4. Substring match of ticker
+    5. Substring match of company name
+    
+    Excludes results where ticker length is less than the search query length.
     """
     logger.info(f"[SYMBOL SEARCH] Received search request: q='{q}', limit={limit}")
-    av_service = get_alpha_vantage_service()
-
+    
+    if not q or len(q) < 1:
+        return {"ok": True, "results": []}
+    
+    # Normalize query for case-insensitive matching
+    query_upper = q.upper()
+    query_lower = q.lower()
+    
+    # First, search the local database
     results = []
+    
+    # Search both ticker and company name
     local_symbols_qs = StockSymbol.objects.filter(
-        Q(symbol__icontains=q) | Q(name__icontains=q),
+        Q(symbol__icontains=query_upper) | Q(name__icontains=query_lower),
         is_active=True
-    ).order_by('symbol')[:limit]
-
-    for s in local_symbols_qs:
-        results.append({
-            "symbol": s.symbol,
-            "name": s.name,
-            "exchange": s.exchange_name,
-            "currency": s.currency,
-            "type": s.type,
-            "source": "local"
-        })
-
-    logger.debug(f"[SYMBOL SEARCH] Found {len(results)} symbols locally for '{q}'.")
-
-    if len(results) >= limit or len(q) < 2:
-        return {"ok": True, "results": results[:limit]}
-
-    try:
-        av_search_results = av_service.symbol_search(keywords=q)
-        if av_search_results and av_search_results.get('bestMatches'):
-            logger.debug(f"[SYMBOL SEARCH] Alpha Vantage found {len(av_search_results['bestMatches'])} potential matches for '{q}'.")
-            existing_symbols = {r['symbol'] for r in results}
+    )
+    
+    # Score and rank results
+    scored_results = []
+    
+    for symbol in local_symbols_qs:
+        score = 0
+        ticker_upper = symbol.symbol.upper()
+        name_lower = symbol.name.lower()
+        
+        # Skip if ticker is shorter than query (e.g., searching for "SPY" shouldn't return "SP")
+        if len(ticker_upper) < len(query_upper):
+            continue
+        
+        # Exact match of ticker (highest priority)
+        if ticker_upper == query_upper:
+            score += 100
+        # Prefix match of ticker
+        elif ticker_upper.startswith(query_upper):
+            score += 75
+        # Substring match of ticker
+        elif query_upper in ticker_upper:
+            score += 50
             
-            for match in av_search_results['bestMatches']:
-                if len(results) >= limit:
+        # Prefix match of company name
+        if name_lower.startswith(query_lower):
+            score += 60
+        # Substring match of company name
+        elif query_lower in name_lower:
+            score += 40
+        
+        # Length penalty for very short tickers (optional)
+        if len(ticker_upper) < 3:
+            score -= 10
+            
+        # Levenshtein distance bonus (simple approximation)
+        # If ticker is very similar to query, give bonus points
+        if len(ticker_upper) <= len(query_upper) + 2:
+            common_prefix_len = 0
+            for i in range(min(len(ticker_upper), len(query_upper))):
+                if ticker_upper[i] == query_upper[i]:
+                    common_prefix_len += 1
+                else:
                     break
-                
-                symbol_data = {
-                    "symbol": match.get("1. symbol"),
-                    "name": match.get("2. name"),
-                    "exchange": match.get("4. region"),
-                    "currency": match.get("8. currency"),
-                    "type": match.get("3. type"),
-                    "source": "alpha_vantage"
-                }
-
-                if symbol_data["symbol"] and symbol_data["symbol"] not in existing_symbols:
-                    results.append(symbol_data)
-                    existing_symbols.add(symbol_data["symbol"])
-        else:
-            logger.debug(f"[SYMBOL SEARCH] No additional matches found via Alpha Vantage for '{q}'.")
+            if common_prefix_len >= len(query_upper) - 1:
+                score += 10
+        
+        if score > 0:
+            scored_results.append({
+                "symbol": symbol.symbol,
+                "name": symbol.name,
+                "exchange": symbol.exchange_name,
+                "exchange_code": symbol.exchange_code,
+                "currency": symbol.currency,
+                "type": symbol.type,
+                "source": "local",
+                "score": score
+            })
+    
+    # Sort by score (descending)
+    scored_results.sort(key=lambda x: x["score"], reverse=True)
+    
+    # Remove score from final results
+    results = [{k: v for k, v in item.items() if k != "score"} for item in scored_results[:limit]]
+    
+    logger.debug(f"[SYMBOL SEARCH] Found {len(results)} symbols locally for '{q}'.")
+    
+    # If we have fewer results than the limit, try to get more from Alpha Vantage
+    if len(results) < limit and len(q) >= 2:
+        av_service = get_alpha_vantage_service()
+        try:
+            av_results = av_service.symbol_search(q)
+            if av_results and "bestMatches" in av_results:
+                for match in av_results["bestMatches"]:
+                    # Skip if we already have this symbol
+                    if any(r["symbol"] == match.get("1. symbol") for r in results):
+                        continue
+                        
+                    ticker = match.get("1. symbol", "")
+                    name = match.get("2. name", "")
+                    
+                    # Apply same filtering logic
+                    if len(ticker) < len(query_upper):
+                        continue
+                    
+                    # Calculate score for AV results
+                    score = 0
+                    ticker_upper = ticker.upper()
+                    name_lower = name.lower()
+                    
+                    if ticker_upper == query_upper:
+                        score += 100
+                    elif ticker_upper.startswith(query_upper):
+                        score += 75
+                    elif query_upper in ticker_upper:
+                        score += 50
+                        
+                    if name_lower.startswith(query_lower):
+                        score += 60
+                    elif query_lower in name_lower:
+                        score += 40
+                    
+                    if len(ticker_upper) < 3:
+                        score -= 10
+                    
+                    if score > 0:
+                        results.append({
+                            "symbol": ticker,
+                            "name": name,
+                            "exchange": match.get("4. region", ""),
+                            "exchange_code": match.get("4. region", ""),
+                            "currency": match.get("8. currency", "USD"),
+                            "type": match.get("3. type", "Equity"),
+                            "source": "alpha_vantage"
+                        })
+                        
+                        # Also save to local database for future searches
+                        StockSymbol.objects.get_or_create(
+                            symbol=ticker,
+                            defaults={
+                                "name": name,
+                                "exchange_code": match.get("4. region", ""),
+                                "exchange_name": match.get("4. region", ""),
+                                "currency": match.get("8. currency", "USD"),
+                                "country": match.get("4. region", ""),
+                                "type": match.get("3. type", "Equity"),
+                            }
+                        )
+                        
+                    if len(results) >= limit:
+                        break
+                        
+        except Exception as e:
+            logger.error(f"[SYMBOL SEARCH] Error searching Alpha Vantage: {e}")
+    
+    # Final sort by relevance if we added AV results
+    if len(results) > len(scored_results):
+        # Re-score all results for consistent ordering
+        all_scored = []
+        for result in results:
+            score = 0
+            ticker_upper = result["symbol"].upper()
+            name_lower = result["name"].lower()
             
-    except Exception as e:
-        logger.error(f"[SYMBOL SEARCH] Error during Alpha Vantage search for '{q}': {e}", exc_info=True)
-
-    # Rank results by similarity to the query
-    for r in results:
-        r["_score"] = SequenceMatcher(None, q.upper(), r["symbol"].upper()).ratio()
-
-    results.sort(key=lambda x: x["_score"], reverse=True)
-
-    for r in results:
-        r.pop("_score", None)
-
-    logger.info(f"[SYMBOL SEARCH] Returning {len(results)} combined results for '{q}'.")
-    return {"ok": True, "results": results[:limit]}
+            if ticker_upper == query_upper:
+                score += 100
+            elif ticker_upper.startswith(query_upper):
+                score += 75
+            elif query_upper in ticker_upper:
+                score += 50
+                
+            if name_lower.startswith(query_lower):
+                score += 60
+            elif query_lower in name_lower:
+                score += 40
+                
+            if len(ticker_upper) < 3:
+                score -= 10
+                
+            result["score"] = score
+            all_scored.append(result)
+        
+        all_scored.sort(key=lambda x: x["score"], reverse=True)
+        results = [{k: v for k, v in item.items() if k != "score"} for item in all_scored[:limit]]
+    
+    return {"ok": True, "results": results, "total": len(results), "query": q, "limit": limit}
 

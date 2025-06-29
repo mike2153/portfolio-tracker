@@ -315,7 +315,7 @@ export default function PortfolioPage() {
         }
         setSearchLoading(true);
         try {
-            const response = await apiService.searchSymbols(query);
+            const response = await apiService.searchSymbols(query, 50);
             if (response.ok && response.data) {
                 setTickerSuggestions(response.data.results);
                 setSearchCache(prev => ({ ...prev, [query]: response.data!.results }));
@@ -327,7 +327,7 @@ export default function PortfolioPage() {
         } finally {
             setSearchLoading(false);
         }
-    }, 300), [searchCache]);
+    }, 500), [searchCache]);
 
     const handleTickerFocus = () => setShowSuggestions(true);
     const handleTickerBlur = () => setTimeout(() => setShowSuggestions(false), 200);

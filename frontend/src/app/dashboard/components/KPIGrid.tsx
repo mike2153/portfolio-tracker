@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabaseClient';
 import KPICard from './KPICard';
 import { KPIGridSkeleton } from './Skeletons';
 import { debug } from '@/lib/debug';
+import { useDashboard } from '../contexts/DashboardContext';
 
 interface KPIGridProps {
   initialData?: DashboardOverview;
@@ -19,6 +20,18 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
   //console.log('[KPIGrid] 📊 Initial data keys:', initialData ? Object.keys(initialData) : 'null');
   
   const [userId, setUserId] = useState<string | null>(null);
+  
+  // Get dashboard context
+  const {
+    portfolioDollarGain,
+    portfolioPercentGain,
+    benchmarkDollarGain,
+    benchmarkPercentGain,
+    selectedBenchmark,
+    selectedPeriod,
+    isLoadingPerformance,
+    performanceData
+  } = useDashboard();
 
   useEffect(() => {
     //console.log('[KPIGrid] 🔐 useEffect: Checking user session...');
@@ -160,12 +173,52 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
   validateKPIData(data.irr, 'IRR');
   validateKPIData(data.passiveIncome, 'Dividend Yield');
 
+  // Format values for display
+  const formatCurrency = (value: number) => {
+    const absValue = Math.abs(value);
+    const sign = value >= 0 ? '+' : '-';
+    if (absValue >= 1000000) {
+      return `${sign}AU$${(absValue / 1000000).toFixed(2)}M`;
+    } else if (absValue >= 1000) {
+      return `${sign}AU$${(absValue / 1000).toFixed(1)}K`;
+    }
+    return `${sign}AU$${absValue.toFixed(2)}`;
+  };
+
+  const formatPercent = (value: number) => {
+    const sign = value >= 0 ? '+' : '';
+    return `${sign}${value.toFixed(2)}%`;
+  };
+
+  // Create performance data with context values
+  const performanceKPIData = performanceData ? {
+    value: portfolioDollarGain,
+    percentGain: portfolioPercentGain,
+    sub_label: `${selectedBenchmark}: ${formatCurrency(benchmarkDollarGain)} (${formatPercent(benchmarkPercentGain)})`,
+    is_positive: portfolioDollarGain >= 0
+  } : data.totalProfit;
+
+  // Calculate total return (performance + dividends)
+  const dividendValue = data.passiveIncome?.value || 0;
+  const totalReturnValue = performanceData ? portfolioDollarGain + Number(dividendValue) : Number(data.totalProfit?.value || 0) + Number(dividendValue);
+  const totalReturnData = {
+    value: totalReturnValue,
+    sub_label: `Capital Gains + Dividends (${selectedPeriod})`,
+    is_positive: totalReturnValue >= 0
+  };
+
   return (
     <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
       <KPICard title="Portfolio Value" data={data.marketValue} prefix="" />
-      <KPICard title="IRR" data={data.irr} suffix="%" />
+      <KPICard 
+        title="Performance" 
+        data={performanceKPIData} 
+        prefix="" 
+        showPercentage={true}
+        percentValue={performanceData ? portfolioPercentGain : undefined}
+      />
       <KPICard title="Dividend Yield" data={data.passiveIncome} prefix="" />
-      <KPICard title="Total Return" data={data.totalProfit} prefix="" />
+      <KPICard title="Total Return" data={totalReturnData} prefix="" />
     </div>
   );
 };

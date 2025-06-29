@@ -159,7 +159,7 @@ const TransactionsPage = () => {
       }
       setSearchLoading(true);
       try {
-        const response = await apiService.searchSymbols(query, 10);
+        const response = await apiService.searchSymbols(query, 50);
         if (latestQueryRef.current === query) {
           if (response.ok && response.data) {
             setTickerSuggestions(response.data.results);
@@ -170,7 +170,7 @@ const TransactionsPage = () => {
       } finally {
         setSearchLoading(false);
       }
-    }, 300),
+    }, 500),
     []
   );
 

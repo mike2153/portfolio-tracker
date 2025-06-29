@@ -9,7 +9,7 @@ export const apiEndpoints = {
   portfolios: (userId: string) => `${config.apiBaseUrl}/api/portfolios/${userId}`,
   addHolding: (userId: string) => `${config.apiBaseUrl}/api/portfolios/${userId}/holdings`,
   updateHolding: (userId: string, holdingId: number) => `${config.apiBaseUrl}/api/portfolios/${userId}/holdings/${holdingId}`,
-  symbolsSearch: (query: string, limit: number = 10) => 
+  symbolsSearch: (query: string, limit: number = 50) => 
     `${config.apiBaseUrl}/api/symbols/search?q=${encodeURIComponent(query)}&limit=${limit}`,
   stockHistorical: (ticker: string, period: string = '5Y') => 
     `${config.apiBaseUrl}/api/stocks/${ticker}/historical?period=${period}`,

@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { dashboardAPI } from '@/lib/api'
 import { debug } from '@/lib/debug'
 import { ChartSkeleton } from './Skeletons'
+import { useDashboard } from '../contexts/DashboardContext'
 
 const Plot = dynamic(() => import('react-plotly.js'), { ssr: false })
 
@@ -25,35 +26,28 @@ type PerfPoint = { total_value: number; indexed_performance: number; date: strin
 export default function PortfolioChart() {
   debug('[PortfolioChart] Component mounting...');
   
-  const [userId, setUserId] = useState<string | null>(null)
-  const [range, setRange] = useState('1Y')
+  const { 
+    selectedPeriod, 
+    setSelectedPeriod,
+    selectedBenchmark,
+    setSelectedBenchmark,
+    setPerformanceData,
+    setIsLoadingPerformance,
+    userId
+  } = useDashboard();
+  
   const [mode, setMode] = useState<Mode>('value')
-  const [benchmark, setBenchmark] = useState('SPY')
 
-  debug('[PortfolioChart] Component state:', { userId, range, mode, benchmark });
-
-  useEffect(() => {
-    debug('[PortfolioChart] useEffect: Checking user session...');
-    const init = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      debug('[PortfolioChart] Session user ID:', session?.user?.id);
-      if (session?.user) {
-        setUserId(session.user.id)
-        debug('[PortfolioChart] User ID set to:', session.user.id);
-      } else {
-        debug('[PortfolioChart] No user session found');
-      }
-    }
-    init()
-  }, [])
+  debug('[PortfolioChart] Component state:', { userId, selectedPeriod: selectedPeriod, mode, selectedBenchmark: selectedBenchmark });
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['portfolioPerformance', userId, range, benchmark],
+    queryKey: ['portfolioPerformance', userId, selectedPeriod, selectedBenchmark],
     queryFn: async () => {
       debug('[PortfolioChart] Making API call for portfolio performance...');
-      debug('[PortfolioChart] API params:', { userId, range, benchmark });
-      debug('[Benchmark] Fetching index:', benchmark);
-      const result = await dashboardAPI.getPortfolioPerformance(userId!, range, benchmark);
+      debug('[PortfolioChart] API params:', { userId, selectedPeriod, selectedBenchmark });
+      debug('[Benchmark] Fetching index:', selectedBenchmark);
+      setIsLoadingPerformance(true);
+      const result = await dashboardAPI.getPortfolioPerformance(userId!, selectedPeriod, selectedBenchmark);
       debug('[PortfolioChart] API response:', result);
       if (result.ok && result.data) {
         const prices = (result.data as any)?.data?.benchmark_performance ?? (result.data as any)?.benchmark_performance;
@@ -61,6 +55,7 @@ export default function PortfolioChart() {
           debug('[Benchmark] Close prices:', prices);
         }
       }
+      setIsLoadingPerformance(false);
       return result;
     },
     enabled: !!userId,
@@ -77,7 +72,7 @@ export default function PortfolioChart() {
   const perf = perfRaw ? {
     portfolioPerformance: perfRaw.portfolio_performance || perfRaw.portfolioPerformance || [],
     benchmarkPerformance: perfRaw.benchmark_performance || perfRaw.benchmarkPerformance || [],
-    benchmark_name: perfRaw.benchmark_name || perfRaw.benchmarkName || benchmark,
+    benchmark_name: perfRaw.benchmark_name || perfRaw.benchmarkName || selectedBenchmark,
   } : undefined;
   console.log('[PortfolioChart] Transformed perf:', perf);
 
@@ -101,6 +96,17 @@ export default function PortfolioChart() {
 
   console.log('[PortfolioChart] Chart data Y values:', { portfolioY: portfolioY.slice(0, 5), benchmarkY: benchmarkY.slice(0, 5) });
 
+  // Update context when we have performance data
+  useEffect(() => {
+    if (perf && portfolio.length > 0 && benchmarkPerformance.length > 0) {
+      setPerformanceData({
+        portfolioPerformance: portfolio,
+        benchmarkPerformance: benchmarkPerformance,
+        comparison: perfRaw.comparison
+      });
+    }
+  }, [perf, portfolio, benchmarkPerformance, perfRaw, setPerformanceData]);
+
   return (
     <div className="rounded-xl bg-gray-800/80 p-6 shadow-lg">
       <div className="flex items-center justify-between mb-4">
@@ -109,8 +115,8 @@ export default function PortfolioChart() {
           {ranges.map(r => (
             <button
               key={r}
-              onClick={() => setRange(r)}
-              className={`px-2 py-1 text-xs rounded-md ${range === r ? 'bg-blue-600 text-white' : 'text-gray-300 hover:text-white'}`}
+              onClick={() => setSelectedPeriod(r)}
+              className={`px-2 py-1 text-xs rounded-md ${selectedPeriod === r ? 'bg-blue-600 text-white' : 'text-gray-300 hover:text-white'}`}
             >
               {r}
             </button>
@@ -119,8 +125,8 @@ export default function PortfolioChart() {
       </div>
       <div className="mb-2">
         <select
-          value={benchmark}
-          onChange={e => setBenchmark(e.target.value)}
+          value={selectedBenchmark}
+          onChange={e => setSelectedBenchmark(e.target.value)}
           className="px-2 py-1 text-xs rounded-md bg-gray-700 text-white"
         >
           {benchmarks.map(b => (

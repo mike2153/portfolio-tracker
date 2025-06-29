@@ -6,12 +6,14 @@ import { cn } from '@/lib/utils'; // Assuming a utility for classnames exists
 
 interface KPICardProps {
   title: string;
-  data: KPIValue;
+  data: KPIValue & { percentGain?: number };
   prefix?: string;
   suffix?: string;
+  showPercentage?: boolean;
+  percentValue?: number;
 }
 
-const KPICard = ({ title, data, prefix = "", suffix = "" }: KPICardProps) => {
+const KPICard = ({ title, data, prefix = "", suffix = "", showPercentage = false, percentValue }: KPICardProps) => {
 //  console.log(`[KPICard] 🚀 Enhanced KPI card rendering for: ${title}`);
  // console.log(`[KPICard] 📊 Raw data received:`, data);
   //console.log(`[KPICard] 📊 Data type:`, typeof data);
@@ -118,6 +120,14 @@ const KPICard = ({ title, data, prefix = "", suffix = "" }: KPICardProps) => {
   const finalSafeValue = safeFormatValue(value);
   const finalSafeDelta = deltaPercent ? safeFormatDelta(deltaPercent) : null;
   const finalDisplayValue = `${prefix}${finalSafeValue}${suffix}`;
+  
+  // Format percentage for Performance card
+  const formatPercentageDisplay = (percent: number | undefined) => {
+    if (percent === undefined) return '';
+    const sign = percent >= 0 ? '+' : '';
+    return ` (${sign}${percent.toFixed(2)}%)`;
+  };
+  
   /*
   console.log(`[KPICard] 🎯 Final render data for ${title}:`);
   console.log(`[KPICard]   - Raw value: "${value}" (${typeof value})`);
@@ -135,9 +145,16 @@ const KPICard = ({ title, data, prefix = "", suffix = "" }: KPICardProps) => {
         <Info className="h-4 w-4 text-gray-500" />
       </div>
       <div className="mt-2">
-        <p className="text-2xl font-semibold text-white">
-          {finalDisplayValue}
-        </p>
+        <div className="flex items-baseline">
+          <p className="text-2xl font-semibold text-white">
+            {finalDisplayValue}
+          </p>
+          {showPercentage && (percentValue !== undefined || data.percentGain !== undefined) && (
+            <span className="ml-2 text-lg font-medium text-gray-300">
+              {formatPercentageDisplay(percentValue || data.percentGain)}
+            </span>
+          )}
+        </div>
         <div className="mt-1 flex items-center space-x-2 text-xs">
           {deltaPercent && (
             <span className={cn('flex items-center', is_positive ? 'text-green-400' : 'text-red-400')}>
