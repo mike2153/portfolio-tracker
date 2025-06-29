@@ -92,7 +92,7 @@ export default function PriceChart({
         pinch: true,
       },
     });
-    const lineSeries = chart.addSeries(LineSeries, { color: '#2962FF' });
+  //  const lineSeries = chart.addSeries(LineSeries, { color: '#2962FF' });
 
    /* chart.addSeries(LineSeries, { color: '#2962FF' });
     const lineSeries = chart.addLineSeries({
@@ -105,8 +105,8 @@ export default function PriceChart({
       },
     });
 */
-    chartRef.current = chart;
-    seriesRef.current = lineSeries;
+   // chartRef.current = chart;
+   // seriesRef.current = lineSeries;
 
     // Handle resize
     const handleResize = () => {
