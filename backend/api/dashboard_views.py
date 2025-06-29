@@ -72,7 +72,22 @@ def async_ttl_cache(ttl: int):
                 if not isinstance(v, SupabaseUser) and not hasattr(v, 'method') and k != 'request':
                     key_parts.append(f"{k}:{v}")
             
-            cache_key = (func.__name__, user_id, tuple(key_parts), tuple(sorted(kwargs.items())))
+            # Build a more specific cache key to avoid collisions between different endpoints
+            request_path = ""
+            # From kwargs
+            if "request" in kwargs and hasattr(kwargs["request"], "path"):
+                request_path = kwargs["request"].path
+            # From positional args (first arg usually request object)
+            elif args and hasattr(args[0], "path"):
+                request_path = args[0].path
+            cache_key = (
+                func.__module__,      # Ensure uniqueness across modules
+                func.__name__,        # Function name (route)
+                request_path,         # Full API path
+                user_id,
+                tuple(key_parts),
+                tuple(sorted(kwargs.items())),
+            )
 
             try:
                 return sync_cache[cache_key]
