@@ -1,32 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { dashboardAPI } from '@/lib/api';
 import { ChartSkeleton } from './Skeletons';
 import { AllocationRow } from '@/types/api';
 import { cn } from '@/lib/utils';
-import { supabase } from '@/lib/supabaseClient';
+import { useDashboard } from '../contexts/DashboardContext';
 
 const AllocationTable = () => {
-  //console.log('[AllocationTable] Component mounting...');
-  
-  const [userId, setUserId] = useState<string | null>(null);
-
-  useEffect(() => {
-    //console.log('[AllocationTable] useEffect: Checking user session...');
-    const init = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      //console.log('[AllocationTable] Session user ID:', session?.user?.id);
-      if (session?.user) {
-        setUserId(session.user.id);
-        //console.log('[AllocationTable] User ID set to:', session.user.id);
-      } else {
-        //console.log('[AllocationTable] No user session found');
-      }
-    };
-    init();
-  }, []);
+  const { userId } = useDashboard();
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['dashboardAllocation', userId],

@@ -92,20 +92,18 @@ export default function PortfolioChart() {
     ? benchmarkPerformance.map((b) => b.total_value)
     : benchmarkPerformance.map((b) => b.indexed_performance);
 
-  debug('[PortfolioChart] Benchmark Y data for mode', mode, benchmarkY.slice(0, 5));
+  // Removed excessive console logging for performance
 
-  console.log('[PortfolioChart] Chart data Y values:', { portfolioY: portfolioY.slice(0, 5), benchmarkY: benchmarkY.slice(0, 5) });
-
-  // Update context when we have performance data
+  // Update context when we have performance data - use useMemo to prevent infinite loops
   useEffect(() => {
     if (perf && portfolio.length > 0 && benchmarkPerformance.length > 0) {
       setPerformanceData({
         portfolioPerformance: portfolio,
         benchmarkPerformance: benchmarkPerformance,
-        comparison: perfRaw.comparison
+        comparison: perfRaw?.comparison
       });
     }
-  }, [perf, portfolio, benchmarkPerformance, perfRaw, setPerformanceData]);
+  }, [perf?.ok, portfolio.length, benchmarkPerformance.length, perfRaw?.comparison, setPerformanceData]);
 
   return (
     <div className="rounded-xl bg-gray-800/80 p-6 shadow-lg">

@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { dashboardAPI } from '@/lib/api';
 import { ListSkeleton } from './Skeletons';
@@ -8,33 +7,15 @@ import { GainerLoserRow } from '@/types/api';
 import { ArrowUp, ArrowDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
-import { supabase } from '@/lib/supabaseClient';
-import { debug } from '@/lib/debug';
+import { useDashboard } from '../contexts/DashboardContext';
 
 interface GainLossCardProps {
     type: 'gainers' | 'losers';
 }
 
 const GainLossCard = ({ type }: GainLossCardProps) => {
-   // debug(`[GainLossCard] Component mounting for type: ${type}`);
-    
     const isGainers = type === 'gainers';
-    const [userId, setUserId] = useState<string | null>(null);
-
-    useEffect(() => {
-       // debug(`[GainLossCard] useEffect: Checking user session for ${type}...`);
-        const init = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-     //       debug(`[GainLossCard] Session user ID for ${type}:`, session?.user?.id);
-            if (session?.user) {
-                setUserId(session.user.id);
-        //        debug(`[GainLossCard] User ID set for ${type}:`, session.user.id);
-            } else {
-        //        debug(`[GainLossCard] No user session found for ${type}`);
-            }
-        };
-        init();
-    }, [type]);
+    const { userId } = useDashboard();
 
     const { data, isLoading, isError, error } = useQuery({
         queryKey: ['dashboard', type, userId],

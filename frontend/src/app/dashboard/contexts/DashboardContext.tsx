@@ -108,7 +108,7 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
     return first > 0 ? ((last - first) / first) * 100 : 0;
   }, [performanceData]);
 
-  const value: DashboardContextType = {
+  const value: DashboardContextType = React.useMemo(() => ({
     selectedPeriod,
     setSelectedPeriod,
     selectedBenchmark,
@@ -122,7 +122,17 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
     isLoadingPerformance,
     setIsLoadingPerformance,
     userId,
-  };
+  }), [
+    selectedPeriod,
+    selectedBenchmark,
+    performanceData,
+    portfolioDollarGain,
+    portfolioPercentGain,
+    benchmarkDollarGain,
+    benchmarkPercentGain,
+    isLoadingPerformance,
+    userId,
+  ]);
 
   return (
     <DashboardContext.Provider value={value}>

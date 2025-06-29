@@ -11,7 +11,10 @@ const FxTicker = () => {
     const { data, isLoading, isError } = useQuery({
         queryKey: ['fxRates'],
         queryFn: () => dashboardAPI.getFxRates(),
-        refetchInterval: 30000, // Refetch every 30 seconds
+        staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
+        gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+        refetchInterval: false, // Disable automatic refetching
+        refetchOnWindowFocus: false, // Disable refetch on window focus
     });
 
     if (isLoading) return <FxTickerSkeleton />;

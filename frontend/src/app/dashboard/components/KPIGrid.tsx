@@ -15,13 +15,7 @@ interface KPIGridProps {
 }
 
 const KPIGrid = ({ initialData }: KPIGridProps) => {
-  //console.log('[KPIGrid] 🚀 Enhanced KPI Grid component rendering with initial data:', initialData);
-  //console.log('[KPIGrid] 📊 Initial data type:', typeof initialData);
-  //console.log('[KPIGrid] 📊 Initial data keys:', initialData ? Object.keys(initialData) : 'null');
-  
-  const [userId, setUserId] = useState<string | null>(null);
-  
-  // Get dashboard context
+  // Get dashboard context which includes userId
   const {
     portfolioDollarGain,
     portfolioPercentGain,
@@ -30,23 +24,9 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
     selectedBenchmark,
     selectedPeriod,
     isLoadingPerformance,
-    performanceData
+    performanceData,
+    userId // Get userId from context instead of duplicating session fetch
   } = useDashboard();
-
-  useEffect(() => {
-    //console.log('[KPIGrid] 🔐 useEffect: Checking user session...');
-    const init = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      //console.log('[KPIGrid] 🔐 Session user ID:', session?.user?.id);
-      if (session?.user) {
-        setUserId(session.user.id);
-        //console.log('[KPIGrid] 🔐 User ID set to:', session.user.id);
-      } else {
-        //console.log('[KPIGrid] ❌ No user session found');
-      }
-    };
-    init();
-  }, []);
 
   const { data: apiData, isLoading, isError, error } = useQuery({
     queryKey: ['dashboard', 'overview', userId],
