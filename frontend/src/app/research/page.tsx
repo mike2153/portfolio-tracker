@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Search, Star, StarOff, TrendingUp, TrendingDown, BarChart3, DollarSign, FileText, Users, Target, GitCompare } from 'lucide-react';
-import { stockResearchAPI } from '@/lib/stockResearchAPI';
+import { front_api_client } from '@/lib/front_api_client';
 import type { 
   StockResearchTab, 
   StockSearchResult, 
@@ -29,7 +29,7 @@ const TABS: { id: StockResearchTab; label: string; icon: React.ReactNode }[] = [
   { id: 'comparison', label: 'Compare', icon: <GitCompare size={16} /> },
 ];
 
-export default function StockResearchPage() {
+function StockResearchPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
@@ -64,7 +64,10 @@ export default function StockResearchPage() {
   const loadWatchlist = async () => {
     try {
       console.log('[ResearchPage] Loading watchlist...');
-      const response = await stockResearchAPI.getWatchlist();
+              // Note: watchlist functionality needs to be implemented in backend
+        // const response = await front_api_client.front_api_get_watchlist();
+        console.log('[ResearchPage] Watchlist API not yet implemented, using empty array');
+        const response = { ok: true, data: { watchlist: [] } };
       
       if (response.ok && response.data && response.data.watchlist) {
         console.log('[ResearchPage] Watchlist loaded successfully:', response.data.watchlist);
@@ -99,23 +102,32 @@ export default function StockResearchPage() {
     setIsLoading(true);
     try {
       console.log(`[ResearchPage] Loading stock data for: ${ticker}`);
-      const data = await stockResearchAPI.getStockData(ticker);
+              const data = await front_api_client.front_api_get_stock_research_data(ticker);
       
       console.log(`[ResearchPage] Stock data received for ${ticker}:`, data);
       
       setStockData(prev => ({
         ...prev,
         [ticker]: {
-          overview: data.overview?.ok ? data.overview.data?.data : undefined,
-          quote: data.overview?.ok ? data.overview.data?.data : undefined,
-          priceData: Array.isArray(data.priceData) ? data.priceData : 
-                     (data.priceData?.ok ? data.priceData.data?.data || [] : []),
-          news: Array.isArray(data.news) ? data.news : 
-                (data.news?.ok ? data.news.data?.articles || [] : []),
-          notes: Array.isArray(data.notes) ? data.notes : 
-                 (data.notes?.ok ? data.notes.data?.notes || [] : []),
-          isInWatchlist: data.isInWatchlist || false
-        }
+          overview: data.overview?.ok ? data.overview.data?.data as any : undefined,
+          quote: data.overview?.ok ? data.overview.data?.data as any : undefined,
+          priceData: Array.isArray(data.priceData) 
+            ? data.priceData 
+            : data.priceData?.ok 
+              ? (data.priceData.data?.data || []) as any[]
+              : [],
+          news: Array.isArray(data.news) 
+            ? data.news 
+            : data.news?.ok 
+              ? (data.news.data?.articles || []) as any[]
+              : [],
+          notes: Array.isArray(data.notes) 
+            ? data.notes 
+            : data.notes?.ok 
+              ? (data.notes.data?.notes || []) as any[]
+              : [],
+          isInWatchlist: Boolean(data.isInWatchlist)
+        } as StockResearchData
       }));
     } catch (error) {
       console.error('[ResearchPage] Error loading stock data:', error);
@@ -144,10 +156,13 @@ export default function StockResearchPage() {
       const isInWatchlist = watchlist.includes(selectedTicker);
       
       if (isInWatchlist) {
-        await stockResearchAPI.removeFromWatchlist(selectedTicker);
+        // Note: watchlist functionality needs to be implemented in backend
+        // await front_api_client.front_api_remove_from_watchlist(selectedTicker);
+        console.log('[ResearchPage] Remove from watchlist - API not yet implemented');
         setWatchlist(prev => prev.filter(t => t !== selectedTicker));
       } else {
-        await stockResearchAPI.addToWatchlist(selectedTicker);
+        // await front_api_client.front_api_add_to_watchlist(selectedTicker);
+        console.log('[ResearchPage] Add to watchlist - API not yet implemented');
         setWatchlist(prev => [...prev, selectedTicker]);
       }
       
@@ -334,5 +349,13 @@ export default function StockResearchPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function StockResearchPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">Loading...</div>}>
+      <StockResearchPageContent />
+    </Suspense>
   );
 }

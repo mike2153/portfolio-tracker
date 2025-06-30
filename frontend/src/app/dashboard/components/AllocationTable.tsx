@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { dashboardAPI } from '@/lib/api';
+import { front_api_client } from '@/lib/front_api_client';
 import { ChartSkeleton } from './Skeletons';
 import { AllocationRow } from '@/types/api';
 import { cn } from '@/lib/utils';
@@ -16,7 +16,10 @@ const AllocationTable = () => {
     queryKey: ['dashboardAllocation'],
     queryFn: async () => {
       //console.log('[AllocationTable] Making API call for allocation data...');
-      const result = await dashboardAPI.getAllocation();
+      // Note: Allocation API needs to be implemented in backend
+      // For now, return empty allocation data
+      console.log('[AllocationTable] Allocation API not yet implemented, showing empty state');
+      const result = { data: { rows: [] } };
       //console.log('[AllocationTable] API response:', result);
       //////console.log('[AllocationTable] API response data type:', typeof result.data);
       ////console.log('[AllocationTable] API response rows:', result?.data?.rows);

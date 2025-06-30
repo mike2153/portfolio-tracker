@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { RefreshCw, DollarSign, TrendingUp, Calendar, BarChart as BarChartIcon } from 'lucide-react';
 import { BarChart as ReBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { stockResearchAPI } from '@/lib/stockResearchAPI';
+import { front_api_client } from '@/lib/front_api_client';
 import type { TabContentProps, DividendData } from '@/types/stock-research';
 
 export default function DividendsTab({ ticker, data, isLoading, onRefresh }: TabContentProps) {

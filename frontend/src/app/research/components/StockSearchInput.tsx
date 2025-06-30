@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Search, Loader2 } from 'lucide-react';
-import { apiService } from '@/lib/api';
+import { front_api_client } from '@/lib/front_api_client';
 import type { StockSearchResult } from '@/types/stock-research';
 import type { StockSymbol } from '@/types/api';
 
@@ -42,7 +42,7 @@ export default function StockSearchInput({
     setIsSearching(true);
     searchTimeoutRef.current = setTimeout(async () => {
       try {
-        const apiResp = await apiService.searchSymbols(query.trim(), 20);
+        const apiResp = await front_api_client.front_api_search_symbols({ query: query.trim(), limit: 20 });
         let mapped: StockSearchResult[] = [];
         if (apiResp.ok && apiResp.data) {
           mapped = apiResp.data.results.map((s: any): StockSearchResult => {

@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Search, Star, StarOff, TrendingUp, TrendingDown, BarChart3, DollarSign, FileText, Users, Target, GitCompare } from 'lucide-react';
-import { stockResearchAPI } from '@/lib/stockResearchAPI';
+import { front_api_get_stock_research_data, front_api_search_symbols } from '@/lib/front_api_client';
 import type { 
   StockResearchTab, 
   StockSearchResult, 
@@ -66,15 +66,9 @@ export default function StockResearchPage() {
   }, []);
 
   const loadWatchlist = async () => {
-    console.log('[ResearchPage] loadWatchlist: Awaiting API call.');
-    const response = await stockResearchAPI.getWatchlist();
-    if (response.ok && response.data) {
-      console.log('[ResearchPage] loadWatchlist: Successfully fetched watchlist.', response.data.watchlist);
-      setWatchlist(response.data.watchlist);
-    } else {
-      console.error('[ResearchPage] loadWatchlist: Failed to fetch watchlist.', response.error);
-      setWatchlist([]);
-    }
+    console.log('[ResearchPage] loadWatchlist: Feature temporarily disabled during API migration.');
+    // TODO: Implement watchlist API in front_api_client
+    setWatchlist([]);
   };
 
   const handleStockSelect = useCallback(async (ticker: string) => {
@@ -99,34 +93,28 @@ export default function StockResearchPage() {
     setStockData(null);
 
     try {
-      const [overviewRes, priceDataRes, newsRes, notesRes, watchlistRes] = await Promise.all([
-        stockResearchAPI.getStockOverview(ticker),
-        stockResearchAPI.getPriceData(ticker, '1y'),
-        stockResearchAPI.getNews(ticker),
-        stockResearchAPI.getNotes(ticker),
-        stockResearchAPI.getWatchlist()
-      ]);
+      // Use the new front_api_get_stock_research_data for efficient batch loading
+      const stockResearchData = await front_api_get_stock_research_data(ticker);
+      console.log('[ResearchPage] front_api_get_stock_research_data result:', stockResearchData);
       
-      console.log('[ResearchPage] Raw API Responses:', { overviewRes, priceDataRes, newsRes, notesRes, watchlistRes });
+      console.log('[ResearchPage] Raw API Responses from front_api_get_stock_research_data:', stockResearchData);
 
-      if (overviewRes.ok && overviewRes.data) {
-        const isInWatchlist = watchlistRes.ok && watchlistRes.data ? 
-                              watchlistRes.data.watchlist.some(item => item.ticker === ticker) : false;
-
-        const overviewData = overviewRes.data.data as (StockOverview & { quote: StockQuote });
+      if (stockResearchData.overview.ok && stockResearchData.overview.data) {
+        const overviewData = stockResearchData.overview.data;
+        const quoteData = stockResearchData.quote.ok ? stockResearchData.quote.data.data : null;
 
         const combinedData: StockResearchData = {
-          overview: overviewData,
-          quote: overviewData.quote,
-          priceData: priceDataRes.ok && priceDataRes.data ? priceDataRes.data.data : [],
-          news: newsRes.ok && newsRes.data ? newsRes.data.articles : [],
-          notes: notesRes.ok && notesRes.data ? notesRes.data.notes : [],
-          isInWatchlist,
+          overview: overviewData.fundamentals || overviewData,
+          quote: quoteData || overviewData.price_data,
+          priceData: [], // TODO: Add historical price data to front_api_client
+          news: [], // TODO: Add news data to front_api_client  
+          notes: [], // TODO: Add notes data to front_api_client
+          isInWatchlist: false, // TODO: Add watchlist check to front_api_client
         };
         console.log(`[ResearchPage] loadStockData: Successfully processed data for ${ticker}.`, combinedData);
         setStockData(combinedData);
       } else {
-        console.error(`[ResearchPage] loadStockData: Failed to fetch critical overview data for ${ticker}.`, overviewRes.error);
+        console.error(`[ResearchPage] loadStockData: Failed to fetch critical overview data for ${ticker}.`, stockResearchData.overview.error);
       }
     } catch (error) {
       console.error(`[ResearchPage] loadStockData: Unhandled exception for ${ticker}.`, error);

@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { dashboardAPI } from '@/lib/api';
+import { front_api_client } from '@/lib/front_api_client';
 import { ListSkeleton } from './Skeletons';
 import { GainerLoserRow } from '@/types/api';
 import { ArrowUp, ArrowDown } from 'lucide-react';
@@ -20,12 +20,16 @@ const GainLossCard = ({ type, title }: GainLossCardProps) => {
     const { userId } = useDashboard();
     const { user } = useAuth();
 
-    const queryFn = type === 'gainers' ? dashboardAPI.getGainers : dashboardAPI.getLosers;
+    // Note: Gainers/Losers API needs to be implemented in backend
+    const queryFn = () => {
+        console.log(`[GainLossCard] ${type} API not yet implemented, showing empty state`);
+        return Promise.resolve({ data: { items: [] } });
+    };
     const { data, isLoading, isError, error } = useQuery({
         queryKey: ['dashboard', type, userId],
         queryFn: async () => {
             console.log(`[GainLossCard] Making API call for ${type}...`);
-            const result = await queryFn(5);
+            const result = await queryFn();
             console.log(`[GainLossCard] API response for ${type}:`, result);
             console.log(`[GainLossCard] API response data type for ${type}:`, typeof result.data);
             console.log(`[GainLossCard] API response items for ${type}:`, result?.data?.items);

@@ -57,7 +57,7 @@ export default function FinancialChart({
       }
       
       return {
-        period: period.slice(0, 7), // YYYY-MM format
+        period: String(period).slice(0, 7), // YYYY-MM format
         value: numericValue,
         displayValue: formatValue(numericValue),
         originalValue: value

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { transactionAPI, apiService } from '@/lib/api';
+import { front_api_client } from '@/lib/front_api_client';
 import { PlusCircle, Trash2, Edit, ChevronDown, ChevronUp, MoreVertical, X, Loader2 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { StockSymbol, AddHoldingFormData, FormErrors } from '@/types/api';
@@ -94,12 +94,12 @@ const TransactionsPage = () => {
       if (typeFilter !== 'ALL') {
         filters.transaction_type = typeFilter;
       }
-      const response = await transactionAPI.getUserTransactions(filters);
+      const response = await front_api_client.front_api_get_transactions();
       if (response.ok && response.data) {
         const txs = (response.data.transactions ?? []) as Transaction[];
         setTransactions(txs);
       } else {
-        setError(response.message || 'Failed to load transactions');
+        setError(response.error || 'Failed to load transactions');
       }
     } catch (err) {
       setError('Error fetching transactions');
@@ -111,7 +111,21 @@ const TransactionsPage = () => {
   const fetchSummary = useCallback(async () => {
     if (!user) return;
     try {
-      const response = await transactionAPI.getTransactionSummary(user.id);
+      // Note: Transaction summary API needs to be implemented in backend
+      // For now, calculate basic summary from transactions
+      const basicSummary = {
+        total_transactions: transactions.length,
+        buy_transactions: transactions.filter(t => t.transaction_type === 'BUY').length,
+        sell_transactions: transactions.filter(t => t.transaction_type === 'SELL').length,
+        dividend_transactions: transactions.filter(t => t.transaction_type === 'DIVIDEND').length,
+        unique_tickers: new Set(transactions.map(t => t.ticker)).size,
+        total_invested: transactions.filter(t => t.transaction_type === 'BUY').reduce((sum, t) => sum + t.total_amount, 0),
+        total_received: transactions.filter(t => t.transaction_type === 'SELL').reduce((sum, t) => sum + t.total_amount, 0),
+        total_dividends: transactions.filter(t => t.transaction_type === 'DIVIDEND').reduce((sum, t) => sum + t.total_amount, 0),
+        net_invested: 0
+      };
+      basicSummary.net_invested = basicSummary.total_invested - basicSummary.total_received;
+      const response = { ok: true, data: { summary: basicSummary } };
       if (response.ok && response.data) {
         setSummary(response.data.summary);
       }
@@ -159,7 +173,7 @@ const TransactionsPage = () => {
       }
       setSearchLoading(true);
       try {
-        const response = await apiService.searchSymbols(query, 50);
+        const response = await front_api_client.front_api_search_symbols({ query, limit: 50 });
         if (latestQueryRef.current === query) {
           if (response.ok && response.data) {
             setTickerSuggestions(response.data.results);
@@ -211,16 +225,14 @@ const TransactionsPage = () => {
 
       setLoadingPrice(true);
       try {
-          const response = await apiService.getHistoricalData(ticker, period);
-          if (response.ok && response.data?.data) {
-              const match = response.data.data.find((d: any) => d.date === date);
-              if (match) {
-                  setForm(prev => ({ ...prev, purchase_price: match.close.toString() }));
-                  addToast({ type: 'success', title: 'Price Found', message: `Set purchase price to closing price of $${match.close} for ${date}` });
-              } else {
-                  addToast({ type: 'warning', title: 'Price Not Found', message: `No closing price found for ${ticker} on ${date}. Please enter manually.` });
-              }
-          }
+          // Note: Historical data API needs to be implemented in backend
+          // For now, show a message that this feature is temporarily unavailable
+          addToast({
+              type: 'info',
+              title: 'Feature Temporarily Unavailable',
+              message: 'Historical price lookup is being migrated. Please enter price manually.',
+          });
+          return;
       } catch (error) {
           addToast({ type: 'error', title: 'Price Fetch Failed', message: 'Could not fetch closing price.' });
       } finally {
@@ -249,14 +261,15 @@ const TransactionsPage = () => {
     setIsSubmitting(true);
     setError(null);
 
+    // Map form data to the format expected by front_api_client
     const transactionData = {
-        transaction_type: form.transaction_type || 'BUY',
-        ticker: form.ticker.toUpperCase(),
-        company_name: form.company_name || form.ticker.toUpperCase(),
-        shares: parseFloat(form.shares),
-        price_per_share: parseFloat(form.purchase_price),
-        transaction_date: form.purchase_date,
-        transaction_currency: form.currency,
+        transaction_type: form.transaction_type === 'BUY' ? 'Buy' as const : 
+                         form.transaction_type === 'SELL' ? 'Sell' as const : 'Buy' as const,
+        symbol: form.ticker.toUpperCase(),
+        quantity: parseFloat(form.shares),
+        price: parseFloat(form.purchase_price),
+        date: form.purchase_date,
+        currency: form.currency,
         commission: parseFloat(form.commission || '0'),
         notes: form.notes || '',
     };
@@ -267,13 +280,13 @@ const TransactionsPage = () => {
       
       let response;
       if (isEditing) {
-        response = await apiService.updateTransaction(editingTransaction.id, transactionData);
+        response = await front_api_client.front_api_update_transaction(editingTransaction.id.toString(), transactionData);
       } else {
-        response = await transactionAPI.createTransaction({ ...transactionData, user_id: user.id });
+        response = await front_api_client.front_api_add_transaction(transactionData);
       }
 
       if (response.ok) {
-        addToast({ type: 'success', title: `Transaction ${isEditing ? 'Updated' : 'Added'}`, message: `${transactionData.ticker} has been successfully ${isEditing ? 'updated' : 'added'}.` });
+        addToast({ type: 'success', title: `Transaction ${isEditing ? 'Updated' : 'Added'}`, message: `${transactionData.symbol} has been successfully ${isEditing ? 'updated' : 'added'}.` });
         setShowAddForm(false);
         setEditingTransaction(null);
         refreshData();
@@ -312,7 +325,7 @@ const TransactionsPage = () => {
     if (window.confirm('Are you sure you want to delete this transaction? This action cannot be undone.')) {
       try {
         addToast({ type: 'info', title: 'Deleting...', message: 'Removing transaction.' });
-        const response = await apiService.deleteTransaction(txnId);
+        const response = await front_api_client.front_api_delete_transaction(txnId.toString());
         if (response.ok) {
           addToast({ type: 'success', title: 'Transaction Deleted', message: 'The transaction has been removed.' });
           refreshData();

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { RefreshCw, ExternalLink, Clock, User, TrendingUp, TrendingDown, Minus } from 'lucide-react';
-import { stockResearchAPI } from '@/lib/stockResearchAPI';
+import { front_api_client } from '@/lib/front_api_client';
 import type { TabContentProps, NewsArticle } from '@/types/stock-research';
 
 export default function NewsTab({ ticker, data, isLoading, onRefresh }: TabContentProps) {

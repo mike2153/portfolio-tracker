@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { dashboardAPI } from '@/lib/api';
+import { front_api_client } from '@/lib/front_api_client';
 import { supabase } from '@/lib/supabaseClient';
 
 interface PerformanceData {

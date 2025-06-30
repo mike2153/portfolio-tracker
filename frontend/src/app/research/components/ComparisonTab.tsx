@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { RefreshCw, Plus, X, GitCompare, TrendingUp, TrendingDown, BarChart3, DollarSign } from 'lucide-react';
 import PriceChart from '@/components/charts/PriceChart';
 import StockSearchInput from './StockSearchInput';
-import { stockResearchAPI } from '@/lib/stockResearchAPI';
+import { front_api_client } from '@/lib/front_api_client';
 import type { 
   TabContentProps, 
   StockOverview, 

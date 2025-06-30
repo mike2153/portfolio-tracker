@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef, ChangeEvent, FormEvent } from
 import { supabase } from '@/lib/supabaseClient'
 import { User } from '@/types'
 import { PlusCircle, Trash2, Edit, ChevronDown, ChevronUp, MoreVertical, X, Loader2 } from 'lucide-react'
-import { apiService } from '@/lib/api'
+import { front_api_get_portfolio, front_api_get_quote, front_api_search_symbols } from '@/lib/front_api_client'
 import { ValidationService } from '@/lib/validation'
 import { useToast } from '@/components/ui/Toast'
 import {
@@ -72,7 +72,7 @@ export default function PortfolioPage() {
         setPortfolioLoading(true);
         setError(null);
         try {
-            const portfolioResponse = await apiService.getPortfolio(userId);
+            const portfolioResponse = await front_api_get_portfolio();
             
             if (!portfolioResponse.ok || !portfolioResponse.data) {
                 const msg = portfolioResponse.error || 'Failed to fetch portfolio data';
@@ -91,7 +91,7 @@ export default function PortfolioPage() {
                 const holdingsWithQuotes = await Promise.all(
                     initialHoldings.map(async (holding: Holding) => {
                         try {
-                            const res = await apiService.getQuote(holding.ticker);
+                            const res = await front_api_get_quote(holding.ticker);
                             if (res.ok && res.data?.data?.price) {
                                 const price = res.data.data.price as number;
                                 return {
@@ -153,24 +153,13 @@ export default function PortfolioPage() {
         
         setLoadingPrice(true);
         try {
-            const response = await apiService.getHistoricalData(ticker, 'max');
-            if (response.ok && response.data && response.data.data) {
-                const match = response.data.data.find((d: any) => d.date === date);
-                if (match) {
-                    setForm(prev => ({ ...prev, purchase_price: match.close.toString() }));
-                    addToast({
-                        type: 'success',
-                        title: 'Price Found',
-                        message: `Set purchase price to closing price of $${match.close} for ${date}`,
-                    });
-                } else {
-                    addToast({
-                        type: 'warning',
-                        title: 'Price Not Found',
-                        message: `No closing price found for ${ticker} on ${date}. Please enter manually.`,
-                    });
-                }
-            }
+            // Note: Historical data API needs to be implemented in front_api_client
+            // For now, just show a message that this feature is temporarily unavailable
+            addToast({
+                type: 'info',
+                title: 'Feature Temporarily Unavailable',
+                message: 'Historical price lookup is being migrated. Please enter price manually.',
+            });
         } catch (error) {
             addToast({
                 type: 'error',
@@ -315,7 +304,7 @@ export default function PortfolioPage() {
         }
         setSearchLoading(true);
         try {
-            const response = await apiService.searchSymbols(query, 50);
+            const response = await front_api_search_symbols({ query, limit: 50 });
             if (response.ok && response.data) {
                 setTickerSuggestions(response.data.results);
                 setSearchCache(prev => ({ ...prev, [query]: response.data!.results }));
@@ -366,23 +355,15 @@ export default function PortfolioPage() {
                 use_cash_balance: form.use_cash_balance,
             };
 
-            const response = await apiService.addHolding(user.id, payload);
-            
-            if (response.ok) {
-                addToast({
-                    type: 'success',
-                    title: 'Stock Added',
-                    message: `Successfully added ${payload.shares} shares of ${payload.ticker}`,
-                });
-                closeHoldingModal();
-                await fetchPortfolioData(user.id);
-            } else {
-                addToast({
-                    type: 'error',
-                    title: 'Failed to Add Stock',
-                    message: response.error || 'Could not add stock to portfolio',
-                });
-            }
+            // Note: Add holding API needs to be implemented as add transaction
+            // For now, show message that this needs to be done via transactions page
+            addToast({
+                type: 'info',
+                title: 'Use Transactions Page',
+                message: 'Please add holdings via the Transactions page - Add Transaction with type "Buy"',
+            });
+            closeHoldingModal();
+            return;
         } catch (error) {
             addToast({
                 type: 'error',
@@ -412,23 +393,15 @@ export default function PortfolioPage() {
                 use_cash_balance: form.use_cash_balance,
             };
 
-            const response = await apiService.updateHolding(user.id, editingHolding.id, payload);
-            
-            if (response.ok) {
-                addToast({
-                    type: 'success',
-                    title: 'Stock Updated',
-                    message: `Successfully updated ${payload.shares} shares of ${payload.ticker}`,
-                });
-                closeHoldingModal();
-                await fetchPortfolioData(user.id);
-            } else {
-                addToast({
-                    type: 'error',
-                    title: 'Failed to Update Stock',
-                    message: response.error || 'Could not update stock holding',
-                });
-            }
+            // Note: Update holding API needs to be implemented as update transaction
+            // For now, show message that this needs to be done via transactions page
+            addToast({
+                type: 'info',
+                title: 'Use Transactions Page',
+                message: 'Please edit holdings via the Transactions page - Edit the transaction directly',
+            });
+            closeHoldingModal();
+            return;
         } catch (error) {
             addToast({
                 type: 'error',
@@ -456,21 +429,14 @@ export default function PortfolioPage() {
         }
 
         try {
-            const response = await apiService.removeHolding(user.id, holding.id);
-            if (response.ok) {
-                addToast({
-                    type: 'success',
-                    title: 'Holding Removed',
-                    message: `All transactions for ${holding.ticker} have been removed.`,
-                });
-                fetchPortfolioData(user.id);
-            } else {
-                addToast({
-                    type: 'error',
-                    title: 'Removal Failed',
-                    message: response.error || 'Could not remove holding.',
-                });
-            }
+            // Note: Remove holding API needs to be implemented as delete transactions
+            // For now, show message that this needs to be done via transactions page
+            addToast({
+                type: 'info',
+                title: 'Use Transactions Page',
+                message: 'Please remove holdings via the Transactions page - Delete the associated transactions',
+            });
+            return;
         } catch (error) {
             addToast({
                 type: 'error',

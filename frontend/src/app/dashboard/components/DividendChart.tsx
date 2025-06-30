@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { dashboardAPI } from '@/lib/api';
+import { front_api_client } from '@/lib/front_api_client';
 import { ChartSkeleton } from './Skeletons';
 import { ResponsiveContainer, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar } from 'recharts';
 
@@ -12,7 +12,16 @@ const DividendChart = () => {
         queryKey: ['dividendForecast'],
         queryFn: async () => {
             //console.log('[DividendChart] Making API call for dividend forecast...');
-            const result = await dashboardAPI.getDividendForecast();
+            // Note: Dividend forecast API needs to be implemented in backend
+      // For now, return empty dividend data
+      console.log('[DividendChart] Dividend forecast API not yet implemented, showing empty state');
+      const result = { 
+        data: { 
+          forecast: [],
+          next12mTotal: 0,
+          monthlyAvg: 0
+        } 
+      };
             //console.log('[DividendChart] API response:', result);
             return result;
         },
