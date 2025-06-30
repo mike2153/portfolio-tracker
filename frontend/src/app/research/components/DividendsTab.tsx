@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { RefreshCw, DollarSign, TrendingUp, Calendar } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { RefreshCw, DollarSign, TrendingUp, Calendar, BarChart as BarChartIcon } from 'lucide-react';
+import { BarChart as ReBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { stockResearchAPI } from '@/lib/stockResearchAPI';
 import type { TabContentProps, DividendData } from '@/types/stock-research';
 
@@ -172,7 +172,7 @@ export default function DividendsTab({ ticker, data, isLoading, onRefresh }: Tab
                 Dividend History
               </h3>
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart
+                <ReBarChart
                   data={dividendData.history}
                   margin={{
                     top: 20,
@@ -200,12 +200,12 @@ export default function DividendsTab({ ticker, data, isLoading, onRefresh }: Tab
                     fill="#10b981"
                     radius={[2, 2, 0, 0]}
                   />
-                </BarChart>
+                </ReBarChart>
               </ResponsiveContainer>
             </div>
           ) : (
             <div className="bg-gray-800 rounded-lg p-8 text-center">
-              <BarChart size={48} className="mx-auto mb-4 text-gray-600" />
+              <BarChartIcon size={48} className="mx-auto mb-4 text-gray-600" />
               <h3 className="text-lg font-medium text-gray-400 mb-2">No Historical Data</h3>
               <p className="text-gray-500">
                 Historical dividend payment data is not available for {ticker}.

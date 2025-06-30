@@ -65,11 +65,15 @@ export default function FinancialsTab({ ticker, data, isLoading, onRefresh }: Ta
     
     setLoadingStatement(true);
     try {
-      const data = await stockResearchAPI.getFinancials(ticker, statementType);
-      setFinancialData(prev => ({
-        ...prev,
-        [statementType]: data
-      }));
+      const response = await stockResearchAPI.getFinancials(ticker, statementType);
+      if (response.ok && response.data) {
+        setFinancialData(prev => ({
+          ...prev,
+          [statementType]: response.data
+        }));
+      } else {
+        console.error('Failed to load financial data:', response.error);
+      }
     } catch (error) {
       console.error('Error loading financial data:', error);
     } finally {

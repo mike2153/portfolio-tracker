@@ -63,10 +63,19 @@ export default function StockResearchPage() {
 
   const loadWatchlist = async () => {
     try {
-      const watchlistData = await stockResearchAPI.getWatchlist();
-      setWatchlist(watchlistData.map(item => item.ticker));
+      console.log('[ResearchPage] Loading watchlist...');
+      const response = await stockResearchAPI.getWatchlist();
+      
+      if (response.ok && response.data && response.data.watchlist) {
+        console.log('[ResearchPage] Watchlist loaded successfully:', response.data.watchlist);
+        setWatchlist(response.data.watchlist.map(item => item.ticker));
+      } else {
+        console.log('[ResearchPage] Failed to load watchlist:', response);
+        setWatchlist([]); // Set empty array as fallback
+      }
     } catch (error) {
-      console.error('Error loading watchlist:', error);
+      console.error('[ResearchPage] Error loading watchlist:', error);
+      setWatchlist([]); // Set empty array as fallback
     }
   };
 
@@ -89,21 +98,27 @@ export default function StockResearchPage() {
   const loadStockData = async (ticker: string) => {
     setIsLoading(true);
     try {
+      console.log(`[ResearchPage] Loading stock data for: ${ticker}`);
       const data = await stockResearchAPI.getStockData(ticker);
+      
+      console.log(`[ResearchPage] Stock data received for ${ticker}:`, data);
       
       setStockData(prev => ({
         ...prev,
         [ticker]: {
-          overview: data.overview?.overview,
-          quote: data.overview?.quote,
-          priceData: data.priceData || [],
-          news: data.news || [],
-          notes: data.notes || [],
+          overview: data.overview?.ok ? data.overview.data?.data : undefined,
+          quote: data.overview?.ok ? data.overview.data?.data : undefined,
+          priceData: Array.isArray(data.priceData) ? data.priceData : 
+                     (data.priceData?.ok ? data.priceData.data?.data || [] : []),
+          news: Array.isArray(data.news) ? data.news : 
+                (data.news?.ok ? data.news.data?.articles || [] : []),
+          notes: Array.isArray(data.notes) ? data.notes : 
+                 (data.notes?.ok ? data.notes.data?.notes || [] : []),
           isInWatchlist: data.isInWatchlist || false
         }
       }));
     } catch (error) {
-      console.error('Error loading stock data:', error);
+      console.error('[ResearchPage] Error loading stock data:', error);
       setError('Failed to load stock data. Please try again.');
     } finally {
       setIsLoading(false);

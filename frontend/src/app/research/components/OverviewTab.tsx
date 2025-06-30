@@ -17,10 +17,16 @@ export default function OverviewTab({ ticker, data, isLoading, onRefresh }: TabC
     setLoadingChart(true);
     
     try {
-      const newPriceData = await stockResearchAPI.getPriceData(ticker, period);
-      setPriceData(newPriceData);
+      const response = await stockResearchAPI.getPriceData(ticker, period);
+      if (response.ok && response.data && response.data.data) {
+        setPriceData(response.data.data);
+      } else {
+        console.error('Failed to load price data:', response.error);
+        setPriceData([]);
+      }
     } catch (error) {
       console.error('Error loading price data:', error);
+      setPriceData([]);
     } finally {
       setLoadingChart(false);
     }
@@ -33,15 +39,18 @@ export default function OverviewTab({ ticker, data, isLoading, onRefresh }: TabC
     }
   }, [data.priceData]);
 
-  const formatValue = (value: string | undefined, fallback = 'N/A') => {
+  const formatValue = (value: string | number | undefined, fallback = 'N/A') => {
     if (!value || value === 'None' || value === 'null') return fallback;
     
+    // Convert to string if it's a number
+    const strValue = typeof value === 'number' ? value.toString() : value;
+    
     // Handle percentage values
-    if (value.includes('%')) return value;
+    if (strValue.includes('%')) return strValue;
     
     // Handle numeric values
-    const num = parseFloat(value);
-    if (isNaN(num)) return value;
+    const num = typeof value === 'number' ? value : parseFloat(strValue);
+    if (isNaN(num)) return strValue;
     
     // Format large numbers
     if (Math.abs(num) >= 1e12) {
@@ -60,11 +69,14 @@ export default function OverviewTab({ ticker, data, isLoading, onRefresh }: TabC
     return `$${num.toFixed(2)}`;
   };
 
-  const formatPercent = (value: string | undefined) => {
+  const formatPercent = (value: string | number | undefined) => {
     if (!value || value === 'None' || value === 'null') return 'N/A';
-    if (value.includes('%')) return value;
     
-    const num = parseFloat(value);
+    // Convert to string if it's a number
+    const strValue = typeof value === 'number' ? value.toString() : value;
+    if (strValue.includes('%')) return strValue;
+    
+    const num = typeof value === 'number' ? value : parseFloat(strValue);
     if (isNaN(num)) return 'N/A';
     
     return `${(num * 100).toFixed(2)}%`;

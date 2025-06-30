@@ -8,7 +8,10 @@ import type {
   StockResearchTab, 
   StockSearchResult, 
   StockResearchData,
-  TimePeriod
+  TimePeriod,
+  WatchlistItem,
+  StockOverview,
+  StockQuote
 } from '@/types/stock-research';
 
 // Import tab components
@@ -36,10 +39,10 @@ export default function StockResearchPage() {
   // State
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<StockResearchTab>('overview');
-  const [stockData, setStockData] = useState<Record<string, StockResearchData>>({});
-  const [isLoading, setIsLoading] = useState(false);
+  const [stockData, setStockData] = useState<StockResearchData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [watchlist, setWatchlist] = useState<string[]>([]);
+  const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
   const [comparisonStocks, setComparisonStocks] = useState<string[]>([]);
   const [comparisonMode, setComparisonMode] = useState(false);
 
@@ -58,15 +61,19 @@ export default function StockResearchPage() {
 
   // Load watchlist on mount
   useEffect(() => {
+    console.log('[ResearchPage] Initializing: Fetching watchlist.');
     loadWatchlist();
   }, []);
 
   const loadWatchlist = async () => {
-    try {
-      const watchlistData = await stockResearchAPI.getWatchlist();
-      setWatchlist(watchlistData.map(item => item.ticker));
-    } catch (error) {
-      console.error('Error loading watchlist:', error);
+    console.log('[ResearchPage] loadWatchlist: Awaiting API call.');
+    const response = await stockResearchAPI.getWatchlist();
+    if (response.ok && response.data) {
+      console.log('[ResearchPage] loadWatchlist: Successfully fetched watchlist.', response.data.watchlist);
+      setWatchlist(response.data.watchlist);
+    } else {
+      console.error('[ResearchPage] loadWatchlist: Failed to fetch watchlist.', response.error);
+      setWatchlist([]);
     }
   };
 
@@ -81,32 +88,51 @@ export default function StockResearchPage() {
     router.push(`/research?${newParams.toString()}`, { scroll: false });
     
     // Load stock data if not already cached
-    if (!stockData[upperTicker]) {
+    if (!stockData) {
       await loadStockData(upperTicker);
     }
   }, [searchParams, router, stockData]);
 
   const loadStockData = async (ticker: string) => {
+    console.log(`[ResearchPage] loadStockData: Loading all data for ticker: ${ticker}`);
     setIsLoading(true);
+    setStockData(null);
+
     try {
-      const data = await stockResearchAPI.getStockData(ticker);
+      const [overviewRes, priceDataRes, newsRes, notesRes, watchlistRes] = await Promise.all([
+        stockResearchAPI.getStockOverview(ticker),
+        stockResearchAPI.getPriceData(ticker, '1y'),
+        stockResearchAPI.getNews(ticker),
+        stockResearchAPI.getNotes(ticker),
+        stockResearchAPI.getWatchlist()
+      ]);
       
-      setStockData(prev => ({
-        ...prev,
-        [ticker]: {
-          overview: data.overview?.overview,
-          quote: data.overview?.quote,
-          priceData: data.priceData || [],
-          news: data.news || [],
-          notes: data.notes || [],
-          isInWatchlist: data.isInWatchlist || false
-        }
-      }));
+      console.log('[ResearchPage] Raw API Responses:', { overviewRes, priceDataRes, newsRes, notesRes, watchlistRes });
+
+      if (overviewRes.ok && overviewRes.data) {
+        const isInWatchlist = watchlistRes.ok && watchlistRes.data ? 
+                              watchlistRes.data.watchlist.some(item => item.ticker === ticker) : false;
+
+        const overviewData = overviewRes.data.data as (StockOverview & { quote: StockQuote });
+
+        const combinedData: StockResearchData = {
+          overview: overviewData,
+          quote: overviewData.quote,
+          priceData: priceDataRes.ok && priceDataRes.data ? priceDataRes.data.data : [],
+          news: newsRes.ok && newsRes.data ? newsRes.data.articles : [],
+          notes: notesRes.ok && notesRes.data ? notesRes.data.notes : [],
+          isInWatchlist,
+        };
+        console.log(`[ResearchPage] loadStockData: Successfully processed data for ${ticker}.`, combinedData);
+        setStockData(combinedData);
+      } else {
+        console.error(`[ResearchPage] loadStockData: Failed to fetch critical overview data for ${ticker}.`, overviewRes.error);
+      }
     } catch (error) {
-      console.error('Error loading stock data:', error);
-      setError('Failed to load stock data. Please try again.');
+      console.error(`[ResearchPage] loadStockData: Unhandled exception for ${ticker}.`, error);
     } finally {
       setIsLoading(false);
+      console.log(`[ResearchPage] loadStockData: Finished loading for ${ticker}.`);
     }
   };
 
@@ -122,41 +148,41 @@ export default function StockResearchPage() {
     router.push(`/research?${newParams.toString()}`, { scroll: false });
   };
 
-  const handleWatchlistToggle = async () => {
-    if (!selectedTicker) return;
-    
-    try {
-      const isInWatchlist = watchlist.includes(selectedTicker);
-      
-      if (isInWatchlist) {
-        await stockResearchAPI.removeFromWatchlist(selectedTicker);
-        setWatchlist(prev => prev.filter(t => t !== selectedTicker));
-      } else {
-        await stockResearchAPI.addToWatchlist(selectedTicker);
-        setWatchlist(prev => [...prev, selectedTicker]);
-      }
-      
-      // Update stock data
-      setStockData(prev => ({
-        ...prev,
-        [selectedTicker]: {
-          ...prev[selectedTicker],
-          isInWatchlist: !isInWatchlist
-        }
-      }));
-    } catch (error) {
-      console.error('Error toggling watchlist:', error);
+  const handleToggleWatchlist = async () => {
+    if (!selectedTicker) {
+      console.warn('[ResearchPage] handleToggleWatchlist: No ticker selected.');
+      return;
     }
+
+    const isInWatchlist = stockData ? stockData.isInWatchlist : false;
+    console.log(`[ResearchPage] handleToggleWatchlist: Toggling ${selectedTicker}. Currently in watchlist: ${isInWatchlist}`);
+
+    if (isInWatchlist) {
+      await stockResearchAPI.removeFromWatchlist(selectedTicker);
+      console.log(`[ResearchPage] handleToggleWatchlist: ${selectedTicker} removed.`);
+    } else {
+      await stockResearchAPI.addToWatchlist(selectedTicker);
+      console.log(`[ResearchPage] handleToggleWatchlist: ${selectedTicker} added.`);
+    }
+    
+    // Optimistically update UI and then refresh from source of truth
+    if (stockData) {
+      setStockData({ ...stockData, isInWatchlist: !isInWatchlist });
+    }
+    loadWatchlist(); // Re-fetch the watchlist to be sure
   };
 
   const handleRefresh = async () => {
     if (selectedTicker) {
+      console.log(`[ResearchPage] handleRefresh: Refreshing data for ${selectedTicker}.`);
       await loadStockData(selectedTicker);
+    } else {
+      console.warn('[ResearchPage] handleRefresh: Refresh called but no ticker is selected.');
     }
   };
 
-  const currentData = selectedTicker ? stockData[selectedTicker] : undefined;
-  const isInWatchlist = selectedTicker ? watchlist.includes(selectedTicker) : false;
+  const currentData = selectedTicker ? stockData : undefined;
+  const isInWatchlist = selectedTicker ? stockData?.isInWatchlist || false : false;
 
   const renderTabContent = () => {
     if (!selectedTicker || !currentData) {
@@ -263,7 +289,7 @@ export default function StockResearchPage() {
               {/* Actions */}
               <div className="flex items-center gap-2">
                 <button 
-                  onClick={handleWatchlistToggle}
+                  onClick={handleToggleWatchlist}
                   className="p-2 rounded-full hover:bg-gray-700 transition-colors"
                   title={isInWatchlist ? 'Remove from watchlist' : 'Add to watchlist'}
                 >

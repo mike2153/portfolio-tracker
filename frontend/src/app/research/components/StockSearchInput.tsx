@@ -2,8 +2,9 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Search, Loader2 } from 'lucide-react';
-import { stockResearchAPI } from '@/lib/stockResearchAPI';
+import { apiService } from '@/lib/api';
 import type { StockSearchResult } from '@/types/stock-research';
+import type { StockSymbol } from '@/types/api';
 
 interface StockSearchInputProps {
   onStockSelect: (ticker: string) => void;
@@ -24,7 +25,7 @@ export default function StockSearchInput({
   
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
-  const searchTimeoutRef = useRef<NodeJS.Timeout>();
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Handle search with debouncing
   useEffect(() => {
@@ -41,8 +42,23 @@ export default function StockSearchInput({
     setIsSearching(true);
     searchTimeoutRef.current = setTimeout(async () => {
       try {
-        const searchResults = await stockResearchAPI.searchStocks(query.trim());
-        setResults(searchResults);
+        const apiResp = await apiService.searchSymbols(query.trim(), 20);
+        let mapped: StockSearchResult[] = [];
+        if (apiResp.ok && apiResp.data) {
+          mapped = apiResp.data.results.map((s: any): StockSearchResult => {
+            const src = s.source === 'alpha_vantage' ? 'alpha_vantage' : 'local';
+            const region = s.region ?? s.country ?? s.exchange ?? '';
+            return {
+              ticker: s.symbol,
+              name: s.name,
+              type: s.type ?? 'Equity',
+              region,
+              currency: s.currency ?? '',
+              source: src,
+            };
+          });
+        }
+        setResults(mapped);
         setShowResults(true);
         setSelectedIndex(-1);
       } catch (error) {
