@@ -176,3 +176,9 @@ ALPHA_VANTAGE_API_KEY  = os.environ.get('ALPHA_VANTAGE_API_KEY')
 SUPABASE_URL             = os.environ.get('SUPABASE_URL')
 SUPABASE_JWT_SECRET      = os.environ.get('SUPABASE_JWT_SECRET')
 SUPABASE_SERVICE_ROLE_KEY= os.environ.get('SUPABASE_SERVICE_ROLE_KEY')
+
+# Test Runner Configuration
+TEST_RUNNER = 'django.test.runner.DiscoverRunner'
+
+# Specify the test pattern explicitly
+TEST_DISCOVERY_PATTERN = "test_*.py"

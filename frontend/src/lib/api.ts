@@ -31,10 +31,18 @@ export class ApiService {
     url: string,
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
-    const defaultHeaders = {
+    // Get authentication token from Supabase
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    const defaultHeaders: Record<string, string> = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     };
+
+    // Add authorization header if user is authenticated
+    if (session?.access_token) {
+      defaultHeaders['Authorization'] = `Bearer ${session.access_token}`;
+    }
 
     const config: RequestInit = {
       ...options,
@@ -42,13 +50,17 @@ export class ApiService {
         ...defaultHeaders,
         ...options.headers,
       },
+      credentials: 'include',
     };
 
     try {
+      console.log(`%c[API] Making request to: ${url}`, 'background: #e6f3ff; color: #0066cc;');
+      
       const response = await fetch(url, config);
       const data = await response.json();
 
       if (!response.ok) {
+        console.log(`%c[API] Request failed: ${url} - ${response.status}`, 'background: #ffeeee; color: #cc0000;', data);
         return {
           ok: false,
           error: data.message || `HTTP error! status: ${response.status}`,
@@ -56,6 +68,7 @@ export class ApiService {
         };
       }
       
+      console.log(`%c[API] Request successful: ${url}`, 'background: #eeffee; color: #006600;', data);
       return {
         ok: true,
         data,
@@ -63,7 +76,7 @@ export class ApiService {
       };
 
     } catch (error: any) {
-      console.error('API request failed:', error);
+      console.error(`%c[API] Request exception: ${url}`, 'background: #ffeeee; color: #cc0000;', error);
       return {
         ok: false,
         error: error.message || 'An unexpected error occurred.',
@@ -140,58 +153,53 @@ export { ApiError };
 
 // Dashboard API
 export const dashboardAPI = {
-  // Internal helper to perform fetch with error handling
-  async _safeFetch<T>(url: string): Promise<ApiResponse<T>> {
-    return apiService.makeRequest<T>(url);
-  },
-
-  async getOverview(): Promise<ApiResponse<DashboardOverview>> {
+  getOverview: async (): Promise<ApiResponse<DashboardOverview>> => {
     const url = `${config.apiBaseUrl}${apiEndpoints.dashboard.overview()}`;
-    return this._safeFetch<DashboardOverview>(url);
+    return apiService.makeRequest<DashboardOverview>(url);
   },
 
-  async getAllocation(groupBy: string = 'sector'): Promise<ApiResponse<Allocation>> {
+  getAllocation: async (groupBy: string = 'sector'): Promise<ApiResponse<Allocation>> => {
     const url = `${config.apiBaseUrl}${apiEndpoints.dashboard.allocation(groupBy)}`;
-    return this._safeFetch<Allocation>(url);
+    return apiService.makeRequest<Allocation>(url);
   },
 
-  async getGainers(limit: number = 5): Promise<ApiResponse<GainerLoser>> {
+  getGainers: async (limit: number = 5): Promise<ApiResponse<GainerLoser>> => {
     const url = `${config.apiBaseUrl}${apiEndpoints.dashboard.gainers(limit)}`;
-    return this._safeFetch<GainerLoser>(url);
+    return apiService.makeRequest<GainerLoser>(url);
   },
 
-  async getLosers(limit: number = 5): Promise<ApiResponse<GainerLoser>> {
+  getLosers: async (limit: number = 5): Promise<ApiResponse<GainerLoser>> => {
     const url = `${config.apiBaseUrl}${apiEndpoints.dashboard.losers(limit)}`;
-    return this._safeFetch<GainerLoser>(url);
+    return apiService.makeRequest<GainerLoser>(url);
   },
 
-  async getDividendForecast(months: number = 12): Promise<ApiResponse<DividendForecast>> {
+  getDividendForecast: async (months: number = 12): Promise<ApiResponse<DividendForecast>> => {
     const url = `${config.apiBaseUrl}${apiEndpoints.dashboard.dividendForecast(months)}`;
-    return this._safeFetch<DividendForecast>(url);
+    return apiService.makeRequest<DividendForecast>(url);
   },
 
-  async getFxRates(base: string = 'AUD'): Promise<ApiResponse<FxRates>> {
+  getFxRates: async (base: string = 'AUD'): Promise<ApiResponse<FxRates>> => {
     const url = `${config.apiBaseUrl}${apiEndpoints.fx.latest(base)}`;
-    return this._safeFetch<FxRates>(url);
+    return apiService.makeRequest<FxRates>(url);
   },
 
-  async getPortfolioPerformance(
+  getPortfolioPerformance: async (
     userId: string,
     period: string = '1Y',
     benchmark: string = '^GSPC'
-  ): Promise<ApiResponse<any>> {
+  ): Promise<ApiResponse<any>> => {
     const url = `${config.apiBaseUrl}${apiEndpoints.dashboard.portfolioPerformance(
       userId,
       period,
       encodeURIComponent(benchmark)
     )}`;
-    return this._safeFetch<any>(url);
+    return apiService.makeRequest<any>(url);
   },
 };
 
 // Add transaction API functions after existing functions
 
-// Transaction management
+// Transaction management  
 export const transactionAPI = {
   // Create a new transaction
   async createTransaction(transactionData: {
@@ -208,32 +216,10 @@ export const transactionAPI = {
   }): Promise<ApiResponse<{ transaction_id: number; ticker: string }>> {
     console.log('[TransactionAPI] Creating transaction:', transactionData);
     
-    try {
-      const response = await fetch(`${config.apiBaseUrl}/api/transactions/create`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(transactionData),
-      });
-      
-      const data = await response.json();
-      console.log('[TransactionAPI] Create response:', data);
-      
-      return {
-        ok: data.ok || response.ok,
-        data: data.data,
-        error: data.error,
-        message: data.message
-      };
-    } catch (error) {
-      console.error('[TransactionAPI] Create error:', error);
-      return {
-        ok: false,
-        error: 'network_error',
-        message: 'Failed to create transaction'
-      };
-    }
+    return apiService.makeRequest(`${config.apiBaseUrl}/api/transactions/create`, {
+      method: 'POST',
+      body: JSON.stringify(transactionData),
+    });
   },
 
   // Get user transactions
@@ -264,35 +250,14 @@ export const transactionAPI = {
   }>> {
     console.log('[TransactionAPI] Getting user transactions with filters:', filters);
     
-    try {
-      const params = new URLSearchParams();
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          params.append(key, value.toString());
-        }
-      });
-      
-      const response = await fetch(`${config.apiBaseUrl}/api/transactions/user?${params}`, {
-        method: 'GET',
-      });
-      
-      const data = await response.json();
-      console.log('[TransactionAPI] Get transactions response:', data);
-      
-      return {
-        ok: data.ok || response.ok,
-        data: data.data,
-        error: data.error,
-        message: data.message
-      };
-    } catch (error) {
-      console.error('[TransactionAPI] Get transactions error:', error);
-      return {
-        ok: false,
-        error: 'network_error',
-        message: 'Failed to get transactions'
-      };
-    }
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        params.append(key, value.toString());
+      }
+    });
+    
+    return apiService.makeRequest(`${config.apiBaseUrl}/api/transactions/user?${params}`);
   },
 
   // Update current prices with rate limiting
@@ -313,47 +278,10 @@ export const transactionAPI = {
   }>> {
     console.log('[TransactionAPI] Updating current prices for user:', user_id);
     
-    try {
-      const response = await fetch(`${config.apiBaseUrl}/api/transactions/update-prices`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ user_id }),
-      });
-      
-      const data = await response.json();
-      console.log('[TransactionAPI] Update prices response:', data);
-      
-      return {
-        ok: data.ok || response.ok,
-        data: data.data,
-        error: data.error,
-        message: data.message,
-        retry_after: data.retry_after
-      } as ApiResponse<{
-        prices: Record<string, {
-          price: number;
-          change: number;
-          change_percent: number;
-          volume: number;
-          timestamp: string;
-        }>;
-        stats: {
-          successful_fetches: number;
-          failed_fetches: number;
-          total_tickers: number;
-        };
-        cached_until: string;
-      }>;
-    } catch (error) {
-      console.error('[TransactionAPI] Update prices error:', error);
-      return {
-        ok: false,
-        error: 'network_error',
-        message: 'Failed to update prices'
-      };
-    }
+    return apiService.makeRequest(`${config.apiBaseUrl}/api/transactions/update-prices`, {
+      method: 'POST',
+      body: JSON.stringify({ user_id }),
+    });
   },
 
   // Get cached current prices
@@ -363,31 +291,10 @@ export const transactionAPI = {
   }>> {
     console.log('[TransactionAPI] Getting cached prices for user:', user_id);
     
-    try {
-      const params = new URLSearchParams();
-      if (user_id) params.append('user_id', user_id);
-      
-      const response = await fetch(`${config.apiBaseUrl}/api/transactions/cached-prices?${params}`, {
-        method: 'GET',
-      });
-      
-      const data = await response.json();
-      console.log('[TransactionAPI] Cached prices response:', data);
-      
-      return {
-        ok: data.ok || response.ok,
-        data: data.data,
-        error: data.error,
-        message: data.message
-      };
-    } catch (error) {
-      console.error('[TransactionAPI] Get cached prices error:', error);
-      return {
-        ok: false,
-        error: 'network_error',
-        message: 'Failed to get cached prices'
-      };
-    }
+    const params = new URLSearchParams();
+    if (user_id) params.append('user_id', user_id);
+    
+    return apiService.makeRequest(`${config.apiBaseUrl}/api/transactions/cached-prices?${params}`);
   },
 
   // Get transaction summary
@@ -407,31 +314,10 @@ export const transactionAPI = {
   }>> {
     console.log('[TransactionAPI] Getting transaction summary for user:', user_id);
     
-    try {
-      const params = new URLSearchParams();
-      if (user_id) params.append('user_id', user_id);
-      
-      const response = await fetch(`${config.apiBaseUrl}/api/transactions/summary?${params}`, {
-        method: 'GET',
-      });
-      
-      const data = await response.json();
-      console.log('[TransactionAPI] Summary response:', data);
-      
-      return {
-        ok: data.ok || response.ok,
-        data: data.data,
-        error: data.error,
-        message: data.message
-      };
-    } catch (error) {
-      console.error('[TransactionAPI] Get summary error:', error);
-      return {
-        ok: false,
-        error: 'network_error',
-        message: 'Failed to get transaction summary'
-      };
-    }
+    const params = new URLSearchParams();
+    if (user_id) params.append('user_id', user_id);
+    
+    return apiService.makeRequest(`${config.apiBaseUrl}/api/transactions/summary?${params}`);
   },
 
   // Migrate existing holdings to transactions
@@ -441,31 +327,9 @@ export const transactionAPI = {
   }>> {
     console.log('[TransactionAPI] Migrating existing holdings for user:', user_id);
     
-    try {
-      const response = await fetch(`${config.apiBaseUrl}/api/transactions/migrate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ user_id }),
-      });
-      
-      const data = await response.json();
-      console.log('[TransactionAPI] Migration response:', data);
-      
-      return {
-        ok: data.ok || response.ok,
-        data: data.data,
-        error: data.error,
-        message: data.message
-      };
-    } catch (error) {
-      console.error('[TransactionAPI] Migration error:', error);
-      return {
-        ok: false,
-        error: 'network_error',
-        message: 'Failed to migrate holdings'
-      };
-    }
+    return apiService.makeRequest(`${config.apiBaseUrl}/api/transactions/migrate`, {
+      method: 'POST',
+      body: JSON.stringify({ user_id }),
+    });
   }
 }; 

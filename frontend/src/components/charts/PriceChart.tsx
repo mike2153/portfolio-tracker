@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { createChart, LineData, IChartApi, ISeriesApi ,UTCTimestamp } from 'lightweight-charts';
+import { createChart, LineData, IChartApi, ISeriesApi, UTCTimestamp, LineSeries } from 'lightweight-charts';
 import type { PriceDataPoint, TimePeriod } from '@/types/stock-research';
 
 interface PriceChartProps {
@@ -56,73 +56,81 @@ export default function PriceChart({
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
-    const chart = createChart(chartContainerRef.current, {
-      width: chartContainerRef.current.clientWidth,
-      height,
-      layout: {
-        background: {  color: 'transparent' },
-        textColor: '#d1d5db',
-      },
-      grid: {
-        vertLines: {
-          color: '#374151',
+    try {
+      console.log('[PriceChart] Initializing chart for', ticker);
+      const chart = createChart(chartContainerRef.current, {
+        width: chartContainerRef.current.clientWidth,
+        height,
+        layout: {
+          background: {  color: 'transparent' },
+          textColor: '#d1d5db',
         },
-        horzLines: {
-          color: '#374151',
+        grid: {
+          vertLines: {
+            color: '#374151',
+          },
+          horzLines: {
+            color: '#374151',
+          },
         },
-      },
-      crosshair: {
-        mode: 1,
-      },
-      rightPriceScale: {
-        borderColor: '#4b5563',
-      },
-      timeScale: {
-        borderColor: '#4b5563',
-        timeVisible: true,
-        secondsVisible: false,
-      },
-      handleScroll: {
-        mouseWheel: false,
-        pressedMouseMove: true,
-      },
-      handleScale: {
-        axisPressedMouseMove: false,
-        mouseWheel: true,
-        pinch: true,
-      },
-    });
-  //  const lineSeries = chart.addSeries(LineSeries, { color: '#2962FF' });
-
-   /* chart.addSeries(LineSeries, { color: '#2962FF' });
-    const lineSeries = chart.addLineSeries({
-      color: '#10b981',
-      lineWidth: 2,
-      priceFormat: {
-        type: 'price',
-        precision: 2,
-        minMove: 0.01,
-      },
-    });
-*/
-   // chartRef.current = chart;
-   // seriesRef.current = lineSeries;
-
-    // Handle resize
-    const handleResize = () => {
-      if (chartContainerRef.current) {
-        chart.applyOptions({ 
-          width: chartContainerRef.current.clientWidth 
-        });
+        crosshair: {
+          mode: 1,
+        },
+        rightPriceScale: {
+          borderColor: '#4b5563',
+        },
+        timeScale: {
+          borderColor: '#4b5563',
+          timeVisible: true,
+          secondsVisible: false,
+        },
+        handleScroll: {
+          mouseWheel: false,
+          pressedMouseMove: true,
+        },
+        handleScale: {
+          axisPressedMouseMove: false,
+          mouseWheel: true,
+          pinch: true,
+        },
+      });
+      
+      if (!chart || typeof chart.addSeries !== 'function') {
+        console.error('[PriceChart] Chart object is invalid or missing addSeries method');
+        return;
       }
-    };
+      
+      const lineSeries = chart.addSeries(LineSeries, {
+        color: '#10b981',
+        lineWidth: 2,
+        priceFormat: {
+          type: 'price',
+          precision: 2,
+          minMove: 0.01,
+        },
+      });
 
-    window.addEventListener('resize', handleResize);
+      chartRef.current = chart;
+      seriesRef.current = lineSeries;
 
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      chart.remove();
-    };
+      // Handle resize
+      const handleResize = () => {
+        if (chartContainerRef.current) {
+          chart.applyOptions({ 
+            width: chartContainerRef.current.clientWidth 
+          });
+        }
+      };
+
+      window.addEventListener('resize', handleResize);
+
+      return () => {
+        window.removeEventListener('resize', handleResize);
+        chart.remove();
+      };
+    } catch (error) {
+      console.error('[PriceChart] Error initializing chart:', error);
+    }
   }, [height]);
 
   // Update chart data

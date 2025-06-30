@@ -27,6 +27,19 @@ export default function FinancialChart({
   ticker, 
   height = 300 
 }: FinancialChartProps) {
+  // Helper function to format values - defined before use
+  const formatValue = (value: number) => {
+    if (Math.abs(value) >= 1e9) {
+      return `$${(value / 1e9).toFixed(1)}B`;
+    } else if (Math.abs(value) >= 1e6) {
+      return `$${(value / 1e6).toFixed(1)}M`;
+    } else if (Math.abs(value) >= 1e3) {
+      return `$${(value / 1e3).toFixed(1)}K`;
+    } else {
+      return `$${value.toFixed(0)}`;
+    }
+  };
+
   // Process data for the chart
   const chartData = data
     .map(statement => {
@@ -53,18 +66,6 @@ export default function FinancialChart({
     .filter(item => item.value !== 0)
     .reverse() // Show oldest to newest
     .slice(-8); // Last 8 periods for better visibility
-
-  const formatValue = (value: number) => {
-    if (Math.abs(value) >= 1e9) {
-      return `$${(value / 1e9).toFixed(1)}B`;
-    } else if (Math.abs(value) >= 1e6) {
-      return `$${(value / 1e6).toFixed(1)}M`;
-    } else if (Math.abs(value) >= 1e3) {
-      return `$${(value / 1e3).toFixed(1)}K`;
-    } else {
-      return `$${value.toFixed(0)}`;
-    }
-  };
 
   const formatTooltipValue = (value: number) => {
     return new Intl.NumberFormat('en-US', {

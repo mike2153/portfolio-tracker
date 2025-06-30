@@ -9,6 +9,8 @@ import KPICard from './KPICard';
 import { KPIGridSkeleton } from './Skeletons';
 import { debug } from '@/lib/debug';
 import { useDashboard } from '../contexts/DashboardContext';
+import { apiService } from '@/lib/api';
+import { useAuth } from '@/components/AuthProvider';
 
 interface KPIGridProps {
   initialData?: DashboardOverview;
@@ -27,6 +29,8 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
     performanceData,
     userId // Get userId from context instead of duplicating session fetch
   } = useDashboard();
+
+  const { user } = useAuth();
 
   const { data: apiData, isLoading, isError, error } = useQuery({
     queryKey: ['dashboard', 'overview', userId],
@@ -61,7 +65,7 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
         throw fetchError;
       }
     },
-    enabled: !!userId,
+    enabled: !!user,
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
     retry: (failureCount, error) => {

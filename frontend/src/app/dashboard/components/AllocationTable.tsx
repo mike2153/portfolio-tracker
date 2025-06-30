@@ -6,12 +6,14 @@ import { ChartSkeleton } from './Skeletons';
 import { AllocationRow } from '@/types/api';
 import { cn } from '@/lib/utils';
 import { useDashboard } from '../contexts/DashboardContext';
+import { useAuth } from '@/components/AuthProvider';
 
 const AllocationTable = () => {
   const { userId } = useDashboard();
+  const { user } = useAuth();
 
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ['dashboardAllocation', userId],
+    queryKey: ['dashboardAllocation'],
     queryFn: async () => {
       //console.log('[AllocationTable] Making API call for allocation data...');
       const result = await dashboardAPI.getAllocation();
@@ -34,7 +36,7 @@ const AllocationTable = () => {
       
       return result;
     },
-    enabled: !!userId,
+    enabled: !!user,
   });
 
   //console.log('[AllocationTable] Query state:', { data, isLoading, isError, error });

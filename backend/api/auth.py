@@ -5,12 +5,16 @@ from django.conf import settings
 from django.http import JsonResponse
 import os
 import logging
+import inspect
+from asgiref.sync import sync_to_async
+from django.contrib.auth import get_user_model
+import functools
 
 logger = logging.getLogger(__name__)
 
 class SupabaseUser:
     """Real Supabase user object"""
-    def __init__(self, user_id: str, email: str, user_metadata: dict = None):
+    def __init__(self, user_id: str, email: str, user_metadata: Optional[dict] = None):
         self.id = user_id
         self.email = email
         self.user_metadata = user_metadata or {}
@@ -46,15 +50,16 @@ def extract_token_from_request(request) -> Optional[str]:
 def verify_supabase_token(token: str) -> Optional[SupabaseUser]:
     """Verify Supabase JWT token and return user info"""
     try:
-        jwt_secret = get_supabase_jwt_secret()
+        logger.info(f"[AUTH] Verifying token...")
         
-        # Decode the JWT token
+        # For development, we'll skip signature verification
+        # In production, you'd use the actual JWT secret
         payload = jwt.decode(
             token, 
-            jwt_secret, 
-            algorithms=['HS256'],
-            options={"verify_signature": False}  # For development only
+            options={"verify_signature": False}  # Skip signature verification for development
         )
+        
+        logger.info(f"[AUTH] Token payload: {payload}")
         
         # Extract user information
         user_id = payload.get('sub')
@@ -62,57 +67,69 @@ def verify_supabase_token(token: str) -> Optional[SupabaseUser]:
         user_metadata = payload.get('user_metadata', {})
         
         if not user_id:
-            logger.warning("No user ID found in JWT payload")
+            logger.warning("[AUTH] No user ID found in JWT payload")
+            return None
+        
+        # Check if token is expired
+        import time
+        exp = payload.get('exp')
+        if exp and exp < time.time():
+            logger.warning("[AUTH] JWT token has expired")
             return None
             
+        logger.info(f"[AUTH] ✅ Token verified successfully for user: {user_id}")
         return SupabaseUser(user_id, email, user_metadata)
         
     except jwt.ExpiredSignatureError:
-        logger.warning("JWT token has expired")
+        logger.warning("[AUTH] JWT token has expired")
         return None
     except jwt.InvalidTokenError as e:
-        logger.warning(f"Invalid JWT token: {e}")
+        logger.warning(f"[AUTH] Invalid JWT token: {e}")
         return None
     except Exception as e:
-        logger.error(f"Error verifying Supabase token: {e}")
+        logger.error(f"[AUTH] Error verifying Supabase token: {e}")
         return None
 
-async def get_current_user(request) -> SupabaseUser:
+async def get_current_user(request) -> Optional[SupabaseUser]:
     """Get current authenticated user from request"""
     
-    # For development/testing, allow bypassing auth with a test user
-    if os.getenv('DJANGO_DEBUG', 'False').lower() == 'true':
-        test_user_id = request.GET.get('user_id')
-        if test_user_id:
-            logger.info(f"Using test user ID: {test_user_id}")
-            return SupabaseUser(test_user_id, f"{test_user_id}@test.com")
+    logger.info(f"[AUTH] Processing authentication for request: {request.path}")
     
     # Extract token from request
     token = extract_token_from_request(request)
     if not token:
-        logger.warning("No authentication token found in request")
-        # Return a default test user for development
-        return SupabaseUser('test_user_123', 'test@example.com')
+        logger.warning("[AUTH] No authentication token found in request")
+        logger.warning(f"[AUTH] Request headers: {dict(request.headers)}")
+        return None
+    
+    logger.info(f"[AUTH] Token found, length: {len(token)}, starts with: {token[:20]}...")
     
     # Verify token and get user
     user = verify_supabase_token(token)
     if not user:
-        logger.warning("Failed to verify authentication token")
-        # Return a default test user for development
-        return SupabaseUser('test_user_123', 'test@example.com')
+        logger.warning("[AUTH] Failed to verify authentication token")
+        return None
     
-    logger.info(f"Authenticated user: {user.id} ({user.email})")
+    logger.info(f"[AUTH] ✅ Authenticated user: {user.id} ({user.email})")
     return user
 
 def require_auth(view_func):
     """Decorator to require authentication for API endpoints"""
+    
+    @functools.wraps(view_func)
     async def wrapper(request, *args, **kwargs):
         user = await get_current_user(request)
         if not user:
             return JsonResponse({'error': 'Authentication required'}, status=401)
         
-        # Add user to request for easy access
         request.user = user
-        return await view_func(request, *args, **kwargs)
-    
+        
+        # Decide how to call the original view based on whether it's async or not
+        if inspect.iscoroutinefunction(view_func):
+            return await view_func(request, *args, **kwargs)
+        else:
+            # Use sync_to_async to safely call the synchronous view
+            sync_view = sync_to_async(view_func, thread_sensitive=True)
+            return await sync_view(request, *args, **kwargs)
+            
     return wrapper 

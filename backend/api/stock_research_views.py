@@ -23,7 +23,7 @@ def search_stocks(request, query: str):
         
         # Also search local symbol database
         local_results = StockSymbol.objects.filter(
-            models.Q(ticker__icontains=query) | 
+            models.Q(symbol__icontains=query) | 
             models.Q(name__icontains=query)
         )[:10]
         
@@ -125,20 +125,15 @@ def get_stock_overview(request, ticker: str):
 def get_price_data(request, ticker: str, period: str = "1y"):
     """Get historical price data for charts"""
     try:
-        # Map period to Alpha Vantage function
-        if period in ['7d', '1m']:
-            # Use intraday data for short periods
-            data = av_service.get_intraday_data(ticker, interval='60min')
-            time_series_key = 'Time Series (60min)'
-        else:
-            # Use daily data for longer periods
-            data = av_service.get_daily_data(ticker, outputsize='full')
-            time_series_key = 'Time Series (Daily)'
+        # Use daily adjusted data for all periods (intraday is rate limited)
+        outputsize = 'compact' if period in ['7d', '1m', '3m'] else 'full'
+        data = av_service.get_daily_data(ticker, outputsize=outputsize)
         
-        if not data or time_series_key not in data:
+        if not data or not data.get('data'):
             return {"error": "No price data available"}
         
-        time_series = data[time_series_key]
+        # The new format returns parsed data directly
+        parsed_data = data['data']
         
         # Filter data based on period
         cutoff_date = datetime.now()
@@ -160,19 +155,19 @@ def get_price_data(request, ticker: str, period: str = "1y"):
         
         # Format data for charts
         chart_data = []
-        for date_str, values in time_series.items():
-            date_obj = datetime.strptime(date_str, '%Y-%m-%d' if 'Daily' in time_series_key else '%Y-%m-%d %H:%M:%S')
+        for item in parsed_data:
+            date_obj = datetime.strptime(item['date'], '%Y-%m-%d')
             
             if period != 'max' and date_obj < cutoff_date:
                 continue
                 
             chart_data.append({
-                'time': date_str,
-                'open': float(values['1. open']),
-                'high': float(values['2. high']),
-                'low': float(values['3. low']),
-                'close': float(values['4. close']),
-                'volume': int(values['5. volume'])
+                'time': item['date'],
+                'open': item['open'],
+                'high': item['high'],
+                'low': item['low'],
+                'close': item['close'],
+                'volume': item['volume']
             })
         
         # Sort by date (oldest first)
@@ -188,29 +183,39 @@ def get_price_data(request, ticker: str, period: str = "1y"):
 @stock_research_router.get("/financials/{ticker}")
 def get_financials(request, ticker: str, statement_type: str = "income"):
     """Get financial statements data"""
+    logger.info(f"RESEARCH_FINANCIALS: Request for {ticker}, statement: {statement_type}")
     try:
         data = {}
         
         if statement_type == "income":
-            annual = av_service.get_income_statement(ticker)
-            data['annual'] = annual.get('annualReports', []) if annual else []
-            data['quarterly'] = annual.get('quarterlyReports', []) if annual else []
-            
+            logger.info(f"RESEARCH_FINANCIALS: Fetching income statement for {ticker} from AV.")
+            raw_data = av_service.get_income_statement(ticker)
         elif statement_type == "balance":
-            annual = av_service.get_balance_sheet(ticker)
-            data['annual'] = annual.get('annualReports', []) if annual else []
-            data['quarterly'] = annual.get('quarterlyReports', []) if annual else []
-            
+            logger.info(f"RESEARCH_FINANCIALS: Fetching balance sheet for {ticker} from AV.")
+            raw_data = av_service.get_balance_sheet(ticker)
         elif statement_type == "cashflow":
-            annual = av_service.get_cash_flow(ticker)
-            data['annual'] = annual.get('annualReports', []) if annual else []
-            data['quarterly'] = annual.get('quarterlyReports', []) if annual else []
-        
+            logger.info(f"RESEARCH_FINANCIALS: Fetching cash flow for {ticker} from AV.")
+            raw_data = av_service.get_cash_flow(ticker)
+        else:
+            logger.warning(f"RESEARCH_FINANCIALS: Invalid statement_type '{statement_type}' requested.")
+            return {"error": "Invalid statement type"}, 400
+
+        if raw_data and 'error' not in raw_data:
+            logger.info(f"RESEARCH_FINANCIALS: Received data from AV for {ticker}, statement: {statement_type}.")
+            # Use the correct key names from the Alpha Vantage service
+            data['annual'] = raw_data.get('annual_reports', [])
+            data['quarterly'] = raw_data.get('quarterly_reports', [])
+        else:
+            logger.warning(f"RESEARCH_FINANCIALS: No data returned from AV for {ticker}, statement: {statement_type}. Error: {raw_data.get('error', 'Unknown')}")
+            data['annual'] = []
+            data['quarterly'] = []
+
+        logger.info(f"RESEARCH_FINANCIALS: Successfully processed financials for {ticker}.")
         return data
         
     except Exception as e:
-        logger.error(f"Error getting financials for {ticker}: {str(e)}")
-        return {"error": str(e)}
+        logger.error(f"RESEARCH_FINANCIALS: Unhandled exception for {ticker}, statement: {statement_type}. Error: {e}", exc_info=True)
+        return {"error": str(e)}, 500
 
 
 @stock_research_router.get("/dividends/{ticker}")
@@ -362,11 +367,15 @@ def remove_from_watchlist(request, ticker: str):
 @require_auth
 def get_notes(request, ticker: str):
     """Get user notes for a stock"""
+    user_id = request.user.id if hasattr(request, 'user') and hasattr(request.user, 'id') else 'anonymous'
+    logger.info(f"NOTES_GET: Request for ticker '{ticker}' by user '{user_id}'.")
     try:
         notes = StockNote.objects.filter(
             user_id=request.user.id,
             ticker=ticker.upper()
         ).order_by('-created_at')
+        
+        logger.info(f"NOTES_GET: Found {len(notes)} notes for ticker '{ticker}' for user '{user_id}'.")
         
         return {
             "notes": [
@@ -381,7 +390,7 @@ def get_notes(request, ticker: str):
         }
         
     except Exception as e:
-        logger.error(f"Error getting notes: {str(e)}")
+        logger.error(f"NOTES_GET: Error getting notes for ticker '{ticker}' for user '{user_id}'. Error: {e}", exc_info=True)
         return {"notes": [], "error": str(e)}
 
 
@@ -389,23 +398,29 @@ def get_notes(request, ticker: str):
 @require_auth
 def create_note(request, ticker: str):
     """Create a new note for a stock"""
+    user_id = request.user.id if hasattr(request, 'user') and hasattr(request.user, 'id') else 'anonymous'
+    logger.info(f"NOTES_CREATE: Request for ticker '{ticker}' by user '{user_id}'.")
     try:
         data = json.loads(request.body)
         content = data.get('content', '').strip()
+        logger.info(f"NOTES_CREATE: Parsed content (first 50 chars): '{content[:50]}'")
         
         if not content:
+            logger.warning(f"NOTES_CREATE: Attempted to create an empty note for ticker '{ticker}' by user '{user_id}'.")
             return {"success": False, "error": "Note content cannot be empty"}
         
+        logger.info(f"NOTES_CREATE: Creating note for user '{user_id}' on ticker '{ticker}' in DB.")
         note = StockNote.objects.create(
             user_id=request.user.id,
             ticker=ticker.upper(),
             content=content
         )
+        logger.info(f"NOTES_CREATE: Successfully created note with ID {note.id} for user '{user_id}'.") # type: ignore
         
         return {
             "success": True,
             "note": {
-                "id": note.id, # type: ignore[attr-defined]
+                "id": note.id,  # type: ignore[attr-defined]
                 "content": note.content,
                 "created_at": note.created_at.isoformat(),
                 "updated_at": note.updated_at.isoformat()
@@ -421,24 +436,29 @@ def create_note(request, ticker: str):
 @require_auth
 def update_note(request, note_id: int):
     """Update an existing note"""
+    user_id = request.user.id if hasattr(request, 'user') and hasattr(request.user, 'id') else 'anonymous'
+    logger.info(f"NOTES_UPDATE: Request for note_id '{note_id}' by user '{user_id}'.")
     try:
         data = json.loads(request.body)
         content = data.get('content', '').strip()
         
         if not content:
+            logger.warning(f"NOTES_UPDATE: Attempted to update note '{note_id}' with empty content.")
             return {"success": False, "error": "Note content cannot be empty"}
         
+        logger.info(f"NOTES_UPDATE: Fetching note '{note_id}' for user '{user_id}'.")
         note = StockNote.objects.get(
             id=note_id,
             user_id=request.user.id
         )
         note.content = content
         note.save()
+        logger.info(f"NOTES_UPDATE: Successfully updated note '{note_id}'.")
         
         return {
             "success": True,
             "note": {
-                "id": note.id, # type: ignore[attr-defined]
+                "id": note.id,  # type: ignore[attr-defined]
                 "content": note.content,
                 "created_at": note.created_at.isoformat(),
                 "updated_at": note.updated_at.isoformat()
@@ -456,11 +476,15 @@ def update_note(request, note_id: int):
 @require_auth
 def delete_note(request, note_id: int):
     """Delete a note"""
+    user_id = request.user.id if hasattr(request, 'user') and hasattr(request.user, 'id') else 'anonymous'
+    logger.info(f"NOTES_DELETE: Request for note_id '{note_id}' by user '{user_id}'.")
     try:
+        logger.info(f"NOTES_DELETE: Deleting note '{note_id}' for user '{user_id}'.")
         deleted_count, _ = StockNote.objects.filter(
             id=note_id,
             user_id=request.user.id
         ).delete()
+        logger.info(f"NOTES_DELETE: Deleted {deleted_count} note(s) for note_id '{note_id}'.")
         
         return {
             "success": True,
@@ -468,5 +492,5 @@ def delete_note(request, note_id: int):
         }
         
     except Exception as e:
-        logger.error(f"Error deleting note: {str(e)}")
+        logger.error(f"NOTES_DELETE: Error deleting note '{note_id}'. Error: {e}", exc_info=True)
         return {"success": False, "error": str(e)}

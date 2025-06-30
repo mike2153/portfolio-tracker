@@ -16,7 +16,7 @@ class StockSymbol(models.Model):
     """Model to store comprehensive stock symbol database for fast searching"""
     symbol = models.CharField(max_length=20, unique=True, db_index=True)
     name = models.CharField(max_length=200, db_index=True)
-    exchange_code = models.CharField(max_length=10, db_index=True)
+    exchange_code = models.CharField(max_length=50, db_index=True)
     exchange_name = models.CharField(max_length=100)
     currency = models.CharField(max_length=3, default='USD')
     country = models.CharField(max_length=50)
@@ -45,7 +45,7 @@ class StockSymbol(models.Model):
 
 class SymbolRefreshLog(models.Model):
     """Track when symbol data was last refreshed from external APIs"""
-    exchange_code = models.CharField(max_length=10, unique=True)
+    exchange_code = models.CharField(max_length=50, unique=True)
     last_refresh = models.DateTimeField(auto_now=True)
     total_symbols = models.IntegerField(default=0)
     success = models.BooleanField(default=True)
