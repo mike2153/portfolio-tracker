@@ -8,6 +8,8 @@ services:
     container_name: backend
     ports:
       - "8000:8000"
+    env_file:
+      - env.test
     environment:
       - SUPA_API_URL=${SUPA_API_URL}
       - SUPA_API_ANON_KEY=${SUPA_API_ANON_KEY}
@@ -17,8 +19,6 @@ services:
       - BACKEND_API_HOST=0.0.0.0
       - BACKEND_API_DEBUG=true
       - LOG_LEVEL=INFO
-    volumes:
-      - ./backend_simplified:/app
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
   frontend:
@@ -28,14 +28,12 @@ services:
     container_name: frontend
     ports:
       - "3000:3000"
+    env_file:
+      - env.test
     environment:
       - NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
-      - NEXT_PUBLIC_SUPA_API_URL=${SUPA_API_URL}
-      - NEXT_PUBLIC_SUPA_API_ANON_KEY=${SUPA_API_ANON_KEY}
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-      - /app/.next
+      - NEXT_PUBLIC_SUPABASE_URL=${SUPA_API_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${SUPA_API_ANON_KEY}
     depends_on:
       - backend
     command: npm run dev 
