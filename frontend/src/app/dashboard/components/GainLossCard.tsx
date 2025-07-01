@@ -1,152 +1,139 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { dashboardAPI } from '@/lib/api';
+import { front_api_client } from '@/lib/front_api_client';
 import { ListSkeleton } from './Skeletons';
 import { GainerLoserRow } from '@/types/api';
 import { ArrowUp, ArrowDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
-import { supabase } from '@/lib/supabaseClient';
-import { debug } from '@/lib/debug';
+import { useDashboard } from '../contexts/DashboardContext';
+import { useAuth } from '@/components/AuthProvider';
 
 interface GainLossCardProps {
     type: 'gainers' | 'losers';
+    title: string;
 }
 
-const GainLossCard = ({ type }: GainLossCardProps) => {
-   // debug(`[GainLossCard] Component mounting for type: ${type}`);
-    
+const GainLossCard = ({ type, title }: GainLossCardProps) => {
     const isGainers = type === 'gainers';
-    const [userId, setUserId] = useState<string | null>(null);
+    const { userId } = useDashboard();
+    const { user } = useAuth();
 
-    useEffect(() => {
-       // debug(`[GainLossCard] useEffect: Checking user session for ${type}...`);
-        const init = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-     //       debug(`[GainLossCard] Session user ID for ${type}:`, session?.user?.id);
-            if (session?.user) {
-                setUserId(session.user.id);
-        //        debug(`[GainLossCard] User ID set for ${type}:`, session.user.id);
-            } else {
-        //        debug(`[GainLossCard] No user session found for ${type}`);
-            }
-        };
-        init();
-    }, [type]);
-
+    // Note: Gainers/Losers API needs to be implemented in backend
+    const queryFn = () => {
+        console.log(`[GainLossCard] ${type} API not yet implemented, showing empty state`);
+        return Promise.resolve({ data: { items: [] } });
+    };
     const { data, isLoading, isError, error } = useQuery({
         queryKey: ['dashboard', type, userId],
         queryFn: async () => {
-     //       debug(`[GainLossCard] Making API call for ${type}...`);
-            const result = isGainers ? await dashboardAPI.getGainers() : await dashboardAPI.getLosers();
-     //       debug(`[GainLossCard] API response for ${type}:`, result);
-            //console.log(`[GainLossCard] API response data type for ${type}:`, typeof result.data);
-            //console.log(`[GainLossCard] API response items for ${type}:`, result?.data?.items);
+            console.log(`[GainLossCard] Making API call for ${type}...`);
+            const result = await queryFn();
+            console.log(`[GainLossCard] API response for ${type}:`, result);
+            console.log(`[GainLossCard] API response data type for ${type}:`, typeof result.data);
+            console.log(`[GainLossCard] API response items for ${type}:`, result?.data?.items);
             
             // Add debugging for each item's numeric fields
             if (result?.data?.items) {
                 result.data.items.forEach((item: any, index: number) => {
-                    //console.log(`[GainLossCard] ${type} Item ${index} (${item.ticker}):`, {
-                        /*changePercent: item.changePercent,
+                    console.log(`[GainLossCard] ${type} Item ${index} (${item.ticker}):`, {
+                        changePercent: item.changePercent,
                         changePercentType: typeof item.changePercent,
                         changeValue: item.changeValue,
                         changeValueType: typeof item.changeValue,
                         canCallToFixed: typeof item.changePercent === 'number' || (typeof item.changePercent === 'string' && !isNaN(parseFloat(item.changePercent)))
-                    });*/
+                    });
                 });
             }
             
             return result;
         },
-        enabled: !!userId,
+        enabled: !!user,
         staleTime: 5 * 60 * 1000,
         refetchOnWindowFocus: false,
     });
 
     //debug(`[GainLossCard] Query state for ${type}:`, { data, isLoading, isError, error });
 
-    const title = isGainers ? 'Top day gainers' : 'Top day losers';
-
     if (isLoading) {
-        //console.log(`[GainLossCard] Still loading ${type}, showing skeleton`);
+        console.log(`[GainLossCard] Still loading ${type}, showing skeleton`);
         return <ListSkeleton title={title} />;
     }
     if (isError) {
-        //console.log(`[GainLossCard] Error occurred for ${type}:`, error);
+        console.log(`[GainLossCard] Error occurred for ${type}:`, error);
         return <div className="text-red-500">Error loading {type}</div>;
     }
 
     const items = data?.data?.items || [];
-    //console.log(`[GainLossCard] Items for ${type}:`, items);
-    //console.log(`[GainLossCard] Number of items for ${type}:`, items.length);
+    console.log(`[GainLossCard] Items for ${type}:`, items);
+    console.log(`[GainLossCard] Number of items for ${type}:`, items.length);
 
     // Add defensive function to safely format percentage
     const safeFormatPercent = (changePercent: any): string => {
-        //console.log(`[GainLossCard] safeFormatPercent called with:`, changePercent, 'type:', typeof changePercent);
+        console.log(`[GainLossCard] safeFormatPercent called with:`, changePercent, 'type:', typeof changePercent);
         
         // Handle null/undefined
         if (changePercent == null) {
-            //console.log(`[GainLossCard] safeFormatPercent: changePercent is null/undefined, returning 0.00`);
+            console.log(`[GainLossCard] safeFormatPercent: changePercent is null/undefined, returning 0.00`);
             return '0.00';
         }
         
         // If it's already a number
         if (typeof changePercent === 'number') {
-            //console.log(`[GainLossCard] safeFormatPercent: changePercent is number, using toFixed`);
+            console.log(`[GainLossCard] safeFormatPercent: changePercent is number, using toFixed`);
             return changePercent.toFixed(2);
         }
         
         // If it's a string, try to parse it
         if (typeof changePercent === 'string') {
-            //console.log(`[GainLossCard] safeFormatPercent: changePercent is string, attempting to parse`);
+            console.log(`[GainLossCard] safeFormatPercent: changePercent is string, attempting to parse`);
             const parsed = parseFloat(changePercent);
             if (!isNaN(parsed)) {
-                //console.log(`[GainLossCard] safeFormatPercent: successfully parsed string to number:`, parsed);
+                console.log(`[GainLossCard] safeFormatPercent: successfully parsed string to number:`, parsed);
                 return parsed.toFixed(2);
             } else {
-                //console.log(`[GainLossCard] safeFormatPercent: failed to parse string, returning raw value`);
+                console.log(`[GainLossCard] safeFormatPercent: failed to parse string, returning raw value`);
                 return changePercent;
             }
         }
         
         // Fallback for any other type
-        //console.log(`[GainLossCard] safeFormatPercent: unknown type, converting to string`);
+        console.log(`[GainLossCard] safeFormatPercent: unknown type, converting to string`);
         return String(changePercent);
     };
 
     // Add defensive function to safely format currency value
     const safeFormatCurrency = (changeValue: any): string => {
-        //console.log(`[GainLossCard] safeFormatCurrency called with:`, changeValue, 'type:', typeof changeValue);
+        console.log(`[GainLossCard] safeFormatCurrency called with:`, changeValue, 'type:', typeof changeValue);
         
         // Handle null/undefined
         if (changeValue == null) {
-            //console.log(`[GainLossCard] safeFormatCurrency: changeValue is null/undefined, returning 0`);
+            console.log(`[GainLossCard] safeFormatCurrency: changeValue is null/undefined, returning 0`);
             return '0';
         }
         
         // If it's already a number
         if (typeof changeValue === 'number') {
-            //console.log(`[GainLossCard] safeFormatCurrency: changeValue is number, using toLocaleString`);
+            console.log(`[GainLossCard] safeFormatCurrency: changeValue is number, using toLocaleString`);
             return changeValue.toLocaleString();
         }
         
         // If it's a string, try to parse it
         if (typeof changeValue === 'string') {
-            //console.log(`[GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse`);
+            console.log(`[GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse`);
             const parsed = parseFloat(changeValue);
             if (!isNaN(parsed)) {
-                //console.log(`[GainLossCard] safeFormatCurrency: successfully parsed string to number:`, parsed);
+                console.log(`[GainLossCard] safeFormatCurrency: successfully parsed string to number:`, parsed);
                 return parsed.toLocaleString();
             } else {
-                //console.log(`[GainLossCard] safeFormatCurrency: failed to parse string, returning raw value`);
+                console.log(`[GainLossCard] safeFormatCurrency: failed to parse string, returning raw value`);
                 return changeValue;
             }
         }
         
         // Fallback for any other type
-        //console.log(`[GainLossCard] safeFormatCurrency: unknown type, converting to string`);
+        console.log(`[GainLossCard] safeFormatCurrency: unknown type, converting to string`);
         return String(changeValue);
     };
 
@@ -158,7 +145,7 @@ const GainLossCard = ({ type }: GainLossCardProps) => {
             </div>
             <ul className="space-y-4">
                 {items.map((item: GainerLoserRow, index: number) => {
-                      /*  //console.log(`[GainLossCard] Rendering ${type} item ${index}:`, item);
+                      /*  console.log(`[GainLossCard] Rendering ${type} item ${index}:`, item);
                         console.log(`[GainLossCard] ${type} Item ${index} numeric field details:`, {
                         changePercent: item.changePercent,
                         changePercentType: typeof item.changePercent,

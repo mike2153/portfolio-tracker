@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { transactionAPI, apiService } from '@/lib/api';
+import { front_api_client } from '@/lib/front_api_client';
 import { PlusCircle, Trash2, Edit, ChevronDown, ChevronUp, MoreVertical, X, Loader2 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { StockSymbol, AddHoldingFormData, FormErrors } from '@/types/api';
@@ -94,12 +94,12 @@ const TransactionsPage = () => {
       if (typeFilter !== 'ALL') {
         filters.transaction_type = typeFilter;
       }
-      const response = await transactionAPI.getUserTransactions(filters);
+      const response = await front_api_client.front_api_get_transactions();
       if (response.ok && response.data) {
         const txs = (response.data.transactions ?? []) as Transaction[];
         setTransactions(txs);
       } else {
-        setError(response.message || 'Failed to load transactions');
+        setError(response.error || 'Failed to load transactions');
       }
     } catch (err) {
       setError('Error fetching transactions');
@@ -111,7 +111,21 @@ const TransactionsPage = () => {
   const fetchSummary = useCallback(async () => {
     if (!user) return;
     try {
-      const response = await transactionAPI.getTransactionSummary(user.id);
+      // Note: Transaction summary API needs to be implemented in backend
+      // For now, calculate basic summary from transactions
+      const basicSummary = {
+        total_transactions: transactions.length,
+        buy_transactions: transactions.filter(t => t.transaction_type === 'BUY').length,
+        sell_transactions: transactions.filter(t => t.transaction_type === 'SELL').length,
+        dividend_transactions: transactions.filter(t => t.transaction_type === 'DIVIDEND').length,
+        unique_tickers: new Set(transactions.map(t => t.ticker)).size,
+        total_invested: transactions.filter(t => t.transaction_type === 'BUY').reduce((sum, t) => sum + t.total_amount, 0),
+        total_received: transactions.filter(t => t.transaction_type === 'SELL').reduce((sum, t) => sum + t.total_amount, 0),
+        total_dividends: transactions.filter(t => t.transaction_type === 'DIVIDEND').reduce((sum, t) => sum + t.total_amount, 0),
+        net_invested: 0
+      };
+      basicSummary.net_invested = basicSummary.total_invested - basicSummary.total_received;
+      const response = { ok: true, data: { summary: basicSummary } };
       if (response.ok && response.data) {
         setSummary(response.data.summary);
       }
@@ -159,7 +173,7 @@ const TransactionsPage = () => {
       }
       setSearchLoading(true);
       try {
-        const response = await apiService.searchSymbols(query, 50);
+        const response = await front_api_client.front_api_search_symbols({ query, limit: 50 });
         if (latestQueryRef.current === query) {
           if (response.ok && response.data) {
             setTickerSuggestions(response.data.results);
@@ -184,47 +198,120 @@ const TransactionsPage = () => {
   };
 
   const handleSuggestionClick = (symbol: StockSymbol) => {
-      setForm(prev => ({
-          ...prev,
+      const newForm = {
+          ...form,
           ticker: symbol.symbol,
           company_name: symbol.name,
           currency: symbol.currency,
           exchange: symbol.exchange_code,
-      }));
+      };
+      
+      setForm(newForm);
       setTickerSuggestions([]);
       setShowSuggestions(false);
+      
+      // If a date is already selected, automatically fetch the historical price
+      if (newForm.purchase_date && symbol.symbol) {
+          console.log(`[handleSuggestionClick] Auto-triggering price lookup for ${symbol.symbol} on ${newForm.purchase_date}`);
+          fetchClosingPriceForDate(symbol.symbol, newForm.purchase_date);
+      }
   };
   
+  /**
+   * Fetch historical closing price for a specific stock on a specific date
+   * This function is called when both ticker and date are selected in the transaction form
+   * It auto-populates the "Price per Share" field with the historical closing price
+   */
   const fetchClosingPriceForDate = useCallback(async (ticker: string, date: string) => {
-      if (!ticker || !date) return;
+      console.log(`
+========== PRICE LOOKUP REQUEST ==========
+FILE: transactions/page.tsx
+FUNCTION: fetchClosingPriceForDate
+TICKER: ${ticker}
+DATE: ${date}
+TIMESTAMP: ${new Date().toISOString()}
+=========================================`);
+      
+      if (!ticker || !date) {
+          console.log('[fetchClosingPriceForDate] Missing ticker or date, skipping price lookup');
+          return;
+      }
 
-      const selected = new Date(date);
-      const diffYears = (Date.now() - selected.getTime()) / (1000 * 60 * 60 * 24 * 365);
-      let period: string;
-      if (diffYears <= 1) {
-          period = '1Y';
-      } else if (diffYears <= 5) {
-          period = '5Y';
-      } else {
-          period = 'max';
+      // Validate date is not in the future
+      const selectedDate = new Date(date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Reset time to compare just dates
+      
+      if (selectedDate > today) {
+          console.log('[fetchClosingPriceForDate] Date is in the future, skipping price lookup');
+          addToast({
+              type: 'warning',
+              title: 'Future Date Selected',
+              message: 'Cannot fetch historical prices for future dates. Please enter price manually.',
+          });
+          return;
       }
 
       setLoadingPrice(true);
       try {
-          const response = await apiService.getHistoricalData(ticker, period);
-          if (response.ok && response.data?.data) {
-              const match = response.data.data.find((d: any) => d.date === date);
-              if (match) {
-                  setForm(prev => ({ ...prev, purchase_price: match.close.toString() }));
-                  addToast({ type: 'success', title: 'Price Found', message: `Set purchase price to closing price of $${match.close} for ${date}` });
-              } else {
-                  addToast({ type: 'warning', title: 'Price Not Found', message: `No closing price found for ${ticker} on ${date}. Please enter manually.` });
-              }
+          console.log(`[fetchClosingPriceForDate] Calling API for ${ticker} on ${date}`);
+          
+          const response = await front_api_client.front_api_get_historical_price({
+              symbol: ticker.toUpperCase(),
+              date: date
+          });
+          
+          if (response.ok && response.data?.success) {
+              const priceData = response.data;
+              const closingPrice = priceData.price_data.close;
+              
+              console.log(`
+========== PRICE LOOKUP SUCCESS ==========
+TICKER: ${ticker}
+REQUESTED_DATE: ${date}
+ACTUAL_DATE: ${priceData.actual_date}
+CLOSING_PRICE: $${closingPrice}
+IS_EXACT_DATE: ${priceData.is_exact_date}
+=========================================`);
+              
+              // Update the form with the fetched price
+              setForm(prev => ({ 
+                  ...prev, 
+                  purchase_price: closingPrice.toString() 
+              }));
+              
+              // Show success message to user
+              const message = priceData.is_exact_date 
+                  ? `Found closing price: $${closingPrice} on ${priceData.actual_date}`
+                  : `Found closing price: $${closingPrice} on ${priceData.actual_date} (closest trading day to ${date})`;
+                  
+              addToast({
+                  type: 'success',
+                  title: 'Price Fetched Successfully',
+                  message: message
+              });
+              
+          } else {
+              console.error(`[fetchClosingPriceForDate] API call failed:`, response.error || response.data?.error);
+              
+              addToast({
+                  type: 'error',
+                  title: 'Price Fetch Failed',
+                  message: response.error || response.data?.error || `Could not fetch historical price for ${ticker} on ${date}. Please enter manually.`
+              });
           }
-      } catch (error) {
-          addToast({ type: 'error', title: 'Price Fetch Failed', message: 'Could not fetch closing price.' });
+          
+      } catch (error: any) {
+          console.error(`[fetchClosingPriceForDate] Exception occurred:`, error);
+          
+          addToast({ 
+              type: 'error', 
+              title: 'Price Fetch Error', 
+              message: `Error fetching price for ${ticker}: ${error.message || 'Unknown error'}. Please enter manually.`
+          });
       } finally {
           setLoadingPrice(false);
+          console.log(`[fetchClosingPriceForDate] Price lookup completed for ${ticker} on ${date}`);
       }
   }, [addToast]);
 
@@ -249,14 +336,15 @@ const TransactionsPage = () => {
     setIsSubmitting(true);
     setError(null);
 
+    // Map form data to the format expected by front_api_client
     const transactionData = {
-        transaction_type: form.transaction_type || 'BUY',
-        ticker: form.ticker.toUpperCase(),
-        company_name: form.company_name || form.ticker.toUpperCase(),
-        shares: parseFloat(form.shares),
-        price_per_share: parseFloat(form.purchase_price),
-        transaction_date: form.purchase_date,
-        transaction_currency: form.currency,
+        transaction_type: form.transaction_type === 'BUY' ? 'Buy' as const : 
+                         form.transaction_type === 'SELL' ? 'Sell' as const : 'Buy' as const,
+        symbol: form.ticker.toUpperCase(),
+        quantity: parseFloat(form.shares),
+        price: parseFloat(form.purchase_price),
+        date: form.purchase_date,
+        currency: form.currency,
         commission: parseFloat(form.commission || '0'),
         notes: form.notes || '',
     };
@@ -267,13 +355,13 @@ const TransactionsPage = () => {
       
       let response;
       if (isEditing) {
-        response = await apiService.updateTransaction(editingTransaction.id, transactionData);
+        response = await front_api_client.front_api_update_transaction(editingTransaction.id.toString(), transactionData);
       } else {
-        response = await transactionAPI.createTransaction({ ...transactionData, user_id: user.id });
+        response = await front_api_client.front_api_add_transaction(transactionData);
       }
 
       if (response.ok) {
-        addToast({ type: 'success', title: `Transaction ${isEditing ? 'Updated' : 'Added'}`, message: `${transactionData.ticker} has been successfully ${isEditing ? 'updated' : 'added'}.` });
+        addToast({ type: 'success', title: `Transaction ${isEditing ? 'Updated' : 'Added'}`, message: `${transactionData.symbol} has been successfully ${isEditing ? 'updated' : 'added'}.` });
         setShowAddForm(false);
         setEditingTransaction(null);
         refreshData();
@@ -312,7 +400,7 @@ const TransactionsPage = () => {
     if (window.confirm('Are you sure you want to delete this transaction? This action cannot be undone.')) {
       try {
         addToast({ type: 'info', title: 'Deleting...', message: 'Removing transaction.' });
-        const response = await apiService.deleteTransaction(txnId);
+        const response = await front_api_client.front_api_delete_transaction(txnId.toString());
         if (response.ok) {
           addToast({ type: 'success', title: 'Transaction Deleted', message: 'The transaction has been removed.' });
           refreshData();
@@ -467,9 +555,34 @@ const TransactionsPage = () => {
                   {formErrors.shares && <p className="text-red-500 text-xs mt-1">{formErrors.shares}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-800 mb-1 text-on-white">Price per Share</label>
-                  <input type="number" name="purchase_price" step="0.01" min="0" value={form.purchase_price} onChange={handleFormChange} className={`w-full p-2 border ${formErrors.purchase_price ? 'border-red-500' : 'border-gray-600'} rounded-lg`} required />
+                  <label className="block text-sm font-medium text-gray-800 mb-1 text-on-white">
+                    Price per Share
+                    {loadingPrice && <span className="text-blue-600 text-xs ml-2">(fetching historical price...)</span>}
+                  </label>
+                  <div className="relative">
+                    <input 
+                      type="number" 
+                      name="purchase_price" 
+                      step="0.01" 
+                      min="0" 
+                      value={form.purchase_price} 
+                      onChange={handleFormChange} 
+                      className={`w-full p-2 border ${formErrors.purchase_price ? 'border-red-500' : 'border-gray-600'} rounded-lg ${loadingPrice ? 'bg-gray-100' : ''}`} 
+                      disabled={loadingPrice}
+                      required 
+                    />
+                    {loadingPrice && (
+                      <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                      </div>
+                    )}
+                  </div>
                   {formErrors.purchase_price && <p className="text-red-500 text-xs mt-1">{formErrors.purchase_price}</p>}
+                  {!loadingPrice && form.ticker && form.purchase_date && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      💡 Price will auto-populate based on historical closing price for {form.ticker} on {form.purchase_date}
+                    </p>
+                  )}
                 </div>
               </div>
               <div>

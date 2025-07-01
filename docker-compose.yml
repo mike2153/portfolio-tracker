@@ -1,34 +1,41 @@
+version: '3.8'
+
 services:
   backend:
-    build: ./backend
-    command: python manage.py runserver 0.0.0.0:8000
-    volumes:
-      - ./backend:/app
+    build: 
+      context: ./backend_simplified
+      dockerfile: Dockerfile
+    container_name: backend
     ports:
       - "8000:8000"
-    env_file:
-      - ./backend/.env
     environment:
-      - DJANGO_SETTINGS_MODULE=core.settings
-    dns:
-      - 8.8.8.8
-      - 8.8.4.4
+      - SUPA_API_URL=${SUPA_API_URL}
+      - SUPA_API_ANON_KEY=${SUPA_API_ANON_KEY}
+      - SUPA_API_SERVICE_KEY=${SUPA_API_SERVICE_KEY}
+      - VANTAGE_API_KEY=${VANTAGE_API_KEY}
+      - BACKEND_API_PORT=8000
+      - BACKEND_API_HOST=0.0.0.0
+      - BACKEND_API_DEBUG=true
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./backend_simplified:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
   frontend:
-    build: ./frontend
-    command: npm run dev
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+      - NEXT_PUBLIC_SUPA_API_URL=${SUPA_API_URL}
+      - NEXT_PUBLIC_SUPA_API_ANON_KEY=${SUPA_API_ANON_KEY}
     volumes:
       - ./frontend:/app
       - /app/node_modules
       - /app/.next
-    ports:
-      - "3000:3000"
     depends_on:
       - backend
-    environment:
-      - NEXT_PUBLIC_SUPABASE_URL=https://ryitmyslspbtnktogsad.supabase.co
-      - NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ5aXRteXNsc3BidG5rdG9nc2FkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAzNzA2MTgsImV4cCI6MjA2NTk0NjYxOH0.KlHHFmib82kRjZJOtOH6Aq79YAoypUZ5Ta_pGLsAxR0
-      - ALPHA_VANTAGE_API_KEY=X2XXEHNZ0RMIBFU4
-
-volumes:
-  postgres_data: 
+    command: npm run dev 

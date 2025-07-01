@@ -1,38 +1,25 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { dashboardAPI } from '@/lib/api';
+import { front_api_client } from '@/lib/front_api_client';
 import { ChartSkeleton } from './Skeletons';
 import { AllocationRow } from '@/types/api';
 import { cn } from '@/lib/utils';
-import { supabase } from '@/lib/supabaseClient';
+import { useDashboard } from '../contexts/DashboardContext';
+import { useAuth } from '@/components/AuthProvider';
 
 const AllocationTable = () => {
-  //console.log('[AllocationTable] Component mounting...');
-  
-  const [userId, setUserId] = useState<string | null>(null);
-
-  useEffect(() => {
-    //console.log('[AllocationTable] useEffect: Checking user session...');
-    const init = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      //console.log('[AllocationTable] Session user ID:', session?.user?.id);
-      if (session?.user) {
-        setUserId(session.user.id);
-        //console.log('[AllocationTable] User ID set to:', session.user.id);
-      } else {
-        //console.log('[AllocationTable] No user session found');
-      }
-    };
-    init();
-  }, []);
+  const { userId } = useDashboard();
+  const { user } = useAuth();
 
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ['dashboardAllocation', userId],
+    queryKey: ['dashboardAllocation'],
     queryFn: async () => {
       //console.log('[AllocationTable] Making API call for allocation data...');
-      const result = await dashboardAPI.getAllocation();
+      // Note: Allocation API needs to be implemented in backend
+      // For now, return empty allocation data
+      console.log('[AllocationTable] Allocation API not yet implemented, showing empty state');
+      const result = { data: { rows: [] } };
       //console.log('[AllocationTable] API response:', result);
       //////console.log('[AllocationTable] API response data type:', typeof result.data);
       ////console.log('[AllocationTable] API response rows:', result?.data?.rows);
@@ -52,7 +39,7 @@ const AllocationTable = () => {
       
       return result;
     },
-    enabled: !!userId,
+    enabled: !!user,
   });
 
   //console.log('[AllocationTable] Query state:', { data, isLoading, isError, error });

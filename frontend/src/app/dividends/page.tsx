@@ -56,12 +56,12 @@ export default function DividendsPage() {
       if (selectedTicker) params.append('ticker', selectedTicker)
       if (showConfirmedOnly) params.append('confirmed_only', 'true')
 
-      const response = await fetch(`http://localhost:8000/api/portfolios/${user.id}/dividends?${params}`)
-      if (!response.ok) throw new Error('Failed to fetch dividends')
-
-      const data = await response.json()
-      setDividends(data.dividends || [])
-      setSummary(data.summary)
+      // Note: Dividends API needs to be implemented in backend
+      // For now, show empty state with message
+      console.log('[DividendsPage] Dividends API not yet implemented');
+      setDividends([]);
+      setSummary({ total_confirmed_dividends: 0, total_records: 0, confirmed_records: 0 });
+      return;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load dividends')
     } finally {
@@ -89,22 +89,10 @@ export default function DividendsPage() {
 
   const confirmDividend = async (dividendId: number, exDate: string, confirmed: boolean) => {
     try {
-      const response = await fetch('http://localhost:8000/api/dividends/confirm', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          holding_id: dividendId,
-          ex_date: exDate,
-          confirmed: confirmed
-        })
-      })
-
-      if (!response.ok) throw new Error('Failed to update dividend confirmation')
-
-      // Refresh the data
-      await fetchDividends()
+      // Note: Dividend confirmation API needs to be implemented in backend
+      console.log('[DividendsPage] Dividend confirmation API not yet implemented');
+      alert('Dividend confirmation feature is being migrated and will be available soon.');
+      return;
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to update dividend')
     }

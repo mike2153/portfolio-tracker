@@ -3,25 +3,20 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { DashboardOverview } from '@/types/api';
-import { dashboardAPI } from '@/lib/api';
+import { front_api_get_dashboard } from '@/lib/front_api_client';
 import { supabase } from '@/lib/supabaseClient';
 import KPICard from './KPICard';
 import { KPIGridSkeleton } from './Skeletons';
 import { debug } from '@/lib/debug';
 import { useDashboard } from '../contexts/DashboardContext';
+import { useAuth } from '@/components/AuthProvider';
 
 interface KPIGridProps {
   initialData?: DashboardOverview;
 }
 
 const KPIGrid = ({ initialData }: KPIGridProps) => {
-  //console.log('[KPIGrid] 🚀 Enhanced KPI Grid component rendering with initial data:', initialData);
-  //console.log('[KPIGrid] 📊 Initial data type:', typeof initialData);
-  //console.log('[KPIGrid] 📊 Initial data keys:', initialData ? Object.keys(initialData) : 'null');
-  
-  const [userId, setUserId] = useState<string | null>(null);
-  
-  // Get dashboard context
+  // Get dashboard context which includes userId
   const {
     portfolioDollarGain,
     portfolioPercentGain,
@@ -30,49 +25,37 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
     selectedBenchmark,
     selectedPeriod,
     isLoadingPerformance,
-    performanceData
+    performanceData,
+    userId // Get userId from context instead of duplicating session fetch
   } = useDashboard();
 
-  useEffect(() => {
-    //console.log('[KPIGrid] 🔐 useEffect: Checking user session...');
-    const init = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      //console.log('[KPIGrid] 🔐 Session user ID:', session?.user?.id);
-      if (session?.user) {
-        setUserId(session.user.id);
-        //console.log('[KPIGrid] 🔐 User ID set to:', session.user.id);
-      } else {
-        //console.log('[KPIGrid] ❌ No user session found');
-      }
-    };
-    init();
-  }, []);
+  const { user } = useAuth();
 
   const { data: apiData, isLoading, isError, error } = useQuery({
     queryKey: ['dashboard', 'overview', userId],
     queryFn: async () => {
-      debug('[KPIGrid] 📡 Making API call for dashboard overview...');
+      debug('[KPIGrid] 📡 Making API call for dashboard overview using front_api_get_dashboard...');
       debug('[KPIGrid] 📡 User ID for API call:', userId);
       
       try {
-      const result = await dashboardAPI.getOverview();
-        //console.log('[KPIGrid] 📡 Raw API result:', result);
-        //console.log('[KPIGrid] 📡 API result type:', typeof result);
-        //console.log('[KPIGrid] 📡 API result.ok:', result?.ok);
-        //console.log('[KPIGrid] 📡 API result.data:', result?.data);
-        //console.log('[KPIGrid] 📡 API result.error:', result?.error);
+        const result = await front_api_get_dashboard();
+        
+        console.log('[KPIGrid] 📡 front_api_get_dashboard result:', result);
+        console.log('[KPIGrid] 📡 API result.ok:', result?.ok);
+        console.log('[KPIGrid] 📡 API result.data:', result?.data);
+        console.log('[KPIGrid] 📡 API result.error:', result?.error);
       
-      if (!result.ok) {
-        //console.error('[KPIGrid] ❌ API call failed:', result.error);
-          //console.error('[KPIGrid] ❌ Full error result:', result);
-        throw new Error(result.error || 'Failed to fetch dashboard data');
-      }
+        if (!result.ok) {
+          console.error('[KPIGrid] ❌ front_api_get_dashboard failed:', result.error);
+          console.error('[KPIGrid] ❌ Full error result:', result);
+          throw new Error(result.error || 'Failed to fetch dashboard data');
+        }
       
-        //console.log('[KPIGrid] ✅ API call successful, returning result');
-      return result;
+        console.log('[KPIGrid] ✅ front_api_get_dashboard successful, returning result');
+        return result;
         
       } catch (fetchError) {
-        //console.error('[KPIGrid] ❌ Network/fetch error:', fetchError);
+        console.error('[KPIGrid] ❌ front_api_get_dashboard exception:', fetchError);
         console.error('[KPIGrid] ❌ Error details:', {
           message: (fetchError as Error).message,
           name: (fetchError as Error).name,
@@ -81,7 +64,7 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
         throw fetchError;
       }
     },
-    enabled: !!userId,
+    enabled: !!user,
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
     retry: (failureCount, error) => {
@@ -100,12 +83,28 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
   // Use API data if available, fallback to initial data
   const rawData = apiData?.data || initialData;
 
-  // Transform snake_case API fields to camelCase for frontend compatibility
+  // Transform the new dashboard API response to the expected KPI format
   const data = rawData ? {
-    marketValue: (rawData as any).market_value || rawData.marketValue,
-    totalProfit: (rawData as any).total_profit || rawData.totalProfit,
-    irr: rawData.irr,
-    passiveIncome: (rawData as any).passive_income || rawData.passiveIncome
+    marketValue: {
+      value: (rawData as any).portfolio?.total_value || 0,
+      sub_label: 'Total Portfolio Value',
+      is_positive: ((rawData as any).portfolio?.total_gain_loss || 0) >= 0
+    },
+    totalProfit: {
+      value: (rawData as any).portfolio?.total_gain_loss || 0,
+      sub_label: `${((rawData as any).portfolio?.total_gain_loss_percent || 0).toFixed(2)}% gain/loss`,
+      is_positive: ((rawData as any).portfolio?.total_gain_loss || 0) >= 0
+    },
+    irr: {
+      value: 0, // IRR calculation would need historical data
+      sub_label: 'Internal Rate of Return',
+      is_positive: true
+    },
+    passiveIncome: {
+      value: 0, // Dividend data would come from transaction analysis
+      sub_label: 'Annual Dividend Yield',
+      is_positive: true
+    }
   } : null;
 
   //console.log('[KPIGrid] 🎯 Raw API data:', rawData);

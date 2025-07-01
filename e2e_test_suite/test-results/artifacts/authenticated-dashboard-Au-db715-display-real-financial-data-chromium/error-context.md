@@ -1,0 +1,69 @@
+# Page snapshot
+
+```yaml
+- complementary:
+  - heading "FinSoft" [level=1]
+  - navigation:
+    - link "Dashboard":
+      - /url: /dashboard
+    - link "Analytics":
+      - /url: /analytics
+    - link "Portfolio":
+      - /url: /portfolio
+    - link "Transactions":
+      - /url: /transactions
+    - link "Research":
+      - /url: /research
+    - link "Tools":
+      - /url: /tools
+    - link "Community":
+      - /url: /community
+- banner:
+  - button "Search... ⌘K"
+  - button "Add"
+  - link "Sign Up":
+    - /url: /auth
+- main:
+  - heading "My Portfolio" [level=1]
+  - heading "Error Loading KPI Data" [level=3]
+  - paragraph: Cannot read properties of undefined (reading 'front_api_make_request')
+  - heading "Portfolio Allocation" [level=3]
+  - table:
+    - rowgroup:
+      - row "Name Value / Invested Gain Allocation":
+        - cell "Name"
+        - cell "Value / Invested"
+        - cell "Gain"
+        - cell "Allocation"
+    - rowgroup
+  - heading "Portfolio Performance" [level=3]
+  - button "1M"
+  - button "3M"
+  - button "YTD"
+  - button "1Y"
+  - button "3Y"
+  - button "5Y"
+  - button "ALL"
+  - combobox:
+    - option "S&P 500" [selected]
+    - option "Nasdaq"
+    - option "Dow Jones"
+  - button "Value"
+  - button "% Change"
+  - img: −1 0 1 2 3 4 5 6 −1 0 1 2 3 4
+  - img: Value
+  - img
+  - heading [level=3]
+  - button "See all"
+  - list
+  - heading [level=3]
+  - button "See all"
+  - list
+- alert
+- button "Open Next.js Dev Tools":
+  - img
+- button "Open issues overlay": 3 Issue
+- button "Collapse issues badge":
+  - img
+- img
+```

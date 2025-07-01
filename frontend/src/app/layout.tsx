@@ -39,6 +39,7 @@ export default function RootLayout({
                     <SidebarLink href="/analytics" icon={<BarChart2 className="h-5 w-5" />}>Analytics</SidebarLink>
                     <SidebarLink href="/portfolio" icon={<Briefcase className="h-5 w-5" />}>Portfolio</SidebarLink>
                     <SidebarLink href="/transactions" icon={<PlusCircle className="h-5 w-5" />}>Transactions</SidebarLink>
+                    <SidebarLink href="/research" icon={<Search className="h-5 w-5" />}>Research</SidebarLink>
                     <SidebarLink href="/tools" icon={<Wrench className="h-5 w-5" />}>Tools</SidebarLink>
                     <SidebarLink href="/community" icon={<Users className="h-5 w-5" />}>Community</SidebarLink>
                   </nav>

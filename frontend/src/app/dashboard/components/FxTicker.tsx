@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { dashboardAPI } from '@/lib/api';
+import { front_api_client } from '@/lib/front_api_client';
 import { FxTickerSkeleton } from './Skeletons';
 import { FxRate } from '@/types/api';
 import { ArrowUp, ArrowDown } from 'lucide-react';
@@ -10,8 +10,16 @@ import { cn } from '@/lib/utils';
 const FxTicker = () => {
     const { data, isLoading, isError } = useQuery({
         queryKey: ['fxRates'],
-        queryFn: () => dashboardAPI.getFxRates(),
-        refetchInterval: 30000, // Refetch every 30 seconds
+        queryFn: () => {
+            // Note: FX rates API needs to be implemented in backend
+            // For now, return empty FX data
+            console.log('[FxTicker] FX rates API not yet implemented, showing empty state');
+            return Promise.resolve({ data: { rates: [] } });
+        },
+        staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
+        gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+        refetchInterval: false, // Disable automatic refetching
+        refetchOnWindowFocus: false, // Disable refetch on window focus
     });
 
     if (isLoading) return <FxTickerSkeleton />;

@@ -1,5 +1,4 @@
 import { Suspense } from 'react';
-import { dashboardAPI } from '@/lib/api';
 import { DashboardProvider } from './contexts/DashboardContext';
 
 import KPIGrid from './components/KPIGrid';
