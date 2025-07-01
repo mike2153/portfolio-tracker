@@ -1,12 +1,10 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { front_api_client } from '@/lib/front_api_client';
 import { ListSkeleton } from './Skeletons';
 import { GainerLoserRow } from '@/types/api';
 import { ArrowUp, ArrowDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import Image from 'next/image';
 import { useDashboard } from '../contexts/DashboardContext';
 import { useAuth } from '@/components/AuthProvider';
 
@@ -144,7 +142,7 @@ const GainLossCard = ({ type, title }: GainLossCardProps) => {
                 <button className="text-sm text-blue-400 hover:underline">See all</button>
             </div>
             <ul className="space-y-4">
-                {items.map((item: GainerLoserRow, index: number) => {
+                {items.map((item: GainerLoserRow) => {
                       /*  console.log(`[GainLossCard] Rendering ${type} item ${index}:`, item);
                         console.log(`[GainLossCard] ${type} Item ${index} numeric field details:`, {
                         changePercent: item.changePercent,

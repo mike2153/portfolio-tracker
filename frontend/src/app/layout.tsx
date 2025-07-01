@@ -5,7 +5,7 @@ import SidebarLink from '@/components/SidebarLink'
 import { ToastProvider } from '@/components/ui/Toast'
 import { Providers } from '@/components/Providers'
 import { AuthProvider } from '@/components/AuthProvider'
-import { Home, BarChart2, Briefcase, Wrench, Users, Plus, Search, Sun, Moon, ChevronsUpDown, PlusCircle } from 'lucide-react'
+import { Home, BarChart2, Briefcase, Wrench, Users, Plus, Search, PlusCircle } from 'lucide-react'
 import { patchConsole } from '@/lib/debug'
 
 const inter = Inter({ subsets: ['latin'] })

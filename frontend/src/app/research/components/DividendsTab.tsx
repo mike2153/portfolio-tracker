@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { RefreshCw, DollarSign, TrendingUp, Calendar, BarChart as BarChartIcon } from 'lucide-react';
 import { BarChart as ReBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { front_api_client } from '@/lib/front_api_client';
 import type { TabContentProps, DividendData } from '@/types/stock-research';
+import { front_api_get_stock_research_data } from '@/lib/front_api_client';
 
 export default function DividendsTab({ ticker, data, isLoading, onRefresh }: TabContentProps) {
   const [dividendData, setDividendData] = useState<DividendData | null>(null);
@@ -12,13 +12,13 @@ export default function DividendsTab({ ticker, data, isLoading, onRefresh }: Tab
 
   useEffect(() => {
     loadDividendData();
-  }, [ticker]);
+  }, []);
 
   const loadDividendData = async () => {
     setLoadingDividends(true);
     try {
-      const data = await stockResearchAPI.getDividends(ticker);
-      setDividendData(data);
+      const stockResearchData: any = await front_api_get_stock_research_data(ticker);
+      setDividendData(stockResearchData.dividends);
     } catch (error) {
       console.error('Error loading dividend data:', error);
     } finally {

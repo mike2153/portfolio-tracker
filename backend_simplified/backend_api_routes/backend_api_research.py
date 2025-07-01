@@ -9,7 +9,7 @@ import logging
 from debug_logger import DebugLogger
 from vantage_api.vantage_api_search import combined_symbol_search
 from vantage_api.vantage_api_quotes import vantage_api_get_overview, vantage_api_get_quote, vantage_api_get_historical_price
-from supa_api.supa_api_auth import get_current_user
+from supa_api.supa_api_auth import require_authenticated_user
 
 logger = logging.getLogger(__name__)
 
@@ -60,11 +60,9 @@ async def backend_api_symbol_search_handler(
         )
         raise HTTPException(status_code=500, detail=str(e))
 
-@research_router.get("/stock_overview")
-@DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="STOCK_OVERVIEW")
+@research_router.get("/stock_overview", dependencies=[Depends(require_authenticated_user)])
 async def backend_api_stock_overview_handler(
-    symbol: str = Query(..., description="Stock symbol to get overview for"),
-    user: Optional[Dict[str, Any]] = Depends(get_current_user)
+    symbol: str = Query(..., description="Stock symbol to get overview for")
 ) -> Dict[str, Any]:
     """
     Get comprehensive stock overview data
@@ -92,11 +90,6 @@ async def backend_api_stock_overview_handler(
             "fundamentals": overview_data,
             "success": True
         }
-        
-        # Add user-specific data if authenticated
-        if user:
-            logger.info(f"[backend_api_research.py::backend_api_stock_overview_handler] User {user['email']} accessing {symbol}")
-            # Could add watchlist status, notes, etc here
         
         return combined_data
         
@@ -140,12 +133,10 @@ async def backend_api_quote_handler(
         )
         raise HTTPException(status_code=500, detail=str(e))
 
-@research_router.get("/historical_price/{symbol}")
-@DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="HISTORICAL_PRICE")
+@research_router.get("/historical_price/{symbol}", dependencies=[Depends(require_authenticated_user)])
 async def backend_api_historical_price_handler(
     symbol: str,
-    date: str = Query(..., description="Date in YYYY-MM-DD format for historical price lookup"),
-    user: Optional[Dict[str, Any]] = Depends(get_current_user)
+    date: str = Query(..., description="Date in YYYY-MM-DD format for historical price lookup")
 ) -> Dict[str, Any]:
     """
     Get historical closing price for a stock on a specific date
@@ -156,7 +147,6 @@ async def backend_api_historical_price_handler(
     Args:
         symbol: Stock ticker symbol (e.g., 'AAPL')
         date: Transaction date in YYYY-MM-DD format
-        user: Authenticated user (optional for this endpoint)
     
     Returns:
         Historical price data including open, high, low, close, and volume
@@ -182,10 +172,6 @@ async def backend_api_historical_price_handler(
     try:
         # Get historical price data from Alpha Vantage
         price_data = await vantage_api_get_historical_price(symbol, date)
-        
-        # Add user-specific logging if authenticated
-        if user:
-            logger.info(f"[backend_api_research.py::backend_api_historical_price_handler] User {user['email']} fetching historical price for {symbol} on {date}")
         
         # Format response for frontend consumption
         response_data = {

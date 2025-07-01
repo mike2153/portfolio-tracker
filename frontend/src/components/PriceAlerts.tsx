@@ -11,7 +11,6 @@ import {
   TrendingUp, 
   TrendingDown, 
   AlertCircle,
-  CheckCircle,
   Clock,
   Target,
   Activity,

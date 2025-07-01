@@ -6,7 +6,9 @@ import AllocationTable from './components/AllocationTable';
 import PortfolioChart from './components/PortfolioChart';
 import DailyMovers from './components/DailyMovers';
 import FxTicker from './components/FxTicker';
-import { KPIGridSkeleton, ChartSkeleton, ListSkeleton, FxTickerSkeleton } from './components/Skeletons';
+import { ChartSkeleton, ListSkeleton, FxTickerSkeleton } from './components/Skeletons';
+
+
 
 export const revalidate = 60; // Revalidate data every 60 seconds
 

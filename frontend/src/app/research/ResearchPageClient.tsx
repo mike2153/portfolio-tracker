@@ -2,16 +2,12 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Search, Star, StarOff, TrendingUp, TrendingDown, BarChart3, DollarSign, FileText, Users, Target, GitCompare } from 'lucide-react';
-import { front_api_get_stock_research_data, front_api_search_symbols } from '@/lib/front_api_client';
+import { Search, Star, StarOff, TrendingUp, BarChart3, DollarSign, FileText, GitCompare } from 'lucide-react';
+import { front_api_get_stock_research_data } from '@/lib/front_api_client';
 import type { 
   StockResearchTab, 
-  StockSearchResult, 
   StockResearchData,
-  TimePeriod,
-  WatchlistItem,
-  StockOverview,
-  StockQuote
+  WatchlistItem
 } from '@/types/stock-research';
 
 // Import tab components
@@ -41,10 +37,10 @@ export default function StockResearchPage() {
   const [activeTab, setActiveTab] = useState<StockResearchTab>('overview');
   const [stockData, setStockData] = useState<StockResearchData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
+  const [_, setError] = useState<string | null>(null);
+  const [__watchlist, __setWatchlist] = useState<WatchlistItem[]>([]);
   const [comparisonStocks, setComparisonStocks] = useState<string[]>([]);
-  const [comparisonMode, setComparisonMode] = useState(false);
+  const [__comparisonMode, __setComparisonMode] = useState<'single' | 'compare'>('single');
 
   // Initialize from URL params
   useEffect(() => {
@@ -68,7 +64,7 @@ export default function StockResearchPage() {
   const loadWatchlist = async () => {
     console.log('[ResearchPage] loadWatchlist: Feature temporarily disabled during API migration.');
     // TODO: Implement watchlist API in front_api_client
-    setWatchlist([]);
+    __setWatchlist([]);
   };
 
   const handleStockSelect = useCallback(async (ticker: string) => {
@@ -94,7 +90,7 @@ export default function StockResearchPage() {
 
     try {
       // Use the new front_api_get_stock_research_data for efficient batch loading
-      const stockResearchData = await front_api_get_stock_research_data(ticker);
+      const stockResearchData: any = await front_api_get_stock_research_data(ticker);
       console.log('[ResearchPage] front_api_get_stock_research_data result:', stockResearchData);
       
       console.log('[ResearchPage] Raw API Responses from front_api_get_stock_research_data:', stockResearchData);
@@ -143,21 +139,11 @@ export default function StockResearchPage() {
     }
 
     const isInWatchlist = stockData ? stockData.isInWatchlist : false;
-    console.log(`[ResearchPage] handleToggleWatchlist: Toggling ${selectedTicker}. Currently in watchlist: ${isInWatchlist}`);
-
-    if (isInWatchlist) {
-      await stockResearchAPI.removeFromWatchlist(selectedTicker);
-      console.log(`[ResearchPage] handleToggleWatchlist: ${selectedTicker} removed.`);
-    } else {
-      await stockResearchAPI.addToWatchlist(selectedTicker);
-      console.log(`[ResearchPage] handleToggleWatchlist: ${selectedTicker} added.`);
-    }
-    
-    // Optimistically update UI and then refresh from source of truth
+    console.log(`[ResearchPage] handleToggleWatchlist: (placeholder) would toggle ${selectedTicker}. Currently in watchlist: ${isInWatchlist}`);
+    // TODO: Integrate with watchlist API once available
     if (stockData) {
       setStockData({ ...stockData, isInWatchlist: !isInWatchlist });
     }
-    loadWatchlist(); // Re-fetch the watchlist to be sure
   };
 
   const handleRefresh = async () => {

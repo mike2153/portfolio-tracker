@@ -1,4 +1,4 @@
-import { AddHoldingFormData, FormErrors, ValidationError } from '@/types/api';
+import { AddHoldingFormData, FormErrors } from '@/types/api';
 
 export class ValidationService {
   static validateAddHoldingForm(formData: AddHoldingFormData): FormErrors {

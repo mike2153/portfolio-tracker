@@ -8,9 +8,7 @@ import PortfolioOptimization from '@/components/PortfolioOptimization'
 import PriceAlerts from '@/components/PriceAlerts'
 import dynamic from 'next/dynamic'
 import { 
-  TrendingUp, 
   BarChart3, 
-  PieChart, 
   Target, 
   Bell, 
   Database,

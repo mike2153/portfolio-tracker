@@ -2,8 +2,7 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-export interface InputProps
-  extends React.InputHTMLAttributes<HTMLInputElement> {}
+type InputProps = React.InputHTMLAttributes<HTMLInputElement>;
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
   ({ className, type, ...props }, ref) => {
@@ -58,7 +57,7 @@ const AutocompleteInput = React.forwardRef<HTMLInputElement, AutocompleteInputPr
     const [suggestions, setSuggestions] = React.useState<AutocompleteOption[]>([]);
     const [loading, setLoading] = React.useState(false);
     const [highlightedIndex, setHighlightedIndex] = React.useState(-1);
-    const timeoutRef = React.useRef<NodeJS.Timeout>();
+    const timeoutRef = React.useRef<NodeJS.Timeout | null>(null);
     const containerRef = React.useRef<HTMLDivElement>(null);
 
     // Debounced search function

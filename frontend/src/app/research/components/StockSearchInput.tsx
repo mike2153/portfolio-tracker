@@ -4,7 +4,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Search, Loader2 } from 'lucide-react';
 import { front_api_client } from '@/lib/front_api_client';
 import type { StockSearchResult } from '@/types/stock-research';
-import type { StockSymbol } from '@/types/api';
 
 interface StockSearchInputProps {
   onStockSelect: (ticker: string) => void;

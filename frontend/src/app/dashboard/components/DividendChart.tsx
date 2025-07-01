@@ -1,9 +1,8 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { front_api_client } from '@/lib/front_api_client';
 import { ChartSkeleton } from './Skeletons';
-import { ResponsiveContainer, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar } from 'recharts';
+import { ResponsiveContainer, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Bar } from 'recharts';
 
 const DividendChart = () => {
     //console.log('[DividendChart] Component mounting...');

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import dynamic from 'next/dynamic'
-import { AdvancedFinancials, ValuationMetrics, FinancialHealthMetrics, PerformanceMetrics, ProfitabilityMetrics } from '@/types'
+import { AdvancedFinancials } from '@/types'
 import { TrendingUp, TrendingDown, AlertCircle, DollarSign, BarChart3, PieChart, Activity, Shield } from 'lucide-react'
 
 // Dynamically import Plotly to avoid SSR issues

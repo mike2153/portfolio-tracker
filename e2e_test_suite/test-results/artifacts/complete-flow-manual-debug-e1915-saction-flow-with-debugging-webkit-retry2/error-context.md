@@ -1,0 +1,43 @@
+# Page snapshot
+
+```yaml
+- complementary:
+  - heading "FinSoft" [level=1]
+  - navigation:
+    - link "Dashboard":
+      - /url: /dashboard
+    - link "Analytics":
+      - /url: /analytics
+    - link "Portfolio":
+      - /url: /portfolio
+    - link "Transactions":
+      - /url: /transactions
+    - link "Research":
+      - /url: /research
+    - link "Tools":
+      - /url: /tools
+    - link "Community":
+      - /url: /community
+- banner:
+  - button "Search... ⌘K"
+  - button "Add"
+  - link "Sign Up":
+    - /url: /auth
+- main:
+  - heading "My Portfolio" [level=1]
+  - heading "Portfolio Allocation" [level=3]
+  - table:
+    - rowgroup:
+      - row "Name Value / Invested Gain Allocation":
+        - cell "Name"
+        - cell "Value / Invested"
+        - cell "Gain"
+        - cell "Allocation"
+    - rowgroup
+  - heading [level=3]
+  - button "See all"
+  - list
+  - heading [level=3]
+  - button "See all"
+  - list
+```

@@ -3,13 +3,11 @@
 import React, { useState, useEffect } from 'react';
 import { RefreshCw, ChevronDown, ChevronRight, BarChart3 } from 'lucide-react';
 import FinancialChart from '@/components/charts/FinancialChart';
-import { front_api_client } from '@/lib/front_api_client';
 import type { 
   TabContentProps, 
   FinancialStatementType, 
   FinancialPeriodType, 
-  FinancialsData,
-  FinancialStatement 
+  FinancialsData 
 } from '@/types/stock-research';
 
 const STATEMENT_TYPES: { value: FinancialStatementType; label: string }[] = [

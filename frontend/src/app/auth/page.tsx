@@ -3,6 +3,21 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 
+// Debug helper function
+const debugLog = (context: string, data: any) => {
+  const timestamp = new Date().toISOString()
+  const logEntry = `[AUTH-DEBUG] [${timestamp}] [${context}] ${JSON.stringify(data, null, 2)}`
+  console.log(logEntry)
+  
+  // Also store in window for easy access
+  if (typeof window !== 'undefined') {
+    if (!window.authDebugLogs) {
+      window.authDebugLogs = []
+    }
+    window.authDebugLogs.push({ timestamp, context, data })
+  }
+}
+
 export default function AuthPage() {
   const [isSignUp, setIsSignUp] = useState(false)
   const [email, setEmail] = useState('')
@@ -11,24 +26,39 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
 
+  debugLog('page:render', { isSignUp, email: email ? '***filled***' : 'empty', loading })
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    debugLog('form:submit:start', { 
+      isSignUp, 
+      email, 
+      passwordLength: password.length,
+      fullName: isSignUp ? fullName : 'N/A'
+    })
+    
     setLoading(true)
     setMessage('')
 
     try {
       if (isSignUp) {
+        debugLog('signup:validation:start', { fullName: fullName.trim(), passwordLength: password.length })
+        
         // Validate signup requirements
         if (!fullName.trim()) {
+          debugLog('signup:validation:error', { error: 'Full name is required' })
           setMessage('Full name is required')
           return
         }
         
         if (password.length < 8) {
+          debugLog('signup:validation:error', { error: 'Password too short', length: password.length })
           setMessage('Password must be at least 8 characters long')
           return
         }
 
+        debugLog('signup:api:calling', { email: email.trim() })
+        
         // Sign up new user
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
@@ -38,6 +68,13 @@ export default function AuthPage() {
               full_name: fullName.trim(),
             }
           }
+        })
+
+        debugLog('signup:api:response', { 
+          success: !error, 
+          error: error?.message,
+          userCreated: !!data?.user,
+          emailConfirmed: data?.user?.email_confirmed_at
         })
 
         if (error) {
@@ -52,13 +89,26 @@ export default function AuthPage() {
           setIsSignUp(false)
         }
       } else {
+        debugLog('signin:api:calling', { email: email.trim() })
+        
         // Sign in existing user
         const { data, error } = await supabase.auth.signInWithPassword({
           email: email.trim(),
           password,
         })
 
+        debugLog('signin:api:response', { 
+          success: !error, 
+          error: error?.message,
+          errorCode: error?.code,
+          errorStatus: error?.status,
+          user: data?.user ? { id: data.user.id, email: data.user.email, confirmed: data.user.email_confirmed_at } : null,
+          session: data?.session ? { expires_at: data.session.expires_at } : null
+        })
+
         if (error) {
+          debugLog('signin:error:handling', { errorMessage: error.message })
+          
           if (error.message.includes('email not confirmed')) {
             setMessage('Please check your email and click the verification link before signing in.')
           } else if (error.message.includes('Invalid login credentials')) {
@@ -70,20 +120,28 @@ export default function AuthPage() {
         }
 
         if (data.user) {
+          debugLog('signin:success', { userId: data.user.id, email: data.user.email })
           setMessage('Sign in successful! Redirecting...')
+          
+          debugLog('signin:redirect:scheduled', { target: '/dashboard', delay: 1500 })
           setTimeout(() => {
+            debugLog('signin:redirect:executing', { target: '/dashboard' })
             window.location.href = '/dashboard'
           }, 1500)
         }
       }
     } catch (error) {
-      setMessage(`Authentication error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      debugLog('auth:error:catch', { error: errorMessage, stack: error instanceof Error ? error.stack : 'N/A' })
+      setMessage(`Authentication error: ${errorMessage}`)
     } finally {
+      debugLog('form:submit:complete', { loading: false })
       setLoading(false)
     }
   }
 
   const resetForm = () => {
+    debugLog('form:reset', { previousEmail: email })
     setEmail('')
     setPassword('')
     setFullName('')
@@ -115,7 +173,10 @@ export default function AuthPage() {
                   type="text"
                   required={isSignUp}
                   value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
+                  onChange={(e) => {
+                    debugLog('input:fullName:change', { value: e.target.value })
+                    setFullName(e.target.value)
+                  }}
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-black focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Enter your full name"
                 />
@@ -133,7 +194,10 @@ export default function AuthPage() {
                 autoComplete="email"
                 required
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  debugLog('input:email:change', { value: e.target.value })
+                  setEmail(e.target.value)
+                }}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-black focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Enter your email"
               />
@@ -150,7 +214,10 @@ export default function AuthPage() {
                 autoComplete={isSignUp ? "new-password" : "current-password"}
                 required
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  debugLog('input:password:change', { length: e.target.value.length })
+                  setPassword(e.target.value)
+                }}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-black focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder={isSignUp ? "Create a password (8+ characters)" : "Enter your password"}
                 minLength={isSignUp ? 8 : undefined}
@@ -194,6 +261,7 @@ export default function AuthPage() {
             <button
               type="button"
               onClick={() => {
+                debugLog('toggle:signup:click', { from: isSignUp ? 'signup' : 'signin', to: !isSignUp ? 'signup' : 'signin' })
                 setIsSignUp(!isSignUp)
                 resetForm()
               }}

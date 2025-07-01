@@ -3,12 +3,10 @@
 import { useState, useEffect, useCallback, useRef, ChangeEvent, FormEvent } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { User } from '@/types'
-import { PlusCircle, Trash2, Edit, ChevronDown, ChevronUp, MoreVertical, X, Loader2 } from 'lucide-react'
+import { PlusCircle, Trash2, Edit, MoreVertical, Loader2 } from 'lucide-react'
 import { front_api_get_portfolio, front_api_get_quote, front_api_search_symbols } from '@/lib/front_api_client'
-import { ValidationService } from '@/lib/validation'
 import { useToast } from '@/components/ui/Toast'
 import {
-    PortfolioData,
     Holding,
     StockSymbol,
     AddHoldingFormData,
@@ -16,13 +14,7 @@ import {
     FormErrors
 } from '@/types/api'
 
-interface HoldingRowProps {
-    holding: Holding;
-    onEdit: (holding: Holding) => void;
-    onRemove: (holding: Holding) => void;
-}
-
-const debounce = (func: Function, delay: number) => {
+const debounce = <T extends (...args: any[]) => void>(func: T, delay = 300) => {
     let timeoutId: NodeJS.Timeout;
     return (...args: any[]) => {
         clearTimeout(timeoutId);
@@ -38,16 +30,16 @@ export default function PortfolioPage() {
     const [portfolioLoading, setPortfolioLoading] = useState(true);
     const [quotesLoading, setQuotesLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [showHoldingModal, setShowHoldingModal] = useState(false);
+    const [, setShowHoldingModal] = useState(false);
     const [editingHolding, setEditingHolding] = useState<Holding | null>(null);
-    const [loadingPrice, setLoadingPrice] = useState(false);
-    const [showSuggestions, setShowSuggestions] = useState(false);
-    const [tickerSuggestions, setTickerSuggestions] = useState<StockSymbol[]>([]);
-    const [searchLoading, setSearchLoading] = useState(false);
-    const [searchCache, setSearchCache] = useState<Record<string, StockSymbol[]>>({});
+    const [, setLoadingPrice] = useState(false);
+    const [, setShowSuggestions] = useState(false);
+    const [, setTickerSuggestions] = useState<StockSymbol[]>([]);
+    const [searchCache] = useState<Record<string, StockSymbol[]>>({});
+    const [, setSearchLoading] = useState(false);
     const [formErrors, setFormErrors] = useState<FormErrors>({});
-    const [isSubmitting, setIsSubmitting] = useState(false);
     const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+    const [, setIsSubmitting] = useState(false);
     
     const previousDateRef = useRef<string>('');
 
@@ -68,11 +60,11 @@ export default function PortfolioPage() {
 
     const [form, setForm] = useState<AddHoldingFormData>(initialFormState);
 
-    const fetchPortfolioData = useCallback(async (userId: string) => {
+    const fetchPortfolioData = useCallback(async (_userId: string) => {
         setPortfolioLoading(true);
         setError(null);
         try {
-            const portfolioResponse = await front_api_get_portfolio();
+            const portfolioResponse: any = await front_api_get_portfolio();
             
             if (!portfolioResponse.ok || !portfolioResponse.data) {
                 const msg = portfolioResponse.error || 'Failed to fetch portfolio data';
@@ -91,7 +83,7 @@ export default function PortfolioPage() {
                 const holdingsWithQuotes = await Promise.all(
                     initialHoldings.map(async (holding: Holding) => {
                         try {
-                            const res = await front_api_get_quote(holding.ticker);
+                            const res: any = await front_api_get_quote(holding.ticker);
                             if (res.ok && res.data?.data?.price) {
                                 const price = res.data.data.price as number;
                                 return {
@@ -100,8 +92,8 @@ export default function PortfolioPage() {
                                     market_value: price * holding.shares,
                                 };
                             }
-                        } catch (err) {
-                            console.error(`Failed to fetch quote for ${holding.ticker}`, err);
+                        } catch (_err) {
+                            console.error(`Failed to fetch quote for ${holding.ticker}`, _err);
                         }
                         return holding;
                     })
@@ -109,8 +101,8 @@ export default function PortfolioPage() {
                 setHoldings(holdingsWithQuotes);
                 setQuotesLoading(false);
             }
-        } catch (err) {
-            const msg = err instanceof Error ? err.message : 'An unknown error occurred';
+        } catch (_err) {
+            const msg = _err instanceof Error ? _err.message : 'An unknown error occurred';
             setError(msg);
             setHoldings([]);
             addToast({ type: 'error', title: 'Error Fetching Portfolio', message: msg });
@@ -250,7 +242,7 @@ export default function PortfolioPage() {
         return Object.keys(errors).length === 0;
     };
 
-    const handleFormChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const _handleFormChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
         const isCheckbox = (e.target as HTMLInputElement).type === 'checkbox';
         const checked = (e.target as HTMLInputElement).checked;
@@ -268,7 +260,7 @@ export default function PortfolioPage() {
         }
     };
 
-    const handleDateChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const _handleDateChange = (e: ChangeEvent<HTMLInputElement>) => {
         const { value } = e.target;
         const previousDate = form.purchase_date;
         setForm(prev => ({ ...prev, purchase_date: value }));
@@ -280,7 +272,7 @@ export default function PortfolioPage() {
         previousDateRef.current = previousDate;
     };
 
-    const handleDateBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const _handleDateBlur = (e: React.FocusEvent<HTMLInputElement>) => {
         const currentDate = e.target.value;
         const previousDate = previousDateRef.current;
         const todayDate = new Date().toISOString().split('T')[0];
@@ -293,7 +285,7 @@ export default function PortfolioPage() {
         }
     };
 
-    const handleTickerSearch = useCallback(debounce(async (query: string) => {
+    const _handleTickerSearch = useCallback(debounce(async (query: string) => {
         if (query.length < 1) {
             setTickerSuggestions([]);
             return;
@@ -304,10 +296,10 @@ export default function PortfolioPage() {
         }
         setSearchLoading(true);
         try {
-            const response = await front_api_search_symbols({ query, limit: 50 });
-            if (response.ok && response.data) {
-                setTickerSuggestions(response.data.results);
-                setSearchCache(prev => ({ ...prev, [query]: response.data!.results }));
+            const response: any = await front_api_search_symbols({ query, limit: 50 });
+            if ((response as any)?.ok && (response as any)?.data) {
+                setTickerSuggestions((response as any)?.data?.results);
+                setSearchCache(prev => ({ ...prev, [query]: (response as any)?.data?.results }));
             } else {
                 setTickerSuggestions([]);
             }
@@ -318,10 +310,10 @@ export default function PortfolioPage() {
         }
     }, 500), [searchCache]);
 
-    const handleTickerFocus = () => setShowSuggestions(true);
-    const handleTickerBlur = () => setTimeout(() => setShowSuggestions(false), 200);
+    const _handleTickerFocus = () => setShowSuggestions(true);
+    const _handleTickerBlur = () => setTimeout(() => setShowSuggestions(false), 200);
 
-    const handleSuggestionClick = async (symbol: StockSymbol) => {
+    const _handleSuggestionClick = async (symbol: StockSymbol) => {
         setForm(prev => ({
             ...prev,
             ticker: symbol.symbol,
@@ -337,7 +329,7 @@ export default function PortfolioPage() {
         }
     };
     
-    const handleAddHoldingSubmit = async () => {
+    const _handleAddHoldingSubmit = async () => {
         if (!user || !validateForm()) return;
 
         setIsSubmitting(true);
@@ -375,7 +367,7 @@ export default function PortfolioPage() {
         }
     };
 
-    const handleUpdateHoldingSubmit = async () => {
+    const _handleUpdateHoldingSubmit = async () => {
         if (!user || !editingHolding || !validateForm()) return;
 
         setIsSubmitting(true);
@@ -413,16 +405,16 @@ export default function PortfolioPage() {
         }
     };
     
-    const handleFormSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    const _handleFormSubmit = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         if (editingHolding) {
-            await handleUpdateHoldingSubmit();
+            await _handleUpdateHoldingSubmit();
         } else {
-            await handleAddHoldingSubmit();
+            await _handleAddHoldingSubmit();
         }
     };
 
-    const handleRemoveHolding = async (holding: Holding) => {
+    const _handleRemoveHolding = async (holding: Holding) => {
         if (!user) return;
         if (!window.confirm(`Are you sure you want to remove all holdings for ${holding.ticker}? This will delete all associated transactions.`)) {
             return;
@@ -571,7 +563,7 @@ export default function PortfolioPage() {
                                                     </button>
                                                     <button
                                                         onClick={() => {
-                                                            handleRemoveHolding(holding)
+                                                            _handleRemoveHolding(holding)
                                                             setOpenMenuId(null);
                                                         }}
                                                         className="flex w-full items-center px-4 py-2 text-left text-sm text-red-400 hover:bg-gray-600"

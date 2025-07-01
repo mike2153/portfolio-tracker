@@ -3,9 +3,8 @@
 import { useState, useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import { useQuery } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabaseClient'
 import { front_api_client } from '@/lib/front_api_client';
-import { debug } from '@/lib/debug'
+import debug from '../../../lib/debug'
 import { ChartSkeleton } from './Skeletons'
 import { useDashboard } from '../contexts/DashboardContext'
 
@@ -40,22 +39,13 @@ export default function PortfolioChart() {
 
   debug('[PortfolioChart] Component state:', { userId, selectedPeriod: selectedPeriod, mode, selectedBenchmark: selectedBenchmark });
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error } = useQuery<any, Error>({
     queryKey: ['portfolioPerformance', userId, selectedPeriod, selectedBenchmark],
     queryFn: async () => {
-      debug('[PortfolioChart] Making API call for portfolio performance...');
-      debug('[PortfolioChart] API params:', { userId, selectedPeriod, selectedBenchmark });
-      debug('[Benchmark] Fetching index:', selectedBenchmark);
-      setIsLoadingPerformance(true);
-              const result = await front_api_client.front_api_get_performance(selectedPeriod);
-      debug('[PortfolioChart] API response:', result);
-      if (result.ok && result.data) {
-        const prices = (result.data as any)?.data?.benchmark_performance ?? (result.data as any)?.benchmark_performance;
-        if (prices) {
-          debug('[Benchmark] Close prices:', prices);
-        }
-      }
-      setIsLoadingPerformance(false);
+      console.log(`[PortfolioChart] Making API call for period: ${selectedPeriod}`);
+      // This now correctly uses the central API client which hits /api/dashboard/performance
+      const result = await front_api_client.front_api_get_performance(selectedPeriod);
+      console.log(`[PortfolioChart] API response for period ${selectedPeriod}:`, result);
       return result;
     },
     enabled: !!userId,

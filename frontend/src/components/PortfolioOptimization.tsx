@@ -3,15 +3,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import { 
-  PortfolioOptimizationAnalysis, 
-  HoldingAnalysis, 
-  DiversificationAnalysis, 
-  RiskAssessment,
-  OptimizationRecommendations
+  PortfolioOptimizationAnalysis
 } from '@/types'
 import { 
   TrendingUp, 
-  TrendingDown, 
   AlertTriangle, 
   Target, 
   PieChart, 

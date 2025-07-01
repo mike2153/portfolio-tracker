@@ -113,19 +113,66 @@ async def backend_api_add_transaction(
     user: Dict[str, Any] = Depends(require_authenticated_user)
 ) -> Dict[str, Any]:
     """Add a new transaction"""
-    logger.info(f"[backend_api_portfolio.py::backend_api_add_transaction] Adding transaction for user: {user['email']}, symbol: {transaction.symbol}")
+    logger.info(f"🔥🔥🔥 [backend_api_portfolio.py::backend_api_add_transaction] === COMPREHENSIVE API DEBUG START ===")
+    logger.info(f"🔥 [backend_api_portfolio.py::backend_api_add_transaction] Adding transaction for user: {user['email']}, symbol: {transaction.symbol}")
+    
+    # 🔥 EXTENSIVE USER AUTHENTICATION DEBUG
+    logger.info(f"👤 [USER_AUTH_DEBUG] Full user object: {user}")
+    logger.info(f"👤 [USER_AUTH_DEBUG] User keys: {list(user.keys())}")
+    logger.info(f"👤 [USER_AUTH_DEBUG] User ID: {user.get('id', 'MISSING!')}")
+    logger.info(f"👤 [USER_AUTH_DEBUG] User ID type: {type(user.get('id'))}")
+    logger.info(f"👤 [USER_AUTH_DEBUG] User email: {user.get('email', 'MISSING!')}")
+    logger.info(f"👤 [USER_AUTH_DEBUG] User aud: {user.get('aud', 'MISSING!')}")
+    logger.info(f"👤 [USER_AUTH_DEBUG] User role: {user.get('role', 'MISSING!')}")
+    
+    # 🔥 EXTENSIVE TRANSACTION INPUT DEBUG
+    logger.info(f"📝 [TRANSACTION_INPUT_DEBUG] Raw transaction input: {transaction}")
+    logger.info(f"📝 [TRANSACTION_INPUT_DEBUG] Transaction dict: {transaction.dict()}")
+    logger.info(f"📝 [TRANSACTION_INPUT_DEBUG] Transaction type: {transaction.transaction_type}")
+    logger.info(f"📝 [TRANSACTION_INPUT_DEBUG] Symbol: {transaction.symbol}")
+    logger.info(f"📝 [TRANSACTION_INPUT_DEBUG] Quantity: {transaction.quantity}")
+    logger.info(f"📝 [TRANSACTION_INPUT_DEBUG] Price: {transaction.price}")
+    logger.info(f"📝 [TRANSACTION_INPUT_DEBUG] Date: {transaction.date}")
+    logger.info(f"📝 [TRANSACTION_INPUT_DEBUG] Currency: {transaction.currency}")
+    logger.info(f"📝 [TRANSACTION_INPUT_DEBUG] Commission: {transaction.commission}")
+    logger.info(f"📝 [TRANSACTION_INPUT_DEBUG] Notes: {transaction.notes}")
     
     try:
         # Validate transaction type
         if transaction.transaction_type not in ["Buy", "Sell"]:
+            logger.error(f"❌ [VALIDATION_DEBUG] Invalid transaction type: {transaction.transaction_type}")
             raise ValueError("Transaction type must be 'Buy' or 'Sell'")
+        logger.info(f"✅ [VALIDATION_DEBUG] Transaction type validation passed")
         
         # Add user_id to transaction data
         transaction_data = transaction.dict()
         transaction_data["user_id"] = user["id"]
         
+        logger.info(f"🔗 [TRANSACTION_MERGE_DEBUG] Transaction data BEFORE adding user_id: {transaction.dict()}")
+        logger.info(f"🔗 [TRANSACTION_MERGE_DEBUG] User ID being added: {user['id']}")
+        logger.info(f"🔗 [TRANSACTION_MERGE_DEBUG] Transaction data AFTER adding user_id: {transaction_data}")
+        logger.info(f"🔗 [TRANSACTION_MERGE_DEBUG] Final transaction_data keys: {list(transaction_data.keys())}")
+        
+        # 🔥 VALIDATE FINAL TRANSACTION DATA
+        required_fields = ['user_id', 'symbol', 'transaction_type', 'quantity', 'price', 'date']
+        missing_fields = [field for field in required_fields if not transaction_data.get(field)]
+        if missing_fields:
+            logger.error(f"❌ [FINAL_VALIDATION_DEBUG] MISSING REQUIRED FIELDS: {missing_fields}")
+            raise ValueError(f"Missing required fields: {missing_fields}")
+        logger.info(f"✅ [FINAL_VALIDATION_DEBUG] All required fields present")
+        
+        logger.info(f"🚀 [API_DEBUG] Calling supa_api_add_transaction with data: {transaction_data}")
+        
         # Add to database
-        new_transaction = await supa_api_add_transaction(transaction_data)
+        user_token = user.get("access_token")
+        logger.info(f"🔐 [API_DEBUG] Extracting user token for RLS: {bool(user_token)}")
+        if user_token:
+            logger.info(f"🔐 [API_DEBUG] Token preview: {user_token[:20]}...")
+        
+        new_transaction = await supa_api_add_transaction(transaction_data, user_token)
+        
+        logger.info(f"🎉 [API_DEBUG] supa_api_add_transaction returned: {new_transaction}")
+        logger.info(f"🔥🔥🔥 [backend_api_portfolio.py::backend_api_add_transaction] === COMPREHENSIVE API DEBUG END (SUCCESS) ===")
         
         return {
             "success": True,
@@ -134,6 +181,11 @@ async def backend_api_add_transaction(
         }
         
     except Exception as e:
+        logger.error(f"💥 [API_DEBUG] EXCEPTION IN BACKEND API!")
+        logger.error(f"💥 [API_DEBUG] Exception type: {type(e).__name__}")
+        logger.error(f"💥 [API_DEBUG] Exception message: {str(e)}")
+        logger.error(f"💥 [API_DEBUG] Exception details: {e}")
+        
         DebugLogger.log_error(
             file_name="backend_api_portfolio.py",
             function_name="backend_api_add_transaction",
@@ -141,6 +193,7 @@ async def backend_api_add_transaction(
             user_id=user["id"],
             transaction=transaction.dict()
         )
+        logger.info(f"🔥🔥🔥 [backend_api_portfolio.py::backend_api_add_transaction] === COMPREHENSIVE API DEBUG END (ERROR) ===")
         raise HTTPException(status_code=400, detail=str(e))
 
 @portfolio_router.put("/transactions/{transaction_id}")

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
-import { FinancialStatements, FinancialReport } from '@/types'
+import { FinancialStatements } from '@/types'
 import BalanceSheet from '@/components/BalanceSheet'
 import AdvancedFinancialsComponent from '@/components/AdvancedFinancials'
 

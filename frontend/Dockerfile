@@ -7,7 +7,7 @@ WORKDIR /app
 RUN rm -rf node_modules package-lock.json
 
 COPY package*.json ./
-RUN npm install
+RUN npm install --legacy-peer-deps
 
 COPY . .
 

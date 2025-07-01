@@ -3,11 +3,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { front_api_client } from '@/lib/front_api_client';
-import { PlusCircle, Trash2, Edit, ChevronDown, ChevronUp, MoreVertical, X, Loader2 } from 'lucide-react';
+import { Trash2, Edit, X, Loader2 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { StockSymbol, AddHoldingFormData, FormErrors } from '@/types/api';
 import { supabase } from '@/lib/supabaseClient'
 import { User } from '@/types'
+import { StockSearchInput } from '@/components/StockSearchInput';
 
 // Debounce utility function
 function debounce(func: (...args: any[]) => void, delay: number) {
@@ -94,7 +95,7 @@ const TransactionsPage = () => {
       if (typeFilter !== 'ALL') {
         filters.transaction_type = typeFilter;
       }
-      const response = await front_api_client.front_api_get_transactions();
+      const response = await front_api_client.front_api_get_transactions() as any;
       if (response.ok && response.data) {
         const txs = (response.data.transactions ?? []) as Transaction[];
         setTransactions(txs);
@@ -163,87 +164,67 @@ const TransactionsPage = () => {
     }
   }, [user, fetchTransactions, fetchSummary]);
   
-  const latestQueryRef = React.useRef('');
-
-  const debouncedSearch = useCallback(
-    debounce(async (query: string) => {
-      if (query.length < 1) {
-        setTickerSuggestions([]);
-        return;
-      }
-      setSearchLoading(true);
-      try {
-        const response = await front_api_client.front_api_search_symbols({ query, limit: 50 });
-        if (latestQueryRef.current === query) {
-          if (response.ok && response.data) {
-            setTickerSuggestions(response.data.results);
-          } else {
-            setTickerSuggestions([]);
-          }
-        }
-      } finally {
-        setSearchLoading(false);
-      }
-    }, 500),
-    []
-  );
-
-  const handleTickerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const { value } = e.target;
-      setForm(prev => ({ ...prev, ticker: value.toUpperCase() }));
-      latestQueryRef.current = value;
-      setTickerSuggestions([]);
-      setShowSuggestions(true);
-      debouncedSearch(value);
-  };
-
-  const handleSuggestionClick = (symbol: StockSymbol) => {
-      const newForm = {
-          ...form,
-          ticker: symbol.symbol,
-          company_name: symbol.name,
-          currency: symbol.currency,
-          exchange: symbol.exchange_code,
-      };
-      
-      setForm(newForm);
-      setTickerSuggestions([]);
-      setShowSuggestions(false);
-      
-      // If a date is already selected, automatically fetch the historical price
-      if (newForm.purchase_date && symbol.symbol) {
-          console.log(`[handleSuggestionClick] Auto-triggering price lookup for ${symbol.symbol} on ${newForm.purchase_date}`);
-          fetchClosingPriceForDate(symbol.symbol, newForm.purchase_date);
-      }
-  };
-  
   /**
    * Fetch historical closing price for a specific stock on a specific date
-   * This function is called when both ticker and date are selected in the transaction form
-   * It auto-populates the "Price per Share" field with the historical closing price
    */
   const fetchClosingPriceForDate = useCallback(async (ticker: string, date: string) => {
-      console.log(`
-========== PRICE LOOKUP REQUEST ==========
-FILE: transactions/page.tsx
-FUNCTION: fetchClosingPriceForDate
-TICKER: ${ticker}
-DATE: ${date}
-TIMESTAMP: ${new Date().toISOString()}
-=========================================`);
+      console.log(`💰💰💰 [PRICE_FETCH] ================= COMPREHENSIVE DEBUG START =================`);
+      console.log(`💰 [PRICE_FETCH] Function called with parameters:`);
+      console.log(`💰 [PRICE_FETCH] - ticker parameter: "${ticker}"`);
+      console.log(`💰 [PRICE_FETCH] - ticker type: ${typeof ticker}`);
+      console.log(`💰 [PRICE_FETCH] - ticker length: ${ticker?.length || 'N/A'}`);
+      console.log(`💰 [PRICE_FETCH] - date parameter: "${date}"`);
+      console.log(`💰 [PRICE_FETCH] - date type: ${typeof date}`);
+      console.log(`💰 [PRICE_FETCH] - date length: ${date?.length || 'N/A'}`);
+      console.log(`💰 [PRICE_FETCH] - Raw parameters:`, { ticker, date });
       
-      if (!ticker || !date) {
-          console.log('[fetchClosingPriceForDate] Missing ticker or date, skipping price lookup');
+      // 🔥 EXTENSIVE VALIDATION WITH DEBUGGING
+      console.log(`💰 [PRICE_FETCH] === PARAMETER VALIDATION ===`);
+      
+      if (!ticker) {
+          console.log(`❌ [PRICE_FETCH] VALIDATION FAILED: ticker is falsy`);
+          console.log(`❌ [PRICE_FETCH] ticker value: ${ticker}`);
+          console.log(`❌ [PRICE_FETCH] Aborting price lookup - no ticker`);
           return;
       }
+      
+      if (typeof ticker !== 'string') {
+          console.log(`❌ [PRICE_FETCH] VALIDATION FAILED: ticker is not a string`);
+          console.log(`❌ [PRICE_FETCH] ticker type: ${typeof ticker}`);
+          console.log(`❌ [PRICE_FETCH] ticker value:`, ticker);
+          console.log(`❌ [PRICE_FETCH] Aborting price lookup - invalid ticker type`);
+          return;
+      }
+      
+      if (!date) {
+          console.log(`❌ [PRICE_FETCH] VALIDATION FAILED: date is falsy`);
+          console.log(`❌ [PRICE_FETCH] date value: ${date}`);
+          console.log(`❌ [PRICE_FETCH] Aborting price lookup - no date`);
+          return;
+      }
+      
+      if (typeof date !== 'string') {
+          console.log(`❌ [PRICE_FETCH] VALIDATION FAILED: date is not a string`);
+          console.log(`❌ [PRICE_FETCH] date type: ${typeof date}`);
+          console.log(`❌ [PRICE_FETCH] date value:`, date);
+          console.log(`❌ [PRICE_FETCH] Aborting price lookup - invalid date type`);
+          return;
+      }
+      
+      console.log(`✅ [PRICE_FETCH] VALIDATION PASSED: Both ticker and date are valid strings`);
 
       // Validate date is not in the future
       const selectedDate = new Date(date);
       const today = new Date();
-      today.setHours(0, 0, 0, 0); // Reset time to compare just dates
+      today.setHours(0, 0, 0, 0);
+      
+      console.log(`💰 [PRICE_FETCH] === DATE VALIDATION ===`);
+      console.log(`💰 [PRICE_FETCH] selectedDate: ${selectedDate}`);
+      console.log(`💰 [PRICE_FETCH] today: ${today}`);
+      console.log(`💰 [PRICE_FETCH] selectedDate > today: ${selectedDate > today}`);
       
       if (selectedDate > today) {
-          console.log('[fetchClosingPriceForDate] Date is in the future, skipping price lookup');
+          console.log(`❌ [PRICE_FETCH] Date is in the future, aborting`);
           addToast({
               type: 'warning',
               title: 'Future Date Selected',
@@ -252,17 +233,37 @@ TIMESTAMP: ${new Date().toISOString()}
           return;
       }
 
+      console.log(`✅ [PRICE_FETCH] Date validation passed`);
+      
+      // 🔥 PREPARE API CALL WITH EXTENSIVE DEBUGGING
+      const upperTicker = ticker.toUpperCase();
+      console.log(`💰 [PRICE_FETCH] === API CALL PREPARATION ===`);
+      console.log(`💰 [PRICE_FETCH] Original ticker: "${ticker}"`);
+      console.log(`💰 [PRICE_FETCH] Uppercase ticker: "${upperTicker}"`);
+      console.log(`💰 [PRICE_FETCH] Date for API: "${date}"`);
+      console.log(`💰 [PRICE_FETCH] About to call: front_api_get_historical_price("${upperTicker}", "${date}")`);
+
       setLoadingPrice(true);
       try {
-          console.log(`[fetchClosingPriceForDate] Calling API for ${ticker} on ${date}`);
+          console.log(`💰 [PRICE_FETCH] === MAKING API CALL ===`);
+          console.log(`💰 [PRICE_FETCH] Calling front_api_client.front_api_get_historical_price with:`);
+          console.log(`💰 [PRICE_FETCH] - Parameter 1 (symbol): "${upperTicker}"`);
+          console.log(`💰 [PRICE_FETCH] - Parameter 2 (date): "${date}"`);
           
-          const response = await front_api_client.front_api_get_historical_price({
-              symbol: ticker.toUpperCase(),
-              date: date
-          });
+          const response = await front_api_client.front_api_get_historical_price(
+              upperTicker,
+              date
+          ) as any;
           
-          if (response.ok && response.data?.success) {
-              const priceData = response.data;
+          console.log(`💰 [PRICE_FETCH] === API RESPONSE RECEIVED ===`);
+          console.log(`💰 [PRICE_FETCH] Raw response:`, response);
+          console.log(`💰 [PRICE_FETCH] Response type: ${typeof response}`);
+          console.log(`💰 [PRICE_FETCH] Response.ok: ${response?.ok}`);
+          console.log(`💰 [PRICE_FETCH] Response.data: ${response?.data}`);
+          console.log(`💰 [PRICE_FETCH] Response.error: ${response?.error}`);
+          
+          if ((response as any).ok && (response as any).data?.success) {
+              const priceData = (response as any).data;
               const closingPrice = priceData.price_data.close;
               
               console.log(`
@@ -292,12 +293,12 @@ IS_EXACT_DATE: ${priceData.is_exact_date}
               });
               
           } else {
-              console.error(`[fetchClosingPriceForDate] API call failed:`, response.error || response.data?.error);
+              console.error(`[fetchClosingPriceForDate] API call failed:`, (response as any).error || (response as any).data?.error);
               
               addToast({
                   type: 'error',
                   title: 'Price Fetch Failed',
-                  message: response.error || response.data?.error || `Could not fetch historical price for ${ticker} on ${date}. Please enter manually.`
+                  message: (response as any).error || (response as any).data?.error || `Could not fetch historical price for ${ticker} on ${date}. Please enter manually.`
               });
           }
           
@@ -316,10 +317,41 @@ IS_EXACT_DATE: ${priceData.is_exact_date}
   }, [addToast]);
 
   const handleDateBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+      console.log(`📅📅📅 [DATE_BLUR] =================== DATE BLUR DEBUG START ===================`);
+      console.log(`📅 [DATE_BLUR] Event triggered`);
+      console.log(`📅 [DATE_BLUR] Event target:`, e.target);
+      console.log(`📅 [DATE_BLUR] Event target value: "${e.target.value}"`);
+      console.log(`📅 [DATE_BLUR] Event target name: "${e.target.name}"`);
+      
       const { value } = e.target;
-      if (form.ticker && value) {
+      console.log(`📅 [DATE_BLUR] Extracted value: "${value}"`);
+      console.log(`📅 [DATE_BLUR] Value type: ${typeof value}`);
+      console.log(`📅 [DATE_BLUR] Value length: ${value?.length || 'N/A'}`);
+      
+      console.log(`📅 [DATE_BLUR] Current form state:`, form);
+      console.log(`📅 [DATE_BLUR] form.ticker: "${form.ticker}"`);
+      console.log(`📅 [DATE_BLUR] form.ticker type: ${typeof form.ticker}`);
+      console.log(`📅 [DATE_BLUR] form.ticker length: ${form.ticker?.length || 'N/A'}`);
+      
+      const hasValidTicker = form.ticker && form.ticker.trim() !== '';
+      const hasValidDate = value && value.trim() !== '';
+      
+      console.log(`📅 [DATE_BLUR] === VALIDATION CHECK ===`);
+      console.log(`📅 [DATE_BLUR] hasValidTicker: ${hasValidTicker}`);
+      console.log(`📅 [DATE_BLUR] hasValidDate: ${hasValidDate}`);
+      console.log(`📅 [DATE_BLUR] Both valid: ${hasValidTicker && hasValidDate}`);
+      
+      if (hasValidTicker && hasValidDate) {
+          console.log(`✅ [DATE_BLUR] Both ticker and date are valid - triggering price fetch`);
+          console.log(`📅 [DATE_BLUR] Calling fetchClosingPriceForDate("${form.ticker}", "${value}")`);
           fetchClosingPriceForDate(form.ticker, value);
+      } else {
+          console.log(`⚠️ [DATE_BLUR] Skipping price fetch - validation failed`);
+          if (!hasValidTicker) console.log(`❌ [DATE_BLUR] Invalid ticker: "${form.ticker}"`);
+          if (!hasValidDate) console.log(`❌ [DATE_BLUR] Invalid date: "${value}"`);
       }
+      
+      console.log(`📅📅📅 [DATE_BLUR] =================== DATE BLUR DEBUG END ===================`);
   };
   
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -531,22 +563,61 @@ IS_EXACT_DATE: ${priceData.is_exact_date}
                   <option value="DIVIDEND">Dividend</option>
                 </select>
               </div>
-              <div className="relative">
+              <div>
                 <label className="block text-sm font-medium text-gray-800 mb-1 text-on-white">Ticker Symbol</label>
-                <input type="text" name="ticker" value={form.ticker} onChange={handleTickerChange} onFocus={() => setShowSuggestions(true)} onBlur={() => setTimeout(() => setShowSuggestions(false), 200)} className={`w-full p-2 border ${formErrors.ticker ? 'border-red-500' : 'border-gray-600'} rounded-lg`} placeholder="e.g., AAPL" required autoComplete="off" />
-                {formErrors.ticker && <p className="text-red-500 text-xs mt-1">{formErrors.ticker}</p>}
-                {showSuggestions && (
-                  <div className="absolute z-10 w-full bg-gray-900 border border-gray-700 rounded-lg mt-1 shadow-lg max-h-60 overflow-y-auto text-gray-100">
-                    {searchLoading ? <div className="p-4 text-center">Loading...</div> : tickerSuggestions.length > 0 ? (
-                      tickerSuggestions.map(s => (
-                        <div key={s.symbol} onMouseDown={() => handleSuggestionClick(s)} className="p-2 hover:bg-gray-700/50 cursor-pointer">
-                          <div className="font-bold text-gray-100">{s.symbol}</div>
-                          <div className="text-sm text-gray-400">{s.name}</div>
-                        </div>
-                      ))
-                    ) : <div className="p-4 text-center text-gray-500">No results found.</div>}
-                  </div>
-                )}
+                <StockSearchInput
+                  onSelectSymbol={(symbol) => {
+                    console.log(`🎯🎯🎯 [STOCK_SELECTION] ======================= START =======================`);
+                    console.log(`🎯 [STOCK_SELECTION] Symbol selected:`, symbol);
+                    console.log(`🎯 [STOCK_SELECTION] Symbol.symbol: "${symbol.symbol}"`);
+                    console.log(`🎯 [STOCK_SELECTION] Symbol.name: "${symbol.name}"`);
+                    console.log(`🎯 [STOCK_SELECTION] Symbol.currency: "${symbol.currency}"`);
+                    console.log(`🎯 [STOCK_SELECTION] Symbol.region: "${symbol.region}"`);
+                    console.log(`🎯 [STOCK_SELECTION] Current form state BEFORE update:`, form);
+                    console.log(`🎯 [STOCK_SELECTION] Current form.purchase_date: "${form.purchase_date}"`);
+                    console.log(`🎯 [STOCK_SELECTION] Current form.ticker: "${form.ticker}"`);
+                    
+                    const newForm = {
+                      ...form,
+                      ticker: symbol.symbol,
+                      company_name: symbol.name,
+                      currency: symbol.currency || 'USD',
+                      exchange: symbol.region || '',
+                    };
+                    
+                    console.log(`🎯 [STOCK_SELECTION] New form state AFTER update:`, newForm);
+                    console.log(`🎯 [STOCK_SELECTION] New form.purchase_date: "${newForm.purchase_date}"`);
+                    console.log(`🎯 [STOCK_SELECTION] New form.ticker: "${newForm.ticker}"`);
+                    
+                    setForm(newForm);
+                    
+                    // 🔥 FIX: Only trigger price lookup if BOTH ticker AND date are present AND date is valid
+                    const hasValidDate = newForm.purchase_date && newForm.purchase_date.trim() !== '';
+                    const hasValidTicker = symbol.symbol && symbol.symbol.trim() !== '';
+                    
+                    console.log(`🎯 [STOCK_SELECTION] === PRICE LOOKUP VALIDATION ===`);
+                    console.log(`🎯 [STOCK_SELECTION] hasValidDate: ${hasValidDate}`);
+                    console.log(`🎯 [STOCK_SELECTION] hasValidTicker: ${hasValidTicker}`);
+                    console.log(`🎯 [STOCK_SELECTION] newForm.purchase_date: "${newForm.purchase_date}"`);
+                    console.log(`🎯 [STOCK_SELECTION] symbol.symbol: "${symbol.symbol}"`);
+                    
+                    if (hasValidDate && hasValidTicker) {
+                      console.log(`✅ [STOCK_SELECTION] Both ticker and date valid - triggering price lookup`);
+                      console.log(`🔥 [STOCK_SELECTION] Calling fetchClosingPriceForDate("${symbol.symbol}", "${newForm.purchase_date}")`);
+                      fetchClosingPriceForDate(symbol.symbol, newForm.purchase_date);
+                    } else {
+                      console.log(`⚠️ [STOCK_SELECTION] Skipping price lookup - missing ticker or date`);
+                      if (!hasValidTicker) console.log(`❌ [STOCK_SELECTION] Invalid ticker: "${symbol.symbol}"`);
+                      if (!hasValidDate) console.log(`❌ [STOCK_SELECTION] Invalid date: "${newForm.purchase_date}"`);
+                    }
+                    
+                    console.log(`🎯🎯🎯 [STOCK_SELECTION] ======================= END =======================`);
+                  }}
+                  placeholder="e.g., AAPL"
+                  inputClassName={`${formErrors.ticker ? 'border-red-500' : 'border-gray-600'}`}
+                  required
+                  error={formErrors.ticker}
+                />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>

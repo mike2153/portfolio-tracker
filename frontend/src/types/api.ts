@@ -11,11 +11,14 @@ export interface ApiResponse<T = any> {
 export interface StockSymbol {
   symbol: string;
   name: string;
-  exchange: string;
-  exchange_code: string;
   currency: string;
-  country: string;
+  region: string;
+  source: string;
   type: string;
+  // Optional fields that may be added later
+  exchange?: string;
+  exchange_code?: string;
+  country?: string;
 }
 
 export interface SymbolSearchResponse {

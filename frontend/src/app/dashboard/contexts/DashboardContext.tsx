@@ -1,8 +1,9 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { front_api_client } from '@/lib/front_api_client';
 import { supabase } from '@/lib/supabaseClient';
+import { useSearchParams } from 'next/navigation';
+import { KPIGridSkeleton } from '../components/Skeletons';
 
 interface PerformanceData {
   portfolioPerformance: Array<{
@@ -62,21 +63,37 @@ interface DashboardProviderProps {
 }
 
 export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }) => {
-  const [selectedPeriod, setSelectedPeriod] = useState('1Y');
+  const searchParams = useSearchParams();
+  const initialPeriod = searchParams.get('period') || '1Y';
+  const [selectedPeriod, setSelectedPeriod] = useState(initialPeriod);
   const [selectedBenchmark, setSelectedBenchmark] = useState('SPY');
   const [performanceData, setPerformanceData] = useState<PerformanceData | null>(null);
   const [isLoadingPerformance, setIsLoadingPerformance] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
 
-  // Initialize user ID
+  // Update selectedPeriod when URL changes
   useEffect(() => {
-    const init = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+    const period = searchParams.get('period');
+    if (period) setSelectedPeriod(period);
+  }, [searchParams]);
+
+  // Initialize user ID from the session
+  useEffect(() => {
+    const initUserId = async () => {
+      console.log('[DashboardProvider] Attempting to initialize user ID...');
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) {
+        console.error('[DashboardProvider] Error getting session:', error);
+        return;
+      }
       if (session?.user) {
+        console.log(`[DashboardProvider] ✅ User ID initialized: ${session.user.id}`);
         setUserId(session.user.id);
+      } else {
+        console.warn('[DashboardProvider] No active session found. User is not logged in.');
       }
     };
-    init();
+    initUserId();
   }, []);
 
   // Calculate dollar and percent gains from performance data
@@ -133,6 +150,13 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
     isLoadingPerformance,
     userId,
   ]);
+
+  // Do not render children until the userId has been determined.
+  // This prevents child components from making authenticated API calls before the session is ready.
+  if (userId === null) {
+    console.log('[DashboardProvider] Holding render because userId is not yet available.');
+    return <KPIGridSkeleton />; // Or any other suitable loading state
+  }
 
   return (
     <DashboardContext.Provider value={value}>

@@ -2,13 +2,11 @@
 
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Search, Star, StarOff, TrendingUp, TrendingDown, BarChart3, DollarSign, FileText, Users, Target, GitCompare } from 'lucide-react';
+import { Search, Star, StarOff, TrendingUp, BarChart3, DollarSign, FileText, GitCompare } from 'lucide-react';
 import { front_api_client } from '@/lib/front_api_client';
 import type { 
   StockResearchTab, 
-  StockSearchResult, 
-  StockResearchData,
-  TimePeriod
+  StockResearchData
 } from '@/types/stock-research';
 
 // Import tab components

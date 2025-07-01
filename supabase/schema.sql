@@ -25,6 +25,37 @@ create table if not exists transactions (
   updated_at timestamp with time zone default now()
 );
 
+-- Enable RLS for transactions table
+ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies for transactions table
+-- Allow users to read only their own transactions
+CREATE POLICY "Users can read own transactions" ON transactions
+    FOR SELECT TO authenticated
+    USING (auth.uid() = user_id);
+
+-- Allow users to insert only their own transactions  
+CREATE POLICY "Users can insert own transactions" ON transactions
+    FOR INSERT TO authenticated
+    WITH CHECK (auth.uid() = user_id);
+
+-- Allow users to update only their own transactions
+CREATE POLICY "Users can update own transactions" ON transactions
+    FOR UPDATE TO authenticated
+    USING (auth.uid() = user_id)
+    WITH CHECK (auth.uid() = user_id);
+
+-- Allow users to delete only their own transactions
+CREATE POLICY "Users can delete own transactions" ON transactions
+    FOR DELETE TO authenticated
+    USING (auth.uid() = user_id);
+
+-- Allow service role full access (for admin operations)
+CREATE POLICY "Service role full access to transactions" ON transactions
+    FOR ALL TO service_role
+    USING (true)
+    WITH CHECK (true);
+
 -- Stock symbols cache for autocomplete
 create table if not exists stock_symbols (
   symbol text primary key,

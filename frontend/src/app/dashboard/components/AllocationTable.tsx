@@ -1,7 +1,6 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { front_api_client } from '@/lib/front_api_client';
 import { ChartSkeleton } from './Skeletons';
 import { AllocationRow } from '@/types/api';
 import { cn } from '@/lib/utils';
@@ -9,7 +8,7 @@ import { useDashboard } from '../contexts/DashboardContext';
 import { useAuth } from '@/components/AuthProvider';
 
 const AllocationTable = () => {
-  const { userId } = useDashboard();
+  useDashboard();
   const { user } = useAuth();
 
   const { data, isLoading, isError, error } = useQuery({
@@ -24,18 +23,7 @@ const AllocationTable = () => {
       //////console.log('[AllocationTable] API response data type:', typeof result.data);
       ////console.log('[AllocationTable] API response rows:', result?.data?.rows);
       
-      // Add debugging for each row's allocation field
-      if (result?.data?.rows) {
-        result.data.rows.forEach((row: any, index: number) => {
-        /*  console.log(`[AllocationTable] Row ${index} (${row.groupKey}):`, {
-            allocation: row.allocation,
-            allocationType: typeof row.allocation,
-            allocationValue: row.allocation,
-            canCallToFixed: typeof row.allocation === 'number' || (typeof row.allocation === 'string' && !isNaN(parseFloat(row.allocation)))
-          });
-          */
-        });
-      }
+      // Debug loop removed – will add back once API returns real rows
       
       return result;
     },
@@ -108,7 +96,7 @@ const AllocationTable = () => {
             </tr>
           </thead>
           <tbody>
-            {rows.map((row: AllocationRow, index: number) => {
+            {rows.map((row: AllocationRow) => {
               //console.log(`[AllocationTable] Rendering row ${index}:`, row);
               //console.log(`[AllocationTable] Row ${index} allocation details:`, {
                 /*allocation: row.allocation,

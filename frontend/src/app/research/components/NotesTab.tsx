@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { RefreshCw, Plus, Edit2, Trash2, Save, X, FileText } from 'lucide-react';
-import { front_api_client } from '@/lib/front_api_client';
 import type { TabContentProps, StockNote } from '@/types/stock-research';
 
 export default function NotesTab({ ticker, data, isLoading, onRefresh }: TabContentProps) {

@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { RefreshCw, TrendingUp, TrendingDown, DollarSign, BarChart3 } from 'lucide-react';
 import PriceChart from '@/components/charts/PriceChart';
-import { front_api_client } from '@/lib/front_api_client';
 import type { TabContentProps, TimePeriod, PriceDataPoint } from '@/types/stock-research';
 
 export default function OverviewTab({ ticker, data, isLoading, onRefresh }: TabContentProps) {

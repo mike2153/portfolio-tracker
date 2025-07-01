@@ -87,7 +87,7 @@ export default function DividendsPage() {
     }
   }, [user, fetchDividends])
 
-  const confirmDividend = async (dividendId: number, exDate: string, confirmed: boolean) => {
+  const confirmDividend = async (_dividendId: number, _exDate: string, _confirmed: boolean) => {
     try {
       // Note: Dividend confirmation API needs to be implemented in backend
       console.log('[DividendsPage] Dividend confirmation API not yet implemented');

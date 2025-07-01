@@ -1,7 +1,6 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { front_api_client } from '@/lib/front_api_client';
 import { FxTickerSkeleton } from './Skeletons';
 import { FxRate } from '@/types/api';
 import { ArrowUp, ArrowDown } from 'lucide-react';
