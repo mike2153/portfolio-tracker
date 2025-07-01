@@ -11,7 +11,7 @@ import json
 
 from config import VANTAGE_API_KEY, VANTAGE_API_BASE_URL, CACHE_TTL_SECONDS
 from debug_logger import DebugLogger
-from supa_api.supa_api_client import get_supa_client
+from supa_api.supa_api_client import get_supa_service_client
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ class VantageApiClient:
         self.api_key = VANTAGE_API_KEY
         self.base_url = VANTAGE_API_BASE_URL
         self.session: Optional[aiohttp.ClientSession] = None
-        self.supa_client = get_supa_client()
+        self.supa_client = get_supa_service_client()
         
         logger.info(f"""
 ========== VANTAGE API CLIENT INIT ==========
@@ -41,6 +41,7 @@ BASE_URL: {self.base_url}
     async def _make_request(self, params: Dict[str, str]) -> Dict[str, Any]:
         """Make HTTP request to Alpha Vantage with debugging"""
         await self._ensure_session()
+        assert self.session is not None
         
         # Add API key to params
         params['apikey'] = self.api_key

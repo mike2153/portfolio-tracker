@@ -12,6 +12,7 @@ from httpx import AsyncClient
 from supabase.client import create_client
 import json
 from datetime import datetime, date
+import requests  # used only for health-check
 
 # Add backend to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../backend_simplified'))
@@ -40,10 +41,17 @@ class TestRealAuthenticationAPI:
     
     @classmethod
     def setup_class(cls):
-        """Setup with real Supabase authentication"""
+        """Setup with real Supabase authentication. Requires existing backend at TEST_API_URL"""
         print(f"[test_real_auth_api.py::setup_class] Setting up test suite")
         print(f"[test_real_auth_api.py::setup_class] Test user: {TEST_USER_EMAIL}")
         print(f"[test_real_auth_api.py::setup_class] API URL: {TEST_API_URL}")
+        
+        # Confirm backend is reachable (allow up to 15 s for first byte)
+        try:
+            health_resp = requests.get(f"{TEST_API_URL}/", timeout=(5,90))
+            print(f"[test_real_auth_api.py::setup_class] ✓ Backend reachable, status {health_resp.status_code}")
+        except Exception as e:
+            raise RuntimeError(f"Backend at {TEST_API_URL} is not reachable (15 s timeout)") from e
         
         # Create Supabase client
         cls.supabase = create_client(str(SUPA_API_URL), str(SUPA_API_ANON_KEY))

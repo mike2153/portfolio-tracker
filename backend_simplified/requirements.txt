@@ -4,9 +4,10 @@ uvicorn[standard]==0.24.0
 python-multipart==0.0.6
 
 # Supabase
-supabase==2.0.2
+supabase==2.4.4
 
-# HTTP client for Alpha Vantage
+# Alpha Vantage
+alpha-vantage==2.3.1
 aiohttp==3.9.1
 
 # Environment variables
@@ -16,12 +17,17 @@ python-dotenv==1.0.0
 pydantic==2.5.0
 
 # Logging
-structlog==23.2.0
+loguru==0.7.2
 
-# Testing (for unit tests with real auth)
+# HTTP client
+httpx==0.24.1
+
+# JWT
+PyJWT==2.8.0
+
+# Testing
 pytest==7.4.3
 pytest-asyncio==0.21.1
-httpx==0.24.1
 
 # Development
 black==23.11.0

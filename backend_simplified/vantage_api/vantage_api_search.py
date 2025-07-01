@@ -180,7 +180,7 @@ async def supa_api_search_cached_symbols(query: str, limit: int = 20) -> List[Di
         # Search for symbols that contain the query
         result = client.table('stock_symbols') \
             .select('*') \
-            .or_(f'symbol.ilike.%{query}%,name.ilike.%{query}%') \
+            .or(f'symbol.ilike.%{query}%,name.ilike.%{query}%') \
             .limit(100) \
             .execute()
         

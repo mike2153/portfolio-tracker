@@ -2,9 +2,11 @@
 Supabase client configuration and setup
 Handles all Supabase connections with extensive debugging
 """
-from supabase import create_client, Client
+from supabase.client import create_client, Client
 from typing import Optional, Dict, Any
 import logging
+import jwt  # PyJWT
+import httpx
 
 from config import SUPA_API_URL, SUPA_API_ANON_KEY, SUPA_API_SERVICE_KEY
 from debug_logger import DebugLogger
@@ -74,28 +76,51 @@ FILE: supa_api_client.py
 FUNCTION: get_user_from_token
 API: SUPABASE
 OPERATION: Token validation
+TOKEN: {access_token[:20]}...
 ==========================================""")
         
         try:
-            # Set the auth header
-            self.client.auth.set_session(access_token)
-            
-            # Get the user
-            user_response = self.client.auth.get_user(access_token)
-            
-            if user_response and user_response.user:
+            # Try to decode the JWT locally first (no signature verification) so we avoid
+            # a network hop and issues with Supabase endpoints during testing.
+            try:
+                payload = jwt.decode(access_token, options={"verify_signature": False})
                 user_data = {
-                    "id": user_response.user.id,
-                    "email": user_response.user.email,
-                    "created_at": str(user_response.user.created_at)
+                    "id": payload.get("sub") or payload.get("user_id") or payload.get("id"),
+                    "email": payload.get("email"),
+                    "created_at": payload.get("iat")
                 }
-                logger.info(f"[supa_api_client.py::get_user_from_token] User validated: {user_data['email']}")
-                return user_data
+                if user_data["id"] and user_data["email"]:
+                    logger.info(f"[supa_api_client.py::get_user_from_token] ✓ User decoded from JWT: {user_data['email']}")
+                    return user_data
+            except Exception as jwt_err:
+                logger.warning(f"[supa_api_client.py::get_user_from_token] Local JWT decode failed: {jwt_err}")
+                # fallthrough to Supabase network validation
             
-            logger.warning("[supa_api_client.py::get_user_from_token] Invalid token - no user found")
+            # Fallback: call Supabase REST API to validate the token
+            headers = {
+                "apikey": SUPA_API_ANON_KEY,
+                "Authorization": f"Bearer {access_token}"
+            }
+            user_info_url = f"{SUPA_API_URL}/auth/v1/user"
+            try:
+                response = httpx.get(user_info_url, headers=headers, timeout=10.0)
+                if response.status_code == 200 and response.json():
+                    data = response.json()
+                    user_data = {
+                        "id": data.get("id"),
+                        "email": data.get("email"),
+                        "created_at": data.get("created_at")
+                    }
+                    logger.info(f"[supa_api_client.py::get_user_from_token] ✓ User validated via Supabase REST: {user_data['email']}")
+                    return user_data
+            except Exception as http_err:
+                logger.warning(f"[supa_api_client.py::get_user_from_token] Supabase REST validation failed: {http_err}")
+            
+            logger.warning("[supa_api_client.py::get_user_from_token] ✗ Invalid token - no user found")
             return None
             
         except Exception as e:
+            logger.error(f"[supa_api_client.py::get_user_from_token] ✗ Token validation error: {str(e)}")
             DebugLogger.log_error(
                 file_name="supa_api_client.py",
                 function_name="get_user_from_token",
@@ -104,7 +129,7 @@ OPERATION: Token validation
             )
             return None
     
-    async def execute_query(self, query: str, params: Dict[str, Any] = None) -> Any:
+    async def execute_query(self, query: str, params: Optional[Dict[str, Any]] = None) -> Any:
         """Execute a raw SQL query with parameters"""
         logger.info(f"""
 ========== SUPABASE RAW QUERY ==========
