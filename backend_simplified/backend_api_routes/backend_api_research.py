@@ -8,7 +8,7 @@ import logging
 
 from debug_logger import DebugLogger
 from vantage_api.vantage_api_search import combined_symbol_search
-from vantage_api.vantage_api_quotes import vantage_api_get_overview, vantage_api_get_quote
+from vantage_api.vantage_api_quotes import vantage_api_get_overview, vantage_api_get_quote, vantage_api_get_historical_price
 from supa_api.supa_api_auth import get_current_user
 
 logger = logging.getLogger(__name__)
@@ -138,4 +138,92 @@ async def backend_api_quote_handler(
             error=e,
             symbol=symbol
         )
-        raise HTTPException(status_code=500, detail=str(e)) 
+        raise HTTPException(status_code=500, detail=str(e))
+
+@research_router.get("/historical_price/{symbol}")
+@DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="HISTORICAL_PRICE")
+async def backend_api_historical_price_handler(
+    symbol: str,
+    date: str = Query(..., description="Date in YYYY-MM-DD format for historical price lookup"),
+    user: Optional[Dict[str, Any]] = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """
+    Get historical closing price for a stock on a specific date
+    
+    This endpoint is used by the transaction form to auto-populate the price field
+    when a user selects a stock ticker and transaction date.
+    
+    Args:
+        symbol: Stock ticker symbol (e.g., 'AAPL')
+        date: Transaction date in YYYY-MM-DD format
+        user: Authenticated user (optional for this endpoint)
+    
+    Returns:
+        Historical price data including open, high, low, close, and volume
+        If exact date is not available (weekend/holiday), returns closest trading day
+    """
+    logger.info(f"[backend_api_research.py::backend_api_historical_price_handler] Historical price request: {symbol} on {date}")
+    
+    if not symbol:
+        raise HTTPException(status_code=400, detail="Symbol is required")
+    
+    if not date:
+        raise HTTPException(status_code=400, detail="Date is required")
+    
+    # Validate date format
+    try:
+        from datetime import datetime
+        datetime.strptime(date, '%Y-%m-%d')
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Date must be in YYYY-MM-DD format")
+    
+    symbol = symbol.upper().strip()
+    
+    try:
+        # Get historical price data from Alpha Vantage
+        price_data = await vantage_api_get_historical_price(symbol, date)
+        
+        # Add user-specific logging if authenticated
+        if user:
+            logger.info(f"[backend_api_research.py::backend_api_historical_price_handler] User {user['email']} fetching historical price for {symbol} on {date}")
+        
+        # Format response for frontend consumption
+        response_data = {
+            "success": True,
+            "symbol": price_data["symbol"],
+            "requested_date": price_data["requested_date"],
+            "actual_date": price_data["date"],
+            "is_exact_date": price_data["is_exact_date"],
+            "price_data": {
+                "open": price_data["open"],
+                "high": price_data["high"],
+                "low": price_data["low"],
+                "close": price_data["close"],
+                "adjusted_close": price_data["adjusted_close"],
+                "volume": price_data["volume"]
+            },
+            "message": f"Historical price for {symbol} on {price_data['date']}" + 
+                      ("" if price_data["is_exact_date"] else f" (closest trading day to {date})")
+        }
+        
+        logger.info(f"[backend_api_research.py::backend_api_historical_price_handler] Successfully retrieved price: {symbol} @ ${price_data['close']} on {price_data['date']}")
+        
+        return response_data
+        
+    except Exception as e:
+        DebugLogger.log_error(
+            file_name="backend_api_research.py",
+            function_name="backend_api_historical_price_handler",
+            error=e,
+            symbol=symbol,
+            date=date
+        )
+        
+        # Return error response instead of raising exception to allow frontend to handle gracefully
+        return {
+            "success": False,
+            "symbol": symbol,
+            "requested_date": date,
+            "error": str(e),
+            "message": f"Could not fetch historical price for {symbol} on {date}"
+        } 

@@ -5,6 +5,7 @@ Handles real-time price data and fundamental information
 import asyncio
 import logging
 from typing import Dict, Any
+from datetime import datetime, timedelta
 
 from .vantage_api_client import get_vantage_client
 from debug_logger import DebugLogger
@@ -170,6 +171,179 @@ async def vantage_api_get_overview(symbol: str) -> Dict[str, Any]:
         )
         # Return empty dict instead of raising to allow partial data
         return {}
+
+@DebugLogger.log_api_call(api_name="ALPHA_VANTAGE", sender="BACKEND", receiver="VANTAGE_API", operation="FETCH_AND_STORE_HISTORICAL_DATA")
+async def vantage_api_fetch_and_store_historical_data(symbol: str, start_date: str = None) -> Dict[str, Any]:
+    """
+    Fetch FULL historical data from Alpha Vantage and store in database
+    This fetches ALL available historical data, not just recent data
+    
+    Args:
+        symbol: Stock ticker symbol (e.g., 'AAPL')
+        start_date: Optional start date to limit fetching (YYYY-MM-DD format)
+    
+    Returns:
+        Dict containing information about stored data
+    """
+    logger.info(f"[vantage_api_quotes.py::vantage_api_fetch_and_store_historical_data] Fetching FULL historical data for {symbol}")
+    
+    client = get_vantage_client()
+    
+    # Import here to avoid circular imports
+    from supa_api.supa_api_historical_prices import supa_api_store_historical_prices, supa_api_check_historical_data_coverage
+    
+    try:
+        # Check if we already have recent data for this symbol
+        today = datetime.now().date().strftime('%Y-%m-%d')
+        thirty_days_ago = (datetime.now().date() - timedelta(days=30)).strftime('%Y-%m-%d')
+        
+        coverage = await supa_api_check_historical_data_coverage(symbol, thirty_days_ago, today)
+        
+        if coverage['has_complete_coverage']:
+            logger.info(f"[vantage_api_quotes.py::vantage_api_fetch_and_store_historical_data] {symbol} already has recent data, skipping fetch")
+            return {
+                'success': True,
+                'symbol': symbol,
+                'message': 'Data already exists',
+                'records_stored': 0
+            }
+        
+        # Make API request for FULL daily time series
+        params = {
+            'function': 'TIME_SERIES_DAILY',
+            'symbol': symbol,
+            'outputsize': 'full'  # Get ALL available historical data
+        }
+        
+        logger.info(f"[vantage_api_quotes.py::vantage_api_fetch_and_store_historical_data] Requesting FULL historical data for {symbol}")
+        
+        response = await client._make_request(params)
+        
+        if 'Time Series (Daily)' not in response:
+            logger.warning(f"[vantage_api_quotes.py::vantage_api_fetch_and_store_historical_data] No time series data found for {symbol}")
+            raise Exception(f"No historical data found for {symbol}")
+        
+        time_series = response['Time Series (Daily)']
+        logger.info(f"[vantage_api_quotes.py::vantage_api_fetch_and_store_historical_data] Retrieved {len(time_series)} days of data for {symbol}")
+        
+        # Convert to list format for database storage
+        price_records = []
+        for date_str, price_data in time_series.items():
+            # Filter by start_date if provided
+            if start_date and date_str < start_date:
+                continue
+                
+            record = {
+                'date': date_str,
+                'open': float(price_data.get('1. open', 0)),
+                'high': float(price_data.get('2. high', 0)),
+                'low': float(price_data.get('3. low', 0)),
+                'close': float(price_data.get('4. close', 0)),
+                'adjusted_close': float(price_data.get('5. adjusted close', price_data.get('4. close', 0))),
+                'volume': int(price_data.get('5. volume', 0)) if '5. volume' in price_data else int(price_data.get('6. volume', 0))
+            }
+            price_records.append(record)
+        
+        # Store in database
+        if price_records:
+            store_result = await supa_api_store_historical_prices(symbol, price_records)
+            
+            logger.info(f"[vantage_api_quotes.py::vantage_api_fetch_and_store_historical_data] Stored {store_result.get('records_stored', 0)} records for {symbol}")
+            
+            return {
+                'success': True,
+                'symbol': symbol,
+                'records_fetched': len(price_records),
+                'records_stored': store_result.get('records_stored', 0),
+                'date_range': store_result.get('date_range'),
+                'message': f"Successfully stored historical data for {symbol}"
+            }
+        else:
+            logger.warning(f"[vantage_api_quotes.py::vantage_api_fetch_and_store_historical_data] No price records to store for {symbol}")
+            return {
+                'success': False,
+                'symbol': symbol,
+                'error': 'No price records found to store'
+            }
+        
+    except Exception as e:
+        DebugLogger.log_error(
+            file_name="vantage_api_quotes.py",
+            function_name="vantage_api_fetch_and_store_historical_data",
+            error=e,
+            symbol=symbol,
+            start_date=start_date
+        )
+        raise
+
+@DebugLogger.log_api_call(api_name="ALPHA_VANTAGE", sender="BACKEND", receiver="VANTAGE_API", operation="GET_HISTORICAL_PRICE_FROM_DB")
+async def vantage_api_get_historical_price(symbol: str, date: str) -> Dict[str, Any]:
+    """
+    Get historical closing price for a stock on a specific date
+    First checks database, then fetches from Alpha Vantage if needed
+    
+    Args:
+        symbol: Stock ticker symbol (e.g., 'AAPL')
+        date: Date in YYYY-MM-DD format (e.g., '2024-01-15')
+    
+    Returns:
+        Dict containing price data for the requested date, or closest available trading day
+    """
+    logger.info(f"[vantage_api_quotes.py::vantage_api_get_historical_price] Getting historical price for {symbol} on {date}")
+    
+    # Import here to avoid circular imports
+    from supa_api.supa_api_historical_prices import supa_api_get_historical_price_for_date
+    
+    try:
+        # First, try to get data from database
+        db_result = await supa_api_get_historical_price_for_date(symbol, date)
+        
+        if db_result:
+            logger.info(f"[vantage_api_quotes.py::vantage_api_get_historical_price] Found price in database: {symbol} @ ${db_result['close']} on {db_result['date']}")
+            return db_result
+        
+        # If not in database, fetch full historical data from Alpha Vantage
+        logger.info(f"[vantage_api_quotes.py::vantage_api_get_historical_price] Price not in database, fetching from Alpha Vantage for {symbol}")
+        
+        # Determine appropriate start date (user's earliest transaction date or 5 years ago)
+        from supa_api.supa_api_historical_prices import supa_api_get_symbols_needing_historical_data
+        
+        symbols_data = await supa_api_get_symbols_needing_historical_data()
+        start_date = None
+        
+        for symbol_info in symbols_data:
+            if symbol_info['symbol'] == symbol.upper():
+                start_date = symbol_info['earliest_transaction_date']
+                break
+        
+        if not start_date:
+            # Default to 5 years ago if no transactions found
+            start_date = (datetime.now().date() - timedelta(days=5*365)).strftime('%Y-%m-%d')
+        
+        # Fetch and store the historical data
+        fetch_result = await vantage_api_fetch_and_store_historical_data(symbol, start_date)
+        
+        if not fetch_result['success']:
+            raise Exception(f"Failed to fetch historical data for {symbol}: {fetch_result.get('error', 'Unknown error')}")
+        
+        # Now try to get the specific date from database again
+        db_result = await supa_api_get_historical_price_for_date(symbol, date)
+        
+        if db_result:
+            logger.info(f"[vantage_api_quotes.py::vantage_api_get_historical_price] Retrieved after fetching: {symbol} @ ${db_result['close']} on {db_result['date']}")
+            return db_result
+        else:
+            raise Exception(f"No trading data found for {symbol} near date {date} even after fetching from Alpha Vantage")
+        
+    except Exception as e:
+        DebugLogger.log_error(
+            file_name="vantage_api_quotes.py",
+            function_name="vantage_api_get_historical_price",
+            error=e,
+            symbol=symbol,
+            date=date
+        )
+        raise
 
 def _safe_float(value: Any) -> float:
     """Safely convert value to float, return 0 if not possible"""

@@ -37,10 +37,13 @@ async def vantage_api_symbol_search(query: str, limit: int = 20) -> List[Dict[st
     
     # Check cache first
     cache_key = f"symbol_search:{query_upper}"
-    cached_results = await client._get_from_cache(cache_key)
+    cached_raw = await client._get_from_cache(cache_key)
     
-    if cached_results:
-        return cached_results[:limit]
+    if cached_raw and isinstance(cached_raw, dict) and "results" in cached_raw:
+        from typing import cast
+
+        cached_list = cast(List[Dict[str, Any]], cached_raw["results"])
+        return cached_list[:limit]
     
     # Make API request
     params = {
@@ -99,8 +102,8 @@ async def vantage_api_symbol_search(query: str, limit: int = 20) -> List[Dict[st
             del result_copy['score']
             final_results.append(result_copy)
         
-        # Cache the results
-        await client._save_to_cache(cache_key, final_results)
+        # Cache the results (wrap in a dict so the stored JSON shape is self-describing)
+        await client._save_to_cache(cache_key, {"results": final_results})
         
         logger.info(f"[vantage_api_search.py::vantage_api_symbol_search] Found {len(final_results)} results for {query}")
         
@@ -177,12 +180,16 @@ async def supa_api_search_cached_symbols(query: str, limit: int = 20) -> List[Di
     try:
         client = get_supa_client()
         
-        # Search for symbols that contain the query
-        result = client.table('stock_symbols') \
-            .select('*') \
-            .or(f'symbol.ilike.%{query}%,name.ilike.%{query}%') \
-            .limit(100) \
+        # Search for symbols that contain the query.  We wrap the chained call in parentheses to
+        # avoid using backslash continuations and attach a type ignore for the dynamic `or_` method
+        # that supabase-py exposes but is not present in the type stubs.
+        result = (
+            client.table('stock_symbols')
+            .select('*')
+            .or_(f"symbol.ilike.%{query_lower}%,name.ilike.%{query_lower}%")  # type: ignore[attr-defined]
             .execute()
+        )
+
         
         if not result.data:
             return []
@@ -220,6 +227,10 @@ async def supa_api_search_cached_symbols(query: str, limit: int = 20) -> List[Di
             del result_copy['score']
             final_results.append(result_copy)
         
+        logger.info(
+            f"[vantage_api_search.py::supa_api_search_cached_symbols] Found {len(final_results)} results for {query}"
+        )
+
         return final_results[:limit]
         
     except Exception as e:
