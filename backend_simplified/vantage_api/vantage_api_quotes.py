@@ -4,7 +4,7 @@ Handles real-time price data and fundamental information
 """
 import asyncio
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
 
 from .vantage_api_client import get_vantage_client
@@ -173,7 +173,7 @@ async def vantage_api_get_overview(symbol: str) -> Dict[str, Any]:
         return {}
 
 @DebugLogger.log_api_call(api_name="ALPHA_VANTAGE", sender="BACKEND", receiver="VANTAGE_API", operation="FETCH_AND_STORE_HISTORICAL_DATA")
-async def vantage_api_fetch_and_store_historical_data(symbol: str, start_date: str = None) -> Dict[str, Any]:
+async def vantage_api_fetch_and_store_historical_data(symbol: str, start_date: Optional[str] = None) -> Dict[str, Any]:
     """
     Fetch FULL historical data from Alpha Vantage and store in database
     This fetches ALL available historical data, not just recent data
@@ -210,7 +210,7 @@ async def vantage_api_fetch_and_store_historical_data(symbol: str, start_date: s
         
         # Make API request for FULL daily time series
         params = {
-            'function': 'TIME_SERIES_DAILY',
+            'function': 'TIME_SERIES_DAILY_ADJUSTED',
             'symbol': symbol,
             'outputsize': 'full'  # Get ALL available historical data
         }
@@ -282,6 +282,12 @@ async def vantage_api_get_historical_price(symbol: str, date: str) -> Dict[str, 
     Get historical closing price for a stock on a specific date
     First checks database, then fetches from Alpha Vantage if needed
     
+    ENHANCED VERSION: Implements smart bulk fetching strategy:
+    1. Check database for requested date
+    2. If missing, fetch ENTIRE historical range from user's earliest transaction to today
+    3. Store all prices in database for future portfolio calculations
+    4. Return the specific requested price
+    
     Args:
         symbol: Stock ticker symbol (e.g., 'AAPL')
         date: Date in YYYY-MM-DD format (e.g., '2024-01-15')
@@ -289,53 +295,168 @@ async def vantage_api_get_historical_price(symbol: str, date: str) -> Dict[str, 
     Returns:
         Dict containing price data for the requested date, or closest available trading day
     """
-    logger.info(f"[vantage_api_quotes.py::vantage_api_get_historical_price] Getting historical price for {symbol} on {date}")
+    logger.info(f"🔥🔥🔥 [vantage_api_get_historical_price] ================= COMPREHENSIVE DEBUG START =================")
+    logger.info(f"🔥 [vantage_api_get_historical_price] Function called with parameters:")
+    logger.info(f"🔥 [vantage_api_get_historical_price] - symbol parameter: '{symbol}'")
+    logger.info(f"🔥 [vantage_api_get_historical_price] - symbol type: {type(symbol)}")
+    logger.info(f"🔥 [vantage_api_get_historical_price] - symbol length: {len(symbol) if symbol else 'N/A'}")
+    logger.info(f"🔥 [vantage_api_get_historical_price] - date parameter: '{date}'")
+    logger.info(f"🔥 [vantage_api_get_historical_price] - date type: {type(date)}")
+    logger.info(f"🔥 [vantage_api_get_historical_price] - date length: {len(date) if date else 'N/A'}")
     
     # Import here to avoid circular imports
     from supa_api.supa_api_historical_prices import supa_api_get_historical_price_for_date
     
     try:
-        # First, try to get data from database
-        db_result = await supa_api_get_historical_price_for_date(symbol, date)
+        # 🔥 EXTENSIVE PARAMETER VALIDATION WITH DEBUGGING
+        logger.info(f"💰 [vantage_api_get_historical_price] === PARAMETER VALIDATION ===")
+        
+        if not symbol:
+            logger.error(f"❌ [vantage_api_get_historical_price] VALIDATION FAILED: symbol is empty")
+            raise ValueError("Symbol parameter is required")
+        
+        if not date:
+            logger.error(f"❌ [vantage_api_get_historical_price] VALIDATION FAILED: date is empty")
+            raise ValueError("Date parameter is required")
+        
+        # Normalize symbol
+        normalized_symbol = symbol.upper().strip()
+        logger.info(f"✅ [vantage_api_get_historical_price] VALIDATION PASSED")
+        logger.info(f"📋 [vantage_api_get_historical_price] Normalized symbol: '{normalized_symbol}'")
+        logger.info(f"📋 [vantage_api_get_historical_price] Target date: '{date}'")
+        
+        # 🔥 STEP 1: CHECK DATABASE FIRST
+        logger.info(f"💾 [vantage_api_get_historical_price] === STEP 1: DATABASE LOOKUP ===")
+        logger.info(f"💾 [vantage_api_get_historical_price] Checking database for {normalized_symbol} on {date}")
+        
+        db_result = await supa_api_get_historical_price_for_date(normalized_symbol, date)
         
         if db_result:
-            logger.info(f"[vantage_api_quotes.py::vantage_api_get_historical_price] Found price in database: {symbol} @ ${db_result['close']} on {db_result['date']}")
+            logger.info(f"✅ [vantage_api_get_historical_price] === DATABASE HIT - RETURNING CACHED DATA ===")
+            logger.info(f"💾 [vantage_api_get_historical_price] Found price in database:")
+            logger.info(f"💾 [vantage_api_get_historical_price] - Symbol: {db_result['symbol']}")
+            logger.info(f"💾 [vantage_api_get_historical_price] - Date: {db_result['date']}")
+            logger.info(f"💾 [vantage_api_get_historical_price] - Close Price: ${db_result['close']}")
+            logger.info(f"💾 [vantage_api_get_historical_price] - Is Exact Date: {db_result['is_exact_date']}")
+            logger.info(f"💾 [vantage_api_get_historical_price] - Full data: {db_result}")
+            logger.info(f"🔥🔥🔥 [vantage_api_get_historical_price] ================= COMPREHENSIVE DEBUG END (DATABASE HIT) =================")
             return db_result
         
-        # If not in database, fetch full historical data from Alpha Vantage
-        logger.info(f"[vantage_api_quotes.py::vantage_api_get_historical_price] Price not in database, fetching from Alpha Vantage for {symbol}")
+        # 🔥 STEP 2: DATABASE MISS - FETCH FROM ALPHA VANTAGE
+        logger.info(f"❌ [vantage_api_get_historical_price] === DATABASE MISS - FETCHING FROM ALPHA VANTAGE ===")
+        logger.info(f"🌐 [vantage_api_get_historical_price] Price not in database, implementing smart bulk fetch strategy")
+        logger.info(f"🌐 [vantage_api_get_historical_price] Target: Fetch ALL historical prices from earliest user transaction to today")
         
-        # Determine appropriate start date (user's earliest transaction date or 5 years ago)
+        # 🔥 STEP 3: DETERMINE OPTIMAL DATE RANGE FOR FETCHING
+        logger.info(f"📅 [vantage_api_get_historical_price] === STEP 3: DETERMINE OPTIMAL FETCH RANGE ===")
+        
         from supa_api.supa_api_historical_prices import supa_api_get_symbols_needing_historical_data
         
+        logger.info(f"📊 [vantage_api_get_historical_price] Getting symbols needing historical data...")
         symbols_data = await supa_api_get_symbols_needing_historical_data()
+        logger.info(f"📊 [vantage_api_get_historical_price] Found {len(symbols_data)} symbols with transactions")
+        
         start_date = None
         
+        # Find the earliest transaction date for this symbol
         for symbol_info in symbols_data:
-            if symbol_info['symbol'] == symbol.upper():
+            logger.info(f"📊 [vantage_api_get_historical_price] Checking symbol: {symbol_info}")
+            if symbol_info['symbol'] == normalized_symbol:
                 start_date = symbol_info['earliest_transaction_date']
+                logger.info(f"✅ [vantage_api_get_historical_price] Found earliest transaction date for {normalized_symbol}: {start_date}")
                 break
         
         if not start_date:
-            # Default to 5 years ago if no transactions found
-            start_date = (datetime.now().date() - timedelta(days=5*365)).strftime('%Y-%m-%d')
+            # Default to 5 years ago if no transactions found for this symbol
+            from datetime import datetime, timedelta
+            default_start = (datetime.now().date() - timedelta(days=5*365)).strftime('%Y-%m-%d')
+            start_date = default_start
+            logger.info(f"⚠️ [vantage_api_get_historical_price] No transactions found for {normalized_symbol}, using default 5-year range from {start_date}")
         
-        # Fetch and store the historical data
-        fetch_result = await vantage_api_fetch_and_store_historical_data(symbol, start_date)
+        today = datetime.now().date().strftime('%Y-%m-%d')
+        logger.info(f"📅 [vantage_api_get_historical_price] === DETERMINED FETCH RANGE ===")
+        logger.info(f"📅 [vantage_api_get_historical_price] Symbol: {normalized_symbol}")
+        logger.info(f"📅 [vantage_api_get_historical_price] Start Date: {start_date}")
+        logger.info(f"📅 [vantage_api_get_historical_price] End Date: {today} (today)")
+        logger.info(f"📅 [vantage_api_get_historical_price] Requested Date: {date}")
+        logger.info(f"📅 [vantage_api_get_historical_price] Strategy: Fetch entire range, store in DB, then return requested date")
         
-        if not fetch_result['success']:
-            raise Exception(f"Failed to fetch historical data for {symbol}: {fetch_result.get('error', 'Unknown error')}")
+        # 🔥 STEP 4: FETCH AND STORE BULK HISTORICAL DATA
+        logger.info(f"🚀 [vantage_api_get_historical_price] === STEP 4: BULK HISTORICAL DATA FETCH ===")
+        logger.info(f"🚀 [vantage_api_get_historical_price] Calling vantage_api_fetch_and_store_historical_data...")
+        logger.info(f"🚀 [vantage_api_get_historical_price] Parameters: symbol='{normalized_symbol}', start_date='{start_date}'")
         
-        # Now try to get the specific date from database again
-        db_result = await supa_api_get_historical_price_for_date(symbol, date)
+        fetch_result = await vantage_api_fetch_and_store_historical_data(normalized_symbol, start_date)
+        
+        logger.info(f"📥 [vantage_api_get_historical_price] === BULK FETCH RESULT ===")
+        logger.info(f"📥 [vantage_api_get_historical_price] Fetch result: {fetch_result}")
+        logger.info(f"📥 [vantage_api_get_historical_price] Success: {fetch_result.get('success', False)}")
+        logger.info(f"📥 [vantage_api_get_historical_price] Records fetched: {fetch_result.get('records_fetched', 0)}")
+        logger.info(f"📥 [vantage_api_get_historical_price] Records stored: {fetch_result.get('records_stored', 0)}")
+        logger.info(f"📥 [vantage_api_get_historical_price] Date range: {fetch_result.get('date_range', {})}")
+        
+        if not fetch_result.get('success', False):
+            logger.error(f"❌ [vantage_api_get_historical_price] === BULK FETCH FAILED ===")
+            logger.error(f"❌ [vantage_api_get_historical_price] Error: {fetch_result.get('error', 'Unknown error')}")
+            raise Exception(f"Failed to fetch historical data for {normalized_symbol}: {fetch_result.get('error', 'Unknown error')}")
+        
+        logger.info(f"✅ [vantage_api_get_historical_price] === BULK FETCH SUCCESS ===")
+        logger.info(f"✅ [vantage_api_get_historical_price] Successfully fetched and stored {fetch_result.get('records_stored', 0)} price records")
+        logger.info(f"✅ [vantage_api_get_historical_price] Historical database now contains comprehensive price data for {normalized_symbol}")
+        
+        # 🔥 STEP 5: RETRIEVE REQUESTED DATE FROM NEWLY POPULATED DATABASE
+        logger.info(f"🔍 [vantage_api_get_historical_price] === STEP 5: RETRIEVE REQUESTED DATE FROM DATABASE ===")
+        logger.info(f"🔍 [vantage_api_get_historical_price] Now querying database again for specific date: {date}")
+        
+        db_result = await supa_api_get_historical_price_for_date(normalized_symbol, date)
         
         if db_result:
-            logger.info(f"[vantage_api_quotes.py::vantage_api_get_historical_price] Retrieved after fetching: {symbol} @ ${db_result['close']} on {db_result['date']}")
+            logger.info(f"🎉 [vantage_api_get_historical_price] === SUCCESS - FOUND REQUESTED DATE ===")
+            logger.info(f"💰 [vantage_api_get_historical_price] Retrieved after bulk fetch:")
+            logger.info(f"💰 [vantage_api_get_historical_price] - Symbol: {db_result['symbol']}")
+            logger.info(f"💰 [vantage_api_get_historical_price] - Requested Date: {date}")
+            logger.info(f"💰 [vantage_api_get_historical_price] - Actual Date: {db_result['date']}")
+            logger.info(f"💰 [vantage_api_get_historical_price] - Close Price: ${db_result['close']}")
+            logger.info(f"💰 [vantage_api_get_historical_price] - Is Exact Date: {db_result['is_exact_date']}")
+            logger.info(f"💰 [vantage_api_get_historical_price] - Open: ${db_result['open']}")
+            logger.info(f"💰 [vantage_api_get_historical_price] - High: ${db_result['high']}")
+            logger.info(f"💰 [vantage_api_get_historical_price] - Low: ${db_result['low']}")
+            logger.info(f"💰 [vantage_api_get_historical_price] - Volume: {db_result['volume']:,}")
+            logger.info(f"💰 [vantage_api_get_historical_price] - Full result: {db_result}")
+            
+            logger.info(f"""
+========== COMPREHENSIVE HISTORICAL PRICE SUCCESS ==========
+OPERATION: Smart Bulk Historical Data Fetch and Retrieval
+SYMBOL: {normalized_symbol}
+REQUESTED_DATE: {date}
+ACTUAL_DATE: {db_result['date']}
+CLOSING_PRICE: ${db_result['close']}
+IS_EXACT_DATE: {db_result['is_exact_date']}
+RECORDS_FETCHED: {fetch_result.get('records_fetched', 0)}
+RECORDS_STORED: {fetch_result.get('records_stored', 0)}
+STRATEGY: ✅ Database-first with intelligent bulk fetching
+PERFORMANCE: ✅ Future requests for this symbol will be instant
+PORTFOLIO_READY: ✅ Complete historical data now available for calculations
+=============================================================""")
+            
+            logger.info(f"🔥🔥🔥 [vantage_api_get_historical_price] ================= COMPREHENSIVE DEBUG END (SUCCESS) =================")
             return db_result
         else:
-            raise Exception(f"No trading data found for {symbol} near date {date} even after fetching from Alpha Vantage")
+            logger.error(f"💥 [vantage_api_get_historical_price] === CRITICAL ERROR - NO DATA AFTER BULK FETCH ===")
+            logger.error(f"💥 [vantage_api_get_historical_price] This should not happen - we just fetched historical data but can't find requested date")
+            logger.error(f"💥 [vantage_api_get_historical_price] Requested symbol: {normalized_symbol}")
+            logger.error(f"💥 [vantage_api_get_historical_price] Requested date: {date}")
+            logger.error(f"💥 [vantage_api_get_historical_price] Bulk fetch records: {fetch_result.get('records_stored', 0)}")
+            raise Exception(f"No trading data found for {normalized_symbol} near date {date} even after fetching from Alpha Vantage")
         
     except Exception as e:
+        logger.error(f"💥 [vantage_api_get_historical_price] === EXCEPTION OCCURRED ===")
+        logger.error(f"💥 [vantage_api_get_historical_price] Exception type: {type(e).__name__}")
+        logger.error(f"💥 [vantage_api_get_historical_price] Exception message: {str(e)}")
+        logger.error(f"💥 [vantage_api_get_historical_price] Exception details: {e}")
+        logger.error(f"💥 [vantage_api_get_historical_price] Symbol: {symbol}")
+        logger.error(f"💥 [vantage_api_get_historical_price] Date: {date}")
+        
         DebugLogger.log_error(
             file_name="vantage_api_quotes.py",
             function_name="vantage_api_get_historical_price",
@@ -343,6 +464,7 @@ async def vantage_api_get_historical_price(symbol: str, date: str) -> Dict[str, 
             symbol=symbol,
             date=date
         )
+        logger.info(f"🔥🔥🔥 [vantage_api_get_historical_price] ================= COMPREHENSIVE DEBUG END (ERROR) =================")
         raise
 
 def _safe_float(value: Any) -> float:

@@ -258,52 +258,80 @@ const TransactionsPage = () => {
           console.log(`💰 [PRICE_FETCH] === API RESPONSE RECEIVED ===`);
           console.log(`💰 [PRICE_FETCH] Raw response:`, response);
           console.log(`💰 [PRICE_FETCH] Response type: ${typeof response}`);
-          console.log(`💰 [PRICE_FETCH] Response.ok: ${response?.ok}`);
-          console.log(`💰 [PRICE_FETCH] Response.data: ${response?.data}`);
-          console.log(`💰 [PRICE_FETCH] Response.error: ${response?.error}`);
+          console.log(`💰 [PRICE_FETCH] Response structure:`, Object.keys(response || {}));
           
-          if ((response as any).ok && (response as any).data?.success) {
-              const priceData = (response as any).data;
-              const closingPrice = priceData.price_data.close;
+          // 🔥 FIX: The response IS the data object, not wrapped in {ok: true, data: {...}}
+          // Check for direct success property instead of response.ok
+          if (response && response.success === true) {
+              console.log(`✅ [PRICE_FETCH] === RESPONSE PARSING SUCCESS ===`);
+              console.log(`💰 [PRICE_FETCH] Success confirmed: ${response.success}`);
+              console.log(`💰 [PRICE_FETCH] Symbol: ${response.symbol}`);
+              console.log(`💰 [PRICE_FETCH] Requested date: ${response.requested_date}`);
+              console.log(`💰 [PRICE_FETCH] Actual date: ${response.actual_date}`);
+              console.log(`💰 [PRICE_FETCH] Is exact date: ${response.is_exact_date}`);
+              console.log(`💰 [PRICE_FETCH] Price data:`, response.price_data);
               
-              console.log(`
+              if (response.price_data && typeof response.price_data.close !== 'undefined') {
+                  const closingPrice = response.price_data.close;
+                  
+                  console.log(`
 ========== PRICE LOOKUP SUCCESS ==========
 TICKER: ${ticker}
 REQUESTED_DATE: ${date}
-ACTUAL_DATE: ${priceData.actual_date}
+ACTUAL_DATE: ${response.actual_date}
 CLOSING_PRICE: $${closingPrice}
-IS_EXACT_DATE: ${priceData.is_exact_date}
+IS_EXACT_DATE: ${response.is_exact_date}
+FULL_PRICE_DATA: ${JSON.stringify(response.price_data)}
 =========================================`);
-              
-              // Update the form with the fetched price
-              setForm(prev => ({ 
-                  ...prev, 
-                  purchase_price: closingPrice.toString() 
-              }));
-              
-              // Show success message to user
-              const message = priceData.is_exact_date 
-                  ? `Found closing price: $${closingPrice} on ${priceData.actual_date}`
-                  : `Found closing price: $${closingPrice} on ${priceData.actual_date} (closest trading day to ${date})`;
                   
-              addToast({
-                  type: 'success',
-                  title: 'Price Fetched Successfully',
-                  message: message
-              });
+                  // Update the form with the fetched price
+                  setForm(prev => ({ 
+                      ...prev, 
+                      purchase_price: closingPrice.toString() 
+                  }));
+                  
+                  // Show success message to user
+                  const message = response.is_exact_date 
+                      ? `Found closing price: $${closingPrice} on ${response.actual_date}`
+                      : `Found closing price: $${closingPrice} on ${response.actual_date} (closest trading day to ${date})`;
+                      
+                  addToast({
+                      type: 'success',
+                      title: 'Price Fetched Successfully',
+                      message: message
+                  });
+                  
+              } else {
+                  console.error(`❌ [PRICE_FETCH] Price data missing or invalid:`, response.price_data);
+                  addToast({
+                      type: 'error',
+                      title: 'Price Data Invalid',
+                      message: `Received invalid price data for ${ticker}. Please enter price manually.`
+                  });
+              }
               
           } else {
-              console.error(`[fetchClosingPriceForDate] API call failed:`, (response as any).error || (response as any).data?.error);
+              console.error(`❌ [PRICE_FETCH] === RESPONSE PARSING FAILED ===`);
+              console.error(`❌ [PRICE_FETCH] Response success: ${response?.success}`);
+              console.error(`❌ [PRICE_FETCH] Response error: ${response?.error}`);
+              console.error(`❌ [PRICE_FETCH] Response message: ${response?.message}`);
+              console.error(`❌ [PRICE_FETCH] Full response:`, response);
+              
+              const errorMessage = response?.message || response?.error || `Could not fetch historical price for ${ticker} on ${date}. Please enter manually.`;
               
               addToast({
                   type: 'error',
                   title: 'Price Fetch Failed',
-                  message: (response as any).error || (response as any).data?.error || `Could not fetch historical price for ${ticker} on ${date}. Please enter manually.`
+                  message: errorMessage
               });
           }
           
       } catch (error: any) {
-          console.error(`[fetchClosingPriceForDate] Exception occurred:`, error);
+          console.error(`❌ [PRICE_FETCH] === EXCEPTION OCCURRED ===`);
+          console.error(`❌ [PRICE_FETCH] Exception type: ${typeof error}`);
+          console.error(`❌ [PRICE_FETCH] Exception message: ${error?.message || 'Unknown'}`);
+          console.error(`❌ [PRICE_FETCH] Exception stack:`, error?.stack);
+          console.error(`❌ [PRICE_FETCH] Full exception:`, error);
           
           addToast({ 
               type: 'error', 
@@ -312,7 +340,11 @@ IS_EXACT_DATE: ${priceData.is_exact_date}
           });
       } finally {
           setLoadingPrice(false);
-          console.log(`[fetchClosingPriceForDate] Price lookup completed for ${ticker} on ${date}`);
+          console.log(`💰 [PRICE_FETCH] === PRICE LOOKUP COMPLETED ===`);
+          console.log(`💰 [PRICE_FETCH] Ticker: ${ticker}`);
+          console.log(`💰 [PRICE_FETCH] Date: ${date}`);
+          console.log(`💰 [PRICE_FETCH] Loading state reset to false`);
+          console.log(`💰💰💰 [PRICE_FETCH] ================= COMPREHENSIVE DEBUG END =================`);
       }
   }, [addToast]);
 
