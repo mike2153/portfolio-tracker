@@ -54,7 +54,8 @@ async def backend_api_get_portfolio(
     
     try:
         # Get portfolio calculations
-        portfolio_data = await supa_api_calculate_portfolio(user["id"])
+        user_token = user.get("access_token")
+        portfolio_data = await supa_api_calculate_portfolio(user["id"], user_token=user_token)
         
         return {
             "success": True,
@@ -85,10 +86,12 @@ async def backend_api_get_transactions(
     logger.info(f"[backend_api_portfolio.py::backend_api_get_transactions] Transactions requested for user: {user['email']}")
     
     try:
+        user_token = user.get("access_token")
         transactions = await supa_api_get_user_transactions(
             user_id=user["id"],
             limit=limit,
-            offset=offset
+            offset=offset,
+            user_token=user_token
         )
         
         return {
@@ -136,17 +139,62 @@ async def backend_api_add_transaction(
     logger.info(f"📝 [TRANSACTION_INPUT_DEBUG] Currency: {transaction.currency}")
     logger.info(f"📝 [TRANSACTION_INPUT_DEBUG] Commission: {transaction.commission}")
     logger.info(f"📝 [TRANSACTION_INPUT_DEBUG] Notes: {transaction.notes}")
-    
+
     try:
+        # 🔥 SECURITY: Additional input validation and sanitization
+        logger.info(f"🔒 [SECURITY_DEBUG] === ADDITIONAL SECURITY VALIDATION ===")
+        
         # Validate transaction type
         if transaction.transaction_type not in ["Buy", "Sell"]:
             logger.error(f"❌ [VALIDATION_DEBUG] Invalid transaction type: {transaction.transaction_type}")
             raise ValueError("Transaction type must be 'Buy' or 'Sell'")
         logger.info(f"✅ [VALIDATION_DEBUG] Transaction type validation passed")
         
-        # Add user_id to transaction data
+        # 🔒 SECURITY: Validate numeric fields to prevent overflow attacks
+        if transaction.quantity <= 0 or transaction.quantity > 10000000:
+            logger.error(f"❌ [SECURITY_DEBUG] Invalid quantity: {transaction.quantity}")
+            raise ValueError("Quantity must be between 0.01 and 10,000,000")
+            
+        if transaction.price <= 0 or transaction.price > 10000000:
+            logger.error(f"❌ [SECURITY_DEBUG] Invalid price: {transaction.price}")
+            raise ValueError("Price must be between $0.01 and $10,000,000")
+            
+        if transaction.commission < 0 or transaction.commission > 10000:
+            logger.error(f"❌ [SECURITY_DEBUG] Invalid commission: {transaction.commission}")
+            raise ValueError("Commission must be between $0 and $10,000")
+        
+        # 🔒 SECURITY: Validate symbol format (prevent injection via symbol)
+        import re
+        if not re.match(r'^[A-Z]{1,8}$', transaction.symbol):
+            logger.error(f"❌ [SECURITY_DEBUG] Invalid symbol format: {transaction.symbol}")
+            raise ValueError("Symbol must be 1-6 uppercase letters only")
+        
+        # 🔒 SECURITY: Validate date is not too far in past/future
+        from datetime import datetime, timedelta
+        transaction_date = datetime.strptime(transaction.date, '%Y-%m-%d').date()
+        today = datetime.now().date()
+        
+        if transaction_date > today:
+            logger.error(f"❌ [SECURITY_DEBUG] Future date not allowed: {transaction.date}")
+            raise ValueError("Transaction date cannot be in the future")
+            
+        if transaction_date < (today - timedelta(days=3650)):  # 10 years ago
+            logger.error(f"❌ [SECURITY_DEBUG] Date too far in past: {transaction.date}")
+            raise ValueError("Transaction date cannot be more than 10 years ago")
+        
+        # 🔒 SECURITY: Sanitize notes field
+        if transaction.notes:
+            # Remove any potential XSS or injection attempts
+            sanitized_notes = re.sub(r'[<>"\';]', '', transaction.notes[:500])  # Limit to 500 chars
+            if sanitized_notes != transaction.notes:
+                logger.warning(f"⚠️ [SECURITY_DEBUG] Notes field sanitized")
+            transaction.notes = sanitized_notes
+        
+        logger.info(f"✅ [SECURITY_DEBUG] All additional security validations passed")
+        
+        # Add user_id to transaction data - CRITICAL: Use authenticated user's ID, never trust client
         transaction_data = transaction.dict()
-        transaction_data["user_id"] = user["id"]
+        transaction_data["user_id"] = user["id"]  # 🔒 SECURITY: Force user_id from auth token
         
         logger.info(f"🔗 [TRANSACTION_MERGE_DEBUG] Transaction data BEFORE adding user_id: {transaction.dict()}")
         logger.info(f"🔗 [TRANSACTION_MERGE_DEBUG] User ID being added: {user['id']}")

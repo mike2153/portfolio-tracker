@@ -2,7 +2,7 @@
 Supabase portfolio calculations
 Calculates holdings and performance from transactions
 """
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import logging
 from collections import defaultdict
 
@@ -14,13 +14,13 @@ from debug_logger import DebugLogger
 logger = logging.getLogger(__name__)
 
 @DebugLogger.log_api_call(api_name="SUPABASE", sender="BACKEND", receiver="SUPA_API", operation="CALCULATE_PORTFOLIO")
-async def supa_api_calculate_portfolio(user_id: str) -> Dict[str, Any]:
+async def supa_api_calculate_portfolio(user_id: str, user_token: Optional[str] = None) -> Dict[str, Any]:
     """Calculate portfolio holdings from transactions"""
     logger.info(f"[supa_api_portfolio.py::supa_api_calculate_portfolio] Calculating portfolio for user: {user_id}")
     
     try:
         # Get all transactions
-        transactions = await supa_api_get_user_transactions(user_id, limit=1000)
+        transactions = await supa_api_get_user_transactions(user_id, limit=1000, user_token=user_token)
         
         # Calculate holdings by symbol
         holdings_map = defaultdict(lambda: {
@@ -122,7 +122,7 @@ async def supa_api_calculate_portfolio(user_id: str) -> Dict[str, Any]:
         raise
 
 @DebugLogger.log_api_call(api_name="SUPABASE", sender="BACKEND", receiver="SUPA_API", operation="GET_PORTFOLIO_HISTORY")
-async def supa_api_get_portfolio_history(user_id: str, days: int = 30) -> List[Dict[str, Any]]:
+async def supa_api_get_portfolio_history(user_id: str, days: int = 30, user_token: Optional[str] = None) -> List[Dict[str, Any]]:
     """Get portfolio value history for charting"""
     logger.info(f"[supa_api_portfolio.py::supa_api_get_portfolio_history] Getting {days}-day history for user: {user_id}")
     
@@ -132,7 +132,7 @@ async def supa_api_get_portfolio_history(user_id: str, days: int = 30) -> List[D
         # 2. Use historical price data
         # For now, we'll return current value as a single point
         
-        current_portfolio = await supa_api_calculate_portfolio(user_id)
+        current_portfolio = await supa_api_calculate_portfolio(user_id, user_token=user_token)
         
         history = [{
             'date': 'today',
@@ -155,7 +155,7 @@ async def supa_api_get_portfolio_history(user_id: str, days: int = 30) -> List[D
         raise
 
 @DebugLogger.log_api_call(api_name="SUPABASE", sender="BACKEND", receiver="SUPA_API", operation="GET_HOLDINGS_BY_SYMBOL")
-async def supa_api_get_holdings_by_symbol(user_id: str, symbol: str) -> Dict[str, Any]:
+async def supa_api_get_holdings_by_symbol(user_id: str, symbol: str, user_token: Optional[str] = None) -> Dict[str, Any]:
     """Get detailed holdings for a specific symbol"""
     logger.info(f"[supa_api_portfolio.py::supa_api_get_holdings_by_symbol] Getting holdings for {symbol}")
     
@@ -164,7 +164,8 @@ async def supa_api_get_holdings_by_symbol(user_id: str, symbol: str) -> Dict[str
         transactions = await supa_api_get_user_transactions(
             user_id=user_id,
             symbol=symbol,
-            limit=1000
+            limit=1000,
+            user_token=user_token
         )
         
         # Calculate position

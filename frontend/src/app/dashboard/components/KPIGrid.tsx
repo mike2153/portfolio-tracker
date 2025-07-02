@@ -14,7 +14,15 @@ interface KPIGridProps {
 }
 
 const KPIGrid = ({ initialData }: KPIGridProps) => {
-  const { userId } = useDashboard();
+  const {
+    userId,
+    portfolioDollarGain,
+    portfolioPercentGain,
+    selectedBenchmark,
+    benchmarkDollarGain,
+    benchmarkPercentGain,
+    performanceData,
+  } = useDashboard();
   const { user } = useAuth();
 
   console.log(`🔥 [KPIGrid] === COMPREHENSIVE DEBUG START ===`);
@@ -128,8 +136,6 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
     console.log(`⚠️ [KPIGrid] No transformed data, showing skeleton`);
     return <KPIGridSkeleton />;
   }
-  
-  const { portfolioDollarGain, portfolioPercentGain, selectedBenchmark, benchmarkDollarGain, benchmarkPercentGain, performanceData } = useDashboard();
   
   console.log(`📈 [KPIGrid] Dashboard context performance data:`, {
     portfolioDollarGain,

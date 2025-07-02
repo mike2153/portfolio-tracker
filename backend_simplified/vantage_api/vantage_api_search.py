@@ -10,6 +10,27 @@ from debug_logger import DebugLogger
 
 logger = logging.getLogger(__name__)
 
+def levenshtein_distance(s1: str, s2: str) -> int:
+    """Calculate the Levenshtein distance between two strings"""
+    if len(s1) < len(s2):
+        return levenshtein_distance(s2, s1)
+    
+    if len(s2) == 0:
+        return len(s1)
+    
+    previous_row = range(len(s2) + 1)
+    for i, c1 in enumerate(s1):
+        current_row = [i + 1]
+        for j, c2 in enumerate(s2):
+            # j+1 instead of j since previous_row and current_row are one character longer than s2
+            insertions = previous_row[j + 1] + 1
+            deletions = current_row[j] + 1
+            substitutions = previous_row[j] + (c1 != c2)
+            current_row.append(min(insertions, deletions, substitutions))
+        previous_row = current_row
+    
+    return previous_row[-1]
+
 @DebugLogger.log_api_call(api_name="ALPHA_VANTAGE", sender="BACKEND", receiver="VANTAGE_API", operation="SYMBOL_SEARCH")
 async def vantage_api_symbol_search(query: str, limit: int = 20) -> List[Dict[str, Any]]:
     """
@@ -22,6 +43,7 @@ async def vantage_api_symbol_search(query: str, limit: int = 20) -> List[Dict[st
     - Company name prefix match: 60 points
     - Company name substring match: 40 points
     - Short ticker penalty: -10 points
+    - Fuzzy match bonus: up to 30 points based on Levenshtein distance
     """
     logger.info(f"[vantage_api_search.py::vantage_api_symbol_search] Searching for: {query}")
     
@@ -68,10 +90,7 @@ async def vantage_api_symbol_search(query: str, limit: int = 20) -> List[Dict[st
             region = match.get('4. region', 'United States')
             currency = match.get('8. currency', 'USD')
             
-            # Skip if ticker is shorter than query
-            if len(symbol) < len(query_upper):
-                continue
-            
+            # 🔥 FIX: Don't skip short tickers - they might be valid matches
             # Calculate relevance score
             score = calculate_relevance_score(
                 symbol=symbol,
@@ -125,42 +144,70 @@ def calculate_relevance_score(symbol: str, name: str, query_upper: str, query_lo
     ticker_upper = symbol.upper()
     name_lower = name.lower()
     
+    # 🔥 DEBUG: Log scoring details
+    logger.debug(f"[SCORING] Query: '{query_upper}', Symbol: '{ticker_upper}', Name: '{name_lower}'")
+    
     # Exact match of ticker (highest priority)
     if ticker_upper == query_upper:
         score += 100
-        logger.debug(f"[vantage_api_search.py::calculate_relevance_score] Exact match: {symbol}")
+        logger.debug(f"[SCORING] Exact match: {symbol} (+100)")
     # Prefix match of ticker
     elif ticker_upper.startswith(query_upper):
         score += 75
-        logger.debug(f"[vantage_api_search.py::calculate_relevance_score] Prefix match: {symbol}")
+        logger.debug(f"[SCORING] Prefix match: {symbol} (+75)")
     # Substring match of ticker
     elif query_upper in ticker_upper:
         score += 50
-        logger.debug(f"[vantage_api_search.py::calculate_relevance_score] Substring match: {symbol}")
+        logger.debug(f"[SCORING] Substring match: {symbol} (+50)")
+    
+    # 🔥 FIX: Add fuzzy matching for typos like APPL -> AAPL
+    else:
+        # Calculate Levenshtein distance for fuzzy matching
+        distance = levenshtein_distance(ticker_upper, query_upper)
+        max_length = max(len(ticker_upper), len(query_upper))
+        
+        # If distance is small relative to length, give bonus points
+        if max_length > 0:
+            similarity_ratio = 1.0 - (distance / max_length)
+            if similarity_ratio > 0.75:  # 75% similar
+                fuzzy_bonus = int(30 * similarity_ratio)
+                score += fuzzy_bonus
+                logger.debug(f"[SCORING] Fuzzy match: {symbol} distance={distance} similarity={similarity_ratio:.2f} (+{fuzzy_bonus})")
     
     # Prefix match of company name
     if name_lower.startswith(query_lower):
         score += 60
+        logger.debug(f"[SCORING] Company name prefix match: {name} (+60)")
     # Substring match of company name
     elif query_lower in name_lower:
         score += 40
+        logger.debug(f"[SCORING] Company name substring match: {name} (+40)")
     
-    # Length penalty for very short tickers
-    if len(ticker_upper) < 3:
+    # 🔥 FIX: Don't penalize short tickers - many valid tickers are 1-3 chars (F, GM, GE, etc.)
+    # Only penalize if it's a partial match
+    if len(ticker_upper) < 3 and ticker_upper != query_upper:
         score -= 10
+        logger.debug(f"[SCORING] Short ticker penalty: {symbol} (-10)")
     
-    # Levenshtein distance bonus (simple approximation)
-    if len(ticker_upper) <= len(query_upper) + 2:
-        common_prefix_len = 0
-        for i in range(min(len(ticker_upper), len(query_upper))):
-            if ticker_upper[i] == query_upper[i]:
-                common_prefix_len += 1
-            else:
-                break
-        
-        if common_prefix_len >= len(query_upper) - 1:
-            score += 10
+    # 🔥 FIX: Bonus for common typos
+    common_typos = {
+        'APPL': 'AAPL',
+        'AMZM': 'AMZN',
+        'GOOG': 'GOOGL',
+        'MSFT': 'MSFT',  # Keep exact matches
+        'NVDA': 'NVDA',
+        'TSLA': 'TSLA',
+        'MELA': 'META',
+        'NFLX': 'NFLX',
+        'GOOLG': 'GOOGL',
+        'AMAZN': 'AMZN',
+    }
     
+    if query_upper in common_typos and ticker_upper == common_typos[query_upper]:
+        score += 50  # Significant bonus for common typos
+        logger.debug(f"[SCORING] Common typo match: {query_upper} -> {ticker_upper} (+50)")
+    
+    logger.debug(f"[SCORING] Final score for {symbol}: {score}")
     return score
 
 # Also search from cached symbols in database
@@ -180,13 +227,13 @@ async def supa_api_search_cached_symbols(query: str, limit: int = 20) -> List[Di
     try:
         client = get_supa_client()
         
-        # Search for symbols that contain the query.  We wrap the chained call in parentheses to
-        # avoid using backslash continuations and attach a type ignore for the dynamic `or_` method
-        # that supabase-py exposes but is not present in the type stubs.
+        # 🔥 FIX: Broader search to catch more potential matches
+        # Search for symbols that contain the query OR are similar
         result = (
             client.table('stock_symbols')
             .select('*')
             .or_(f"symbol.ilike.%{query_lower}%,name.ilike.%{query_lower}%")  # type: ignore[attr-defined]
+            .limit(100)  # Get more results to score
             .execute()
         )
 
@@ -242,9 +289,17 @@ async def combined_symbol_search(query: str, limit: int = 20) -> List[Dict[str, 
     """Search both cached and live symbols, merge and deduplicate"""
     logger.info(f"[vantage_api_search.py::combined_symbol_search] Combined search for: {query}")
     
+    # 🔥 DEBUG: Log search request
+    logger.info(f"[SEARCH_DEBUG] Query: '{query}'")
+    logger.info(f"[SEARCH_DEBUG] Query length: {len(query)}")
+    logger.info(f"[SEARCH_DEBUG] Query upper: '{query.upper()}'")
+    
     # Search both sources
     cached_results = await supa_api_search_cached_symbols(query, limit)
     vantage_results = await vantage_api_symbol_search(query, limit)
+    
+    logger.info(f"[SEARCH_DEBUG] Cached results: {len(cached_results)}")
+    logger.info(f"[SEARCH_DEBUG] Vantage results: {len(vantage_results)}")
     
     # Merge and deduplicate
     seen_symbols = set()
@@ -263,5 +318,13 @@ async def combined_symbol_search(query: str, limit: int = 20) -> List[Dict[str, 
             combined_results.append(result)
     
     logger.info(f"[vantage_api_search.py::combined_symbol_search] Combined results: {len(combined_results)}")
+    
+    # 🔥 DEBUG: Log final results
+    if combined_results:
+        logger.info(f"[SEARCH_DEBUG] Top 5 results:")
+        for i, result in enumerate(combined_results[:5]):
+            logger.info(f"[SEARCH_DEBUG]   {i+1}. {result['symbol']} - {result['name']}")
+    else:
+        logger.warning(f"[SEARCH_DEBUG] No results found for query: '{query}'")
     
     return combined_results[:limit] 

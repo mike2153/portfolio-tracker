@@ -7,6 +7,8 @@ import logging
 from datetime import datetime
 
 from .supa_api_client import get_supa_client
+from supabase.client import create_client
+from config import SUPA_API_URL, SUPA_API_ANON_KEY
 from debug_logger import DebugLogger
 
 logger = logging.getLogger(__name__)
@@ -16,34 +18,35 @@ async def supa_api_get_user_transactions(
     user_id: str,
     limit: int = 100,
     offset: int = 0,
-    symbol: Optional[str] = None
+    symbol: Optional[str] = None,
+    user_token: Optional[str] = None
 ) -> List[Dict[str, Any]]:
     """Get user's transactions with optional filtering"""
     logger.info(f"[supa_api_transactions.py::supa_api_get_user_transactions] Fetching transactions for user: {user_id}")
     
     try:
+        if user_token:
+            logger.info("🔐 [TRANSACTION_READ] Delegating to helper with JWT")
+            from .supa_api_read import get_user_transactions as helper_get
+            return await helper_get(user_id=user_id, jwt=user_token, limit=limit, offset=offset, symbol=symbol)
+
+        # Fallback: anonymous client (only for internal scripts / admin)
         client = get_supa_client()
-        
-        # Build query
+
         query = client.table('transactions') \
             .select('*') \
             .eq('user_id', user_id) \
             .order('date', desc=True) \
-            .order('created_at', desc=True)
-        
-        # Add symbol filter if provided
+            .order('created_at', desc=True) \
+            .range(offset, offset + limit - 1)
+
         if symbol:
             query = query.eq('symbol', symbol)
-        
-        # Add pagination
-        query = query.range(offset, offset + limit - 1)
-        
-        # Execute query
+
         result = query.execute()
-        
-        logger.info(f"[supa_api_transactions.py::supa_api_get_user_transactions] Found {len(result.data)} transactions")
-        
-        return result.data
+
+        logger.info("[supa_api_transactions] Anonymous read – rows %d", len(result.data or []))
+        return result.data or []
         
     except Exception as e:
         DebugLogger.log_error(
@@ -75,9 +78,9 @@ async def supa_api_add_transaction(transaction_data: Dict[str, Any], user_token:
         logger.info(f"🔐 [TRANSACTION_DEBUG] Token preview: {user_token[:20]}...")
     
     try:
-        # 🔥 CREATE AUTHENTICATED CLIENT FOR RLS
+        # 🔥 FIX: CREATE USER-AUTHENTICATED CLIENT FOR RLS
         if user_token:
-            logger.info(f"🔐 [TRANSACTION_DEBUG] Validating user authentication for RLS...")
+            logger.info(f"🔐 [TRANSACTION_DEBUG] Creating user-authenticated client for RLS...")
             
             # Validate the user token first
             try:
@@ -94,10 +97,23 @@ async def supa_api_add_transaction(transaction_data: Dict[str, Any], user_token:
                         raise Exception("User ID mismatch - security violation")
                     
                     logger.info(f"✅ [TRANSACTION_DEBUG] User ID validation passed")
-                    logger.info(f"✅ [TRANSACTION_DEBUG] Using service role client - RLS policies will enforce security")
                     
-                    # Use service role client (RLS policies in database will enforce user access)
-                    client = get_supa_client()
+                    # 🔒 SECURITY: Create user-authenticated client (RLS will enforce user can only insert their own data)
+                    logger.info(f"✅ [TRANSACTION_DEBUG] Creating user-authenticated client for RLS enforcement")
+                    logger.info(f"✅ [TRANSACTION_DEBUG] User identity confirmed: {user_response.get('email')}")
+                    logger.info(f"✅ [TRANSACTION_DEBUG] User ID verified: {user_response.get('id')}")
+                    
+                    # Create user-authenticated client (RLS enforced - more secure)
+                    client = create_client(SUPA_API_URL, SUPA_API_ANON_KEY)
+                    # Attach JWT so PostgREST will send it on every request
+                    client.postgrest.auth(user_token)
+                    logger.info("✅ [TRANSACTION_DEBUG] User-authenticated client created via postgrest.auth – auth.uid() will resolve correctly")
+                    # Extra visibility: dump effective headers
+                    try:
+                        dbg_headers = client.postgrest.builder.session.headers  # type: ignore[attr-defined]
+                    except Exception:
+                        dbg_headers = "UNKNOWN"
+                    logger.info(f"✅ [TRANSACTION_DEBUG] PostgREST session headers → {dbg_headers}")
                     
                 else:
                     logger.error(f"❌ [TRANSACTION_DEBUG] Invalid user token")
@@ -125,6 +141,7 @@ async def supa_api_add_transaction(transaction_data: Dict[str, Any], user_token:
         logger.info(f"🚀 [TRANSACTION_DEBUG] Attempting database insertion...")
         logger.info(f"🚀 [TRANSACTION_DEBUG] Table: transactions")
         logger.info(f"🚀 [TRANSACTION_DEBUG] Data to insert: {transaction_data}")
+        logger.info(f"🚀 [TRANSACTION_DEBUG] Client type: {'user-authenticated-with-RLS' if user_token else 'anonymous'}")
         
         # Insert transaction with authenticated client
         result = client.table('transactions') \
@@ -136,6 +153,17 @@ async def supa_api_add_transaction(transaction_data: Dict[str, Any], user_token:
         logger.info(f"🎉 [TRANSACTION_DEBUG] Result count: {result.count}")
         
         if result.data:
+            # 🔒 DEFENSE IN DEPTH: Verify the inserted transaction has the correct user_id
+            inserted_user_id = result.data[0].get('user_id')
+            expected_user_id = transaction_data.get('user_id')
+            
+            if str(inserted_user_id) != str(expected_user_id):
+                logger.error(f"🚨 [SECURITY_VIOLATION] User ID mismatch after insertion!")
+                logger.error(f"🚨 [SECURITY_VIOLATION] Expected: {expected_user_id}")
+                logger.error(f"🚨 [SECURITY_VIOLATION] Actually inserted: {inserted_user_id}")
+                raise Exception("CRITICAL SECURITY VIOLATION: User ID mismatch detected")
+            
+            logger.info(f"✅ [SECURITY_VERIFICATION] User ID verification passed: {inserted_user_id}")
             logger.info(f"✅ [supa_api_transactions.py::supa_api_add_transaction] Transaction added with ID: {result.data[0]['id']}")
             logger.info(f"🔥🔥🔥 [supa_api_transactions.py::supa_api_add_transaction] === COMPREHENSIVE TRANSACTION DEBUG END (SUCCESS) ===")
             return result.data[0]
@@ -251,12 +279,16 @@ async def supa_api_delete_transaction(transaction_id: str, user_id: str) -> bool
         raise
 
 @DebugLogger.log_api_call(api_name="SUPABASE", sender="BACKEND", receiver="SUPA_API", operation="GET_TRANSACTION_SUMMARY")
-async def supa_api_get_transaction_summary(user_id: str) -> Dict[str, Any]:
+async def supa_api_get_transaction_summary(user_id: str, user_token: Optional[str] = None) -> Dict[str, Any]:
     """Get summary statistics for user's transactions"""
     logger.info(f"[supa_api_transactions.py::supa_api_get_transaction_summary] Getting transaction summary for user: {user_id}")
     
     try:
-        client = get_supa_client()
+        if user_token:
+            client = create_client(SUPA_API_URL, SUPA_API_ANON_KEY)
+            client.postgrest.auth(user_token)
+        else:
+            client = get_supa_client()
         
         # Get all transactions for summary
         result = client.table('transactions') \
