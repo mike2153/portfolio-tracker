@@ -14,7 +14,7 @@ const SidebarLink: React.FC<SidebarLinkProps> = ({ href, icon, children }) => {
   const pathname = usePathname();
   const isActive = pathname === href;
   // Debug
-  console.log('[SIDEBAR] pathname:', pathname, 'href:', href, 'active:', isActive);
+  //console.log('[SIDEBAR] pathname:', pathname, 'href:', href, 'active:', isActive);
 
   const baseClass = 'flex items-center space-x-3 rounded-md px-3 py-2';
   const activeClass = 'bg-gray-700 text-white';

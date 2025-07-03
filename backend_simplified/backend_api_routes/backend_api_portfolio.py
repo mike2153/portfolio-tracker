@@ -255,10 +255,15 @@ async def backend_api_update_transaction(
     logger.info(f"[backend_api_portfolio.py::backend_api_update_transaction] Updating transaction {transaction_id} for user: {user['email']}")
     
     try:
+        # CRITICAL FIX: Forward the caller's JWT so RLS allows update operation
+        user_token = user.get("access_token")
+        logger.info(f"[backend_api_portfolio.py::backend_api_update_transaction] 🔐 JWT token present: {bool(user_token)}")
+        
         updated = await supa_api_update_transaction(
             transaction_id=transaction_id,
             user_id=user["id"],
-            transaction_data=transaction.dict()
+            transaction_data=transaction.dict(),
+            user_token=user_token
         )
         
         return {
@@ -287,9 +292,14 @@ async def backend_api_delete_transaction(
     logger.info(f"[backend_api_portfolio.py::backend_api_delete_transaction] Deleting transaction {transaction_id} for user: {user['email']}")
     
     try:
+        # CRITICAL FIX: Forward the caller's JWT so RLS allows delete operation
+        user_token = user.get("access_token")
+        logger.info(f"[backend_api_portfolio.py::backend_api_delete_transaction] 🔐 JWT token present: {bool(user_token)}")
+        
         success = await supa_api_delete_transaction(
             transaction_id=transaction_id,
-            user_id=user["id"]
+            user_id=user["id"],
+            user_token=user_token
         )
         
         if success:

@@ -202,13 +202,24 @@ async def supa_api_add_transaction(transaction_data: Dict[str, Any], user_token:
 async def supa_api_update_transaction(
     transaction_id: str,
     user_id: str,
-    transaction_data: Dict[str, Any]
+    transaction_data: Dict[str, Any],
+    user_token: Optional[str] = None
 ) -> Dict[str, Any]:
     """Update an existing transaction"""
     logger.info(f"[supa_api_transactions.py::supa_api_update_transaction] Updating transaction: {transaction_id}")
+    logger.info(f"[supa_api_transactions.py::supa_api_update_transaction] 🔐 JWT token present: {bool(user_token)}")
     
     try:
-        client = get_supa_client()
+        # CRITICAL FIX: Use authenticated client when JWT token provided
+        if user_token:
+            logger.info(f"[supa_api_transactions.py::supa_api_update_transaction] ✅ Using authenticated client with JWT")
+            from supabase.client import create_client
+            from config import SUPA_API_URL, SUPA_API_ANON_KEY
+            client = create_client(SUPA_API_URL, SUPA_API_ANON_KEY)
+            client.postgrest.auth(user_token)
+        else:
+            logger.warning(f"[supa_api_transactions.py::supa_api_update_transaction] ⚠️ Using anonymous client - RLS may block operation")
+            client = get_supa_client()
         
         # Ensure user owns the transaction
         existing = client.table('transactions') \
@@ -244,12 +255,22 @@ async def supa_api_update_transaction(
         raise
 
 @DebugLogger.log_api_call(api_name="SUPABASE", sender="BACKEND", receiver="SUPA_API", operation="DELETE_TRANSACTION")
-async def supa_api_delete_transaction(transaction_id: str, user_id: str) -> bool:
+async def supa_api_delete_transaction(transaction_id: str, user_id: str, user_token: Optional[str] = None) -> bool:
     """Delete a transaction"""
     logger.info(f"[supa_api_transactions.py::supa_api_delete_transaction] Deleting transaction: {transaction_id}")
+    logger.info(f"[supa_api_transactions.py::supa_api_delete_transaction] 🔐 JWT token present: {bool(user_token)}")
     
     try:
-        client = get_supa_client()
+        # CRITICAL FIX: Use authenticated client when JWT token provided
+        if user_token:
+            logger.info(f"[supa_api_transactions.py::supa_api_delete_transaction] ✅ Using authenticated client with JWT")
+            from supabase.client import create_client
+            from config import SUPA_API_URL, SUPA_API_ANON_KEY
+            client = create_client(SUPA_API_URL, SUPA_API_ANON_KEY)
+            client.postgrest.auth(user_token)
+        else:
+            logger.warning(f"[supa_api_transactions.py::supa_api_delete_transaction] ⚠️ Using anonymous client - RLS may block operation")
+            client = get_supa_client()
         
         # Delete transaction (with user_id check for security)
         result = client.table('transactions') \

@@ -5,6 +5,22 @@ import dynamic from 'next/dynamic'
 import { useQuery } from '@tanstack/react-query'
 import { front_api_client } from '@/lib/front_api_client';
 import debug from '../../../lib/debug'
+
+// === IMPORT VERIFICATION ===
+console.log('[PORTFOLIO_CHART] 🔍 Import verification at:', new Date().toISOString());
+console.log('[PORTFOLIO_CHART] 📦 debug import type:', typeof debug);
+console.log('[PORTFOLIO_CHART] 🧪 debug function test:');
+if (typeof debug === 'function') {
+  console.log('[PORTFOLIO_CHART] ✅ debug is a function, testing call...');
+  try {
+    debug('[PORTFOLIO_CHART] 🎉 Debug function import successful!');
+    console.log('[PORTFOLIO_CHART] ✅ Debug function call successful!');
+  } catch (error) {
+    console.error('[PORTFOLIO_CHART] ❌ Debug function call failed:', error);
+  }
+} else {
+  console.error('[PORTFOLIO_CHART] ❌ debug is not a function! Type:', typeof debug, 'Value:', debug);
+}
 import { ChartSkeleton } from './Skeletons'
 import { useDashboard } from '../contexts/DashboardContext'
 

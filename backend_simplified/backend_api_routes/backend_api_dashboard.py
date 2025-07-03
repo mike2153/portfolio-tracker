@@ -30,9 +30,20 @@ async def backend_api_get_dashboard(
     logger.info(f"[backend_api_dashboard.py::backend_api_get_dashboard] Dashboard requested for user: {user['email']}")
     
     try:
-        # Run multiple data fetches in parallel
-        portfolio_task = asyncio.create_task(supa_api_calculate_portfolio(user["id"]))
-        summary_task = asyncio.create_task(supa_api_get_transaction_summary(user["id"]))
+        # CRITICAL FIX: Forward the caller's JWT so RLS returns rows
+        user_token = user.get("access_token")
+        logger.info(f"[backend_api_dashboard.py::backend_api_get_dashboard] 🔐 JWT token present: {bool(user_token)}")
+        logger.info(f"[backend_api_dashboard.py::backend_api_get_dashboard] 🔐 Token preview: {user_token[:20] + '...' if user_token else 'None'}")
+        
+        # Run multiple data fetches in parallel WITH user token for RLS
+        portfolio_task = asyncio.create_task(supa_api_calculate_portfolio(
+            user["id"], 
+            user_token=user_token
+        ))
+        summary_task = asyncio.create_task(supa_api_get_transaction_summary(
+            user["id"],
+            user_token=user_token
+        ))
         
         # Get benchmark data (S&P 500)
         spy_task = asyncio.create_task(vantage_api_get_quote("SPY"))
@@ -130,9 +141,17 @@ async def backend_api_get_performance(
     logger.info(f"[backend_api_dashboard.py::backend_api_get_performance] Performance data requested for period: {period}")
     
     try:
+        # CRITICAL FIX: Forward the caller's JWT so RLS returns rows
+        user_token = user.get("access_token")
+        logger.info(f"[backend_api_dashboard.py::backend_api_get_performance] 🔐 JWT token present: {bool(user_token)}")
+        logger.info(f"[backend_api_dashboard.py::backend_api_get_performance] 🔐 Token preview: {user_token[:20] + '...' if user_token else 'None'}")
+        
         # In production, this would fetch historical data
-        # For now, return current value as a single point
-        portfolio_data = await supa_api_calculate_portfolio(user["id"])
+        # For now, return current value as a single point WITH user token for RLS
+        portfolio_data = await supa_api_calculate_portfolio(
+            user["id"],
+            user_token=user_token
+        )
         
         performance_data = {
             "success": True,

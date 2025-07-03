@@ -5,6 +5,22 @@ import { DashboardOverview } from '@/types/api';
 import KPICard from './KPICard';
 import { KPIGridSkeleton } from './Skeletons';
 import debug from '../../../lib/debug';
+
+// === IMPORT VERIFICATION ===
+console.log('[KPI_GRID] 🔍 Import verification at:', new Date().toISOString());
+console.log('[KPI_GRID] 📦 debug import type:', typeof debug);
+console.log('[KPI_GRID] 🧪 debug function test:');
+if (typeof debug === 'function') {
+  console.log('[KPI_GRID] ✅ debug is a function, testing call...');
+  try {
+    debug('[KPI_GRID] 🎉 Debug function import successful!');
+    console.log('[KPI_GRID] ✅ Debug function call successful!');
+  } catch (error) {
+    console.error('[KPI_GRID] ❌ Debug function call failed:', error);
+  }
+} else {
+  console.error('[KPI_GRID] ❌ debug is not a function! Type:', typeof debug, 'Value:', debug);
+}
 import { useDashboard } from '../contexts/DashboardContext';
 import { useAuth } from '@/components/AuthProvider';
 import { front_api_get_dashboard } from '@/lib/front_api_client';
