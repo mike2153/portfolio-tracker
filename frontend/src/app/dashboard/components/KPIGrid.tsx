@@ -102,10 +102,10 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
   const transformedData = data ? {
     marketValue: {
       value: data.portfolio?.total_value || 0,
-      sub_label: 'Total Portfolio Value',
+      sub_label: `Cost Basis: $${(data.portfolio?.total_cost || 0).toLocaleString()}`,
       is_positive: (data.portfolio?.total_gain_loss || 0) >= 0
     },
-    totalProfit: {
+    capitalGains: {
       value: data.portfolio?.total_gain_loss || 0,
       sub_label: `${(data.portfolio?.total_gain_loss_percent || 0).toFixed(2)}% gain/loss`,
       is_positive: (data.portfolio?.total_gain_loss || 0) >= 0
@@ -127,7 +127,7 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
   console.log('[KPIGrid] 🎯 Data validation check:', {
     hasData: !!transformedData,
     hasMarketValue: transformedData?.marketValue ? 'yes' : 'no',
-    hasTotalProfit: transformedData?.totalProfit ? 'yes' : 'no',
+    hasCapitalGains: transformedData?.capitalGains ? 'yes' : 'no',
     hasIRR: transformedData?.irr ? 'yes' : 'no',
     hasPassiveIncome: transformedData?.passiveIncome ? 'yes' : 'no'
   });
@@ -167,10 +167,10 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
     percentGain: portfolioPercentGain,
     sub_label: `${selectedBenchmark}: ${benchmarkDollarGain.toFixed(2)} (${benchmarkPercentGain.toFixed(2)}%)`,
     is_positive: portfolioDollarGain >= 0
-  } : transformedData.totalProfit;
+  } : transformedData.capitalGains;
 
   const dividendValue = transformedData.passiveIncome?.value || 0;
-  const totalReturnValue = performanceData ? portfolioDollarGain + Number(dividendValue) : Number(transformedData.totalProfit?.value || 0) + Number(dividendValue);
+  const totalReturnValue = performanceData ? portfolioDollarGain + Number(dividendValue) : Number(transformedData.capitalGains?.value || 0) + Number(dividendValue);
   const totalReturnData = {
     value: totalReturnValue,
     sub_label: `Capital Gains + Dividends`,
@@ -190,11 +190,11 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
     <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
       <KPICard title="Portfolio Value" data={transformedData.marketValue} prefix="" />
       <KPICard 
-        title="Performance" 
+        title="Capital Gains" 
         data={performanceKPIData} 
         prefix="" 
         showPercentage={true}
-        percentValue={performanceData ? portfolioPercentGain : undefined}
+        percentValue={performanceData ? portfolioPercentGain : (data?.portfolio?.total_gain_loss_percent || 0)}
       />
       <KPICard title="Dividend Yield" data={transformedData.passiveIncome} prefix="" />
       <KPICard title="Total Return" data={totalReturnData} prefix="" />

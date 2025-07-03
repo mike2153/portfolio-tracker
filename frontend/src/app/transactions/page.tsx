@@ -206,12 +206,64 @@ const TransactionsPage = () => {
     setSummary(basicSummary);
   }, [user, transactions]);
 
-  const refreshData = useCallback(() => {
-    fetchTransactions();
-    fetchSummary();
-    queryClient.invalidateQueries();
-    addToast({ type: "info", title: "Refreshing Data", message: "Updating dashboard and transactions..." });
-  }, [fetchTransactions, fetchSummary, queryClient, addToast]);
+  const refreshData = useCallback(async () => {
+    console.log('[RefreshData] === COMPREHENSIVE DATA REFRESH START ===');
+    console.log('[RefreshData] Timestamp:', new Date().toISOString());
+    console.log('[RefreshData] User ID:', user?.id);
+    
+    try {
+      // Step 1: Refresh local transaction data
+      console.log('[RefreshData] 🔄 Step 1: Refreshing local transaction data...');
+      fetchTransactions();
+      fetchSummary();
+      
+      // Step 2: Invalidate all dashboard-related React Query caches
+      console.log('[RefreshData] 🗂️ Step 2: Invalidating React Query caches...');
+      
+      // Invalidate dashboard queries
+      await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      console.log('[RefreshData] ✅ Dashboard queries invalidated');
+      
+      // Invalidate performance queries (all ranges and benchmarks)
+      await queryClient.invalidateQueries({ queryKey: ['performance'] });
+      console.log('[RefreshData] ✅ Performance queries invalidated');
+      
+      // Invalidate portfolio queries
+      await queryClient.invalidateQueries({ queryKey: ['portfolio'] });
+      console.log('[RefreshData] ✅ Portfolio queries invalidated');
+      
+      // Invalidate any transaction-related queries
+      await queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      console.log('[RefreshData] ✅ Transaction queries invalidated');
+      
+      // Step 3: Force refresh of performance data specifically for current user
+      if (user?.id) {
+        console.log('[RefreshData] 🎯 Step 3: Force refreshing user-specific data...');
+        await queryClient.refetchQueries({ 
+          queryKey: ['performance'],
+          type: 'active'
+        });
+        console.log('[RefreshData] ✅ Performance data refetched');
+      }
+      
+      console.log('[RefreshData] ✅ Data refresh complete');
+      addToast({ 
+        type: "success", 
+        title: "Data Refreshed", 
+        message: "Portfolio, dashboard, and chart data updated successfully!" 
+      });
+      
+    } catch (error) {
+      console.error('[RefreshData] ❌ Error during data refresh:', error);
+      addToast({ 
+        type: "error", 
+        title: "Refresh Failed", 
+        message: "Failed to refresh some data. Please try again." 
+      });
+    }
+    
+    console.log('[RefreshData] === COMPREHENSIVE DATA REFRESH END ===');
+  }, [fetchTransactions, fetchSummary, queryClient, addToast, user?.id]);
 
   /**
    * Fetch historical closing price for a specific stock on a specific date

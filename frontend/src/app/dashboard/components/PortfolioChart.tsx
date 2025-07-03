@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import dynamic from 'next/dynamic'
-import { useQuery } from '@tanstack/react-query'
-import { front_api_client } from '@/lib/front_api_client';
 import debug from '../../../lib/debug'
 
 // === IMPORT VERIFICATION ===
@@ -21,173 +19,354 @@ if (typeof debug === 'function') {
 } else {
   console.error('[PORTFOLIO_CHART] ❌ debug is not a function! Type:', typeof debug, 'Value:', debug);
 }
+
 import { ChartSkeleton } from './Skeletons'
 import { useDashboard } from '../contexts/DashboardContext'
+import { usePerformance, type RangeKey, type BenchmarkTicker } from '@/hooks/usePerformance'
 
 const Plot = dynamic(() => import('react-plotly.js'), { ssr: false })
 
-const ranges = ['1M', '3M', 'YTD', '1Y', '3Y', '5Y', 'ALL']
-const benchmarks = [
+// === CONFIGURATION ===
+const ranges: RangeKey[] = ['7D', '1M', '3M', '1Y', 'YTD', 'MAX']
+const benchmarks: Array<{ symbol: BenchmarkTicker; name: string }> = [
   { symbol: 'SPY', name: 'S&P 500' },
   { symbol: 'QQQ', name: 'Nasdaq' },
-  { symbol: 'DIA', name: 'Dow Jones' },
+  { symbol: 'A200', name: 'ASX 200' },
+  { symbol: 'URTH', name: 'World' },
+  { symbol: 'VTI', name: 'Total Stock Market' },
+  { symbol: 'VXUS', name: 'International' },
 ]
 
-type Mode = 'value' | 'performance'
-type PerfPoint = { total_value: number; indexed_performance: number; date: string };
+type DisplayMode = 'value' | 'percentage'
+
+interface PortfolioChartProps {
+  defaultRange?: RangeKey;
+  defaultBenchmark?: BenchmarkTicker;
+}
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-export default function PortfolioChart() {
-  debug('[PortfolioChart] Component mounting...');
+export default function PortfolioChart({ 
+  defaultRange = '1Y', 
+  defaultBenchmark = 'SPY' 
+}: PortfolioChartProps = {}) {
+  console.log('[PortfolioChart] === ENHANCED PORTFOLIO CHART START ===');
+  console.log('[PortfolioChart] Component mounting with props:', { defaultRange, defaultBenchmark });
+  console.log('[PortfolioChart] Timestamp:', new Date().toISOString());
   
+  // === STATE MANAGEMENT ===
+  const [selectedRange, setSelectedRange] = useState<RangeKey>(defaultRange);
+  const [selectedBenchmark, setSelectedBenchmark] = useState<BenchmarkTicker>(defaultBenchmark);
+  const [displayMode, setDisplayMode] = useState<DisplayMode>('value');
+  
+  console.log('[PortfolioChart] 📊 Component state:');
+  console.log('[PortfolioChart] - Selected range:', selectedRange);
+  console.log('[PortfolioChart] - Selected benchmark:', selectedBenchmark);
+  console.log('[PortfolioChart] - Display mode:', displayMode);
+  
+  // === DATA FETCHING ===
+  const {
+    data: performanceData,
+    isLoading,
+    isError,
+    error,
+    portfolioData,
+    benchmarkData,
+    metrics,
+    refetch,
+    isSuccess
+  } = usePerformance(selectedRange, selectedBenchmark, {
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false
+  });
+  
+  console.log('[PortfolioChart] 🔄 Performance hook state:');
+  console.log('[PortfolioChart] - Loading:', isLoading);
+  console.log('[PortfolioChart] - Error:', isError);
+  console.log('[PortfolioChart] - Success:', isSuccess);
+  console.log('[PortfolioChart] - Has data:', !!performanceData);
+  console.log('[PortfolioChart] - Portfolio points:', portfolioData.length);
+  console.log('[PortfolioChart] - Benchmark points:', benchmarkData.length);
+  console.log('[PortfolioChart] - Has metrics:', !!metrics);
+  
+  if (error) {
+    console.error('[PortfolioChart] ❌ Performance data error:', error.message);
+  }
+  
+  // === DASHBOARD CONTEXT INTEGRATION ===
   const { 
-    selectedPeriod, 
-    setSelectedPeriod,
-    selectedBenchmark,
-    setSelectedBenchmark,
     setPerformanceData,
-    setIsLoadingPerformance,
-    userId
+    setIsLoadingPerformance 
   } = useDashboard();
   
-  const [mode, setMode] = useState<Mode>('value')
-
-  debug('[PortfolioChart] Component state:', { userId, selectedPeriod: selectedPeriod, mode, selectedBenchmark: selectedBenchmark });
-
-  const { data, isLoading, error } = useQuery<any, Error>({
-    queryKey: ['portfolioPerformance', userId, selectedPeriod, selectedBenchmark],
-    queryFn: async () => {
-      console.log(`[PortfolioChart] Making API call for period: ${selectedPeriod}`);
-      // This now correctly uses the central API client which hits /api/dashboard/performance
-      const result = await front_api_client.front_api_get_performance(selectedPeriod);
-      console.log(`[PortfolioChart] API response for period ${selectedPeriod}:`, result);
-      return result;
-    },
-    enabled: !!userId,
-    staleTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: false,
-  })
-
-  debug('[PortfolioChart] Query state:', { data, isLoading, error });
-
-  // The APIResponse structure is { ok, message, data: { ...performanceData } }
-  const perfRaw = (data?.data as any)?.data ?? (data?.data as any) ?? {};
-  console.log('[PortfolioChart] Raw API payload:', perfRaw);
-
-  const perf = perfRaw ? {
-    portfolioPerformance: perfRaw.portfolio_performance || perfRaw.portfolioPerformance || [],
-    benchmarkPerformance: perfRaw.benchmark_performance || perfRaw.benchmarkPerformance || [],
-    benchmark_name: perfRaw.benchmark_name || perfRaw.benchmarkName || selectedBenchmark,
-  } : undefined;
-  console.log('[PortfolioChart] Transformed perf:', perf);
-
-  const portfolio: PerfPoint[] = (perf?.portfolioPerformance as any[]) || [];
-  console.log('[PortfolioChart] portfolioPerformance length:', portfolio.length);
-  const benchmarkPerformance: PerfPoint[] = (perf?.benchmarkPerformance as any[]) || [];
-  console.log('[PortfolioChart] benchmarkPerformance length:', benchmarkPerformance.length);
-  
-  debug('[PortfolioChart] Sample portfolio data:', portfolio.slice(0, 3));
-  debug('[PortfolioChart] Sample benchmark data:', benchmarkPerformance.slice(0, 3));
-
-  const portfolioY = mode === 'value'
-    ? portfolio.map((p) => p.total_value)
-    : portfolio.map((p) => p.indexed_performance);
-
-  const benchmarkY = mode === 'value'
-    ? benchmarkPerformance.map((b) => b.total_value)
-    : benchmarkPerformance.map((b) => b.indexed_performance);
-
-  // Removed excessive console logging for performance
-
-  // Update context when we have performance data - use useMemo to prevent infinite loops
+  // Update dashboard context when performance data changes
   useEffect(() => {
-    if (perf && portfolio.length > 0 && benchmarkPerformance.length > 0) {
+    console.log('[PortfolioChart] 🔄 Updating dashboard context...');
+    console.log('[PortfolioChart] - Loading state:', isLoading);
+    console.log('[PortfolioChart] - Has portfolio data:', portfolioData.length > 0);
+    console.log('[PortfolioChart] - Has benchmark data:', benchmarkData.length > 0);
+    
+    setIsLoadingPerformance(isLoading);
+    
+    if (portfolioData.length > 0 && benchmarkData.length > 0) {
+      console.log('[PortfolioChart] ✅ Setting performance data in dashboard context');
       setPerformanceData({
-        portfolioPerformance: portfolio,
-        benchmarkPerformance: benchmarkPerformance,
-        comparison: perfRaw?.comparison
+        portfolioPerformance: portfolioData,
+        benchmarkPerformance: benchmarkData,
+        comparison: metrics ? {
+          portfolio_return: metrics.portfolio_return_pct,
+          benchmark_return: metrics.index_return_pct,
+          outperformance: metrics.outperformance_pct
+        } : undefined
       });
+    } else {
+      console.log('[PortfolioChart] ⚠️ No data available for dashboard context');
     }
-  }, [data?.ok, portfolio.length, benchmarkPerformance.length, perfRaw?.comparison, setPerformanceData]);
+  }, [isLoading, portfolioData, benchmarkData, metrics, setPerformanceData, setIsLoadingPerformance]);
 
+  // === CHART DATA PROCESSING ===
+  console.log('[PortfolioChart] 📊 Processing chart data...');
+  console.log('[PortfolioChart] - Display mode:', displayMode);
+  console.log('[PortfolioChart] - Portfolio data points:', portfolioData.length);
+  console.log('[PortfolioChart] - Benchmark data points:', benchmarkData.length);
+  
+  // Calculate percentage returns from initial values
+  const calculatePercentageReturns = (data: Array<{ date: string; total_value: number }>) => {
+    if (data.length === 0) return [];
+    
+    const initialValue = data[0].total_value;
+    if (initialValue === 0) return data.map(() => 0);
+    
+    return data.map(point => ((point.total_value - initialValue) / initialValue) * 100);
+  };
+  
+  const portfolioPercentReturns = calculatePercentageReturns(portfolioData);
+  const benchmarkPercentReturns = calculatePercentageReturns(benchmarkData);
+  
+  console.log('[PortfolioChart] 📈 Calculated percentage returns:');
+  console.log('[PortfolioChart] - Portfolio final return:', portfolioPercentReturns[portfolioPercentReturns.length - 1] || 0);
+  console.log('[PortfolioChart] - Benchmark final return:', benchmarkPercentReturns[benchmarkPercentReturns.length - 1] || 0);
+  
+  // Format currency values
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(value);
+  };
+  
+  // Format percentage values
+  const formatPercentage = (value: number) => {
+    return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
+  };
+  
+  // === EVENT HANDLERS ===
+  const handleRangeChange = (newRange: RangeKey) => {
+    console.log('[PortfolioChart] 🔄 Range changed from', selectedRange, 'to', newRange);
+    setSelectedRange(newRange);
+  };
+  
+  const handleBenchmarkChange = (newBenchmark: string) => {
+    console.log('[PortfolioChart] 🔄 Benchmark changed from', selectedBenchmark, 'to', newBenchmark);
+    setSelectedBenchmark(newBenchmark as BenchmarkTicker);
+  };
+  
+  const handleDisplayModeChange = (newMode: DisplayMode) => {
+    console.log('[PortfolioChart] 🔄 Display mode changed from', displayMode, 'to', newMode);
+    setDisplayMode(newMode);
+  };
+  
+  // === RENDER ===
+  console.log('[PortfolioChart] 🎨 Rendering component...');
+  
   return (
     <div className="rounded-xl bg-gray-800/80 p-6 shadow-lg">
+      {/* Header with title and range selection */}
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-white">Portfolio Performance</h3>
+        <div>
+          <h3 className="text-lg font-semibold text-white">Portfolio vs Benchmark</h3>
+          {metrics && (
+            <div className="text-sm text-gray-400 mt-1">
+              Portfolio: {formatPercentage(metrics.portfolio_return_pct)} | 
+              {' '}{selectedBenchmark}: {formatPercentage(metrics.index_return_pct)} | 
+              {' '}Outperformance: {formatPercentage(metrics.outperformance_pct)}
+            </div>
+          )}
+        </div>
         <div className="space-x-1">
-          {ranges.map(r => (
+          {ranges.map(range => (
             <button
-              key={r}
-              onClick={() => setSelectedPeriod(r)}
-              className={`px-2 py-1 text-xs rounded-md ${selectedPeriod === r ? 'bg-blue-600 text-white' : 'text-gray-300 hover:text-white'}`}
+              key={range}
+              onClick={() => handleRangeChange(range)}
+              className={`px-2 py-1 text-xs rounded-md transition-colors ${
+                selectedRange === range 
+                  ? 'bg-emerald-600 text-white' 
+                  : 'text-gray-300 hover:text-white hover:bg-gray-700'
+              }`}
             >
-              {r}
+              {range}
             </button>
           ))}
         </div>
       </div>
-      <div className="mb-2">
-        <select
-          value={selectedBenchmark}
-          onChange={e => setSelectedBenchmark(e.target.value)}
-          className="px-2 py-1 text-xs rounded-md bg-gray-700 text-white"
-        >
-          {benchmarks.map(b => (
-            <option key={b.symbol} value={b.symbol}>
-              {b.name}
-            </option>
-          ))}
-        </select>
+      
+      {/* Controls row */}
+      <div className="flex items-center justify-between mb-4">
+        {/* Benchmark selection */}
+        <div className="flex items-center space-x-2">
+          <label className="text-sm text-gray-400">Benchmark:</label>
+          <select
+            value={selectedBenchmark}
+            onChange={e => handleBenchmarkChange(e.target.value)}
+            className="px-2 py-1 text-xs rounded-md bg-gray-700 text-white border border-gray-600 focus:border-blue-500 focus:outline-none"
+          >
+            {benchmarks.map(benchmark => (
+              <option key={benchmark.symbol} value={benchmark.symbol}>
+                {benchmark.symbol} - {benchmark.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        
+        {/* Display mode toggle */}
+        <div className="flex items-center space-x-1">
+          <button
+            onClick={() => handleDisplayModeChange('value')}
+            className={`px-3 py-1 text-xs rounded-md transition-colors ${
+              displayMode === 'value' 
+                ? 'bg-purple-600 text-white' 
+                : 'text-gray-300 hover:text-white hover:bg-gray-700'
+            }`}
+          >
+            $ Value
+          </button>
+          <button
+            onClick={() => handleDisplayModeChange('percentage')}
+            className={`px-3 py-1 text-xs rounded-md transition-colors ${
+              displayMode === 'percentage' 
+                ? 'bg-purple-600 text-white' 
+                : 'text-gray-300 hover:text-white hover:bg-gray-700'
+            }`}
+          >
+            % Return
+          </button>
+        </div>
       </div>
-      <div className="mb-2 space-x-2">
-        <button
-          onClick={() => setMode('value')}
-          className={`px-2 py-1 text-xs rounded-md ${mode === 'value' ? 'bg-purple-600 text-white' : 'text-gray-300 hover:text-white'}`}
-        >
-          Value
-        </button>
-        <button
-          onClick={() => setMode('performance')}
-          className={`px-2 py-1 text-xs rounded-md ${mode === 'performance' ? 'bg-purple-600 text-white' : 'text-gray-300 hover:text-white'}`}
-        >
-          % Change
-        </button>
-      </div>
+      
+      {/* Chart content */}
       {isLoading ? (
         <ChartSkeleton />
+      ) : isError ? (
+        <div className="flex items-center justify-center h-96 text-red-400">
+          <div className="text-center">
+            <p className="text-lg font-semibold">Failed to load chart data</p>
+            <p className="text-sm mt-2">{error?.message || 'Unknown error occurred'}</p>
+            <button 
+              onClick={() => refetch()}
+              className="mt-4 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      ) : portfolioData.length === 0 ? (
+        <div className="flex items-center justify-center h-96 text-gray-400">
+          <div className="text-center">
+            <p className="text-lg font-semibold">No data available</p>
+            <p className="text-sm mt-2">Add some transactions to see your portfolio performance</p>
+          </div>
+        </div>
       ) : (
         <Plot
           data={[
             {
-              x: portfolio.map(p => p.date),
-              y: portfolioY,
+              x: portfolioData.map(p => p.date),
+              y: displayMode === 'value' 
+                ? portfolioData.map(p => p.total_value)
+                : portfolioPercentReturns,
               type: 'scatter',
               mode: 'lines',
-              name: 'Portfolio',
-              line: { color: '#3B82F6' }
+              name: 'Your Portfolio',
+              line: { 
+                color: '#10b981', // emerald-500
+                width: 2 
+              },
+              hovertemplate: displayMode === 'value'
+                ? '<b>Portfolio</b><br>Date: %{x}<br>Value: %{y:$,.0f}<extra></extra>'
+                : '<b>Portfolio</b><br>Date: %{x}<br>Return: %{y:.2f}%<extra></extra>'
             },
             {
-              x: benchmarkPerformance.map(p => p.date),
-              y: benchmarkY,
+              x: benchmarkData.map(b => b.date),
+              y: displayMode === 'value' 
+                ? benchmarkData.map(b => b.total_value)
+                : benchmarkPercentReturns,
               type: 'scatter',
               mode: 'lines',
-              name: perf?.benchmark_name || 'Benchmark',
-              line: { color: '#A78BFA' }
+              name: `${selectedBenchmark} Index`,
+              line: { 
+                color: '#9ca3af', // gray-400
+                width: 2,
+                dash: 'dot'
+              },
+              hovertemplate: displayMode === 'value'
+                ? `<b>${selectedBenchmark}</b><br>Date: %{x}<br>Value: %{y:$,.0f}<extra></extra>`
+                : `<b>${selectedBenchmark}</b><br>Date: %{x}<br>Return: %{y:.2f}%<extra></extra>`
             }
           ]}
           layout={{
             autosize: true,
-            margin: { t: 20, r: 10, b: 40, l: 40 },
+            margin: { t: 20, r: 20, b: 40, l: 60 },
             paper_bgcolor: 'transparent',
             plot_bgcolor: 'transparent',
-            transition: { duration: 500, easing: 'cubic-in-out' },
-            xaxis: { color: '#d1d5db' },
-            yaxis: { color: '#d1d5db', title: mode === 'value' ? 'Value' : '%' }
+            font: { color: '#d1d5db', size: 12 },
+            showlegend: true,
+            legend: {
+              orientation: 'h',
+              x: 0,
+              y: 1.02,
+              bgcolor: 'transparent',
+              bordercolor: 'transparent'
+            },
+            xaxis: { 
+              color: '#d1d5db',
+              gridcolor: '#374151',
+              showgrid: true,
+              tickformat: '%b %d',
+              type: 'date'
+            },
+            yaxis: { 
+              color: '#d1d5db',
+              gridcolor: '#374151',
+              showgrid: true,
+              title: {
+                text: displayMode === 'value' ? 'Portfolio Value (USD)' : 'Return (%)',
+                font: { size: 14 }
+              },
+              tickformat: displayMode === 'value' ? '$,.0f' : '.1f'
+            },
+            hovermode: 'x unified',
+            transition: { 
+              duration: 300, 
+              easing: 'cubic-in-out' 
+            }
           }}
-          config={{ displayModeBar: false, responsive: true }}
+          config={{ 
+            displayModeBar: false, 
+            responsive: true,
+            doubleClick: 'reset'
+          }}
           style={{ width: '100%', height: '400px' }}
         />
+      )}
+      
+      {/* Debug info in development */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="mt-2 text-xs text-gray-500">
+          Debug: {portfolioData.length} portfolio points, {benchmarkData.length} benchmark points, 
+          Range: {selectedRange}, Benchmark: {selectedBenchmark}, Mode: {displayMode}
+        </div>
       )}
     </div>
   )
