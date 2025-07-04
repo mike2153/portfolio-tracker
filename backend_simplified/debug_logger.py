@@ -52,6 +52,7 @@ KWARGS: {DebugLogger._safe_serialize(kwargs)}
                     execution_time = time.time() - start_time
                     
                     # Log successful completion
+                    result_preview = DebugLogger._safe_serialize_preview(result, max_length=500)
                     logger.info(f"""
 ========== API CALL SUCCESS ==========
 FILE: {file_name}
@@ -59,7 +60,7 @@ FUNCTION: {function_name}
 API: {api_name}
 EXECUTION_TIME: {execution_time:.3f}s
 RESULT_TYPE: {type(result).__name__}
-RESULT_PREVIEW: {DebugLogger._safe_serialize(result)[:500]}...
+RESULT_PREVIEW: {result_preview}
 ======================================""")
                     
                     return result
@@ -109,6 +110,7 @@ KWARGS: {DebugLogger._safe_serialize(kwargs)}
                     execution_time = time.time() - start_time
                     
                     # Log successful completion
+                    result_preview = DebugLogger._safe_serialize_preview(result, max_length=500)
                     logger.info(f"""
 ========== API CALL SUCCESS ==========
 FILE: {file_name}
@@ -116,7 +118,7 @@ FUNCTION: {function_name}
 API: {api_name}
 EXECUTION_TIME: {execution_time:.3f}s
 RESULT_TYPE: {type(result).__name__}
-RESULT_PREVIEW: {DebugLogger._safe_serialize(result)[:500]}...
+RESULT_PREVIEW: {result_preview}
 ======================================""")
                     
                     return result
@@ -222,6 +224,31 @@ CACHE_HIT: {cache_hit}
                 return json.dumps(obj, default=str)
         except:
             return str(obj)
+    
+    @staticmethod
+    def _safe_serialize_preview(obj: Any, max_length: int = 500) -> str:
+        """Efficiently serialize objects for logging with length limit to prevent memory issues"""
+        try:
+            if isinstance(obj, (str, int, float, bool, type(None))):
+                result = str(obj)
+            elif isinstance(obj, (list, tuple)) and len(obj) > 10:
+                # For large collections, only show first few items
+                preview_items = obj[:3]
+                result = f"{type(obj).__name__}([{DebugLogger._safe_serialize(preview_items)}...] length={len(obj)})"
+            elif isinstance(obj, dict) and len(obj) > 10:
+                # For large dicts, only show first few keys
+                preview_keys = list(obj.keys())[:3]
+                preview_dict = {k: obj[k] for k in preview_keys}
+                result = f"dict({DebugLogger._safe_serialize(preview_dict)}... keys={len(obj)})"
+            else:
+                result = DebugLogger._safe_serialize(obj)
+            
+            # Truncate if still too long
+            if len(result) > max_length:
+                return result[:max_length] + f"... [TRUNCATED at {max_length} chars]"
+            return result
+        except Exception as e:
+            return f"<serialization_error: {str(e)}>"
     
     @staticmethod
     def log_info(file_name: str, function_name: str, message: str, **kwargs):

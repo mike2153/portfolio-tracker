@@ -51,6 +51,6 @@ if missing_vars:
     raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")
 
 print(f"[config.py::init] Configuration loaded successfully")
-print(f"[config.py::init] SUPA_API_URL: {SUPA_API_URL}")
+print(f"[config.py::init] SUPA_API_URL: {'*' * len(SUPA_API_URL) if SUPA_API_URL else 'NOT_SET'}")
 print(f"[config.py::init] BACKEND_API_PORT: {BACKEND_API_PORT}")
 print(f"[config.py::init] LOG_LEVEL: {LOG_LEVEL}") 

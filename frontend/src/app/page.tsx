@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { ApiUrls } from '@/lib/api-config'
 
 interface HealthStatus {
   status: string
@@ -19,7 +20,7 @@ export default function Home() {
 
   useEffect(() => {
     // Test API connection with health endpoint
-    fetch('http://localhost:8000/')
+    fetch(ApiUrls.health())
       .then(res => res.json())
       .then((data: any) => {
         // Map the simple health response to the expected format
