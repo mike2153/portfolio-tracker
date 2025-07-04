@@ -188,7 +188,11 @@ export function usePerformance(
       
       try {
         // Use existing API client that already handles JWT authentication
-        const result = await front_api_client.front_api_get_performance(range);
+        console.log('[usePerformance] 📡 Calling front_api_get_performance with parameters:');
+        console.log('[usePerformance] - range:', range);
+        console.log('[usePerformance] - benchmark:', benchmark);
+        
+        const result = await front_api_client.front_api_get_performance(range, benchmark);
         
         console.log('[usePerformance] ✅ API call successful');
         console.log('[usePerformance] Raw API response:', result);

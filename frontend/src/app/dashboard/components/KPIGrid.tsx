@@ -47,7 +47,7 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
   console.log(`🔥 [KPIGrid] Initial data:`, initialData);
 
   const { data: apiData, isLoading, isError, error } = useQuery<any, Error>({
-    queryKey: ['dashboard', 'overview', userId],
+    queryKey: ['dashboard'],
     queryFn: async (): Promise<any> => {
       console.log(`🚀 [KPIGrid Query] ================== QUERY FUNCTION START ==================`);
       console.log(`🚀 [KPIGrid Query] UserID: ${userId}, Timestamp: ${new Date().toISOString()}`);
@@ -107,7 +107,7 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
     },
     capitalGains: {
       value: data.portfolio?.total_gain_loss || 0,
-      sub_label: `${(data.portfolio?.total_gain_loss_percent || 0).toFixed(2)}% gain/loss`,
+      sub_label: `${(data.portfolio?.total_gain_loss_percent || 0).toFixed(2)}%`,
       is_positive: (data.portfolio?.total_gain_loss || 0) >= 0
     },
     irr: {
@@ -123,6 +123,16 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
   } : null;
 
   console.log(`🔄 [KPIGrid] Transformation result:`, transformedData);
+  
+  // EXTENSIVE DEBUGGING for Capital Gains calculation
+  console.log(`💰 [KPIGrid] === CAPITAL GAINS CALCULATION DEBUG ===`);
+  console.log(`💰 [KPIGrid] Portfolio total value: $${data?.portfolio?.total_value || 0}`);
+  console.log(`💰 [KPIGrid] Portfolio total cost: $${data?.portfolio?.total_cost || 0}`);
+  console.log(`💰 [KPIGrid] Portfolio gain/loss (dollar): $${data?.portfolio?.total_gain_loss || 0}`);
+  console.log(`💰 [KPIGrid] Portfolio gain/loss (percent): ${data?.portfolio?.total_gain_loss_percent || 0}%`);
+  console.log(`💰 [KPIGrid] Capital Gains calculation: total_value - total_cost = ${(data?.portfolio?.total_value || 0)} - ${(data?.portfolio?.total_cost || 0)} = ${(data?.portfolio?.total_gain_loss || 0)}`);
+  console.log(`💰 [KPIGrid] Capital Gains is_positive: ${(data?.portfolio?.total_gain_loss || 0) >= 0}`);
+  console.log(`💰 [KPIGrid] === CAPITAL GAINS CALCULATION DEBUG END ===`);
   
   console.log('[KPIGrid] 🎯 Data validation check:', {
     hasData: !!transformedData,
@@ -191,10 +201,10 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
       <KPICard title="Portfolio Value" data={transformedData.marketValue} prefix="" />
       <KPICard 
         title="Capital Gains" 
-        data={performanceKPIData} 
+        data={transformedData.capitalGains} 
         prefix="" 
         showPercentage={true}
-        percentValue={performanceData ? portfolioPercentGain : (data?.portfolio?.total_gain_loss_percent || 0)}
+        percentValue={(data?.portfolio?.total_gain_loss_percent || 0)}
       />
       <KPICard title="Dividend Yield" data={transformedData.passiveIncome} prefix="" />
       <KPICard title="Total Return" data={totalReturnData} prefix="" />

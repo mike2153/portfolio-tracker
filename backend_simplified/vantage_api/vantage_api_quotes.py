@@ -6,6 +6,7 @@ import asyncio
 import logging
 from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
+import json
 
 from .vantage_api_client import get_vantage_client
 from debug_logger import DebugLogger
@@ -243,13 +244,11 @@ async def vantage_api_fetch_and_store_historical_data(symbol: str, start_date: O
                 'volume': int(price_data.get('5. volume', 0)) if '5. volume' in price_data else int(price_data.get('6. volume', 0))
             }
             price_records.append(record)
-        
         # Store in database
         if price_records:
             store_result = await supa_api_store_historical_prices(symbol, price_records)
             
             logger.info(f"[vantage_api_quotes.py::vantage_api_fetch_and_store_historical_data] Stored {store_result.get('records_stored', 0)} records for {symbol}")
-            
             return {
                 'success': True,
                 'symbol': symbol,

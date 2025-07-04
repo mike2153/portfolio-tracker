@@ -84,14 +84,23 @@ async def global_exception_handler(request: Request, exc: Exception):
         method=request.method
     )
     
-    return JSONResponse(
+    # Include CORS headers in error responses
+    response = JSONResponse(
         status_code=500,
         content={
             "error": "Internal server error",
             "message": str(exc),
             "path": request.url.path
+        },
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "*",
+            "Access-Control-Allow-Headers": "*"
         }
     )
+    
+    return response
 
 # Root endpoint
 @app.get("/")
@@ -108,7 +117,7 @@ async def root():
 app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(research_router, prefix="/api", tags=["Research"])
 app.include_router(portfolio_router, prefix="/api", tags=["Portfolio"])
-app.include_router(dashboard_router, prefix="/api", tags=["Dashboard"])
+app.include_router(dashboard_router, tags=["Dashboard"])  # No prefix - router already has /api prefix
 
 # Request logging middleware
 @app.middleware("http")

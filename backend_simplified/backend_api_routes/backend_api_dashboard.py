@@ -1,262 +1,269 @@
 """
-Backend API routes for dashboard data
-Returns all dashboard data in a single efficient call
+Backend‑API routes for dashboard & performance endpoints.
+A rewired, cache‑aware, RLS‑compatible implementation.
 """
-from fastapi import APIRouter, Depends, HTTPException
-from typing import Dict, Any, List, Tuple, Optional
-from datetime import datetime, date
-import logging
+
+from __future__ import annotations
+
 import asyncio
+import logging
+from datetime import datetime, date
+from typing import Any, Dict, List, Tuple, Optional, cast
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from debug_logger import DebugLogger
 from supa_api.supa_api_auth import require_authenticated_user
 from supa_api.supa_api_portfolio import supa_api_calculate_portfolio
 from supa_api.supa_api_transactions import supa_api_get_transaction_summary
 from vantage_api.vantage_api_quotes import vantage_api_get_quote
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP  # local import
+
+# Lazy‑imported heavy modules (they load Supabase clients, etc.)
+# They must stay inside route bodies to avoid circular imports.
 
 logger = logging.getLogger(__name__)
 
-# Create router
-dashboard_router = APIRouter()
+dashboard_router = APIRouter(prefix="/api")
+
+# ---------------------------------------------------------------------------
+# Helper utilities
+# ---------------------------------------------------------------------------
+
+class _AuthContext(Tuple[str, str]):
+    """Tiny helper for (user_id, jwt)."""
+
+    @property
+    def user_id(self) -> str:  # noqa: D401 – property, not function.
+        return self[0]
+
+    @property
+    def jwt(self) -> str:
+        return self[1]
+
+
+def _assert_jwt(user: Dict[str, Any]) -> _AuthContext:  # pragma: no cover
+    """Extract and validate the caller's JWT for Supabase RLS access."""
+    token: Optional[str] = user.get("access_token")
+    uid: str = user["id"]
+
+    logger.info("🔐 JWT token present: %s", bool(token))
+    logger.info("🔐 User ID        : %s", uid)
+
+    if not token:
+        raise HTTPException(status_code=401, detail="Authentication token required")
+
+    return _AuthContext((uid, token))
+
+
+# ---------------------------------------------------------------------------
+# /dashboard  –  consolidated snapshot
+# ---------------------------------------------------------------------------
 
 @dashboard_router.get("/dashboard")
-@DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="GET_DASHBOARD")
+@DebugLogger.log_api_call(
+    api_name="BACKEND_API",
+    sender="FRONTEND",
+    receiver="BACKEND",
+    operation="GET_DASHBOARD",
+)
 async def backend_api_get_dashboard(
-    user: Dict[str, Any] = Depends(require_authenticated_user)
+    user: Dict[str, Any] = Depends(require_authenticated_user),
 ) -> Dict[str, Any]:
-    """
-    Get all dashboard data in one efficient call
-    Includes portfolio summary, top holdings, recent transactions, and market data
-    """
-    logger.info(f"[backend_api_dashboard.py::backend_api_get_dashboard] Dashboard requested for user: {user['email']}")
-    
-    try:
-        # CRITICAL FIX: Forward the caller's JWT so RLS returns rows
-        user_token = user.get("access_token")
-        logger.info(f"[backend_api_dashboard.py::backend_api_get_dashboard] 🔐 JWT token present: {bool(user_token)}")
-        logger.info(f"[backend_api_dashboard.py::backend_api_get_dashboard] 🔐 Token preview: {user_token[:20] + '...' if user_token else 'None'}")
+    """Return portfolio snapshot + market blurb for the dashboard."""
+
+    logger.info("📥 Dashboard requested for %s", user.get("email", "<unknown>"))
+
+    # --- Auth --------------------------------------------------------------
+    uid, jwt = _assert_jwt(user)
         
-        # Run multiple data fetches in parallel WITH user token for RLS
-        portfolio_task = asyncio.create_task(supa_api_calculate_portfolio(
-            user["id"], 
-            user_token=user_token
-        ))
-        summary_task = asyncio.create_task(supa_api_get_transaction_summary(
-            user["id"],
-            user_token=user_token
-        ))
+    # --- Launch parallel data fetches -------------------------------------
+    portfolio_task = asyncio.create_task(supa_api_calculate_portfolio(uid, user_token=jwt))
+    summary_task   = asyncio.create_task(supa_api_get_transaction_summary(uid, user_token=jwt))
+    spy_task       = asyncio.create_task(vantage_api_get_quote("SPY"))
         
-        # Get benchmark data (S&P 500)
-        spy_task = asyncio.create_task(vantage_api_get_quote("SPY"))
-        
-        # Wait for all tasks
-        portfolio_data, transaction_summary, spy_quote = await asyncio.gather(
+    portfolio, summary, spy_quote = await asyncio.gather(
             portfolio_task,
             summary_task,
             spy_task,
-            return_exceptions=True
+        return_exceptions=True,
         )
         
-        # Handle SPY quote error gracefully
-        if isinstance(spy_quote, Exception):
-            logger.warning(f"[backend_api_dashboard.py::backend_api_get_dashboard] Failed to get SPY quote: {spy_quote}")
-            spy_quote = None
-        
-        # Extract top holdings (limit to 5 for dashboard)
-        top_holdings = portfolio_data["holdings"][:5] if not isinstance(portfolio_data, Exception) else []
-        
-        # Calculate daily change (simplified - in production would use historical data)
-        daily_change = 0.0
-        daily_change_percent = 0.0
-        
-        # Prepare dashboard response
-        dashboard_data = {
-            "success": True,
-            "portfolio": {
-                "total_value": portfolio_data["total_value"] if not isinstance(portfolio_data, Exception) else 0,
-                "total_cost": portfolio_data["total_cost"] if not isinstance(portfolio_data, Exception) else 0,
-                "total_gain_loss": portfolio_data["total_gain_loss"] if not isinstance(portfolio_data, Exception) else 0,
-                "total_gain_loss_percent": portfolio_data["total_gain_loss_percent"] if not isinstance(portfolio_data, Exception) else 0,
-                "daily_change": daily_change,
-                "daily_change_percent": daily_change_percent,
-                "holdings_count": portfolio_data["holdings_count"] if not isinstance(portfolio_data, Exception) else 0
-            },
-            "top_holdings": top_holdings,
-            "transaction_summary": {
-                "total_invested": transaction_summary["total_invested"] if not isinstance(transaction_summary, Exception) else 0,
-                "total_sold": transaction_summary["total_sold"] if not isinstance(transaction_summary, Exception) else 0,
-                "net_invested": transaction_summary["net_invested"] if not isinstance(transaction_summary, Exception) else 0,
-                "total_transactions": transaction_summary["total_transactions"] if not isinstance(transaction_summary, Exception) else 0
-            },
-            "market_data": {
-                "spy": {
-                    "price": spy_quote["price"] if spy_quote else 0,
-                    "change": spy_quote["change"] if spy_quote else 0,
-                    "change_percent": spy_quote["change_percent"] if spy_quote else "0"
-                } if spy_quote else None
-            }
-        }
-        
-        logger.info(f"[backend_api_dashboard.py::backend_api_get_dashboard] Dashboard data compiled successfully")
-        
-        return dashboard_data
-        
-    except Exception as e:
-        DebugLogger.log_error(
-            file_name="backend_api_dashboard.py",
-            function_name="backend_api_get_dashboard",
-            error=e,
-            user_id=user["id"]
-        )
-        
-        # Return minimal dashboard on error
-        return {
-            "success": False,
-            "error": str(e),
-            "portfolio": {
+    # --- Error handling ----------------------------------------------------
+    if isinstance(portfolio, Exception):
+        DebugLogger.log_error(__file__, "backend_api_get_dashboard/portfolio", portfolio, user_id=uid)
+        portfolio = {
+            "holdings": [],
                 "total_value": 0,
                 "total_cost": 0,
                 "total_gain_loss": 0,
                 "total_gain_loss_percent": 0,
-                "daily_change": 0,
-                "daily_change_percent": 0,
-                "holdings_count": 0
-            },
-            "top_holdings": [],
-            "transaction_summary": {
+            "holdings_count": 0,
+        }
+
+    if isinstance(summary, Exception):
+        DebugLogger.log_error(__file__, "backend_api_get_dashboard/summary", summary, user_id=uid)
+        summary = {
                 "total_invested": 0,
                 "total_sold": 0,
                 "net_invested": 0,
-                "total_transactions": 0
-            },
-            "market_data": None
+            "total_transactions": 0,
         }
 
+    if isinstance(spy_quote, Exception):
+        logger.warning("Failed to fetch SPY quote: %s", spy_quote)
+        spy_quote = None
+
+    # Coerce to dictionaries for static typing
+    portfolio_dict: Dict[str, Any] = cast(Dict[str, Any], portfolio)
+    summary_dict: Dict[str, Any] = cast(Dict[str, Any], summary)
+
+    # --- Build response ----------------------------------------------------
+    daily_change = daily_change_pct = 0.0  # TODO: derive from yesterday's prices.
+
+    resp = {
+        "success": True,
+        "portfolio": {
+            "total_value": portfolio_dict.get("total_value", 0),
+            "total_cost": portfolio_dict.get("total_cost", 0),
+            "total_gain_loss": portfolio_dict.get("total_gain_loss", 0),
+            "total_gain_loss_percent": portfolio_dict.get("total_gain_loss_percent", 0),
+            "daily_change": daily_change,
+            "daily_change_percent": daily_change_pct,
+            "holdings_count": portfolio_dict.get("holdings_count", 0),
+        },
+        "top_holdings": portfolio_dict.get("holdings", [])[:5],
+        "transaction_summary": summary_dict,
+        "market_data": {
+            "spy": spy_quote,
+        },
+    }
+
+    logger.info("✅ Dashboard payload ready")
+    return resp
+
+
+# ---------------------------------------------------------------------------
+# /dashboard/performance – time-series comparison
+# ---------------------------------------------------------------------------
+
 @dashboard_router.get("/dashboard/performance")
-@DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="GET_PERFORMANCE")
+@DebugLogger.log_api_call(
+    api_name="BACKEND_API",
+    sender="FRONTEND",
+    receiver="BACKEND",
+    operation="GET_PERFORMANCE",
+)
 async def backend_api_get_performance(
     user: Dict[str, Any] = Depends(require_authenticated_user),
-    period: str = "1M"  # 1D, 1W, 1M, 3M, 6M, 1Y, ALL
+    period: str = "1M",  # 1D, 1W, 1M, 3M, 6M, 1Y, ALL
+    benchmark: str = Query("SPY", regex=r"^[A-Z]{1,5}$"),
 ) -> Dict[str, Any]:
-    """Get portfolio performance data for charting"""
-    logger.info(f"[backend_api_dashboard.py::backend_api_get_performance] Performance data requested for period: {period}")
+    """Return portfolio vs index performance for the requested period."""
+
+    logger.info("📥 Performance period=%s benchmark=%s", period, benchmark)
+    logger.info("🔐 User authenticated: %s", user.get("email", "<unknown>"))
     
-    try:
-        # CRITICAL: Extract JWT token for RLS compliance
-        user_token = user.get("access_token")
-        user_id = user["id"]
+    # The require_authenticated_user dependency already validates auth
+    # If we reach here, auth is valid - extract JWT
+    uid, jwt = _assert_jwt(user)
         
-        logger.info(f"[backend_api_dashboard.py::backend_api_get_performance] 🔐 JWT token present: {bool(user_token)}")
-        logger.info(f"[backend_api_dashboard.py::backend_api_get_performance] 🔐 User ID: {user_id}")
+    # --- Lazy imports (avoid circular deps) -------------------------------
+    from services.portfolio_service import (
+        PortfolioTimeSeriesService as PTS,
+        PortfolioServiceUtils as PSU,
+    )
+    from services.index_sim_service import (
+        IndexSimulationService as ISS,
+        IndexSimulationUtils as ISU,
+    )
+    from services.index_cache_service import index_cache_service
         
-        if not user_token:
-            logger.error(f"[backend_api_dashboard.py::backend_api_get_performance] ❌ JWT token missing")
-            raise HTTPException(status_code=401, detail="Authentication token required")
-        
-        # Import services (lazy import to avoid circular dependencies)
-        from services.portfolio_service import PortfolioTimeSeriesService, PortfolioServiceUtils
-        from services.index_sim_service import IndexSimulationService, IndexSimulationUtils
-        
-        # Step 1: Validate benchmark
-        benchmark = "SPY"  # Default benchmark for now
-        if not IndexSimulationUtils.validate_benchmark(benchmark):
-            logger.error(f"[backend_api_dashboard.py::backend_api_get_performance] ❌ Invalid benchmark: {benchmark}")
+    # --- Validate benchmark ----------------------------------------------
+    benchmark = benchmark.upper()
+    if not ISU.validate_benchmark(benchmark):
             raise HTTPException(status_code=400, detail=f"Unsupported benchmark: {benchmark}")
         
-        # Step 2: Compute date range (convert old period to new range format)
-        range_key = period.replace("M", "M").replace("Y", "Y")  # Convert period to range
-        start_date, end_date = PortfolioServiceUtils.compute_date_range(range_key)
-        logger.info(f"[backend_api_dashboard.py::backend_api_get_performance] 📅 Date range: {start_date} to {end_date}")
+    # --- Resolve date range ----------------------------------------------
+    start_date, end_date = PSU.compute_date_range(period)
+    logger.info("📅 Range: %s → %s", start_date, end_date)
         
-        # Step 3: Calculate portfolio and index series in parallel
-        logger.info(f"[backend_api_dashboard.py::backend_api_get_performance] 🚀 Starting parallel calculations...")
-        
-        portfolio_task = asyncio.create_task(
-            PortfolioTimeSeriesService.get_portfolio_series(
-                user_id=user_id,
-                start_date=start_date,
-                end_date=end_date,
-                user_token=user_token
-            )
+    # --- Portfolio calculation in background -----------------------------
+    portfolio_task = asyncio.create_task(
+        PTS.get_portfolio_series(uid, start_date, end_date, user_token=jwt)
         )
         
-        index_task = asyncio.create_task(
-            IndexSimulationService.get_index_sim_series(
-                user_id=user_id,
-                benchmark=benchmark,
-                start_date=start_date,
-                end_date=end_date,
-                user_token=user_token
-            )
+    # --- Cache-first fetch of index series --------------------------------
+    cache_slice = await index_cache_service.read_slice(uid, benchmark, start_date, end_date)
+    logger.info("📦 Cache: %s pts, stale=%s", cache_slice.total_points, cache_slice.is_stale)
+
+    # --- Rebuild stale / missing cache -----------------------------------
+    if cache_slice.is_stale or cache_slice.total_points == 0:
+        logger.info("🔄 Re-computing %s index series (%s-%s)…", benchmark, start_date, end_date)
+        sim_series: List[Tuple[date, Decimal]] = await ISS.get_index_sim_series(  # type: ignore[arg-type]
+            user_id=uid,
+            benchmark=benchmark,
+            start_date=start_date,
+            end_date=end_date,
+            user_token=jwt
         )
-        
-        # Wait for both calculations to complete
-        portfolio_series, index_series = await asyncio.gather(
-            portfolio_task,
-            index_task,
-            return_exceptions=True
-        )
-        
-        # Handle calculation errors
-        if isinstance(portfolio_series, Exception):
-            logger.error(f"[backend_api_dashboard.py::backend_api_get_performance] ❌ Portfolio calculation failed: {portfolio_series}")
-            raise portfolio_series
-        
-        if isinstance(index_series, Exception):
-            logger.error(f"[backend_api_dashboard.py::backend_api_get_performance] ❌ Index simulation failed: {index_series}")
-            raise index_series
-        
-        logger.info(f"[backend_api_dashboard.py::backend_api_get_performance] ✅ Parallel calculations complete")
-        logger.info(f"[backend_api_dashboard.py::backend_api_get_performance] Portfolio points: {len(portfolio_series)}")
-        logger.info(f"[backend_api_dashboard.py::backend_api_get_performance] Index points: {len(index_series)}")
-        
-        # Step 4: Format response data
-        formatted_data = PortfolioServiceUtils.format_series_for_response(
-            portfolio_series, index_series
-        )
-        
-        # Step 5: Calculate performance metrics
-        performance_metrics = IndexSimulationUtils.calculate_performance_metrics(
-            portfolio_series, index_series
-        )
-        
-        # Step 6: Build final response (maintain backward compatibility)
-        response_data = {
+
+        # Fire-and-forget write-back – we don't await it.
+        asyncio.create_task(index_cache_service.write_bulk(uid, benchmark, sim_series))
+
+        index_series = sim_series
+        data_stale = False
+    else:
+        index_series = cache_slice.data
+        data_stale   = False if cache_slice.total_points else True
+
+    # --- Await portfolio series ------------------------------------------
+    portfolio_series: List[Tuple[date, Any]] = await portfolio_task  # values may be float or Decimal
+    if isinstance(portfolio_series, Exception):
+        raise HTTPException(status_code=500, detail="Portfolio time-series calculation failed")
+
+    # --- Helper: safe Decimal coercion --------------------------------------
+    def _safe_decimal(raw: Any) -> Decimal:  # noqa: WPS430 (nested def acceptable here)
+        """Convert raw value to Decimal; on failure return quantised 0.00 and log."""
+        if isinstance(raw, Decimal):
+            return raw
+        try:
+            return Decimal(str(raw))
+        except InvalidOperation:
+            logger.warning("↪ Invalid numeric value %s – substituting 0", raw)
+            return Decimal("0").quantize(Decimal("1.00"), ROUND_HALF_UP)
+
+    portfolio_series_dec: List[Tuple[date, Decimal]] = [
+        (d, _safe_decimal(v)) for d, v in portfolio_seriesdocker
+    ]
+    index_series_dec: List[Tuple[date, Decimal]] = [
+        (d, _safe_decimal(v)) for d, v in index_series
+    ]
+
+    # --- Format & compute metrics ----------------------------------------
+    formatted = PSU.format_series_for_response(portfolio_series_dec, index_series_dec)
+    metrics   = ISU.calculate_performance_metrics(portfolio_series_dec, index_series_dec)
+
+    logger.info("✅ Perf ready – %s portfolio pts | %s index pts", len(portfolio_series), len(index_series))
+
+    return {
             "success": True,
             "period": period,
             "benchmark": benchmark,
+        "stale": data_stale,
             "portfolio_performance": [
-                {"date": date, "total_value": value, "indexed_performance": 0}
-                for date, value in zip(formatted_data["dates"], formatted_data["portfolio"])
+            {"date": d, "total_value": v, "indexed_performance": 0}
+            for d, v in zip(formatted["dates"], formatted["portfolio"])
             ],
             "benchmark_performance": [
-                {"date": date, "total_value": value, "indexed_performance": 0}
-                for date, value in zip(formatted_data["dates"], formatted_data["index"])
+            {"date": d, "total_value": v, "indexed_performance": 0}
+            for d, v in zip(formatted["dates"], formatted["index"])
             ],
             "metadata": {
-                **formatted_data["metadata"],
+            **formatted["metadata"],
                 "benchmark_name": benchmark,
-                "calculation_timestamp": datetime.now().isoformat()
-            },
-            "performance_metrics": performance_metrics
-        }
-        
-        logger.info(f"[backend_api_dashboard.py::backend_api_get_performance] ✅ Performance comparison complete")
-        logger.info(f"[backend_api_dashboard.py::backend_api_get_performance] 📊 Portfolio final value: ${response_data['metadata']['portfolio_final_value']}")
-        logger.info(f"[backend_api_dashboard.py::backend_api_get_performance] 📈 Index final value: ${response_data['metadata']['index_final_value']}")
-        
-        return response_data
-        
-    except HTTPException:
-        # Re-raise HTTP exceptions as-is
-        raise
-    except Exception as e:
-        logger.error(f"[backend_api_dashboard.py::backend_api_get_performance] ❌ Unexpected error: {e}")
-        DebugLogger.log_error(
-            file_name="backend_api_dashboard.py",
-            function_name="backend_api_get_performance",
-            error=e,
-            user_id=user.get("id"),
-            period=period
-        )
-        raise HTTPException(status_code=500, detail=f"Failed to calculate performance comparison: {str(e)}") 
+            "calculation_timestamp": datetime.utcnow().isoformat(),
+            "cache_hit": not data_stale,
+        },
+        "performance_metrics": metrics,
+    }

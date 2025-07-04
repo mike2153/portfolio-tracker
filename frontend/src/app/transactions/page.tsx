@@ -219,14 +219,15 @@ const TransactionsPage = () => {
       
       // Step 2: Invalidate all dashboard-related React Query caches
       console.log('[RefreshData] 🗂️ Step 2: Invalidating React Query caches...');
+      console.log('[RefreshData] 🎯 CRITICAL: Using exact: false to catch all nested query keys');
       
-      // Invalidate dashboard queries
-      await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      console.log('[RefreshData] ✅ Dashboard queries invalidated');
+      // Invalidate dashboard queries (exact: false catches all dashboard-related queries)
+      await queryClient.invalidateQueries({ queryKey: ['dashboard'], exact: false });
+      console.log('[RefreshData] ✅ Dashboard queries invalidated (exact: false)');
       
-      // Invalidate performance queries (all ranges and benchmarks)
-      await queryClient.invalidateQueries({ queryKey: ['performance'] });
-      console.log('[RefreshData] ✅ Performance queries invalidated');
+      // Invalidate performance queries (exact: false catches all ranges and benchmarks)
+      await queryClient.invalidateQueries({ queryKey: ['performance'], exact: false });
+      console.log('[RefreshData] ✅ Performance queries invalidated (exact: false)');
       
       // Invalidate portfolio queries
       await queryClient.invalidateQueries({ queryKey: ['portfolio'] });

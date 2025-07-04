@@ -68,8 +68,8 @@ class TestEnhancedHistoricalPriceSystem:
             'test_date_weekend': '2024-01-13',  # Saturday - should find closest trading day
             'alternative_symbol': 'MSFT',  # Second symbol for multi-symbol tests
             'new_symbol': 'GOOGL',  # Symbol likely not in database yet
-            'supabase_url': os.getenv('SUPABASE_URL'),
-            'supabase_key': os.getenv('SUPABASE_ANON_KEY'),
+            'supabase_url': os.getenv('SUPA_API_URL'),
+            'supabase_key': os.getenv('SUPA_API_ANON_KEY'),
         }
         
         logger.info(f"🔥 [TEST_SETUP] Test configuration:")
@@ -80,7 +80,7 @@ class TestEnhancedHistoricalPriceSystem:
         logger.info(f"🔥 [TEST_SETUP] - Has Supabase Key: {bool(cls.TEST_CONFIG['supabase_key'])}")
         
         # Validate required environment variables
-        required_vars = ['SUPABASE_URL', 'SUPABASE_ANON_KEY', 'ALPHA_VANTAGE_API_KEY']
+        required_vars = ['SUPA_API_URL', 'SUPA_API_ANON_KEY', 'VANTAGE_API_KEY']
         missing_vars = [var for var in required_vars if not os.getenv(var)]
         
         if missing_vars:

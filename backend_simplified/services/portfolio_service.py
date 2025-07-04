@@ -22,7 +22,7 @@ class PortfolioTimeSeriesService:
     """Service for calculating portfolio values over time"""
     
     @staticmethod
-    @DebugLogger.log_api_call(api_name="PORTFOLIO_SERVICE", sender="BACKEND", receiver="DATABASE", operation="GET_PORTFOLIO_SERIES")
+    #@DebugLogger.log_api_call(api_name="PORTFOLIO_SERVICE", sender="BACKEND", receiver="DATABASE", operation="GET_PORTFOLIO_SERIES")
     async def get_portfolio_series(
         user_id: str, 
         start_date: date, 
@@ -41,11 +41,11 @@ class PortfolioTimeSeriesService:
         Returns:
             List of (date, portfolio_value_usd) tuples, sorted by date
         """
-        logger.info(f"[portfolio_service] === PORTFOLIO TIME SERIES CALCULATION START ===")
-        logger.info(f"[portfolio_service] User ID: {user_id}")
-        logger.info(f"[portfolio_service] Date range: {start_date} to {end_date}")
-        logger.info(f"[portfolio_service] JWT token present: {bool(user_token)}")
-        logger.info(f"[portfolio_service] Timestamp: {datetime.now().isoformat()}")
+       ## logger.info(f"[portfolio_service] === PORTFOLIO TIME SERIES CALCULATION START ===")
+        ##logger.info(f"[portfolio_service] User ID: {user_id}")
+        ##logger.info(f"[portfolio_service] Date range: {start_date} to {end_date}")
+        ##logger.info(f"[portfolio_service] JWT token present: {bool(user_token)}")
+        ##logger.info(f"[portfolio_service] Timestamp: {datetime.now().isoformat()}")
         
         if not user_token:
             logger.error(f"[portfolio_service] ❌ JWT token required for RLS compliance")
@@ -76,10 +76,10 @@ class PortfolioTimeSeriesService:
             
             # Step 2: Get all unique tickers from transactions
             tickers = list(set(t['symbol'] for t in transactions))
-            logger.info(f"[portfolio_service] 📈 Step 2: Found {len(tickers)} unique tickers: {tickers}")
+            ##logger.info(f"[portfolio_service] 📈 Step 2: Found {len(tickers)} unique tickers: {tickers}")
             
             # Step 3: Fetch historical prices for all tickers and date range
-            logger.info(f"[portfolio_service] 💰 Step 3: Fetching historical prices...")
+            ##logger.info(f"[portfolio_service] 💰 Step 3: Fetching historical prices...")
             
             prices_response = client.table('historical_prices') \
                 .select('symbol, date, close') \
@@ -89,7 +89,7 @@ class PortfolioTimeSeriesService:
                 .execute()
             
             historical_prices = prices_response.data
-            logger.info(f"[portfolio_service] ✅ Found {len(historical_prices)} price records")
+            #logger.info(f"[portfolio_service] ✅ Found {len(historical_prices)} price records")
             
             # Step 4: Build price lookup dictionary
             price_lookup = defaultdict(dict)  # {symbol: {date: price}}
@@ -107,14 +107,24 @@ class PortfolioTimeSeriesService:
             portfolio_series = []
             current_holdings = defaultdict(Decimal)  # {ticker: shares}
             
-            # Generate all dates in range
-            current_date = start_date
+            # Find first transaction date to avoid leading zeros
+            if transactions:
+                first_txn_date = min(datetime.strptime(tx['date'], '%Y-%m-%d').date() for tx in transactions)
+                # Use max of start_date and first_txn_date to avoid going before first transaction
+                effective_start_date = max(start_date, first_txn_date)
+                logger.info(f"[portfolio_service] 📅 Trimmed series to start from first transaction: {first_txn_date} (effective: {effective_start_date})")
+            else:
+                effective_start_date = start_date
+                logger.info(f"[portfolio_service] 📅 No transactions found, using full date range")
+            
+            # Generate dates from effective start date onwards
+            current_date = effective_start_date
             dates_in_range = []
             while current_date <= end_date:
                 dates_in_range.append(current_date)
                 current_date += timedelta(days=1)
             
-            logger.info(f"[portfolio_service] 📅 Processing {len(dates_in_range)} dates from {start_date} to {end_date}")
+            ##logger.info(f"[portfolio_service] 📅 Processing {len(dates_in_range)} dates from {start_date} to {end_date}")
             
             # Index transactions by date for efficient lookup
             transactions_by_date = defaultdict(list)
@@ -123,7 +133,42 @@ class PortfolioTimeSeriesService:
                 if tx_date <= end_date:  # Only include transactions up to end_date
                     transactions_by_date[tx_date].append(tx)
             
-            logger.info(f"[portfolio_service] 🗓️ Indexed transactions across {len(transactions_by_date)} dates")
+            ##logger.info(f"[portfolio_service] 🗓️ Indexed transactions across {len(transactions_by_date)} dates")
+            
+            # Step 5.1: Seed holdings that existed before the selected range
+            ##logger.info(f"[portfolio_service] 🌱 Seeding holdings from transactions before {start_date}")
+            
+            opening_transactions = [tx for tx in transactions if datetime.strptime(tx['date'], '%Y-%m-%d').date() < start_date]
+            ##logger.info(f"[portfolio_service] 📊 Found {len(opening_transactions)} opening transactions to seed holdings")
+            
+            # Apply opening transactions to establish initial holdings
+            for tx in opening_transactions:
+                symbol = tx['symbol']
+                shares = Decimal(str(tx['quantity']))
+                transaction_type = tx.get('transaction_type', 'Buy').upper()
+                
+                # Handle transaction types properly (same logic as main loop)
+                if transaction_type in ['BUY', 'Buy']:
+                    shares_delta = abs(shares)  # Buy = add positive shares
+                elif transaction_type in ['SELL', 'Sell']:
+                    shares_delta = -abs(shares)  # Sell = subtract shares
+                else:
+                    # For dividends or other types, assume reinvestment (add shares)
+                    shares_delta = abs(shares)
+                   ## logger.debug(f"[portfolio_service] ℹ️ Unknown transaction type '{transaction_type}', treating as buy")
+                
+                current_holdings[symbol] += shares_delta
+                ##logger.debug(f"[portfolio_service] 🌱 Seeded holding: {symbol} += {shares_delta} = {current_holdings[symbol]} shares")
+            
+            # Log seeded holdings summary
+            seeded_holdings_count = len([symbol for symbol, shares in current_holdings.items() if shares > 0])
+            ##logger.info(f"[portfolio_service] ✅ Seeded {seeded_holdings_count} holdings positions before {start_date}")
+            
+            if seeded_holdings_count > 0:
+                logger.info(f"[portfolio_service] 📊 Seeded holdings summary:")
+                for symbol, shares in current_holdings.items():
+                    if shares > 0:
+                        logger.info(f"[portfolio_service] 📊 - {symbol}: {shares} shares")
             
             # Process each date
             for current_date in dates_in_range:
@@ -164,12 +209,18 @@ class PortfolioTimeSeriesService:
                             daily_value += holding_value
                             holdings_count += 1
                             
-                            logger.debug(f"[portfolio_service] 💵 {current_date}: {symbol} = {shares} × ${price} = ${holding_value}")
+                           # logger.debug(f"[portfolio_service] 💵 {current_date}: {symbol} = {shares} × ${price} = ${holding_value}")
                 
                 portfolio_series.append((current_date, daily_value))
                 
                 if len(portfolio_series) % 30 == 0:  # Log progress every 30 days
                     logger.info(f"[portfolio_service] 📊 Processed {len(portfolio_series)} days, current value: ${daily_value}")
+            
+            # Validate first point is not zero
+            if portfolio_series and portfolio_series[0][1] == 0:
+                logger.warning(f"[portfolio_service] ⚠️ First portfolio value is $0 on {portfolio_series[0][0]}")
+            elif portfolio_series:
+                logger.info(f"[portfolio_service] ✅ First portfolio value: ${portfolio_series[0][1]} on {portfolio_series[0][0]}")
             
             logger.info(f"[portfolio_service] ✅ Portfolio time series calculation complete")
             logger.info(f"[portfolio_service] 📈 Generated {len(portfolio_series)} data points")
@@ -285,9 +336,9 @@ class PortfolioServiceUtils:
         Returns:
             Dictionary with formatted data for frontend consumption
         """
-        logger.info(f"[portfolio_service] 📊 Formatting series data for response")
-        logger.info(f"[portfolio_service] Portfolio points: {len(portfolio_series)}")
-        logger.info(f"[portfolio_service] Index points: {len(index_series)}")
+        ##logger.info(f"[portfolio_service] 📊 Formatting series data for response")
+        ##logger.info(f"[portfolio_service] Portfolio points: {len(portfolio_series)}")
+        ##logger.info(f"[portfolio_service] Index points: {len(index_series)}")
         
         # Ensure both series have the same dates
         portfolio_dict = {d: v for d, v in portfolio_series}
@@ -309,8 +360,8 @@ class PortfolioServiceUtils:
             }
         }
         
-        logger.info(f"[portfolio_service] ✅ Formatted response with {len(all_dates)} data points")
-        logger.info(f"[portfolio_service] Final portfolio value: ${formatted_data['metadata']['portfolio_final_value']}")
-        logger.info(f"[portfolio_service] Final index value: ${formatted_data['metadata']['index_final_value']}")
+        ##logger.info(f"[portfolio_service] ✅ Formatted response with {len(all_dates)} data points")
+        ##logger.info(f"[portfolio_service] Final portfolio value: ${formatted_data['metadata']['portfolio_final_value']}")
+        ##logger.info(f"[portfolio_service] Final index value: ${formatted_data['metadata']['index_final_value']}")
         
         return formatted_data

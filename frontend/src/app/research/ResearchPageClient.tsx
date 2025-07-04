@@ -17,7 +17,7 @@ import DividendsTab from './components/DividendsTab';
 import NewsTab from './components/NewsTab';
 import NotesTab from './components/NotesTab';
 import ComparisonTab from './components/ComparisonTab';
-import StockSearchInput from './components/StockSearchInput';
+import { StockSearchInput } from '@/components/StockSearchInput';
 
 const TABS: { id: StockResearchTab; label: string; icon: React.ReactNode }[] = [
   { id: 'overview', label: 'Overview', icon: <TrendingUp size={16} /> },
@@ -95,13 +95,10 @@ export default function StockResearchPage() {
       
       console.log('[ResearchPage] Raw API Responses from front_api_get_stock_research_data:', stockResearchData);
 
-      if (stockResearchData.overview.ok && stockResearchData.overview.data) {
-        const overviewData = stockResearchData.overview.data;
-        const quoteData = stockResearchData.quote.ok ? stockResearchData.quote.data.data : null;
-
+      if (stockResearchData.success && stockResearchData.fundamentals) {
         const combinedData: StockResearchData = {
-          overview: overviewData.fundamentals || overviewData,
-          quote: quoteData || overviewData.price_data,
+          overview: stockResearchData.fundamentals,
+          quote: stockResearchData.price_data,
           priceData: [], // TODO: Add historical price data to front_api_client
           news: [], // TODO: Add news data to front_api_client  
           notes: [], // TODO: Add notes data to front_api_client
@@ -110,7 +107,7 @@ export default function StockResearchPage() {
         console.log(`[ResearchPage] loadStockData: Successfully processed data for ${ticker}.`, combinedData);
         setStockData(combinedData);
       } else {
-        console.error(`[ResearchPage] loadStockData: Failed to fetch critical overview data for ${ticker}.`, stockResearchData.overview.error);
+        console.error(`[ResearchPage] loadStockData: Failed to fetch critical overview data for ${ticker}.`, stockResearchData.error);
       }
     } catch (error) {
       console.error(`[ResearchPage] loadStockData: Unhandled exception for ${ticker}.`, error);
@@ -213,7 +210,10 @@ export default function StockResearchPage() {
           {/* Search Bar */}
           <div className="max-w-md">
             <StockSearchInput
-              onStockSelect={handleStockSelect}
+              onSelectSymbol={(symbol) => {
+                console.debug('[ResearchPage] onSelectSymbol:', symbol);
+                handleStockSelect(symbol.symbol);
+              }}
               placeholder="Search stocks by ticker or company name..."
               className="w-full"
             />

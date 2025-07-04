@@ -2,7 +2,7 @@
 Supabase authentication helpers
 Handles user validation and JWT token verification
 """
-from fastapi import Depends, HTTPException, status, Request
+from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional, Dict, Any
 import logging
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 # Security scheme for JWT Bearer tokens
 security = HTTPBearer(auto_error=False)
 
-async def require_authenticated_user(request: Request) -> Dict[str, Any]:
+async def require_authenticated_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)) -> Dict[str, Any]:
     """
     FastAPI dependency to protect routes by requiring a valid Supabase JWT.
     Extracts user data from the token.
@@ -27,27 +27,17 @@ async def require_authenticated_user(request: Request) -> Dict[str, Any]:
         operation="REQUIRE_AUTH"
     )
     
-    # Log all incoming headers for debugging
-    incoming_headers = dict(request.headers)
-    logger.info(f"[supa_api_auth.py::require_authenticated_user] ========== HEADERS RECEIVED ==========")
-    for key, value in incoming_headers.items():
-        logger.info(f"[supa_api_auth.py::require_authenticated_user] Header: {key} = {value}")
-    logger.info(f"[supa_api_auth.py::require_authenticated_user] =====================================")
-
-    token = None
+    logger.info(f"[supa_api_auth.py::require_authenticated_user] ========== AUTH VALIDATION START ==========")
+    logger.info(f"[supa_api_auth.py::require_authenticated_user] Credentials present: {bool(credentials)}")
+    
+    if not credentials:
+        logger.warning("[supa_api_auth.py::require_authenticated_user] No Authorization credentials provided.")
+        raise HTTPException(status_code=401, detail="No credentials provided")
+    
+    token = credentials.credentials
+    logger.info(f"[supa_api_auth.py::require_authenticated_user] Token extracted: {token[:20]}...")
+    
     try:
-        # Get token from Authorization header
-        auth_header = request.headers.get("Authorization")
-        if not auth_header:
-            logger.warning("[supa_api_auth.py::require_authenticated_user] No Authorization header provided.")
-            raise HTTPException(status_code=401, detail="No credentials provided")
-        
-        parts = auth_header.split()
-        if len(parts) != 2 or parts[0].lower() != "bearer":
-            logger.warning(f"[supa_api_auth.py::require_authenticated_user] Invalid Authorization header format: {auth_header}")
-            raise HTTPException(status_code=401, detail="Invalid token format")
-            
-        token = parts[1]
         
         # Validate the token with Supabase
         logger.info(f"[supa_api_auth.py::require_authenticated_user] Validating token...")
@@ -70,6 +60,7 @@ async def require_authenticated_user(request: Request) -> Dict[str, Any]:
             error=e,
             token_present=bool(token)
         )
+        logger.error(f"[supa_api_auth.py::require_authenticated_user] Auth error: {e}")
         raise HTTPException(status_code=401, detail=f"Authentication error: {e}")
 
 # Helper functions for checking user permissions

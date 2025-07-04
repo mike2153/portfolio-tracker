@@ -21,7 +21,7 @@ return it to the console for debugging. This will allow to work through busg alo
 
 Your goal: produce fully tested, debug-friendly, real-authentication Node.js code with explanations tailored for a beginner in Node.js, but an experienced programmer overall.
 
-
+GEMINI_API_KEY=AIzaSyC6Trjgkvffrpu_xkL3T3c9AvfXoLOEAjA
 
 
 ---

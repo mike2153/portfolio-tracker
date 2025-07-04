@@ -132,20 +132,56 @@ export default function PortfolioChart({
   
   // Calculate percentage returns from initial values
   const calculatePercentageReturns = (data: Array<{ date: string; total_value: number }>) => {
-    if (data.length === 0) return [];
+    console.log('[PortfolioChart] 📊 calculatePercentageReturns called with data length:', data.length);
+    if (data.length === 0) {
+      console.log('[PortfolioChart] ⚠️ No data points for percentage calculation');
+      return [];
+    }
     
     const initialValue = data[0].total_value;
-    if (initialValue === 0) return data.map(() => 0);
+    console.log('[PortfolioChart] 📊 Initial value for percentage calculation:', initialValue);
     
-    return data.map(point => ((point.total_value - initialValue) / initialValue) * 100);
+    if (initialValue === 0) {
+      console.log('[PortfolioChart] ⚠️ Initial value is zero, returning zero array');
+      return data.map(() => 0);
+    }
+    
+    const percentageReturns = data.map(point => {
+      const returnValue = ((point.total_value - initialValue) / initialValue) * 100;
+      return returnValue;
+    });
+    
+    console.log('[PortfolioChart] 📊 Percentage returns calculated:');
+    console.log('[PortfolioChart] - First return:', percentageReturns[0]);
+    console.log('[PortfolioChart] - Last return:', percentageReturns[percentageReturns.length - 1]);
+    console.log('[PortfolioChart] - Sample values:', percentageReturns.slice(0, 5));
+    
+    return percentageReturns;
   };
   
   const portfolioPercentReturns = calculatePercentageReturns(portfolioData);
   const benchmarkPercentReturns = calculatePercentageReturns(benchmarkData);
   
   console.log('[PortfolioChart] 📈 Calculated percentage returns:');
+  console.log('[PortfolioChart] - Portfolio data length:', portfolioData.length);
+  console.log('[PortfolioChart] - Benchmark data length:', benchmarkData.length);
+  console.log('[PortfolioChart] - Portfolio percent returns length:', portfolioPercentReturns.length);
+  console.log('[PortfolioChart] - Benchmark percent returns length:', benchmarkPercentReturns.length);
   console.log('[PortfolioChart] - Portfolio final return:', portfolioPercentReturns[portfolioPercentReturns.length - 1] || 0);
   console.log('[PortfolioChart] - Benchmark final return:', benchmarkPercentReturns[benchmarkPercentReturns.length - 1] || 0);
+  
+  // Debug: Log raw data for troubleshooting
+  if (portfolioData.length > 0) {
+    console.log('[PortfolioChart] 📊 Portfolio data sample:', portfolioData.slice(0, 3));
+    console.log('[PortfolioChart] 📊 Portfolio first value:', portfolioData[0].total_value);
+    console.log('[PortfolioChart] 📊 Portfolio last value:', portfolioData[portfolioData.length - 1].total_value);
+  }
+  
+  if (benchmarkData.length > 0) {
+    console.log('[PortfolioChart] 📊 Benchmark data sample:', benchmarkData.slice(0, 3));
+    console.log('[PortfolioChart] 📊 Benchmark first value:', benchmarkData[0].total_value);
+    console.log('[PortfolioChart] 📊 Benchmark last value:', benchmarkData[benchmarkData.length - 1].total_value);
+  }
   
   // Format currency values
   const formatCurrency = (value: number) => {
@@ -280,14 +316,20 @@ export default function PortfolioChart({
         </div>
       ) : (
         <Plot
-          data={[
-            {
+          data={(() => {
+            // Create chart data with extensive debugging
+            console.log('[PortfolioChart] 📊 Creating plot data...');
+            console.log('[PortfolioChart] - Display mode:', displayMode);
+            console.log('[PortfolioChart] - Portfolio data points:', portfolioData.length);
+            console.log('[PortfolioChart] - Benchmark data points:', benchmarkData.length);
+            
+            const portfolioTrace = {
               x: portfolioData.map(p => p.date),
               y: displayMode === 'value' 
                 ? portfolioData.map(p => p.total_value)
                 : portfolioPercentReturns,
-              type: 'scatter',
-              mode: 'lines',
+              type: 'scatter' as const,
+              mode: 'lines' as const,
               name: 'Your Portfolio',
               line: { 
                 color: '#10b981', // emerald-500
@@ -295,15 +337,17 @@ export default function PortfolioChart({
               },
               hovertemplate: displayMode === 'value'
                 ? '<b>Portfolio</b><br>Date: %{x}<br>Value: %{y:$,.0f}<extra></extra>'
-                : '<b>Portfolio</b><br>Date: %{x}<br>Return: %{y:.2f}%<extra></extra>'
-            },
-            {
+                : '<b>Portfolio</b><br>Date: %{x}<br>Return: %{y:.2f}%<extra></extra>',
+              visible: true  // Ensure portfolio line is always visible
+            };
+            
+            const benchmarkTrace = {
               x: benchmarkData.map(b => b.date),
               y: displayMode === 'value' 
                 ? benchmarkData.map(b => b.total_value)
                 : benchmarkPercentReturns,
-              type: 'scatter',
-              mode: 'lines',
+              type: 'scatter' as const,
+              mode: 'lines' as const,
               name: `${selectedBenchmark} Index`,
               line: { 
                 color: '#9ca3af', // gray-400
@@ -312,9 +356,45 @@ export default function PortfolioChart({
               },
               hovertemplate: displayMode === 'value'
                 ? `<b>${selectedBenchmark}</b><br>Date: %{x}<br>Value: %{y:$,.0f}<extra></extra>`
-                : `<b>${selectedBenchmark}</b><br>Date: %{x}<br>Return: %{y:.2f}%<extra></extra>`
+                : `<b>${selectedBenchmark}</b><br>Date: %{x}<br>Return: %{y:.2f}%<extra></extra>`,
+              visible: benchmarkData.length > 0  // Only show if benchmark data exists
+            };
+            
+            console.log('[PortfolioChart] 📊 Portfolio trace data:');
+            console.log('[PortfolioChart] - X points:', portfolioTrace.x.length);
+            console.log('[PortfolioChart] - Y points:', portfolioTrace.y.length);
+            console.log('[PortfolioChart] - Y sample:', portfolioTrace.y.slice(0, 5));
+            
+            console.log('[PortfolioChart] 📊 Benchmark trace data:');
+            console.log('[PortfolioChart] - X points:', benchmarkTrace.x.length);
+            console.log('[PortfolioChart] - Y points:', benchmarkTrace.y.length);
+            console.log('[PortfolioChart] - Y sample:', benchmarkTrace.y.slice(0, 5));
+            console.log('[PortfolioChart] - Benchmark visible:', benchmarkTrace.visible);
+            
+            // Filter out traces with no data to avoid empty lines
+            const traces = [];
+            
+            // Always include portfolio trace if it has data
+            if (portfolioData.length > 0) {
+              traces.push(portfolioTrace);
+              console.log('[PortfolioChart] ✅ Portfolio trace added to chart');
+            } else {
+              console.log('[PortfolioChart] ⚠️ Portfolio trace skipped - no data');
             }
-          ]}
+            
+            // Include benchmark trace only if it has data
+            if (benchmarkData.length > 0) {
+              traces.push(benchmarkTrace);
+              console.log('[PortfolioChart] ✅ Benchmark trace added to chart');
+            } else {
+              console.log('[PortfolioChart] ⚠️ Benchmark trace skipped - no data');
+            }
+            
+            console.log('[PortfolioChart] 📊 Final traces count:', traces.length);
+            console.log('[PortfolioChart] 📊 Traces summary:', traces.map(t => ({ name: t.name, points: t.y.length })));
+            
+            return traces;
+          })()}
           layout={{
             autosize: true,
             margin: { t: 20, r: 20, b: 40, l: 60 },
