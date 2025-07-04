@@ -382,7 +382,23 @@ class IndexSimulationService:
             logger.info(f"[index_sim_service] 📅 No positions found, using full date range")
         
         daily_values = []
+
+        # Seed current shares with the most recent position on or before start_date
         current_shares = Decimal('0')
+        
+        if share_positions:
+            prior_dates = [d for d in share_positions.keys() if d <= start_date]
+            if prior_dates:
+                most_recent = max(prior_dates)
+                current_shares = share_positions[most_recent]
+                logger.info(
+                    f"[index_sim_service] 📈 DEBUG: Seeding shares from {most_recent}: {current_shares:.6f}"
+                )
+            else:
+                logger.info(f"[index_sim_service] 📈 DEBUG: No prior positions found before {start_date}, starting with 0 shares")
+        else:
+            logger.info(f"[index_sim_service] 📈 DEBUG: No share positions available, starting with 0 shares")
+
         last_known_price = None
         
         # Generate all dates from effective start onwards
@@ -391,7 +407,7 @@ class IndexSimulationService:
             # Update shares position if there was a transaction on this date
             if current_date in share_positions:
                 current_shares = share_positions[current_date]
-                logger.debug(f"[index_sim_service] 📈 {current_date}: Updated position to {current_shares:.6f} shares")
+                logger.info(f"[index_sim_service] 📈 DEBUG: {current_date}: Updated position to {current_shares:.6f} shares")
             
             # Get price for this date with forward-fill
             if current_date in benchmark_prices:
@@ -403,12 +419,16 @@ class IndexSimulationService:
                 logger.debug(f"[index_sim_service] 📅 {current_date}: Forward-filling price ${price}")
             else:
                 # Skip until we get first price data (no double increment)
+                logger.info(f"[index_sim_service] 📅 DEBUG: {current_date}: No price data available, skipping")
+                current_date += timedelta(days=1)
                 continue
             
             daily_value = current_shares * price
             daily_values.append((current_date, daily_value))
             
-            logger.debug(f"[index_sim_service] 💵 {current_date}: {current_shares:.6f} × ${price} = ${daily_value}")
+            # Log first few and last few calculations for debugging
+            if len(daily_values) <= 3 or len(daily_values) >= len(daily_values) - 3:
+                logger.info(f"[index_sim_service] 💵 DEBUG: {current_date}: {current_shares:.6f} × ${price} = ${daily_value}")
             
             current_date += timedelta(days=1)
         

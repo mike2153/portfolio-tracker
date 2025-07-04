@@ -233,16 +233,41 @@ async def backend_api_get_performance(
             logger.warning("↪ Invalid numeric value %s – substituting 0", raw)
             return Decimal("0").quantize(Decimal("1.00"), ROUND_HALF_UP)
 
+    # 🔍 DEBUG: Convert portfolio series to Decimal type for precise calculations
+    logger.info("🔄 Converting portfolio series to Decimal - received %d data points", len(portfolio_series))
+    logger.debug("📊 Portfolio series sample: %s", portfolio_series[:3] if len(portfolio_series) >= 3 else portfolio_series)
+    
     portfolio_series_dec: List[Tuple[date, Decimal]] = [
-        (d, _safe_decimal(v)) for d, v in portfolio_seriesdocker
+        (d, _safe_decimal(v)) for d, v in portfolio_series
     ]
+    logger.info("✅ Portfolio series converted to Decimal - %d points processed", len(portfolio_series_dec))
+    
+    # 🔍 DEBUG: Convert index series to Decimal type for precise calculations
+    logger.info("🔄 Converting index series to Decimal - received %d data points", len(index_series))
+    logger.debug("📊 Index series sample: %s", index_series[:3] if len(index_series) >= 3 else index_series)
+    
     index_series_dec: List[Tuple[date, Decimal]] = [
         (d, _safe_decimal(v)) for d, v in index_series
     ]
+    logger.info("✅ Index series converted to Decimal - %d points processed", len(index_series_dec))
 
     # --- Format & compute metrics ----------------------------------------
+    logger.info("🔧 Formatting series for response...")
+    logger.debug("📊 Portfolio series range: %s to %s", 
+                 portfolio_series_dec[0][0] if portfolio_series_dec else "N/A",
+                 portfolio_series_dec[-1][0] if portfolio_series_dec else "N/A")
+    logger.debug("📊 Index series range: %s to %s", 
+                 index_series_dec[0][0] if index_series_dec else "N/A",
+                 index_series_dec[-1][0] if index_series_dec else "N/A")
+    
     formatted = PSU.format_series_for_response(portfolio_series_dec, index_series_dec)
-    metrics   = ISU.calculate_performance_metrics(portfolio_series_dec, index_series_dec)
+    logger.info("✅ Series formatted successfully")
+    logger.debug("📊 Formatted data keys: %s", list(formatted.keys()))
+    
+    logger.info("🧮 Calculating performance metrics...")
+    metrics = ISU.calculate_performance_metrics(portfolio_series_dec, index_series_dec)
+    logger.info("✅ Performance metrics calculated")
+    logger.debug("📊 Metrics keys: %s", list(metrics.keys()) if metrics else "No metrics")
 
     logger.info("✅ Perf ready – %s portfolio pts | %s index pts", len(portfolio_series), len(index_series))
 
