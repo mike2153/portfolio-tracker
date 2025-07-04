@@ -4,7 +4,7 @@ Tests for the 500/CORS bug fix in dashboard performance endpoint
 """
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 import logging
 
 # Configure logging for debugging
@@ -54,13 +54,11 @@ class TestPerformanceAPIAuthentication:
             
             # Mock the portfolio and index services to avoid database calls
             with patch('services.portfolio_service.PortfolioTimeSeriesService.get_portfolio_series') as mock_portfolio, \
-                 patch('services.index_sim_service.IndexSimulationService.get_index_sim_series') as mock_index, \
-                 patch('services.index_cache_service.index_cache_service.read_slice') as mock_cache:
+                 patch('services.index_sim_service.IndexSimulationService.get_index_sim_series') as mock_index:
                 
                 # Configure mocks to return test data
-                mock_portfolio.return_value = [(\"2024-01-01\", 1000.0), (\"2024-01-02\", 1050.0)]
-                mock_index.return_value = [(\"2024-01-01\", 950.0), (\"2024-01-02\", 980.0)]
-                mock_cache.return_value = MagicMock(total_points=0, is_stale=True, data=[])
+                mock_portfolio.return_value = [("2024-01-01", 1000.0), ("2024-01-02", 1050.0)]
+                mock_index.return_value = [("2024-01-01", 950.0), ("2024-01-02", 980.0)]
                 
                 logger.info("🧪 Configured service mocks")
                 
