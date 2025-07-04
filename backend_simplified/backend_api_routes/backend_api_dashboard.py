@@ -177,7 +177,6 @@ async def backend_api_get_performance(
         IndexSimulationService as ISS,
         IndexSimulationUtils as ISU,
     )
-    from services.index_cache_service import index_cache_service
         
     # --- Validate benchmark ----------------------------------------------
     benchmark = benchmark.upper()
@@ -193,29 +192,14 @@ async def backend_api_get_performance(
         PTS.get_portfolio_series(uid, start_date, end_date, user_token=jwt)
         )
         
-    # --- Cache-first fetch of index series --------------------------------
-    cache_slice = await index_cache_service.read_slice(uid, benchmark, start_date, end_date)
-    logger.info("📦 Cache: %s pts, stale=%s", cache_slice.total_points, cache_slice.is_stale)
-
-    # --- Rebuild stale / missing cache -----------------------------------
-    if cache_slice.is_stale or cache_slice.total_points == 0:
-        logger.info("🔄 Re-computing %s index series (%s-%s)…", benchmark, start_date, end_date)
-        sim_series: List[Tuple[date, Decimal]] = await ISS.get_index_sim_series(  # type: ignore[arg-type]
-            user_id=uid,
-            benchmark=benchmark,
-            start_date=start_date,
-            end_date=end_date,
-            user_token=jwt
-        )
-
-        # Fire-and-forget write-back – we don't await it.
-        asyncio.create_task(index_cache_service.write_bulk(uid, benchmark, sim_series))
-
-        index_series = sim_series
-        data_stale = False
-    else:
-        index_series = cache_slice.data
-        data_stale   = False if cache_slice.total_points else True
+    # --- Build index series fresh ---------------------------------------
+    index_series: List[Tuple[date, Decimal]] = await ISS.get_index_sim_series(  # type: ignore[arg-type]
+        user_id=uid,
+        benchmark=benchmark,
+        start_date=start_date,
+        end_date=end_date,
+        user_token=jwt
+    )
 
     # --- Await portfolio series ------------------------------------------
     portfolio_series: List[Tuple[date, Any]] = await portfolio_task  # values may be float or Decimal
@@ -251,6 +235,17 @@ async def backend_api_get_performance(
     ]
     logger.info("✅ Index series converted to Decimal - %d points processed", len(index_series_dec))
 
+    # --- Normalise index series to match portfolio start value ---------
+    if portfolio_series_dec and index_series_dec and index_series_dec[0][1] != 0:
+        scale_factor = portfolio_series_dec[0][1] / index_series_dec[0][1]
+        index_series_dec = [
+            (d, v * scale_factor) for d, v in index_series_dec
+        ]
+        logger.info(
+            "🔧 Normalised index series by factor %.6f to match start value",
+            float(scale_factor),
+        )
+
     # --- Format & compute metrics ----------------------------------------
     logger.info("🔧 Formatting series for response...")
     logger.debug("📊 Portfolio series range: %s to %s", 
@@ -275,8 +270,7 @@ async def backend_api_get_performance(
             "success": True,
             "period": period,
             "benchmark": benchmark,
-        "stale": data_stale,
-            "portfolio_performance": [
+        "portfolio_performance": [
             {"date": d, "total_value": v, "indexed_performance": 0}
             for d, v in zip(formatted["dates"], formatted["portfolio"])
             ],
@@ -288,7 +282,6 @@ async def backend_api_get_performance(
             **formatted["metadata"],
                 "benchmark_name": benchmark,
             "calculation_timestamp": datetime.utcnow().isoformat(),
-            "cache_hit": not data_stale,
         },
         "performance_metrics": metrics,
     }

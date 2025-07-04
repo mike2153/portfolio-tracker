@@ -17,7 +17,6 @@ from supa_api.supa_api_transactions import (
     supa_api_delete_transaction
 )
 from supa_api.supa_api_portfolio import supa_api_calculate_portfolio
-from services.index_cache_service import index_cache_service
 
 logger = logging.getLogger(__name__)
 
@@ -222,17 +221,6 @@ async def backend_api_add_transaction(
         
         logger.info(f"🎉 [API_DEBUG] supa_api_add_transaction returned: {new_transaction}")
         
-        # CACHE INVALIDATION: Invalidate index cache for all benchmarks (non-blocking)
-        logger.info(f"🗑️ [CACHE_INVALIDATION] Invalidating index cache after transaction add...")
-        try:
-            cache_invalidation_success = await index_cache_service.invalidate_async(
-                user_id=user["id"],
-                benchmarks=['SPY', 'QQQ', 'A200', 'URTH', 'VTI', 'VXUS']
-            )
-            logger.info(f"🗑️ [CACHE_INVALIDATION] Cache invalidation result: {cache_invalidation_success}")
-        except Exception as cache_error:
-            # Cache invalidation failure should not block transaction success
-            logger.error(f"⚠️ [CACHE_INVALIDATION] Cache invalidation failed (non-blocking): {cache_error}")
         
         logger.info(f"🔥🔥🔥 [backend_api_portfolio.py::backend_api_add_transaction] === COMPREHENSIVE API DEBUG END (SUCCESS) ===")
         
@@ -280,17 +268,6 @@ async def backend_api_update_transaction(
             user_token=user_token
         )
         
-        # CACHE INVALIDATION: Invalidate index cache for all benchmarks (non-blocking)
-        logger.info(f"🗑️ [CACHE_INVALIDATION] Invalidating index cache after transaction update...")
-        try:
-            cache_invalidation_success = await index_cache_service.invalidate_async(
-                user_id=user["id"],
-                benchmarks=['SPY', 'QQQ', 'A200', 'URTH', 'VTI', 'VXUS']
-            )
-            logger.info(f"🗑️ [CACHE_INVALIDATION] Cache invalidation result: {cache_invalidation_success}")
-        except Exception as cache_error:
-            # Cache invalidation failure should not block transaction success
-            logger.error(f"⚠️ [CACHE_INVALIDATION] Cache invalidation failed (non-blocking): {cache_error}")
         
         return {
             "success": True,
@@ -329,17 +306,6 @@ async def backend_api_delete_transaction(
         )
         
         if success:
-            # CACHE INVALIDATION: Invalidate index cache for all benchmarks (non-blocking)
-            logger.info(f"🗑️ [CACHE_INVALIDATION] Invalidating index cache after transaction delete...")
-            try:
-                cache_invalidation_success = await index_cache_service.invalidate_async(
-                    user_id=user["id"],
-                    benchmarks=['SPY', 'QQQ', 'A200', 'URTH', 'VTI', 'VXUS']
-                )
-                logger.info(f"🗑️ [CACHE_INVALIDATION] Cache invalidation result: {cache_invalidation_success}")
-            except Exception as cache_error:
-                # Cache invalidation failure should not block transaction success
-                logger.error(f"⚠️ [CACHE_INVALIDATION] Cache invalidation failed (non-blocking): {cache_error}")
             
             return {
                 "success": True,
