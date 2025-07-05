@@ -424,8 +424,8 @@ export default function PortfolioChart({
                 mode: 'lines',
                 name: `${selectedBenchmark} Index`,
                 line: { color: '#10b981', width: 2 },
-                hovertemplate: `<b style="color: black">${selectedBenchmark}</b><br>` +
-                  '<span style="color: black">Date: %{x}<br>' +
+                hovertemplate: `<b style="color: black; font-family: Inter, sans-serif">${selectedBenchmark}</b><br>` +
+                  '<span style="color: black; font-family: Inter, sans-serif">Date: %{x}<br>' +
                   'Value: $%{y:,.2f}</span><br>' +
                   '<extra></extra>',
               }
@@ -591,8 +591,8 @@ export default function PortfolioChart({
                 width: 2 
               },
               hovertemplate: displayMode === 'value'
-                ? '<b>Portfolio</b><br>Date: %{x}<br>Value: %{y:$,.0f}<extra></extra>'
-                : '<b>Portfolio</b><br>Date: %{x}<br>Return: %{y:.2f}%<extra></extra>',
+                ? '<b style="color: black; font-family: Inter, sans-serif">Portfolio</b><br><span style="color: black; font-family: Inter, sans-serif">Date: %{x}<br>Value: %{y:$,.0f}</span><extra></extra>'
+                : '<b style="color: black; font-family: Inter, sans-serif">Portfolio</b><br><span style="color: black; font-family: Inter, sans-serif">Date: %{x}<br>Return: %{y:.2f}%</span><extra></extra>',
               visible: true  // Ensure portfolio line is always visible
             };
             
@@ -610,8 +610,8 @@ export default function PortfolioChart({
                 dash: 'dot'
               },
               hovertemplate: displayMode === 'value'
-                ? `<b>${selectedBenchmark}</b><br>Date: %{x}<br>Value: %{y:$,.0f}<extra></extra>`
-                : `<b>${selectedBenchmark}</b><br>Date: %{x}<br>Return: %{y:.2f}%<extra></extra>`,
+                ? `<b style="color: black; font-family: Inter, sans-serif">${selectedBenchmark}</b><br><span style="color: black; font-family: Inter, sans-serif">Date: %{x}<br>Value: %{y:$,.0f}</span><extra></extra>`
+                : `<b style="color: black; font-family: Inter, sans-serif">${selectedBenchmark}</b><br><span style="color: black; font-family: Inter, sans-serif">Date: %{x}<br>Return: %{y:.2f}%</span><extra></extra>`,
               visible: benchmarkData.length > 0  // Only show if benchmark data exists
             };
             
