@@ -424,9 +424,9 @@ export default function PortfolioChart({
                 mode: 'lines',
                 name: `${selectedBenchmark} Index`,
                 line: { color: '#10b981', width: 2 },
-                hovertemplate: `<b>${selectedBenchmark}</b><br>` +
-                  'Date: %{x}<br>' +
-                  'Value: $%{y:,.2f}<br>' +
+                hovertemplate: `<b style="color: black">${selectedBenchmark}</b><br>` +
+                  '<span style="color: black">Date: %{x}<br>' +
+                  'Value: $%{y:,.2f}</span><br>' +
                   '<extra></extra>',
               }
             ]}
