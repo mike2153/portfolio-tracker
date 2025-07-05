@@ -115,7 +115,6 @@ class E2ETestRunner {
     // Check if required files exist
     const requiredFiles = [
       'playwright.config.ts',
-      'tests/dashboard.spec.ts',
       'utils/test-data-seeder.ts'
     ];
 

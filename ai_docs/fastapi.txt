@@ -1,0 +1,3083 @@
+TITLE: Dockerfile for FastAPI Application
+DESCRIPTION: This Dockerfile outlines the steps to build a container image for a FastAPI application. It starts with a Python base image, sets a working directory, copies and installs Python dependencies, then copies the application code, and finally specifies the command to run the FastAPI application, including an option for proxy headers.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/deployment/docker.md#_snippet_0
+
+LANGUAGE: Dockerfile
+CODE:
+```
+FROM python:3.9
+
+WORKDIR /code
+
+COPY ./requirements.txt /code/requirements.txt
+
+RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
+
+COPY ./app /code/app
+
+CMD ["fastapi", "run", "app/main.py", "--port", "80"]
+
+# If running behind a proxy like Nginx or Traefik add --proxy-headers
+# CMD ["fastapi", "run", "app/main.py", "--port", "80", "--proxy-headers"]
+```
+
+----------------------------------------
+
+TITLE: Add String Length Validation with Query and Annotated (Recommended)
+DESCRIPTION: Shows the recommended way to add a `max_length` validation to an optional query parameter `q` by embedding `Query(max_length=50)` within `Annotated`. This approach maintains the default value `None` while applying validation rules.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/query-params-str-validations.md#_snippet_4
+
+LANGUAGE: Python
+CODE:
+```
+q: Annotated[str | None, Query(max_length=50)] = None
+```
+
+----------------------------------------
+
+TITLE: Implement Custom String Validation with Pydantic AfterValidator
+DESCRIPTION: This example demonstrates how to create a custom validator function using Pydantic's `AfterValidator` within `Annotated` to enforce specific string formats. It validates that an item ID starts with either 'isbn-' or 'imdb-'. This validation occurs after Pydantic's standard type validation, ensuring data integrity for incoming requests.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/query-params-str-validations.md#_snippet_21
+
+LANGUAGE: Python
+CODE:
+```
+from typing import Annotated
+from pydantic import AfterValidator
+from fastapi import FastAPI, Query
+import random
+
+app = FastAPI()
+
+def validate_item_id(v: str) -> str:
+    if not (v.startswith("isbn-") or v.startswith("imdb-")):
+        raise ValueError("Item ID must start with 'isbn-' or 'imdb-'")
+    return v
+
+ItemId = Annotated[str, AfterValidator(validate_item_id)]
+
+@app.get("/items/{item_id}")
+async def read_items(item_id: ItemId):
+    return {"item_id": item_id}
+
+@app.get("/items/")
+async def read_random_item(
+    item_id: ItemId | None = None,
+    name: str | None = None
+):
+    data = {
+        "imdb-tt0371724": "The Hitchhiker's Guide to the Galaxy",
+        "isbn-978-0345391803": "The Restaurant at the End of the Universe"
+    }
+    if item_id is None and name is None:
+        random_id, random_name = random.choice(list(data.items()))
+        return {"item_id": random_id, "name": random_name}
+    return {"item_id": item_id, "name": name}
+```
+
+----------------------------------------
+
+TITLE: FastAPI Query Parameter with Regular Expression Pattern Validation
+DESCRIPTION: Illustrates how to apply a regular expression pattern validation to a query parameter using `Query(pattern=...)` in FastAPI. This allows enforcing a specific string format or content for the parameter value based on a regex.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/query-params-str-validations.md#_snippet_12
+
+LANGUAGE: Python
+CODE:
+```
+q: Annotated[str | None, Query(pattern="^fixedquery$")] = None
+```
+
+----------------------------------------
+
+TITLE: Create a Basic FastAPI Application
+DESCRIPTION: This snippet demonstrates the simplest possible FastAPI application. It initializes a FastAPI instance and defines a root endpoint ('/') that returns a JSON message 'Hello World'. This serves as the foundation for building web APIs.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/first-steps.md#_snippet_0
+
+LANGUAGE: Python
+CODE:
+```
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.get("/")
+async def read_root():
+    return {"message": "Hello World"}
+```
+
+----------------------------------------
+
+TITLE: Console: Building a Docker Image
+DESCRIPTION: This command initiates the Docker image build process. It instructs Docker to use the Dockerfile located in the current directory (`.`) as the build context and tags the resulting image with the name `myimage` for easy identification and future reference.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/deployment/docker.md#_snippet_10
+
+LANGUAGE: console
+CODE:
+```
+docker build -t myimage .
+```
+
+----------------------------------------
+
+TITLE: FastAPI Endpoint: Create Hero with HeroCreate and Return HeroPublic
+DESCRIPTION: Illustrates a FastAPI endpoint that accepts a `HeroCreate` model in the request body for input validation, creates a corresponding database entry, and then uses `response_model=HeroPublic` to serialize and validate the output. This ensures the API returns a public-facing model while handling internal data from the creation model.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/sql-databases.md#_snippet_7
+
+LANGUAGE: APIDOC
+CODE:
+```
+Endpoint: POST /heroes/
+Request Body: HeroCreate
+Response Model: HeroPublic
+Behavior:
+  - Receives HeroCreate data.
+  - Creates a Hero table model (with database-generated ID).
+  - Returns the Hero table model, serialized and validated by HeroPublic.
+```
+
+----------------------------------------
+
+TITLE: Create Basic FastAPI Application with Asynchronous Endpoints
+DESCRIPTION: This Python code demonstrates defining a basic FastAPI application using `async def` for its GET endpoints, suitable for asynchronous operations. It includes a root path and an items path with parameters, mirroring the synchronous version but leveraging Python's async/await capabilities.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/index.md#_snippet_2
+
+LANGUAGE: Python
+CODE:
+```
+from typing import Union
+
+from fastapi import FastAPI
+
+app = FastAPI()
+
+
+@app.get("/")
+async def read_root():
+    return {"Hello": "World"}
+
+
+@app.get("/items/{item_id}")
+async def read_item(item_id: int, q: Union[str, None] = None):
+    return {"item_id": item_id, "q": q}
+```
+
+----------------------------------------
+
+TITLE: Dockerfile for FastAPI Application
+DESCRIPTION: A Dockerfile defining the steps to build a Docker image for a FastAPI application, including setting up the Python environment, copying requirements, installing dependencies, and copying the application code.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/deployment/docker.md#_snippet_4
+
+LANGUAGE: Dockerfile
+CODE:
+```
+FROM python:3.9
+
+WORKDIR /code
+
+COPY ./requirements.txt /code/requirements.txt
+
+RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
+
+COPY ./app /code/app
+```
+
+----------------------------------------
+
+TITLE: Import Modules for Query Parameter Validation (Annotated Approach)
+DESCRIPTION: Shows the necessary imports for applying advanced validation to query parameters using FastAPI's `Query` and Python's `Annotated` from the `typing` module. These are essential for the recommended validation method.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/query-params-str-validations.md#_snippet_1
+
+LANGUAGE: Python
+CODE:
+```
+from typing import Annotated
+from fastapi import Query
+```
+
+----------------------------------------
+
+TITLE: Adding Min and Max Length Validation to Query Parameter in FastAPI
+DESCRIPTION: This snippet extends the previous example by adding a `min_length` validation of 3 characters to the 'q' query parameter, ensuring its value is between 3 and 50 characters long if provided.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/zh/docs/tutorial/query-params-str-validations.md#_snippet_3
+
+LANGUAGE: Python
+CODE:
+```
+from typing import Union
+
+from fastapi import FastAPI, Query
+
+app = FastAPI()
+
+
+@app.get("/items/")
+async def read_items(q: Union[str, None] = Query(default=None, min_length=3, max_length=50)):
+    return {"q": q}
+```
+
+----------------------------------------
+
+TITLE: Declare Required Query Parameters in FastAPI
+DESCRIPTION: Explains how to make a query parameter mandatory by not assigning a default value. FastAPI will automatically return a validation error if a required parameter is missing from the request.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/query-params.md#_snippet_4
+
+LANGUAGE: python
+CODE:
+```
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.get("/items/{item_id}")
+async def read_user_item(item_id: str, needy: str):
+    item = {"item_id": item_id, "needy": needy}
+    return item
+```
+
+----------------------------------------
+
+TITLE: Old Method: Define Optional Query Parameter with Query and max_length
+DESCRIPTION: Demonstrates an older approach (pre-FastAPI 0.95.0) where `Query` is used directly as the default value of the parameter to define it as optional and apply `max_length` validation. This method replaces the explicit `None` default with the `Query` object.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/query-params-str-validations.md#_snippet_5
+
+LANGUAGE: Python
+CODE:
+```
+q: str | None = Query(max_length=50)
+```
+
+----------------------------------------
+
+TITLE: Marking Query Parameter as Deprecated in FastAPI
+DESCRIPTION: This snippet shows how to mark a query parameter as `deprecated` using `Query(deprecated=True)`. This signals to API consumers, via the OpenAPI documentation, that the parameter is outdated and should no longer be used, while still supporting existing clients.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/zh/docs/tutorial/query-params-str-validations.md#_snippet_14
+
+LANGUAGE: Python
+CODE:
+```
+from typing import Union
+
+from fastapi import FastAPI, Query
+
+app = FastAPI()
+
+
+@app.get("/items/")
+async def read_items(
+    q: Union[str, None] = Query(
+        default=None,
+        alias="item-query",
+        title="Query string",
+        description="Query string for the items to search in the database that has a minimum length of 3 and maximum length of 50",
+        min_length=3,
+        max_length=50,
+        deprecated=True,
+    )
+):
+    return {"q": q}
+```
+
+----------------------------------------
+
+TITLE: Old Method: Make Parameter Optional with Query(default=None)
+DESCRIPTION: Explains how to explicitly make a query parameter optional using `Query(default=None)` as its default value. This serves the same purpose as `None` but explicitly marks it as a query parameter for FastAPI.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/query-params-str-validations.md#_snippet_6
+
+LANGUAGE: Python
+CODE:
+```
+q: str | None = Query(default=None)
+```
+
+----------------------------------------
+
+TITLE: Old Method: Optional Parameter with Query(default=None, max_length=50)
+DESCRIPTION: Combines making a parameter optional with `Query(default=None)` and adding string length validation using `max_length=50` within the same `Query` object. This is the older way to achieve optionality and validation simultaneously.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/query-params-str-validations.md#_snippet_7
+
+LANGUAGE: Python
+CODE:
+```
+q: str | None = Query(default=None, max_length=50)
+```
+
+----------------------------------------
+
+TITLE: Run FastAPI Development Server
+DESCRIPTION: This command starts the FastAPI development server using `fastapi dev`. It automatically detects changes in the specified Python file (`main.py`) and reloads the application, making development efficient. The server typically runs on `http://127.0.0.1:8000`.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/first-steps.md#_snippet_1
+
+LANGUAGE: Console
+CODE:
+```
+fastapi dev main.py
+```
+
+----------------------------------------
+
+TITLE: Recommended Dockerfile CMD Exec Form for FastAPI
+DESCRIPTION: This snippet demonstrates the recommended 'exec' form for the `CMD` instruction in a Dockerfile. Using this array-based syntax ensures that the command is executed directly by the operating system, allowing for proper signal handling and graceful shutdown of the FastAPI application, which is critical for container orchestration and lifespan events.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/deployment/docker.md#_snippet_5
+
+LANGUAGE: Dockerfile
+CODE:
+```
+CMD ["fastapi", "run", "app/main.py", "--port", "80"]
+```
+
+----------------------------------------
+
+TITLE: Creating a SQLModel Database Engine for SQLite
+DESCRIPTION: Initializes the SQLModel engine to connect to a SQLite database file named 'database.db'. The `check_same_thread=False` argument is crucial for allowing FastAPI to use the same SQLite database across different threads, which can occur during request processing.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/zh/docs/tutorial/sql-databases.md#_snippet_2
+
+LANGUAGE: python
+CODE:
+```
+from sqlmodel import create_engine
+
+sqlite_file_name = "database.db"
+sqlite_url = f"sqlite:///{sqlite_file_name}"
+
+engine = create_engine(sqlite_url, echo=True, connect_args={"check_same_thread": False})
+```
+
+----------------------------------------
+
+TITLE: Declare FastAPI Path Parameter with Enum Type Hint
+DESCRIPTION: Shows how to declare a path parameter in a FastAPI path operation function, using the previously defined `Enum` class (`ModelName`) as its type annotation. FastAPI automatically validates the input against the enum's predefined values.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/path-params.md#_snippet_3
+
+LANGUAGE: Python
+CODE:
+```
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.get("/models/{model_name}")
+async def get_model(model_name: ModelName):
+    # ... function logic ...
+    pass
+```
+
+----------------------------------------
+
+TITLE: Install python-multipart for File Uploads
+DESCRIPTION: Before handling file uploads in FastAPI, the `python-multipart` library must be installed. This command installs the necessary dependency for processing form data, which is how uploaded files are typically sent.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/request-files.md#_snippet_0
+
+LANGUAGE: console
+CODE:
+```
+$ pip install python-multipart
+```
+
+----------------------------------------
+
+TITLE: Import File and Form from FastAPI
+DESCRIPTION: Before using `File` and `Form` to define parameters for file uploads and form data, these classes must be imported from the `fastapi` library.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/request-forms-and-files.md#_snippet_1
+
+LANGUAGE: python
+CODE:
+```
+from fastapi import File, Form
+```
+
+----------------------------------------
+
+TITLE: Import File and UploadFile from FastAPI
+DESCRIPTION: To enable file upload handling in FastAPI, import the `File` and `UploadFile` classes from the `fastapi` module. `File` is used to declare file parameters, while `UploadFile` provides a more robust and efficient way to handle larger files.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/request-files.md#_snippet_1
+
+LANGUAGE: python
+CODE:
+```
+from fastapi import File, UploadFile
+```
+
+----------------------------------------
+
+TITLE: Define File Parameters using UploadFile
+DESCRIPTION: For handling larger files efficiently, define file parameters with `UploadFile`. This class uses a 'spooled' temporary file, storing content in memory up to a limit before writing to disk, and provides metadata and an async file-like interface.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/request-files.md#_snippet_3
+
+LANGUAGE: python
+CODE:
+```
+from fastapi import FastAPI, UploadFile
+
+app = FastAPI()
+
+@app.post("/uploadfile_uploadfile/")
+async def create_upload_file_uploadfile(file: UploadFile):
+    # You can access attributes like file.filename, file.content_type
+    # And async methods like await file.read()
+    return {"filename": file.filename, "content_type": file.content_type}
+```
+
+----------------------------------------
+
+TITLE: Deprecated FastAPI Query Parameter with Regex Validation (Pydantic v1)
+DESCRIPTION: Shows the deprecated `regex` parameter for regular expression validation in `Query` from Pydantic v1. This parameter has been replaced by `pattern` in newer versions of Pydantic and FastAPI, and its use is discouraged.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/query-params-str-validations.md#_snippet_13
+
+LANGUAGE: Python
+CODE:
+```
+q: Annotated[str | None, Query(regex="^fixedquery$")] = None
+```
+
+----------------------------------------
+
+TITLE: Define FastAPI Path Operation Description from Docstring
+DESCRIPTION: Leverage Python function docstrings to provide a multi-line description for your path operations. FastAPI automatically extracts and renders this docstring content, including Markdown, in the interactive API documentation.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/path-operation-configuration.md#_snippet_4
+
+LANGUAGE: Python
+CODE:
+```
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.post("/items/")
+async def create_item(name: str):
+    """
+    Create an item with all the information, name, description, price, and tax.
+
+    This is a long description that spans multiple lines.
+    It can also contain **Markdown** formatting.
+    """
+    return {"name": name}
+```
+
+----------------------------------------
+
+TITLE: Install `email-validator` for Pydantic Email Validation
+DESCRIPTION: These console commands show how to install the `email-validator` package, which is required by Pydantic's `EmailStr` type for robust email format validation. Users can choose between installing the package directly or via Pydantic's extra dependencies.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/response-model.md#_snippet_4
+
+LANGUAGE: Console
+CODE:
+```
+$ pip install email-validator
+```
+
+LANGUAGE: Console
+CODE:
+```
+$ pip install "pydantic[email]"
+```
+
+----------------------------------------
+
+TITLE: Define Pydantic Models for Data Validation in Python
+DESCRIPTION: Demonstrates how to declare data models using Pydantic classes and standard Python type hints. These models validate input data, convert types, and provide structured objects with editor support. Examples are provided for Python 3.8+, 3.9+, and 3.10+.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/python-types.md#_snippet_12
+
+LANGUAGE: Python 3.10+
+CODE:
+```
+{!> ../../docs_src/python_types/tutorial011_py310.py!}
+```
+
+LANGUAGE: Python 3.9+
+CODE:
+```
+{!> ../../docs_src/python_types/tutorial011_py39.py!}
+```
+
+LANGUAGE: Python 3.8+
+CODE:
+```
+{!> ../../docs_src/python_types/tutorial011.py!}
+```
+
+----------------------------------------
+
+TITLE: Combine Body Parameters with Query Parameters
+DESCRIPTION: Shows how to declare both multiple body parameters (Pydantic models) and additional query parameters within the same FastAPI path operation function. Singular values without `Body` are automatically treated as query parameters.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/body-multiple-params.md#_snippet_3
+
+LANGUAGE: python
+CODE:
+```
+from typing import Union
+from fastapi import FastAPI, Body
+from pydantic import BaseModel
+
+app = FastAPI()
+
+class Item(BaseModel):
+    name: str
+    description: Union[str, None] = None
+    price: float
+    tax: Union[float, None] = None
+
+class User(BaseModel):
+    username: str
+    full_name: Union[str, None] = None
+
+@app.put("/items/{item_id}")
+async def update_item(
+    item_id: int,
+    item: Item,
+    user: User,
+    importance: int = Body(),
+    q: Union[str, None] = None
+):
+    """
+    Updates an item and user, includes importance in body, and accepts an optional query parameter 'q'.
+    """
+    results = {"item_id": item_id, "item": item.dict(), "user": user.dict(), "importance": importance}
+    if q:
+        results.update({"q": q})
+    return results
+```
+
+----------------------------------------
+
+TITLE: Raise HTTPException for Client Errors in FastAPI
+DESCRIPTION: Demonstrates how to raise an `HTTPException` within a FastAPI path operation to return specific HTTP status codes and detail messages to the client, such as a 404 Not Found error. This example includes the necessary `FastAPI` app setup and `HTTPException` import.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/handling-errors.md#_snippet_0
+
+LANGUAGE: Python
+CODE:
+```
+from fastapi import FastAPI, HTTPException
+
+app = FastAPI()
+
+items = {"foo": "The Foo Wrestlers"}
+
+@app.get("/items/{item_id}")
+async def read_item(item_id: str):
+    if item_id not in items:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return {"item": items[item_id]}
+```
+
+----------------------------------------
+
+TITLE: FastAPI Step 3: Define GET Path Operation
+DESCRIPTION: This snippet demonstrates how to define a path operation using the `@app.get()` decorator. This decorator associates the following asynchronous function with the root path (`/`) and the HTTP GET method, making it handle incoming GET requests to that URL.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/first-steps.md#_snippet_8
+
+LANGUAGE: Python
+CODE:
+```
+@app.get("/")
+async def read_root():
+    return {"Hello": "World"}
+```
+
+----------------------------------------
+
+TITLE: Dockerfile for FastAPI with Multiple Uvicorn Workers
+DESCRIPTION: This Dockerfile demonstrates how to build a container image for a FastAPI application that runs multiple Uvicorn worker processes inside a single container. This approach is typically used in special cases, such as deploying to a single server with Docker Compose, where cluster-level replication is not easily managed. The `--workers` command-line option is used to specify the number of Uvicorn processes.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/deployment/docker.md#_snippet_15
+
+LANGUAGE: dockerfile
+CODE:
+```
+FROM python:3.9
+
+WORKDIR /code
+
+COPY ./requirements.txt /code/requirements.txt
+
+RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
+
+COPY ./app /code/app
+
+CMD ["fastapi", "run", "app/main.py", "--port", "80", "--workers", "4"]
+```
+
+----------------------------------------
+
+TITLE: Define HeroCreate Data Model for Hero Creation
+DESCRIPTION: Defines the `HeroCreate` Pydantic model, used for validating input data when creating a new hero. It includes `name`, `age`, and `secret_name`. This model allows clients to send sensitive data like `secret_name` for storage, but this data is not returned by the API in public responses.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/sql-databases.md#_snippet_5
+
+LANGUAGE: APIDOC
+CODE:
+```
+HeroCreate:
+  name: str
+  age: Optional[int]
+  secret_name: str
+```
+
+----------------------------------------
+
+TITLE: Declaring a Required FastAPI Query Parameter That Can Be None
+DESCRIPTION: Shows how to declare a query parameter as required, meaning it must be sent by the client, but also allowing its value to be `None`. This is done by including `None` in the type hint and omitting a default value, forcing explicit `null` or `None` submission.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/query-params-str-validations.md#_snippet_17
+
+LANGUAGE: Python
+CODE:
+```
+q: Annotated[str | None, Query()]
+```
+
+----------------------------------------
+
+TITLE: Incorrect Default Value Usage with FastAPI Annotated Query
+DESCRIPTION: Demonstrates an incorrect way to define a default value for a query parameter when using `Annotated` with `Query`. This approach creates ambiguity because both `Query(default=...)` and the function parameter's default are specified, leading to unclear intent.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/query-params-str-validations.md#_snippet_8
+
+LANGUAGE: Python
+CODE:
+```
+q: Annotated[str, Query(default="rick")] = "morty"
+```
+
+----------------------------------------
+
+TITLE: Wrap Optional Type with Annotated
+DESCRIPTION: Illustrates how to wrap an optional string type annotation with `Annotated` to prepare for adding metadata or validation. This is a preparatory step for integrating FastAPI's `Query` validation, shown for both Python 3.10+ and 3.8+.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/query-params-str-validations.md#_snippet_3
+
+LANGUAGE: Python 3.10+
+CODE:
+```
+q: Annotated[str | None] = None
+```
+
+LANGUAGE: Python 3.8+
+CODE:
+```
+q: Annotated[Union[str, None]] = None
+```
+
+----------------------------------------
+
+TITLE: FastAPI Parameter Validation and Metadata Options
+DESCRIPTION: This section summarizes the various validation and metadata options available for parameters in FastAPI, allowing developers to define constraints and provide additional information for API documentation. It includes generic options applicable to any type and specific string validations, along with the use of `AfterValidator` for custom logic.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/query-params-str-validations.md#_snippet_24
+
+LANGUAGE: APIDOC
+CODE:
+```
+Generic Validations & Metadata:
+  - alias: str (Alternative name for the parameter in the request)
+  - title: str (Human-readable title for the parameter in documentation)
+  - description: str (Detailed description of the parameter's purpose)
+  - deprecated: bool (Indicates if the parameter is deprecated, affecting documentation)
+
+String-Specific Validations:
+  - min_length: int (Minimum length allowed for string values)
+  - max_length: int (Maximum length allowed for string values)
+  - pattern: str (Regular expression pattern that the string value must match)
+
+Custom Validations:
+  - AfterValidator: function (Applies a custom validation function after standard Pydantic validation)
+```
+
+----------------------------------------
+
+TITLE: Import FastAPI Application as a Module
+DESCRIPTION: This Python import statement illustrates how a FastAPI application (e.g., `app` from `myapp.py`) can be imported into another Python file. When imported, the `if __name__ == "__main__":` block in the original file is not executed, preventing unintended server startup or side effects.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/debugging.md#_snippet_1
+
+LANGUAGE: Python
+CODE:
+```
+from myapp import app
+```
+
+----------------------------------------
+
+TITLE: Integrate OAuth2PasswordBearer into Path Operation
+DESCRIPTION: This snippet demonstrates how to use the `oauth2_scheme` instance as a dependency in a FastAPI path operation. When this dependency is used, FastAPI automatically extracts the bearer token from the `Authorization` header, making it available as a string parameter, and handles `401 Unauthorized` responses if the token is missing or invalid.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/security/first-steps.md#_snippet_4
+
+LANGUAGE: Python
+CODE:
+```
+from fastapi import Depends, FastAPI
+from fastapi.security import OAuth2PasswordBearer
+
+app = FastAPI()
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+@app.get("/items/")
+async def read_items(token: str = Depends(oauth2_scheme)):
+    return {"token": token}
+```
+
+----------------------------------------
+
+TITLE: Mark FastAPI Path Operations as Deprecated
+DESCRIPTION: Indicate that a path operation is deprecated without removing it from the API. Setting `deprecated=True` will mark the endpoint as obsolete in the interactive documentation, signaling users to transition to newer alternatives.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/path-operation-configuration.md#_snippet_6
+
+LANGUAGE: Python
+CODE:
+```
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.get("/items/", deprecated=True)
+async def read_items():
+    return [{"item_id": "Foo"}]
+```
+
+----------------------------------------
+
+TITLE: FastAPI Step 2: Create Application Instance
+DESCRIPTION: After importing, an instance of the `FastAPI` class is created, typically assigned to a variable named `app`. This `app` instance is the central object used to define all API routes and operations.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/first-steps.md#_snippet_7
+
+LANGUAGE: Python
+CODE:
+```
+app = FastAPI()
+```
+
+----------------------------------------
+
+TITLE: Share Annotated Dependencies in FastAPI
+DESCRIPTION: This Python snippet demonstrates how to create a reusable type alias for a FastAPI dependency using `Annotated` and `Depends`. This approach helps reduce code duplication across multiple path operations and preserves type information, which enhances editor autocompletion, inline error detection, and static analysis tools like `mypy`.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/dependencies/index.md#_snippet_3
+
+LANGUAGE: Python
+CODE:
+```
+commons: Annotated[dict, Depends(common_parameters)]
+```
+
+----------------------------------------
+
+TITLE: JSON Response for Query Parameter List with Defaults
+DESCRIPTION: This JSON snippet illustrates the response when a query parameter 'q' is defined to accept a list of values and has a default list provided, which is used if no values are specified in the URL.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/query-params-str-validations.md#_snippet_19
+
+LANGUAGE: JSON
+CODE:
+```
+{
+  "q": [
+    "foo",
+    "bar"
+  ]
+}
+```
+
+----------------------------------------
+
+TITLE: FastAPI Route with Custom HTTP Status Code
+DESCRIPTION: Illustrates how to define a FastAPI GET route (`/items/`) and explicitly set its HTTP response status code using a named constant from the `fastapi.status` module, such as `status.HTTP_418_IM_A_TEAPOT`.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/reference/status.md#_snippet_1
+
+LANGUAGE: python
+CODE:
+```
+from fastapi import FastAPI, status
+
+app = FastAPI()
+
+
+@app.get("/items/", status_code=status.HTTP_418_IM_A_TEAPOT)
+def read_items():
+    return [{"name": "Plumbus"}, {"name": "Portal Gun"}]
+```
+
+----------------------------------------
+
+TITLE: Set Response Headers using a Response Parameter in FastAPI
+DESCRIPTION: Demonstrates how to inject a `Response` object as a parameter into a FastAPI path operation function. Headers can then be set on this `response` object before returning any standard Python object, allowing FastAPI to merge these headers into the final HTTP response.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/advanced/response-headers.md#_snippet_0
+
+LANGUAGE: Python
+CODE:
+```
+from fastapi import FastAPI, Response
+
+app = FastAPI()
+
+@app.get("/items/")
+async def read_items(response: Response):
+    # Set a custom header
+    response.headers["X-My-Custom-Header"] = "FastAPI-Is-Awesome"
+    return {"message": "Headers set via Response parameter"}
+```
+
+----------------------------------------
+
+TITLE: FastAPI Step 1: Import FastAPI Class
+DESCRIPTION: The first step in building a FastAPI application is to import the `FastAPI` class from the `fastapi` library. This class provides the core functionality for defining your API.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/first-steps.md#_snippet_6
+
+LANGUAGE: Python
+CODE:
+```
+from fastapi import FastAPI
+```
+
+----------------------------------------
+
+TITLE: Declare Scopes in FastAPI Path Operations and Dependencies
+DESCRIPTION: This snippet demonstrates how to use `Security` from `fastapi` to declare required scopes for a path operation (`/users/me/items/`) and a sub-dependency (`get_current_active_user`). It shows how `Security` accepts a list of scope strings, similar to `Depends`, enabling hierarchical scope requirements.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/advanced/security/oauth2-scopes.md#_snippet_0
+
+LANGUAGE: Python
+CODE:
+```
+from typing import Annotated
+from fastapi import FastAPI, Security, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer, SecurityScopes
+
+# Assume these are defined elsewhere for context
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+class User:
+    def __init__(self, username: str, scopes: list[str]):
+        self.username = username
+        self.scopes = scopes
+
+class TokenData:
+    def __init__(self, username: str, scopes: list[str]):
+        self.username = username
+        self.scopes = scopes
+
+# Placeholder for actual user retrieval and token validation (detailed later)
+async def get_current_user(security_scopes: SecurityScopes, token: Annotated[str, Depends(oauth2_scheme)]):
+    if token == "valid_token_with_items_scope":
+        return User(username="john_doe", scopes=["items", "me"])
+    elif token == "valid_token_with_me_scope":
+        return User(username="jane_doe", scopes=["me"])
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid authentication credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+async def get_current_active_user(
+    security_scopes: SecurityScopes,
+    current_user: Annotated[User, Security(get_current_user, scopes=["me"])]
+):
+    # This dependency requires the "me" scope
+    return current_user
+
+app = FastAPI()
+
+@app.get("/users/me/items/")
+async def read_own_items(
+    current_user: Annotated[User, Security(get_current_active_user, scopes=["items"])]
+):
+    # This path operation requires the "items" scope
+    return {"message": f"Hello {current_user.username}, here are your items!"}
+```
+
+----------------------------------------
+
+TITLE: Define Synchronous GET Path Operation in FastAPI
+DESCRIPTION: This snippet shows an alternative way to define a path operation function using a standard Python `def` (synchronous) for a GET request to the root path ('/'). FastAPI supports both synchronous and asynchronous functions, and this example returns a simple JSON message.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/first-steps.md#_snippet_10
+
+LANGUAGE: Python
+CODE:
+```
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.get("/")
+def root():
+    return {"message": "Hello World"}
+```
+
+----------------------------------------
+
+TITLE: Verifying ReDoc Static File Serving - JavaScript
+DESCRIPTION: This JavaScript snippet shows the initial lines of the `redoc.standalone.js` file, confirming that the FastAPI application is successfully serving static JavaScript files from the configured directory. It validates the correct placement and accessibility of the documentation assets.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/how-to/custom-docs-ui-assets.md#_snippet_4
+
+LANGUAGE: JavaScript
+CODE:
+```
+/*! For license information please see redoc.standalone.js.LICENSE.txt */
+!function(e,t){"object"==typeof exports&&"object"==typeof module?module.exports=t(require("null")):
+...
+```
+
+----------------------------------------
+
+TITLE: Dockerfile: Leveraging Build Cache for Dependencies and Code
+DESCRIPTION: These Dockerfile instructions illustrate a critical caching strategy to accelerate Docker image builds. By copying `requirements.txt` and installing dependencies in separate layers before copying the main application code, Docker's build cache is effectively utilized. If the `requirements.txt` file remains unchanged, the dependency installation step can be reused from a previous build, significantly reducing build times. The application code, which changes frequently, is copied last to minimize cache invalidation.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/deployment/docker.md#_snippet_9
+
+LANGUAGE: Dockerfile
+CODE:
+```
+COPY ./requirements.txt /code/requirements.txt
+```
+
+LANGUAGE: Dockerfile
+CODE:
+```
+RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
+```
+
+LANGUAGE: Dockerfile
+CODE:
+```
+COPY ./app /code/app
+```
+
+----------------------------------------
+
+TITLE: Uvicorn Server Running Output
+DESCRIPTION: This log line is typically displayed in the console when the FastAPI application starts successfully, indicating the local address (URL) where the Uvicorn server is running and serving the application.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/first-steps.md#_snippet_2
+
+LANGUAGE: Console
+CODE:
+```
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+```
+
+----------------------------------------
+
+TITLE: FastAPI Path Operation Filtering with response_model
+DESCRIPTION: Demonstrates a FastAPI path operation where the `response_model` parameter is explicitly set to `UserOut`. Even if the function returns a `UserIn` object (which contains a password), FastAPI automatically filters the response to match the `UserOut` schema, excluding the password.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/response-model.md#_snippet_6
+
+LANGUAGE: Python
+CODE:
+```
+from fastapi import FastAPI
+from typing import Optional
+from pydantic import BaseModel
+
+app = FastAPI()
+
+# Assuming UserIn and UserOut are defined as in the previous snippet
+class UserIn(BaseModel):
+    username: str
+    password: str
+    email: Optional[str] = None
+
+class UserOut(BaseModel):
+    username: str
+    email: Optional[str] = None
+
+@app.post("/users/", response_model=UserOut) # hl[22]
+async def create_user(user_in: UserIn):
+    # In a real app, you would hash the password
+    # and save the user to a database
+    print(f"User received: {user_in.username}, password: {user_in.password}")
+    return user_in # hl[24] - This returns UserIn, but response_model filters it
+```
+
+----------------------------------------
+
+TITLE: Defining a SQLModel Hero Table Model in Python
+DESCRIPTION: Defines the `Hero` class as a SQLModel table, mapping it to a database table. It specifies fields like `id` (primary key), `name` (indexed), `secret_name`, and `age` (indexed), inheriting from `SQLModel` and using `Field` for database column configuration.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/zh/docs/tutorial/sql-databases.md#_snippet_1
+
+LANGUAGE: python
+CODE:
+```
+from typing import Optional
+
+from sqlmodel import Field, SQLModel
+
+
+class Hero(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str = Field(index=True)
+    secret_name: str
+    age: Optional[int] = Field(default=None, index=True)
+```
+
+----------------------------------------
+
+TITLE: Declare Path Parameter Metadata with Title
+DESCRIPTION: This example illustrates how to add descriptive metadata, such as a title, to a path parameter using `Path` and `Annotated`. This metadata is valuable for generating more informative API documentation.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/path-params-numeric-validations.md#_snippet_1
+
+LANGUAGE: Python
+CODE:
+```
+async def read_items(item_id: Annotated[int, Path(title="The ID of the item to get")]):
+```
+
+----------------------------------------
+
+TITLE: Set HTTP Status Code in FastAPI Path Operation
+DESCRIPTION: Demonstrates how to explicitly set the HTTP response status code for a FastAPI path operation using the `status_code` parameter in the decorator. This example sets the status to 201 (Created) for a POST request.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/response-status-code.md#_snippet_0
+
+LANGUAGE: Python
+CODE:
+```
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.post("/items/", status_code=201)
+async def create_item():
+    return {"message": "Item created successfully"}
+```
+
+----------------------------------------
+
+TITLE: FastAPI Repetitive Dependency Declaration
+DESCRIPTION: This snippet demonstrates the common, more verbose way of declaring a dependency in FastAPI where the class name (`CommonQueryParams`) is repeated inside the `Depends()` function, leading to code repetition.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/dependencies/classes-as-dependencies.md#_snippet_8
+
+LANGUAGE: Python 3.8+ (Annotated)
+CODE:
+```
+commons: Annotated[CommonQueryParams, Depends(CommonQueryParams)]
+```
+
+LANGUAGE: Python 3.8+ (non-Annotated)
+CODE:
+```
+commons: CommonQueryParams = Depends(CommonQueryParams)
+```
+
+----------------------------------------
+
+TITLE: Minimal FastAPI Dependency Declaration (Python 3.8+ Non-Annotated)
+DESCRIPTION: Shows a minimal dependency declaration without explicit type hinting. FastAPI will still resolve the dependency via `Depends()`, but this approach reduces the benefits of editor support for type checking and auto-completion.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/dependencies/classes-as-dependencies.md#_snippet_7
+
+LANGUAGE: Python
+CODE:
+```
+commons = Depends(CommonQueryParams)
+```
+
+----------------------------------------
+
+TITLE: FastAPI Query Parameter Type Conversion to Boolean
+DESCRIPTION: Illustrates how FastAPI automatically converts various string representations (e.g., '1', 'True', 'yes', 'on') into a boolean type for query parameters, simplifying input handling.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/query-params.md#_snippet_2
+
+LANGUAGE: python
+CODE:
+```
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.get("/items/{item_id}")
+async def read_item(item_id: str, short: bool = False):
+    if short:
+        return {"item_id": item_id, "description": "This is an amazing item that has a short description."}
+    return {"item_id": item_id, "description": "This is an amazing item that has a long description."}
+```
+
+----------------------------------------
+
+TITLE: Declare Pydantic Model as FastAPI Path Operation Parameter
+DESCRIPTION: Demonstrates how to declare a Pydantic model (`Item`) as a parameter in a FastAPI path operation function. FastAPI automatically reads the request body as JSON and validates it against this model.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/body.md#_snippet_4
+
+LANGUAGE: python
+CODE:
+```
+async def create_item(item: Item):
+```
+
+----------------------------------------
+
+TITLE: Disable Separate Input/Output Schemas in FastAPI
+DESCRIPTION: Shows how to configure the FastAPI application to disable the automatic generation of separate OpenAPI schemas for input and output models. Setting `separate_input_output_schemas=False` forces a single schema for both, mimicking Pydantic v1's behavior.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/how-to/separate-openapi-schemas.md#_snippet_3
+
+LANGUAGE: python
+CODE:
+```
+from typing import Optional
+from pydantic import BaseModel
+from fastapi import FastAPI
+
+app = FastAPI(separate_input_output_schemas=False)
+
+class Item(BaseModel):
+    name: str
+    description: Optional[str] = None
+
+@app.post("/items/")
+async def create_item(item: Item):
+    return item
+
+@app.get("/items/{item_id}", response_model=Item)
+async def get_item_output(item_id: int):
+    return {"name": "Item Two"}
+```
+
+----------------------------------------
+
+TITLE: FastAPI Path Operation with Async Def and Await
+DESCRIPTION: Demonstrates how to declare a FastAPI path operation function using `async def` when the function needs to `await` the result of a third-party library call. This is suitable for I/O-bound operations that support asynchronous execution.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/async.md#_snippet_0
+
+LANGUAGE: Python
+CODE:
+```
+@app.get('/')
+async def read_results():
+    results = await some_library()
+    return results
+```
+
+----------------------------------------
+
+TITLE: Define a Reusable FastAPI Dependency Function
+DESCRIPTION: This Python function, `common_parameters`, serves as a reusable dependency. It accepts optional query parameters `q` (string), `skip` (integer, default 0), and `limit` (integer, default 100), returning them as a dictionary. This pattern allows for centralized parameter handling and data validation across multiple path operations.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/dependencies/index.md#_snippet_0
+
+LANGUAGE: Python
+CODE:
+```
+async def common_parameters(q: str | None = None, skip: int = 0, limit: int = 100):
+    return {"q": q, "skip": skip, "limit": limit}
+```
+
+----------------------------------------
+
+TITLE: Declare OpenAPI-Specific Examples with openapi_examples
+DESCRIPTION: Explains how to use the `openapi_examples` parameter in FastAPI's dependency functions (like `Body()`) to provide multiple, named examples that are directly supported and displayed by Swagger UI. Each example can include a `summary`, `description`, `value`, and `externalValue`.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/schema-extra-example.md#_snippet_4
+
+LANGUAGE: Python
+CODE:
+```
+from typing import Union
+
+from fastapi import Body, FastAPI
+from pydantic import BaseModel
+
+app = FastAPI()
+
+
+class Item(BaseModel):
+    name: str
+    description: Union[str, None] = None
+    price: float
+    tax: Union[float, None] = None
+
+
+@app.put("/items/{item_id}")
+async def update_item(
+    item_id: int,
+    item: Item = Body(
+        openapi_examples={
+            "normal": {
+                "summary": "A normal example",
+                "description": "A **normal** item working correctly.",
+                "value": {
+                    "name": "Foo",
+                    "description": "A very nice Item",
+                    "price": 35.4,
+                    "tax": 3.2,
+                },
+            },
+            "bad_name": {
+                "summary": "Bad name",
+                "description": "Has a name that is too long.",
+                "value": {
+                    "name": "Foobarwithalongname",
+                    "price": 35.4,
+                },
+            },
+            "long_description": {
+                "summary": "Long description",
+                "description": "This is an item with a long description that goes on for many lines.",
+                "value": {
+                    "name": "Baz",
+                    "price": 32.0,
+                    "description": "A very long description",
+                },
+            },
+        },
+    ),
+):
+    results = {"item_id": item_id, "item": item}
+    return results
+```
+
+----------------------------------------
+
+TITLE: Execute Python Application from Command Line
+DESCRIPTION: This command-line instruction demonstrates how to directly run a Python script. When executed this way, the `if __name__ == "__main__":` block within the script is triggered, allowing for direct server startup or other main execution logic.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/debugging.md#_snippet_0
+
+LANGUAGE: Shell
+CODE:
+```
+python myapp.py
+```
+
+----------------------------------------
+
+TITLE: Import FastAPI's Depends for Dependency Declaration
+DESCRIPTION: This snippet shows the essential import statement for `Depends` from the `fastapi` library. `Depends` is a special utility used within path operation parameters to declare that a function or class is a dependency that FastAPI should resolve and inject.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/dependencies/index.md#_snippet_1
+
+LANGUAGE: Python
+CODE:
+```
+from fastapi import Depends
+```
+
+----------------------------------------
+
+TITLE: FastAPI Dependency with Try-Finally for Exception Handling
+DESCRIPTION: This example demonstrates how to incorporate `try` and `finally` blocks within a FastAPI dependency that uses `yield`. The `try` block allows for catching exceptions that might occur during the dependency's usage, while `finally` ensures that cleanup code (like closing a database connection) is always executed, regardless of whether an exception was raised.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/dependencies/dependencies-with-yield.md#_snippet_3
+
+LANGUAGE: Python
+CODE:
+```
+from sqlalchemy.orm import Session
+from .database import SessionLocal
+
+def get_db_with_try_finally():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+```
+
+----------------------------------------
+
+TITLE: Define a Set Field for Unique Items
+DESCRIPTION: Explains how to declare a field as a Python `set` within a Pydantic model. This ensures that the field will store only unique items, automatically handling duplicates during data conversion and validation for efficient data management.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/body-nested-models.md#_snippet_3
+
+LANGUAGE: Python
+CODE:
+```
+tags: set[str]
+```
+
+----------------------------------------
+
+TITLE: Visualize FastAPI Hierarchical Dependencies
+DESCRIPTION: This Mermaid graph illustrates how FastAPI's hierarchical dependency injection can be used to manage different permission requirements for various API endpoints. It shows a tree structure where dependencies like 'current_user', 'active_user', 'admin_user', and 'paying_user' are linked to specific path operations, demonstrating how sub-dependencies are resolved.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/dependencies/index.md#_snippet_4
+
+LANGUAGE: mermaid
+CODE:
+```
+graph TB
+
+current_user(["current_user"])
+active_user(["active_user"])
+admin_user(["admin_user"])
+paying_user(["paying_user"])
+
+public["/items/public/"]
+private["/items/private/"]
+activate_user["/users/{user_id}/activate"]
+pro_items["/items/pro/"]
+
+current_user --> active_user
+active_user --> admin_user
+active_user --> paying_user
+
+current_user --> public
+active_user --> private
+admin_user --> activate_user
+paying_user --> pro_items
+```
+
+----------------------------------------
+
+TITLE: Using Alias for Query Parameter Name in FastAPI
+DESCRIPTION: This snippet demonstrates how to use the `alias` parameter in `Query` to map a URL query parameter name (e.g., `item-query`) to a different, valid Python variable name (e.g., `item_query`). This allows for flexible URL naming while maintaining Pythonic code.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/zh/docs/tutorial/query-params-str-validations.md#_snippet_13
+
+LANGUAGE: Python
+CODE:
+```
+from typing import Union
+
+from fastapi import FastAPI, Query
+
+app = FastAPI()
+
+
+@app.get("/items/")
+async def read_items(item_query: Union[str, None] = Query(default=None, alias="item-query")):
+    return {"item_query": item_query}
+```
+
+----------------------------------------
+
+TITLE: APIRouter Class API Reference
+DESCRIPTION: Detailed API reference for the `APIRouter` class in FastAPI, listing its key methods and functionalities for handling various HTTP operations and lifecycle events.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/reference/apirouter.md#_snippet_1
+
+LANGUAGE: APIDOC
+CODE:
+```
+class fastapi.APIRouter:
+  # Methods:
+  websocket()
+  include_router()
+  get()
+  put()
+  post()
+  delete()
+  options()
+  head()
+  patch()
+  trace()
+  on_event()
+```
+
+----------------------------------------
+
+TITLE: Import Pydantic BaseModel
+DESCRIPTION: Imports the BaseModel class from the pydantic library, which is essential for defining data models in FastAPI.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/body.md#_snippet_0
+
+LANGUAGE: python
+CODE:
+```
+from pydantic import BaseModel
+```
+
+----------------------------------------
+
+TITLE: Python Dictionary Example: Data Matching Default Values
+DESCRIPTION: Shows a Python dictionary where explicit values match the model's defaults. FastAPI (via Pydantic) intelligently includes these fields in the response because they were explicitly set, not derived from defaults.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/response-model.md#_snippet_12
+
+LANGUAGE: Python
+CODE:
+```
+{
+    "name": "Baz",
+    "description": None,
+    "price": 50.2,
+    "tax": 10.5,
+    "tags": []
+}
+```
+
+----------------------------------------
+
+TITLE: Define a Pydantic Data Model for Request Body
+DESCRIPTION: Defines a Pydantic model named `Item` that inherits from `BaseModel`. This model specifies the structure and types of data expected in a request body, including optional fields using `None` or default values.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/body.md#_snippet_1
+
+LANGUAGE: python
+CODE:
+```
+class Item(BaseModel):
+    name: str
+    description: str | None = None
+    price: float
+    tax: float | None = None
+```
+
+----------------------------------------
+
+TITLE: Generate Custom OpenAPI Schema with get_openapi
+DESCRIPTION: Illustrates how to use FastAPI's `get_openapi` utility function to programmatically generate the OpenAPI schema for an application, allowing for custom modifications.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/how-to/extending-openapi.md#_snippet_2
+
+LANGUAGE: Python
+CODE:
+```
+from fastapi.openapi.utils import get_openapi
+
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    openapi_schema = get_openapi(
+        title="Custom FastAPI",
+        version="2.5.0",
+        routes=app.routes,
+    )
+    return openapi_schema
+```
+
+----------------------------------------
+
+TITLE: Read UploadFile Contents Asynchronously
+DESCRIPTION: When working within an `async` path operation function, the contents of an `UploadFile` can be read asynchronously using its `read()` method. This method should be `await`ed as it performs I/O operations.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/request-files.md#_snippet_5
+
+LANGUAGE: python
+CODE:
+```
+contents = await myfile.read()
+```
+
+----------------------------------------
+
+TITLE: Declare List with Type Parameter
+DESCRIPTION: Illustrates the syntax for declaring a list with a specific internal type (e.g., `list[str]`). It provides examples for both Python 3.9+ (using `list[str]`) and older versions (using `List[str]` from `typing`), and how to apply this to a Pydantic model field.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/body-nested-models.md#_snippet_2
+
+LANGUAGE: Python
+CODE:
+```
+my_list: list[str]
+```
+
+LANGUAGE: Python
+CODE:
+```
+from typing import List
+
+my_list: List[str]
+```
+
+LANGUAGE: Python
+CODE:
+```
+tags: list[str]
+```
+
+----------------------------------------
+
+TITLE: FastAPI Path Parameter Basic JSON Response
+DESCRIPTION: This snippet shows the JSON response returned by a FastAPI application when a path parameter is successfully processed without explicit type conversion, demonstrating the basic string value capture.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/path-params.md#_snippet_0
+
+LANGUAGE: JSON
+CODE:
+```
+{"item_id":"foo"}
+```
+
+----------------------------------------
+
+TITLE: Import FastAPI Depends Function
+DESCRIPTION: Code snippet demonstrating the standard way to import the `Depends` function from the `fastapi` library, essential for declaring dependencies in FastAPI applications.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/reference/dependencies.md#_snippet_0
+
+LANGUAGE: python
+CODE:
+```
+from fastapi import Depends
+```
+
+----------------------------------------
+
+TITLE: Declare Pydantic Model for FastAPI Forms
+DESCRIPTION: This example demonstrates how to define a Pydantic model to represent expected form fields and integrate it with FastAPI's `Form` dependency. FastAPI automatically extracts data from the request's form body and populates the Pydantic model.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/request-form-models.md#_snippet_1
+
+LANGUAGE: python
+CODE:
+```
+from typing import Annotated
+from fastapi import FastAPI, Form
+from pydantic import BaseModel
+
+app = FastAPI()
+
+class UserForm(BaseModel):
+    username: str
+    password: str
+
+@app.post("/login/")
+async def login(username: Annotated[str, Form()], password: Annotated[str, Form()]):
+    return {"username": username, "password": password}
+```
+
+----------------------------------------
+
+TITLE: Handling GZip Compression with GZipMiddleware
+DESCRIPTION: Demonstrates how to add `GZipMiddleware` to a FastAPI application. This middleware automatically compresses responses for clients that include 'gzip' in their `Accept-Encoding` header, with configurable minimum size and compression level.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/advanced/middleware.md#_snippet_4
+
+LANGUAGE: Python
+CODE:
+```
+from fastapi import FastAPI
+from fastapi.middleware.gzip import GZipMiddleware
+
+app = FastAPI()
+
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+```
+
+----------------------------------------
+
+TITLE: Return UJSONResponse
+DESCRIPTION: Demonstrates using `UJSONResponse` for a fast JSON response in FastAPI, requiring the `ujson` library. This can be an alternative to the default `JSONResponse` for performance-critical applications, though `ujson` might handle some edge-cases differently.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/advanced/custom-response.md#_snippet_7
+
+LANGUAGE: Python
+CODE:
+```
+from fastapi import FastAPI
+from fastapi.responses import UJSONResponse
+
+app = FastAPI()
+
+@app.get("/json-data", response_class=UJSONResponse)
+async def get_json_data():
+    return {"message": "Hello from UJSON!"}
+```
+
+----------------------------------------
+
+TITLE: Define FastAPI Path Operation with Form Parameters
+DESCRIPTION: This snippet demonstrates how to define a path operation in FastAPI that accepts form data. Parameters like `username` and `password` are declared using `Form(...)`, indicating they are required and should be read from `application/x-www-form-urlencoded` or `multipart/form-data` request bodies, similar to how `Body` or `Query` are used.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/request-forms.md#_snippet_2
+
+LANGUAGE: python
+CODE:
+```
+from fastapi import FastAPI, Form
+
+app = FastAPI()
+
+@app.post("/login/")
+async def login(username: str = Form(...), password: str = Form(...)):
+    return {"username": username}
+```
+
+----------------------------------------
+
+TITLE: Example of Indented JSON Response
+DESCRIPTION: Compares a standard compact JSON output with an indented and formatted JSON output, demonstrating the effect of using a custom response class like `CustomORJSONResponse` with `orjson.OPT_INDENT_2` for improved readability.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/advanced/custom-response.md#_snippet_17
+
+LANGUAGE: JSON
+CODE:
+```
+{
+  "message": "Hello World"
+}
+```
+
+----------------------------------------
+
+TITLE: Stream Large Files with FastAPI StreamingResponse
+DESCRIPTION: Demonstrates how to use `StreamingResponse` with a generator function to efficiently stream content from a file-like object without loading the entire file into memory. This approach is suitable for large files and integrates well with `with` blocks for proper resource management, ensuring the file is closed after streaming.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/advanced/custom-response.md#_snippet_12
+
+LANGUAGE: Python
+CODE:
+```
+from fastapi import FastAPI, StreamingResponse
+from typing import Generator
+
+app = FastAPI()
+
+def iterfile():
+    with open("some-large-file.txt", mode="rb") as file_like:
+        yield from file_like
+
+@app.get("/stream-file")
+async def stream_file():
+    return StreamingResponse(iterfile(), media_type="application/octet-stream")
+```
+
+----------------------------------------
+
+TITLE: Access Pydantic Model Attributes in FastAPI Function
+DESCRIPTION: Shows a complete FastAPI application snippet where the attributes of the Pydantic model object (`item`) are accessed directly within the path operation function, leveraging type hints for editor support and performing conditional logic.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/body.md#_snippet_5
+
+LANGUAGE: python
+CODE:
+```
+from fastapi import FastAPI
+from pydantic import BaseModel
+
+app = FastAPI()
+
+
+class Item(BaseModel):
+    name: str
+    description: str | None = None
+    price: float
+    tax: float | None = None
+
+
+@app.post("/items/")
+async def create_item(item: Item):
+    item_dict = item.dict()
+    if item.tax:
+        price_with_tax = item.price + item.tax
+        item_dict.update({"price_with_tax": price_with_tax})
+    return item_dict
+```
+
+----------------------------------------
+
+TITLE: Preferred Default Value Usage with FastAPI Annotated Query
+DESCRIPTION: Shows the recommended and more intuitive way to define a default value for a query parameter when using `Annotated` with `Query`. The actual default value is assigned directly to the function parameter, aligning with standard Python practices.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/query-params-str-validations.md#_snippet_9
+
+LANGUAGE: Python
+CODE:
+```
+q: Annotated[str, Query()] = "rick"
+```
+
+----------------------------------------
+
+TITLE: Chained FastAPI Sub-Dependencies with Yield
+DESCRIPTION: This snippet illustrates how multiple FastAPI dependencies can be chained, where each dependency utilizes `yield`. FastAPI ensures that the 'exit code' (code after `yield`) of each dependency is run in the correct order, respecting the established dependency chain, from the innermost to the outermost.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/dependencies/dependencies-with-yield.md#_snippet_4
+
+LANGUAGE: Python
+CODE:
+```
+from fastapi import Depends
+
+async def dependency_a():
+    print("dependency_a before yield")
+    yield "value_a"
+    print("dependency_a after yield")
+
+async def dependency_b(dep_a: str = Depends(dependency_a)):
+    print(f"dependency_b before yield, received: {dep_a}")
+    yield "value_b"
+    print(f"dependency_b after yield, received: {dep_a}")
+
+async def dependency_c(dep_b: str = Depends(dependency_b)):
+    print(f"dependency_c before yield, received: {dep_b}")
+    yield "value_c"
+    print(f"dependency_c after yield, received: {dep_b}")
+```
+
+----------------------------------------
+
+TITLE: Serve File with FileResponse via response_class Parameter
+DESCRIPTION: Shows an alternative way to serve a file using `FileResponse` by specifying it as the `response_class` in the path operation decorator. In this setup, the path operation function can directly return the file path string, and FastAPI will automatically wrap it in a `FileResponse`.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/advanced/custom-response.md#_snippet_15
+
+LANGUAGE: Python
+CODE:
+```
+from fastapi import FastAPI
+from fastapi.responses import FileResponse
+
+app = FastAPI()
+
+@app.get("/items/file", response_class=FileResponse)
+async def read_item():
+    return "sample.txt"
+```
+
+----------------------------------------
+
+TITLE: Define HeroPublic Data Model for API Responses
+DESCRIPTION: Defines the `HeroPublic` Pydantic model, which is used for returning hero data to API clients. It includes `id`, `name`, and `age`, ensuring `id` is always an integer and never `None`. This model explicitly excludes sensitive fields like `secret_name` to protect user identity.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/sql-databases.md#_snippet_4
+
+LANGUAGE: APIDOC
+CODE:
+```
+HeroPublic:
+  id: int (required, not None)
+  name: str
+  age: Optional[int]
+```
+
+----------------------------------------
+
+TITLE: Accessing Sub-Dependency Values in Exit Code
+DESCRIPTION: This example highlights that values yielded by sub-dependencies remain accessible within the 'exit code' (the part after `yield`) of their dependent functions. This allows for cleanup or logging operations to utilize the values provided by upstream dependencies, ensuring comprehensive resource management.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/dependencies/dependencies-with-yield.md#_snippet_5
+
+LANGUAGE: Python
+CODE:
+```
+from fastapi import Depends
+
+async def dependency_a():
+    print("dependency_a before yield")
+    yield "value_a"
+    print("dependency_a after yield")
+
+async def dependency_b(dep_a: str = Depends(dependency_a)):
+    print(f"dependency_b before yield, received: {dep_a}")
+    yield "value_b"
+    print(f"dependency_b after yield, received: {dep_a}") # dep_a is available here
+
+async def dependency_c(dep_b: str = Depends(dependency_b)):
+    print(f"dependency_c before yield, received: {dep_b}")
+    yield "value_c"
+    print(f"dependency_c after yield, received: {dep_b}") # dep_b is available here
+```
+
+----------------------------------------
+
+TITLE: Validate Token Data with Pydantic and Extract Scopes
+DESCRIPTION: This snippet demonstrates updating the `TokenData` Pydantic model to include `scopes` and using it to validate the decoded JWT token data. It shows how to catch `JWTError` and `ValidationError` and raise a custom `HTTPException` if the token data is malformed or the username is missing, ensuring data integrity and security.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/advanced/security/oauth2-scopes.md#_snippet_3
+
+LANGUAGE: Python
+CODE:
+```
+from typing import Annotated
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer, SecurityScopes
+from jose import JWTError, jwt # Assuming jose is used for JWT operations
+from pydantic import BaseModel, ValidationError
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+# This is the updated Pydantic model for token data
+class TokenData(BaseModel):
+    username: str
+    scopes: list[str] = [] # New property to hold scopes from the token
+
+credentials_exception = HTTPException(
+    status_code=status.HTTP_401_UNAUTHORIZED,
+    detail="Could not validate credentials",
+    headers={"WWW-Authenticate": "Bearer"},
+)
+
+# Secret key for JWT decoding (should be loaded securely in a real application)
+SECRET_KEY = "your-super-secret-key" # Replace with a strong, securely loaded key
+ALGORITHM = "HS256"
+
+async def get_current_user(
+    security_scopes: SecurityScopes,
+    token: Annotated[str, Depends(oauth2_scheme)]
+):
+    if not security_scopes.scopes:
+        authenticate_value = "Bearer"
+    else:
+        authenticate_value = f"Bearer scope=\"{security_scopes.scope_str}\"
+    credentials_exception.headers["WWW-Authenticate"] = authenticate_value
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        token_scopes = payload.get("scopes", []) # Extract scopes from JWT payload
+        if username is None:
+            raise credentials_exception
+        # Validate with Pydantic model to ensure correct data shape
+        token_data = TokenData(username=username, scopes=token_scopes)
+    except (JWTError, ValidationError): # Catch both JWT decoding and Pydantic validation errors
+        raise credentials_exception
+
+    # Placeholder for actual user lookup in a database
+    # For demonstration, assume user exists if token_data is valid
+    user_db = {"john_doe": {"username": "john_doe", "scopes": ["items", "me"]}}
+    user = user_db.get(token_data.username)
+    if user is None:
+        raise credentials_exception
+
+    return user # Return the user object (or TokenData) for further processing
+```
+
+----------------------------------------
+
+TITLE: Execution Flow of FastAPI Dependencies with `yield`
+DESCRIPTION: This sequence diagram illustrates the lifecycle and interaction points of a FastAPI path operation with a dependency that uses `yield`, showing how exceptions are handled and when background tasks are initiated. It details the flow from client request through dependency execution, path operation, and potential exception handling or background task initiation.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/dependencies/dependencies-with-yield.md#_snippet_7
+
+LANGUAGE: Mermaid
+CODE:
+```
+sequenceDiagram
+
+participant client as Client
+participant handler as Exception handler
+participant dep as Dep with yield
+participant operation as Path Operation
+participant tasks as Background tasks
+
+    Note over client,operation: Can raise exceptions, including HTTPException
+    client ->> dep: Start request
+    Note over dep: Run code up to yield
+    opt raise Exception
+        dep -->> handler: Raise Exception
+        handler -->> client: HTTP error response
+    end
+    dep ->> operation: Run dependency, e.g. DB session
+    opt raise
+        operation -->> dep: Raise Exception (e.g. HTTPException)
+        opt handle
+            dep -->> dep: Can catch exception, raise a new HTTPException, raise other exception
+        end
+        handler -->> client: HTTP error response
+    end
+
+    operation ->> client: Return response to client
+    Note over client,operation: Response is already sent, can't change it anymore
+    opt Tasks
+        operation -->> tasks: Send background tasks
+    end
+    opt Raise other exception
+        tasks -->> tasks: Handle exceptions in the background task code
+    end
+```
+
+----------------------------------------
+
+TITLE: Global Environment Conflict: harry v3 breaks philosophers-stone
+DESCRIPTION: This Mermaid flowchart illustrates the problem of global package installation: installing 'harry v3' in the global environment overwrites 'harry v1', breaking the 'philosophers-stone' project which depends on the older version, while 'prisoner-of-azkaban' now works correctly with 'harry v3'.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/virtual-environments.md#_snippet_17
+
+LANGUAGE: mermaid
+CODE:
+```
+flowchart LR
+    subgraph global[global env]
+        harry-1[<strike>harry v1</strike>]
+        style harry-1 fill:#ccc,stroke-dasharray: 5 5
+        harry-3[harry v3]
+    end
+    subgraph stone-project[philosophers-stone project]
+        stone(philosophers-stone) -.-x|⛔️| harry-1
+    end
+    subgraph azkaban-project[prisoner-of-azkaban project]
+        azkaban(prisoner-of-azkaban) --> |requires| harry-3
+    end
+```
+
+----------------------------------------
+
+TITLE: Python File Handling with `with` Statement
+DESCRIPTION: Demonstrates how to open, read, and print the contents of a file using Python's `with` statement. This construct ensures that the file is properly closed after its use, even if exceptions occur, illustrating the fundamental concept of a context manager.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/dependencies/dependencies-with-yield.md#_snippet_8
+
+LANGUAGE: Python
+CODE:
+```
+with open("./somefile.txt") as f:
+    contents = f.read()
+    print(contents)
+```
+
+----------------------------------------
+
+TITLE: Complete FastAPI Dependency Function for Header Validation
+DESCRIPTION: Provides comprehensive examples of FastAPI dependency functions that extract headers, perform validation, raise `HTTPException` on failure, and optionally return values. These functions can be reused across multiple path operations and demonstrate how dependencies can enforce requirements and handle errors.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/dependencies/dependencies-in-path-operation-decorators.md#_snippet_1
+
+LANGUAGE: Python
+CODE:
+```
+async def verify_token(x_token: Annotated[str, Header()]):
+    if x_token != "fake-super-secret-token":
+        raise HTTPException(status_code=400, detail="X-Token header invalid")
+    return x_token
+```
+
+LANGUAGE: Python
+CODE:
+```
+async def verify_key(x_key: Annotated[str, Header()]):
+    if x_key != "fake-super-secret-key":
+        raise HTTPException(status_code=400, detail="X-Key header invalid")
+    return x_key
+```
+
+----------------------------------------
+
+TITLE: Select Random Item from Dictionary in FastAPI Endpoint
+DESCRIPTION: This code demonstrates how to select a random key-value pair from a Python dictionary. It converts dictionary items into a list of tuples using `list(data.items())` and then uses `random.choice()` to pick a random tuple. This tuple is then unpacked into `id` and `name` variables, providing a random suggestion if no item ID is provided by the user.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/query-params-str-validations.md#_snippet_23
+
+LANGUAGE: Python
+CODE:
+```
+@app.get("/items/")
+async def read_random_item(
+    item_id: ItemId | None = None,
+    name: str | None = None
+):
+    data = {
+        "imdb-tt0371724": "The Hitchhiker's Guide to the Galaxy",
+        "isbn-978-0345391803": "The Restaurant at the End of the Universe"
+    }
+    if item_id is None and name is None:
+        random_id, random_name = random.choice(list(data.items()))
+        return {"item_id": random_id, "name": random_name}
+    return {"item_id": item_id, "name": name}
+```
+
+----------------------------------------
+
+TITLE: Return Input Pydantic Model Directly as Response
+DESCRIPTION: This example shows a FastAPI path operation that accepts a `UserIn` Pydantic model as input and uses the same `UserIn` model for its `response_model`. This demonstrates a scenario where the API returns the exact input data, including potentially sensitive fields like a plaintext password, highlighting a security concern if not handled carefully.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/response-model.md#_snippet_3
+
+LANGUAGE: Python
+CODE:
+```
+from fastapi import FastAPI
+from pydantic import BaseModel, EmailStr
+
+app = FastAPI()
+
+class UserIn(BaseModel):
+    username: str
+    password: str
+    email: EmailStr
+
+@app.post("/users/", response_model=UserIn)
+async def create_user(user: UserIn):
+    # In a real app, you'd hash the password and save the user
+    # Returning the input directly, including password, is a security risk
+    return user
+```
+
+----------------------------------------
+
+TITLE: Define a Python Enum for FastAPI Path Parameters
+DESCRIPTION: Demonstrates how to create a Python `Enum` class that inherits from `str` and `Enum` to define a set of predefined string values for path parameters in FastAPI. This enables proper type hinting and automatic documentation generation.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/path-params.md#_snippet_2
+
+LANGUAGE: Python
+CODE:
+```
+from enum import Enum
+
+class ModelName(str, Enum):
+    alexnet = "alexnet"
+    resnet = "resnet"
+    lenet = "lenet"
+```
+
+----------------------------------------
+
+TITLE: Using Enum as Path Parameter Type
+DESCRIPTION: Explains how to declare a path parameter in FastAPI using a custom `Enum` class as its type annotation. This enables FastAPI to automatically validate input against the enum's predefined values and enhance interactive API documentation.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/es/docs/tutorial/path-params.md#_snippet_3
+
+LANGUAGE: Python
+CODE:
+```
+from fastapi import FastAPI
+from enum import Enum
+
+app = FastAPI()
+
+class ModelName(str, Enum):
+    alexnet = "alexnet"
+    resnet = "resnet"
+    lenet = "lenet"
+
+@app.get("/models/{model_name}")
+async def get_model(model_name: ModelName):
+    # ... rest of the function
+```
+
+----------------------------------------
+
+TITLE: Set HTTP Response Status Code in FastAPI
+DESCRIPTION: Configure the HTTP status code for a path operation's response. You can use integer codes directly or leverage `fastapi.status` constants for clarity and readability.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/path-operation-configuration.md#_snippet_0
+
+LANGUAGE: Python
+CODE:
+```
+from fastapi import FastAPI, status
+
+app = FastAPI()
+
+@app.post("/items/", status_code=status.HTTP_201_CREATED)
+async def create_item(name: str):
+    return {"name": name}
+```
+
+----------------------------------------
+
+TITLE: Install FastAPI with All Extras
+DESCRIPTION: Alternative command to install FastAPI along with all its optional dependencies, including `pydantic-settings`.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/advanced/settings.md#_snippet_1
+
+LANGUAGE: console
+CODE:
+```
+pip install "fastapi[all]"
+```
+
+----------------------------------------
+
+TITLE: Define Application Settings with Pydantic v2
+DESCRIPTION: Example of defining application settings by subclassing `BaseSettings` from `pydantic_settings`. This class automatically reads environment variables, performs type conversion, and validates data, making configuration management robust.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/advanced/settings.md#_snippet_2
+
+LANGUAGE: python
+CODE:
+```
+from pydantic_settings import BaseSettings
+
+class Settings(BaseSettings):
+    app_name: str = "Awesome API"
+    admin_email: str
+    items_per_user: int = 50
+```
+
+----------------------------------------
+
+TITLE: Example JSON Request Body with Required Fields Only
+DESCRIPTION: An example JSON object representing a request body that only includes the required fields from the `Item` Pydantic model, demonstrating how optional fields can be omitted.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/body.md#_snippet_3
+
+LANGUAGE: json
+CODE:
+```
+{
+    "name": "Foo",
+    "price": 45.2
+}
+```
+
+----------------------------------------
+
+TITLE: Example JSON Request Body with All Fields
+DESCRIPTION: An example JSON object representing a request body that includes all fields defined in the `Item` Pydantic model, including optional ones.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/body.md#_snippet_2
+
+LANGUAGE: json
+CODE:
+```
+{
+    "name": "Foo",
+    "description": "An optional description",
+    "price": 45.2,
+    "tax": 3.5
+}
+```
+
+----------------------------------------
+
+TITLE: Import FastAPI Class
+DESCRIPTION: Demonstrates the standard way to import the `FastAPI` class from the `fastapi` library in a Python application.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/reference/fastapi.md#_snippet_0
+
+LANGUAGE: python
+CODE:
+```
+from fastapi import FastAPI
+```
+
+----------------------------------------
+
+TITLE: Database Session Initialization in FastAPI Dependency
+DESCRIPTION: This snippet illustrates the initial part of a FastAPI dependency responsible for setting up a database session. The code before and including the `yield` statement is executed prior to the response being created, making the database session available for path operations.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/dependencies/dependencies-with-yield.md#_snippet_0
+
+LANGUAGE: Python
+CODE:
+```
+from sqlalchemy.orm import Session
+from .database import SessionLocal
+
+def get_db():
+    db = SessionLocal()
+    # The 'yield db' statement would follow here
+```
+
+----------------------------------------
+
+TITLE: lru_cache Function Call Sequence Diagram
+DESCRIPTION: Illustrates the execution flow of a function decorated with `@lru_cache`, showing when the function's code is executed versus when a cached result is returned for repeated calls with the same arguments. It visualizes the caching mechanism in action.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/advanced/settings.md#_snippet_10
+
+LANGUAGE: Mermaid
+CODE:
+```
+sequenceDiagram
+
+participant code as Code
+participant function as say_hi()
+participant execute as Execute function
+
+    rect rgba(0, 255, 0, .1)
+        code ->> function: say_hi(name="Camila")
+        function ->> execute: execute function code
+        execute ->> code: return the result
+    end
+
+    rect rgba(0, 255, 255, .1)
+        code ->> function: say_hi(name="Camila")
+        function ->> code: return stored result
+    end
+
+    rect rgba(0, 255, 0, .1)
+        code ->> function: say_hi(name="Rick")
+        function ->> execute: execute function code
+        execute ->> code: return the result
+    end
+
+    rect rgba(0, 255, 0, .1)
+        code ->> function: say_hi(name="Rick", salutation="Mr.")
+        function ->> execute: execute function code
+        execute ->> code: return the result
+    end
+
+    rect rgba(0, 255, 255, .1)
+        code ->> function: say_hi(name="Rick")
+        function ->> code: return stored result
+    end
+
+    rect rgba(0, 255, 255, .1)
+        code ->> function: say_hi(name="Camila")
+        function ->> code: return stored result
+    end
+```
+
+----------------------------------------
+
+TITLE: Run FastAPI Application (WebSocket with Dependencies Example)
+DESCRIPTION: Command to start the FastAPI development server for the WebSocket example that incorporates dependencies, allowing testing of parameter injection and exception handling.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/advanced/websockets.md#_snippet_6
+
+LANGUAGE: console
+CODE:
+```
+fastapi dev main.py
+```
+
+----------------------------------------
+
+TITLE: Import WebSocket Class from FastAPI
+DESCRIPTION: Demonstrates how to import the `WebSocket` class directly from the `fastapi` library, which is essential for defining WebSocket endpoints in your application.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/reference/websockets.md#_snippet_0
+
+LANGUAGE: python
+CODE:
+```
+from fastapi import WebSocket
+```
+
+----------------------------------------
+
+TITLE: Python Function with lru_cache Decoration
+DESCRIPTION: Demonstrates a Python function decorated with `@lru_cache` from `functools` to cache its return values based on input arguments. The function `say_hi` generates a greeting string, showing how subsequent calls with the same arguments retrieve cached results without re-execution.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/advanced/settings.md#_snippet_9
+
+LANGUAGE: Python
+CODE:
+```
+@lru_cache
+def say_hi(name: str, salutation: str = "Ms."):
+    return f"Hello {salutation} {name}"
+```
+
+----------------------------------------
+
+TITLE: FastAPI websockets.WebSocketDisconnect Class API Reference
+DESCRIPTION: API documentation for the `fastapi.websockets.WebSocketDisconnect` exception class, which is used to signal a client disconnection within WebSocket operations.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/reference/websockets.md#_snippet_5
+
+LANGUAGE: APIDOC
+CODE:
+```
+fastapi.websockets.WebSocketDisconnect
+```
+
+----------------------------------------
+
+TITLE: Run FastAPI Application (Basic WebSocket Example)
+DESCRIPTION: Command to start the FastAPI development server for the basic WebSocket example, allowing testing of the client and server communication.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/advanced/websockets.md#_snippet_4
+
+LANGUAGE: console
+CODE:
+```
+fastapi dev main.py
+```
+
+----------------------------------------
+
+TITLE: Numeric Validations for Path Parameters
+DESCRIPTION: This section details how to apply various numeric constraints to path parameters using `Path` in FastAPI. It covers common validation types for both integer and float values, ensuring data integrity.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/path-params-numeric-validations.md#_snippet_3
+
+LANGUAGE: Python
+CODE:
+```
+async def read_items(item_id: Annotated[int, Path(title="The ID of the item to get", ge=1)]):
+```
+
+LANGUAGE: Python
+CODE:
+```
+async def read_items(
+    item_id: Annotated[int, Path(title="The ID of the item to get", gt=0, le=1000)]
+):
+```
+
+LANGUAGE: Python
+CODE:
+```
+async def read_items(
+    item_id: Annotated[float, Path(title="The ID of the item to get", gt=0, lt=1)]
+):
+```
+
+----------------------------------------
+
+TITLE: Example JSON Response with Excluded Unset Values
+DESCRIPTION: Demonstrates a JSON response where default values that were not explicitly set are excluded, achieved by using `response_model_exclude_unset=True` in FastAPI.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/response-model.md#_snippet_10
+
+LANGUAGE: JSON
+CODE:
+```
+{
+    "name": "Foo",
+    "price": 50.2
+}
+```
+
+----------------------------------------
+
+TITLE: Run Pytest Tests from Console
+DESCRIPTION: This command is used to execute the test suite for a FastAPI application using the pytest framework. It will discover and run all test files and functions configured within the project.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/advanced/async-tests.md#_snippet_0
+
+LANGUAGE: console
+CODE:
+```
+$ pytest
+```
+
+----------------------------------------
+
+TITLE: Programmatically Start Uvicorn Server
+DESCRIPTION: This Python code snippet shows how to programmatically start the Uvicorn server, specifying the FastAPI application instance (`app`), host address, and port. This line is typically placed within an `if __name__ == "__main__":` block to ensure the server only runs when the script is executed directly.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/debugging.md#_snippet_2
+
+LANGUAGE: Python
+CODE:
+```
+uvicorn.run(app, host="0.0.0.0", port=8000)
+```
+
+----------------------------------------
+
+TITLE: Example Default Request Validation Error JSON Response
+DESCRIPTION: A typical JSON error response returned by FastAPI for a `RequestValidationError` when default handling is active, detailing the location, message, and type of the validation error.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/handling-errors.md#_snippet_6
+
+LANGUAGE: JSON
+CODE:
+```
+{
+    "detail": [
+        {
+            "loc": [
+                "path",
+                "item_id"
+            ],
+            "msg": "value is not a valid integer",
+            "type": "type_error.integer"
+        }
+    ]
+}
+```
+
+----------------------------------------
+
+TITLE: Including Custom Docs UI with FastAPI
+DESCRIPTION: This code defines functions to generate custom HTML for Swagger UI and ReDoc, allowing the use of custom CDN URLs for their assets. It sets up path operations (`/docs`, `/redoc`, `/swagger-ui-redirect`) to serve these custom documentation pages, passing necessary parameters like OpenAPI URL, title, and custom asset URLs.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/how-to/custom-docs-ui-assets.md#_snippet_1
+
+LANGUAGE: Python
+CODE:
+```
+from fastapi.openapi.docs import (
+    get_redoc_html,
+    get_swagger_ui_html,
+    get_swagger_ui_oauth2_redirect_html,
+)
+
+
+@app.get("/docs", response_class=HTMLResponse)
+async def custom_swagger_ui_html():
+    return get_swagger_ui_html(
+        openapi_url=app.openapi_url,
+        title=app.title,
+        oauth2_redirect_url=app.swagger_ui_oauth2_redirect_url,
+        swagger_js_url="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js",
+        swagger_css_url="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css",
+    )
+
+
+@app.get("/swagger-ui-redirect")
+async def swagger_ui_redirect():
+    return get_swagger_ui_oauth2_redirect_html()
+
+
+@app.get("/redoc", response_class=HTMLResponse)
+async def redoc_html():
+    return get_redoc_html(
+        openapi_url=app.openapi_url,
+        title=app.title,
+        redoc_js_url="https://unpkg.com/redoc@2/bundles/redoc.standalone.js",
+    )
+```
+
+----------------------------------------
+
+TITLE: Example Custom Plain Text Request Validation Error Response
+DESCRIPTION: An example of a plain text error response for a request validation error, typically seen after overriding the default `RequestValidationError` handler to return text instead of JSON.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/handling-errors.md#_snippet_7
+
+LANGUAGE: text
+CODE:
+```
+1 validation error
+path -> item_id
+  value is not a valid integer (type=type_error.integer)
+```
+
+----------------------------------------
+
+TITLE: Import Starlette HTTPException with Alias
+DESCRIPTION: Demonstrates how to import Starlette's `HTTPException` and alias it to `StarletteHTTPException`. This is crucial when you need to differentiate it from FastAPI's `HTTPException` within the same scope, especially when registering exception handlers that should catch both.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/handling-errors.md#_snippet_12
+
+LANGUAGE: Python
+CODE:
+```
+from starlette.exceptions import HTTPException as StarletteHTTPException
+```
+
+----------------------------------------
+
+TITLE: Install Packages Directly (pip and uv)
+DESCRIPTION: Commands to directly install packages like `fastapi[standard]` without relying on a `requirements.txt` file. Examples are provided for both `pip` and `uv` package managers, offering flexibility based on your preferred tool.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/virtual-environments.md#_snippet_7
+
+LANGUAGE: console
+CODE:
+```
+pip install "fastapi[standard]"
+```
+
+LANGUAGE: console
+CODE:
+```
+uv pip install "fastapi[standard]"
+```
+
+----------------------------------------
+
+TITLE: Display Top FastAPI Translators
+DESCRIPTION: This Jinja2 template renders a list of the top FastAPI translators, based on the number of merged Pull Requests for translations. It iterates through a dictionary of translators, skips specified users, and displays their profile details along with their translation PR count.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/fastapi-people.md#_snippet_3
+
+LANGUAGE: HTML
+CODE:
+```
+<div class="user-list user-list-center">
+
+{% for user in (translators.values() | list)[:50] %}
+
+{% if user.login not in skip_users %}
+
+<div class="user"><a href="{{ user.url }}" target="_blank"><div class="avatar-wrapper"><img src="{{ user.avatarUrl }}"/></div><div class="title">@{{ user.login }}</div></a> <div class="count">Translations: {{ user.count }}</div></div>
+
+{% endif %}
+
+{% endfor %}
+
+</div>
+```
+
+----------------------------------------
+
+TITLE: Set Custom OpenAPI operationId
+DESCRIPTION: Demonstrates how to explicitly define a unique `operation_id` for a FastAPI path operation using the `operation_id` parameter in the decorator. This ID is used in the generated OpenAPI specification.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/advanced/path-operation-advanced-configuration.md#_snippet_0
+
+LANGUAGE: python
+CODE:
+```
+@app.get("/items/", operation_id="read_items_custom_id")
+async def read_items():
+    return {"message": "Hello World"}
+```
+
+----------------------------------------
+
+TITLE: Define a SQLModel Database Model (Hero)
+DESCRIPTION: This Python code defines a 'Hero' database model using SQLModel. It's a table model (table=True) with fields like 'id' (primary key), 'name' (indexed), 'secret_name', and 'age', demonstrating how to map Python classes to SQL tables.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/sql-databases.md#_snippet_1
+
+LANGUAGE: python
+CODE:
+```
+from typing import Optional
+from sqlmodel import Field, SQLModel
+
+class Hero(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str = Field(index=True)
+    secret_name: str
+    age: Optional[int] = None
+```
+
+----------------------------------------
+
+TITLE: Example JSON Request Body (Optional Fields Omitted)
+DESCRIPTION: Since `description` and `tax` are optional (with default `None` values), a request body can omit these fields and still be considered valid by FastAPI.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/em/docs/tutorial/body.md#_snippet_3
+
+LANGUAGE: JSON
+CODE:
+```
+{
+    "name": "Foo",
+    "price": 45.2
+}
+```
+
+----------------------------------------
+
+TITLE: Example JSON Response for Enum Path Parameter
+DESCRIPTION: An example of the JSON response structure returned by a FastAPI path operation when an `Enum` member is included in the response body. The `Enum` member is automatically serialized to its string value.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/path-params.md#_snippet_7
+
+LANGUAGE: JSON
+CODE:
+```
+{
+  "model_name": "alexnet",
+  "message": "Deep Learning FTW!"
+}
+```
+
+----------------------------------------
+
+TITLE: FastAPI Path Operation Decorator with Dependencies
+DESCRIPTION: Illustrates how to attach a list of `Depends()` objects directly to a FastAPI path operation decorator's `dependencies` argument. This ensures the dependencies are executed before the path operation, without their return values being passed as function parameters.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/dependencies/dependencies-in-path-operation-decorators.md#_snippet_0
+
+LANGUAGE: Python
+CODE:
+```
+@app.get("/items/", dependencies=[Depends(verify_token), Depends(verify_key)])
+```
+
+----------------------------------------
+
+TITLE: Install OpenAPI TypeScript Generator
+DESCRIPTION: Installs the `@hey-api/openapi-ts` package as a development dependency using npm. This tool is used to generate TypeScript API clients from an OpenAPI specification.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/advanced/generate-clients.md#_snippet_0
+
+LANGUAGE: console
+CODE:
+```
+$ npm install @hey-api/openapi-ts --save-dev
+```
+
+----------------------------------------
+
+TITLE: Configure package.json for Client Generation with Local OpenAPI Spec
+DESCRIPTION: Illustrates how to modify the `package.json` file in a frontend project to point the client generation script (`openapi-ts`) to a locally preprocessed `openapi.json` file. This configuration ensures that the generated client uses the refined operation IDs, leading to cleaner and more intuitive method names.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/advanced/generate-clients.md#_snippet_7
+
+LANGUAGE: json
+CODE:
+```
+{
+  "name": "frontend-app",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "generate-client": "openapi-ts --input ./openapi.json --output ./src/client --client axios"
+  },
+  "author": "",
+  "license": "",
+  "devDependencies": {
+    "@hey-api/openapi-ts": "^0.27.38",
+    "typescript": "^4.6.2"
+  }
+}
+```
+
+----------------------------------------
+
+TITLE: GitHub PR Labels for Translation Management Workflow
+DESCRIPTION: Describes the specific labeling process for Pull Requests containing translations. In addition to the `lang-all` label, a language-specific label (e.g., `lang-es`) and an `awaiting-review` label are used to trigger automated notifications for reviewers. The `awaiting-review` label is later replaced by `approved-1` upon approval.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/management-tasks.md#_snippet_2
+
+LANGUAGE: APIDOC
+CODE:
+```
+GitHub PR Labels for Translation Management:
+  lang-all:
+    description: "Mandatory label for all translation PRs."
+  lang-{lang code}:
+    description: "Specific language label for a translation PR (e.g., 'lang-es' for Spanish). Must be added in addition to 'lang-all'."
+  awaiting-review:
+    description: "Special label for translation PRs. A GitHub Action detects this label, reads the language label, and notifies reviewers in GitHub Discussions. Removed by the action once approved."
+  approved-1:
+    description: "Added by a GitHub Action once a translation PR has been reviewed and approved by a native speaker. Indicates the translation is ready."
+```
+
+----------------------------------------
+
+TITLE: Declare FastAPI Path Parameter with Path Convertor
+DESCRIPTION: Demonstrates how to declare a path parameter that can contain a full file path (including slashes) using Starlette's `:path` convertor. This allows FastAPI to match URLs like `/files/home/user/file.txt`.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/path-params.md#_snippet_8
+
+LANGUAGE: Python
+CODE:
+```
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.get("/files/{file_path:path}")
+async def read_file(file_path: str):
+    return {"file_path": file_path}
+```
+
+----------------------------------------
+
+TITLE: Add Custom OpenAPI Extensions
+DESCRIPTION: Demonstrates how to extend the OpenAPI schema for a specific path operation by providing custom key-value pairs via the `openapi_extra` parameter. This allows adding non-standard fields or OpenAPI extensions to the operation object.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/advanced/path-operation-advanced-configuration.md#_snippet_4
+
+LANGUAGE: python
+CODE:
+```
+@app.get("/items/", openapi_extra={
+    "x-aperture-labs-portal": "blue"
+})
+async def read_items():
+    return {"message": "Hello World"}
+```
+
+----------------------------------------
+
+TITLE: Truncate Docstring for OpenAPI Description
+DESCRIPTION: Explains how to control the length of the description used in OpenAPI documentation by inserting an escaped form feed character (`\f`) into the path operation function's docstring. Content after `\f` is ignored by OpenAPI but remains for other tools.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/advanced/path-operation-advanced-configuration.md#_snippet_3
+
+LANGUAGE: python
+CODE:
+```
+@app.get("/items/")
+async def read_items():
+    """
+    Read items from the database.
+
+    This is the first part of the description.
+    \f
+    This part will not be shown in OpenAPI docs.
+    It's for other documentation tools.
+    """
+    return {"message": "Hello World"}
+```
+
+----------------------------------------
+
+TITLE: Define a FastAPI WebSocket Endpoint
+DESCRIPTION: Illustrates how to define a WebSocket endpoint in a FastAPI application using the `@app.websocket` decorator. The endpoint accepts a WebSocket connection.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/advanced/websockets.md#_snippet_2
+
+LANGUAGE: python
+CODE:
+```
+from fastapi import FastAPI, WebSocket
+
+# Assuming 'app' is an instance of FastAPI
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    # ... logic to receive and send messages
+```
+
+----------------------------------------
+
+TITLE: Define OAuth2PasswordBearer Security Scheme
+DESCRIPTION: This snippet initializes `OAuth2PasswordBearer` with a `tokenUrl`. This URL specifies where clients should send credentials to obtain an access token, and it's used by FastAPI to generate the OpenAPI security scheme documentation.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/security/first-steps.md#_snippet_3
+
+LANGUAGE: Python
+CODE:
+```
+from fastapi.security import OAuth2PasswordBearer
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+```
+
+----------------------------------------
+
+TITLE: Define a custom X-Token header dependency in FastAPI
+DESCRIPTION: This snippet demonstrates how to create a simple dependency function in FastAPI to read a custom `X-Token` header. It shows three variations for different Python versions and `Annotated` usage. This dependency can then be applied to path operations or routers to enforce header presence.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/bigger-applications.md#_snippet_4
+
+LANGUAGE: Python
+CODE:
+```
+from typing import Annotated
+
+from fastapi import Header, HTTPException
+
+
+async def get_token_header(x_token: Annotated[str, Header()]):
+    if x_token != "fake-super-secret-token":
+        raise HTTPException(status_code=400, detail="X-Token header invalid")
+
+```
+
+LANGUAGE: Python
+CODE:
+```
+from fastapi import Header, HTTPException
+
+
+async def get_token_header(x_token: str = Header(...)):
+    if x_token != "fake-super-secret-token":
+        raise HTTPException(status_code=400, detail="X-Token header invalid")
+
+```
+
+LANGUAGE: Python
+CODE:
+```
+from fastapi import Header, HTTPException
+
+
+async def get_token_header(x_token: str = Header(..., alias="X-Token")):
+    if x_token != "fake-super-secret-token":
+        raise HTTPException(status_code=400, detail="X-Token header invalid")
+
+```
+
+----------------------------------------
+
+TITLE: FastAPI Dependency Returning a Dictionary
+DESCRIPTION: Illustrates a FastAPI dependency function that returns a dictionary. While functional, this approach limits editor support for type checking and auto-completion because the structure of the dictionary is not explicitly defined.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/dependencies/classes-as-dependencies.md#_snippet_0
+
+LANGUAGE: Python
+CODE:
+```
+from typing import Optional
+
+async def common_parameters(q: Optional[str] = None, skip: int = 0, limit: int = 100):
+    return {"q": q, "skip": skip, "limit": limit}
+```
+
+----------------------------------------
+
+TITLE: Example JSON Response for User Data Retrieval
+DESCRIPTION: Illustrates a sample JSON response containing user profile information, typically returned after successful authentication and data retrieval. It includes common user fields like username, email, full name, disabled status, and a placeholder for a hashed password.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/security/simple-oauth2.md#_snippet_1
+
+LANGUAGE: JSON
+CODE:
+```
+{
+  "username": "johndoe",
+  "email": "johndoe@example.com",
+  "full_name": "John Doe",
+  "disabled": false,
+  "hashed_password": "fakehashedsecret"
+}
+```
+
+----------------------------------------
+
+TITLE: Set Cookies by Returning a Direct Response in FastAPI
+DESCRIPTION: Illustrates how to set HTTP cookies by creating and returning a `JSONResponse` object directly from a FastAPI path operation. This method requires manual handling of the response content and headers, and bypasses `response_model` filtering.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/advanced/response-cookies.md#_snippet_1
+
+LANGUAGE: python
+CODE:
+```
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse
+
+app = FastAPI()
+
+@app.get("/set-cookie-direct/")
+async def set_cookie_directly():
+    """
+    Sets a cookie by creating and returning a JSONResponse directly.
+    """
+    content = {"message": "Cookie 'direct_session' set by returning JSONResponse"}
+    response = JSONResponse(content=content)
+    response.set_cookie(key="direct_session", value="xyz789uvw012", httponly=True)
+    return response
+```
+
+----------------------------------------
+
+TITLE: Use a Pydantic Submodel as a Field Type
+DESCRIPTION: Demonstrates how to use a previously defined Pydantic model (e.g., `Image`) as the type for an attribute within another Pydantic model. This establishes a nested relationship, allowing for complex data structures and automatic validation.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/body-nested-models.md#_snippet_5
+
+LANGUAGE: Python
+CODE:
+```
+image: Image
+```
+
+----------------------------------------
+
+TITLE: Define a Simple Query Extractor Dependency
+DESCRIPTION: This FastAPI dependency function extracts an optional query parameter `q` and returns its value. It serves as a basic building block for more complex dependency chains.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/dependencies/sub-dependencies.md#_snippet_0
+
+LANGUAGE: Python
+CODE:
+```
+from typing import Optional
+
+async def query_extractor(q: Optional[str] = None):
+    return q
+```
+
+----------------------------------------
+
+TITLE: FastAPI Response Class API Reference
+DESCRIPTION: Reference for the `fastapi.Response` class, indicating its availability and structure within the FastAPI framework. This entry points to the official documentation for the class.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/reference/response.md#_snippet_1
+
+LANGUAGE: APIDOC
+CODE:
+```
+fastapi.Response
+```
+
+----------------------------------------
+
+TITLE: Importing Depends for Dependency Injection in FastAPI
+DESCRIPTION: This snippet shows the essential import statement for `Depends` from the `fastapi` module. `Depends` is used to declare dependencies within FastAPI path operation functions, enabling the framework to manage and inject required values.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/em/docs/tutorial/dependencies/index.md#_snippet_1
+
+LANGUAGE: Python
+CODE:
+```
+from fastapi import Depends
+```
+
+----------------------------------------
+
+TITLE: Declaring a Dependency in a FastAPI Path Operation
+DESCRIPTION: This snippet demonstrates how to integrate a dependency into a FastAPI path operation. The `read_items` function uses `Depends(common_parameters)` to automatically call the `common_parameters` dependency and inject its returned dictionary into the `commons` parameter, simplifying parameter handling for the route.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/em/docs/tutorial/dependencies/index.md#_snippet_2
+
+LANGUAGE: Python
+CODE:
+```
+@app.get("/items/")
+async def read_items(commons: dict = Depends(common_parameters)):
+    return commons
+```
+
+----------------------------------------
+
+TITLE: Declare Dependencies in FastAPI Path Operations
+DESCRIPTION: These examples illustrate how to integrate a dependency, `common_parameters`, into FastAPI path operation functions. By assigning `Annotated[dict, Depends(common_parameters)]` to a parameter, FastAPI automatically calls the dependency and injects its returned value into the `commons` argument, enabling shared logic across `/items/` and `/users/` endpoints.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/dependencies/index.md#_snippet_2
+
+LANGUAGE: Python
+CODE:
+```
+async def read_items(commons: Annotated[dict, Depends(common_parameters)]):
+    return commons
+
+async def read_users(commons: Annotated[dict, Depends(common_parameters)]):
+    return commons
+```
+
+----------------------------------------
+
+TITLE: Use `response_model` Parameter for Output Schema Definition
+DESCRIPTION: This example illustrates using the `response_model` parameter in a FastAPI path operation decorator. This is useful when the function's internal return type might differ from the desired Pydantic model for the API response, allowing FastAPI to handle validation, documentation, and conversion based on the specified `response_model`.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/response-model.md#_snippet_1
+
+LANGUAGE: Python
+CODE:
+```
+from fastapi import FastAPI
+from pydantic import BaseModel
+
+app = FastAPI()
+
+class Item(BaseModel):
+    name: str
+    price: float
+    description: str | None = None
+
+@app.post("/items/", response_model=Item)
+async def create_item(name: str, price: float):
+    # This function might return a dict, but FastAPI will convert/validate it against Item
+    return {"name": name, "price": price, "description": "Some description"}
+```
+
+----------------------------------------
+
+TITLE: Adding a Function to BackgroundTasks
+DESCRIPTION: This line demonstrates how to schedule a function (`write_notification`) to run in the background using the `background_tasks.add_task()` method. It passes required arguments (`email`) and optional keyword arguments (`message`) to the task function, ensuring it executes after the HTTP response is sent.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/background-tasks.md#_snippet_2
+
+LANGUAGE: Python
+CODE:
+```
+background_tasks.add_task(write_notification, email, message="some notification")
+```
+
+----------------------------------------
+
+TITLE: Copy Application Code to Docker Image
+DESCRIPTION: Copies the entire `./app` directory containing the FastAPI application code into the `/code/app` directory within the Docker image. This step is typically placed late in the Dockerfile because application code changes frequently, minimizing cache invalidation for earlier layers.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/em/docs/deployment/docker.md#_snippet_4
+
+LANGUAGE: Dockerfile
+CODE:
+```
+COPY ./app /code/app
+```
+
+----------------------------------------
+
+TITLE: Dockerfile for Single-File FastAPI App Structure
+DESCRIPTION: Provides a complete Dockerfile example tailored for a FastAPI application where the main application file (`main.py`) is directly in the project root, rather than within an `app` subdirectory. It includes setting the base image, working directory, copying requirements, installing dependencies, and copying the main application file.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/em/docs/deployment/docker.md#_snippet_9
+
+LANGUAGE: Dockerfile
+CODE:
+```
+FROM python:3.9
+
+WORKDIR /code
+
+COPY ./requirements.txt /code/requirements.txt
+
+RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
+
+COPY ./main.py /code/
+```
+
+----------------------------------------
+
+TITLE: Initialize Pydantic Model from Dictionary
+DESCRIPTION: This example demonstrates how to instantiate a Pydantic model (`UserInDB`) by unpacking a dictionary (`user_dict`) using the `**` operator. This technique efficiently maps dictionary keys to corresponding model attributes, streamlining object creation from data sources.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/em/docs/tutorial/security/simple-oauth2.md#_snippet_3
+
+LANGUAGE: Python
+CODE:
+```
+UserInDB(
+    username = user_dict["username"],
+    email = user_dict["email"],
+    full_name = user_dict["full_name"],
+    disabled = user_dict["disabled"],
+    hashed_password = user_dict["hashed_password"],
+)
+```
+
+----------------------------------------
+
+TITLE: Standard FastAPI Project File Structure
+DESCRIPTION: Outlines the recommended file and directory structure for a FastAPI project intended for Dockerization, including the `app` directory for application code, `Dockerfile`, and `requirements.txt`.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/em/docs/deployment/docker.md#_snippet_5
+
+LANGUAGE: Plaintext
+CODE:
+```
+.
+├── app
+│	├── __init__.py
+│   └── main.py
+├── Dockerfile
+└── requirements.txt
+```
+
+----------------------------------------
+
+TITLE: Install PassLib with Bcrypt
+DESCRIPTION: Command to install the PassLib library along with its recommended Bcrypt dependency, used for secure password hashing and verification in Python applications. PassLib provides robust utilities for handling various hashing algorithms.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/security/oauth2-jwt.md#_snippet_2
+
+LANGUAGE: Console
+CODE:
+```
+pip install "passlib[bcrypt]"
+```
+
+----------------------------------------
+
+TITLE: Protecting Against Host Header Attacks with TrustedHostMiddleware
+DESCRIPTION: Illustrates the integration of `TrustedHostMiddleware` into a FastAPI application. This middleware validates the `Host` header of incoming requests against a list of allowed domains, preventing HTTP Host Header attacks. Wildcard domains are supported.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/advanced/middleware.md#_snippet_3
+
+LANGUAGE: Python
+CODE:
+```
+from fastapi import FastAPI
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+
+app = FastAPI()
+
+app.add_middleware(
+    TrustedHostMiddleware, allowed_hosts=["example.com", "*.example.com"]
+)
+```
+
+----------------------------------------
+
+TITLE: Basic FastAPI Application (main.py)
+DESCRIPTION: A minimal FastAPI application demonstrating how to define a root endpoint and an item endpoint with path and optional query parameters using `FastAPI`.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/zh/docs/deployment/docker.md#_snippet_3
+
+LANGUAGE: Python
+CODE:
+```
+from typing import Union
+
+from fastapi import FastAPI
+
+app = FastAPI()
+
+
+@app.get("/")
+def read_root():
+    return {"Hello": "World"}
+
+
+@app.get("/items/{item_id}")
+def read_item(item_id: int, q: Union[str, None] = None):
+    return {"item_id": item_id, "q": q}
+```
+
+----------------------------------------
+
+TITLE: Define Basic HTTP Middleware in FastAPI
+DESCRIPTION: Illustrates the fundamental structure for defining an HTTP middleware in FastAPI using the @app.middleware("http") decorator. It shows how the middleware function receives the request and a call_next function, which is used to pass the request to the next middleware or path operation and retrieve the response.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/tutorial/middleware.md#_snippet_0
+
+LANGUAGE: Python
+CODE:
+```
+from fastapi import FastAPI, Request
+from starlette.responses import Response
+
+app = FastAPI()
+
+@app.middleware("http")
+async def my_middleware(request: Request, call_next):
+    # Code to execute before the path operation
+    response = await call_next(request)
+    # Code to execute after the path operation, before returning response
+    return response
+```
+
+----------------------------------------
+
+TITLE: Initialize FastAPI Application with Lifespan Handler
+DESCRIPTION: This snippet demonstrates how to pass the custom `lifespan` async context manager to the `FastAPI` application constructor. This configuration ensures that the defined startup and shutdown logic is automatically executed by the framework during the application's lifecycle.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/es/docs/advanced/events.md#_snippet_3
+
+LANGUAGE: Python
+CODE:
+```
+app = FastAPI(lifespan=lifespan)
+```
+
+----------------------------------------
+
+TITLE: Implement Startup and Shutdown Logic in FastAPI Lifespan
+DESCRIPTION: This snippet focuses on the core logic within the `lifespan` function. Code placed before `yield` executes during application startup (e.g., loading an ML model), and code after `yield` executes during shutdown (e.g., cleaning up resources).
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/advanced/events.md#_snippet_1
+
+LANGUAGE: Python
+CODE:
+```
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Load the ML model
+    print("Loading ML model")
+    ml_models["my_model"] = "My loaded ML model"
+    yield
+    # Clean up the ML model
+    print("Unloading ML model")
+    ml_models.clear()
+```
+
+----------------------------------------
+
+TITLE: Handle Invalid Credentials with HTTPException
+DESCRIPTION: This code illustrates how to raise an `HTTPException` with a 401 Unauthorized status code when user authentication fails. It provides a clear error message and includes the `WWW-Authenticate` header as required by OAuth2 specifications for invalid credentials.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/em/docs/tutorial/security/simple-oauth2.md#_snippet_1
+
+LANGUAGE: Python
+CODE:
+```
+from fastapi import HTTPException, status
+
+# ... inside an authentication function
+if not user: # Assuming 'user' is None if authentication fails
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Incorrect username or password",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+```
+
+----------------------------------------
+
+TITLE: Initialize FastAPI Application with Lifespan Event Handler
+DESCRIPTION: This snippet demonstrates how to pass the defined `lifespan` async context manager to the `FastAPI` application constructor using the `lifespan` parameter, enabling startup and shutdown event handling.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/en/docs/advanced/events.md#_snippet_4
+
+LANGUAGE: Python
+CODE:
+```
+from fastapi import FastAPI
+
+app = FastAPI(lifespan=lifespan)
+```
+
+----------------------------------------
+
+TITLE: Basic FastAPI Application Testing with TestClient
+DESCRIPTION: This snippet demonstrates the fundamental usage of `TestClient` to test a FastAPI application. It initializes a `TestClient` with the FastAPI app, defines a test function following `pytest` conventions, and asserts the HTTP status code and JSON response from a GET request.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/es/docs/tutorial/testing.md#_snippet_1
+
+LANGUAGE: Python
+CODE:
+```
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+
+app = FastAPI()
+
+@app.get("/")
+async def read_main():
+    return {"msg": "Hello World"}
+
+client = TestClient(app)
+
+def test_read_main():
+    response = client.get("/")
+    assert response.status_code == 200
+    assert response.json() == {"msg": "Hello World"}
+```
+
+----------------------------------------
+
+TITLE: Run Docker Container from Image
+DESCRIPTION: Starts a Docker container in detached mode (`-d`), assigns it the name 'mycontainer', and maps port 80 of the host to port 80 of the container. The container is created from the previously built 'myimage', making the FastAPI application accessible.
+SOURCE: https://github.com/tiangolo/fastapi/blob/master/docs/em/docs/deployment/docker.md#_snippet_7
+
+LANGUAGE: Shell
+CODE:
+```
+docker run -d --name mycontainer -p 80:80 myimage
+```

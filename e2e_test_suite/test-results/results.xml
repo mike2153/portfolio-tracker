@@ -1,910 +1,1201 @@
-<testsuites id="" name="" tests="1" failures="0" skipped="0" errors="0" time="14.426832999999998">
-<testsuite name="simple-login-test.spec.ts" timestamp="2025-06-26T10:18:57.209Z" hostname="chromium" tests="1" failures="0" skipped="0" time="13.447" errors="0">
-<testcase name="Simple Login Test › Can login and reach dashboard with working KPIs" classname="simple-login-test.spec.ts" time="13.447">
+<testsuites id="" name="" tests="2" failures="2" skipped="0" errors="0" time="100.858268">
+<testsuite name="research-tabs-debug.spec.ts" timestamp="2025-07-05T09:03:24.444Z" hostname="chromium" tests="1" failures="1" skipped="0" time="59.57" errors="0">
+<testcase name="Research Page Tabs Debug E2E › Login, search AAPL, view all research tabs with debug" classname="research-tabs-debug.spec.ts" time="59.57">
+<failure message="research-tabs-debug.spec.ts:9:7 Login, search AAPL, view all research tabs with debug" type="FAILURE">
+<![CDATA[  [chromium] › research-tabs-debug.spec.ts:9:7 › Research Page Tabs Debug E2E › Login, search AAPL, view all research tabs with debug 
+
+    Error: Timed out 10000ms waiting for expect(locator).toBeVisible()
+
+    Locator: locator('input[placeholder*="Search"], input[type="search"]')
+    Expected: visible
+    Received: <element(s) not found>
+    Call log:
+      - Expect "toBeVisible" with timeout 10000ms
+      - waiting for locator('input[placeholder*="Search"], input[type="search"]')
+
+
+      39 |     console.log(`🔍 Typing "${TICKER}" in search bar...`);
+      40 |     const searchInput = page.locator('input[placeholder*="Search"], input[type="search"]');
+    > 41 |     await expect(searchInput).toBeVisible();
+         |                               ^
+      42 |     await searchInput.fill(TICKER);
+      43 |     await page.waitForTimeout(1000); // Wait for results to appear
+      44 |     await page.screenshot({ path: 'test-results/research-05-search-filled.png', fullPage: true });
+        at C:\Users\mike2\Documents\portfolio-tracker\e2e_test_suite\tests\research-tabs-debug.spec.ts:41:31
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\artifacts\research-tabs-debug-Resear-8980d-ll-research-tabs-with-debug-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\artifacts\research-tabs-debug-Resear-8980d-ll-research-tabs-with-debug-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ..\test-results\artifacts\research-tabs-debug-Resear-8980d-ll-research-tabs-with-debug-chromium\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    TimeoutError: page.fill: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('input[type="email"]')
+
+
+      22 |     await page.screenshot({ path: 'test-results/research-01-auth.png', fullPage: true });
+      23 |
+    > 24 |     await page.fill('input[type="email"]', EMAIL);
+         |                ^
+      25 |     await page.fill('input[type="password"]', PASSWORD);
+      26 |     await page.screenshot({ path: 'test-results/research-02-login-filled.png', fullPage: true });
+      27 |     await page.click('button[type="submit"]');
+        at C:\Users\mike2\Documents\portfolio-tracker\e2e_test_suite\tests\research-tabs-debug.spec.ts:24:16
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\artifacts\research-tabs-debug-Resear-8980d-ll-research-tabs-with-debug-chromium-retry1\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\artifacts\research-tabs-debug-Resear-8980d-ll-research-tabs-with-debug-chromium-retry1\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ..\test-results\artifacts\research-tabs-debug-Resear-8980d-ll-research-tabs-with-debug-chromium-retry1\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\artifacts\research-tabs-debug-Resear-8980d-ll-research-tabs-with-debug-chromium-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\artifacts\research-tabs-debug-Resear-8980d-ll-research-tabs-with-debug-chromium-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+]]>
+</failure>
 <system-out>
-<![CDATA[🧪 Testing simple login flow...
-🚀 Navigating to home page...
-🌐 [BROWSER]: %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold
-📡 API Call: 200 http://localhost:8000/api/health
-📡 API Call: 200 http://localhost:8000/api/health
-📸 Screenshot: home page
-📍 Home URL: http://localhost:3000/auth
-🎯 Attempting to access dashboard directly...
-🌐 [BROWSER]: %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold
-🌐 [BROWSER]: [KPIGrid] 🚀 Enhanced KPI Grid component rendering with initial data: undefined
-🌐 [BROWSER]: [KPIGrid] 📊 Initial data type: undefined
-🌐 [BROWSER]: [KPIGrid] 📊 Initial data keys: null
-🌐 [BROWSER]: [KPIGrid] 🎯 Query state: {isLoading: false, isError: false, error: null, hasApiData: false, hasInitialData: false}
-🌐 [BROWSER]: [KPIGrid] 🎯 Using processed data: undefined
-🌐 [BROWSER]: [KPIGrid] 🎯 Data validation check: {hasData: false, hasMarketValue: no, hasTotalProfit: no, hasIRR: no, hasPassiveIncome: no}
-🌐 [BROWSER]: [KPIGrid] ❌ No data available, showing skeleton
-🌐 [BROWSER]: [KPIGrid] 🚀 Enhanced KPI Grid component rendering with initial data: undefined
-🌐 [BROWSER]: [KPIGrid] 📊 Initial data type: undefined
-🌐 [BROWSER]: [KPIGrid] 📊 Initial data keys: null
-🌐 [BROWSER]: [KPIGrid] 🎯 Query state: {isLoading: false, isError: false, error: null, hasApiData: false, hasInitialData: false}
-🌐 [BROWSER]: [KPIGrid] 🎯 Using processed data: undefined
-🌐 [BROWSER]: [KPIGrid] 🎯 Data validation check: {hasData: false, hasMarketValue: no, hasTotalProfit: no, hasIRR: no, hasPassiveIncome: no}
-🌐 [BROWSER]: [KPIGrid] ❌ No data available, showing skeleton
-🌐 [BROWSER]: [KPIGrid] 🔐 useEffect: Checking user session...
-🌐 [BROWSER]: [KPIGrid] 🔐 useEffect: Checking user session...
-🌐 [BROWSER]: [AllocationTable] Component mounting...
-🌐 [BROWSER]: [AllocationTable] Query state: {data: undefined, isLoading: false, isError: false, error: null}
-🌐 [BROWSER]: [AllocationTable] Allocation rows: []
-🌐 [BROWSER]: [AllocationTable] Number of rows: 0
-🌐 [BROWSER]: [AllocationTable] Component mounting...
-🌐 [BROWSER]: [AllocationTable] Query state: {data: undefined, isLoading: false, isError: false, error: null}
-🌐 [BROWSER]: [AllocationTable] Allocation rows: []
-🌐 [BROWSER]: [AllocationTable] Number of rows: 0
-🌐 [BROWSER]: [PortfolioChart] Component mounting...
-🌐 [BROWSER]: [PortfolioChart] Component state: {userId: null, range: 1Y, mode: value, benchmark: SPY}
-🌐 [BROWSER]: [PortfolioChart] Query state: {data: undefined, isLoading: false, error: null}
-🌐 [BROWSER]: [PortfolioChart] Parsed performance data: undefined
-🌐 [BROWSER]: [PortfolioChart] Portfolio performance data length: 0
-🌐 [BROWSER]: [PortfolioChart] Benchmark performance data length: 0
-🌐 [BROWSER]: [PortfolioChart] Sample portfolio data: []
-🌐 [BROWSER]: [PortfolioChart] Sample benchmark data: []
-🌐 [BROWSER]: [PortfolioChart] Chart data Y values: {portfolioY: Array(0), benchmarkY: Array(0)}
-🌐 [BROWSER]: [PortfolioChart] Component mounting...
-🌐 [BROWSER]: [PortfolioChart] Component state: {userId: null, range: 1Y, mode: value, benchmark: SPY}
-🌐 [BROWSER]: [PortfolioChart] Query state: {data: undefined, isLoading: false, error: null}
-🌐 [BROWSER]: [PortfolioChart] Parsed performance data: undefined
-🌐 [BROWSER]: [PortfolioChart] Portfolio performance data length: 0
-🌐 [BROWSER]: [PortfolioChart] Benchmark performance data length: 0
-🌐 [BROWSER]: [PortfolioChart] Sample portfolio data: []
-🌐 [BROWSER]: [PortfolioChart] Sample benchmark data: []
-🌐 [BROWSER]: [PortfolioChart] Chart data Y values: {portfolioY: Array(0), benchmarkY: Array(0)}
-🌐 [BROWSER]: [GainLossCard] Component mounting for type: gainers
-🌐 [BROWSER]: [GainLossCard] Query state for gainers: {data: undefined, isLoading: false, isError: false, error: null}
-🌐 [BROWSER]: [GainLossCard] Items for gainers: []
-🌐 [BROWSER]: [GainLossCard] Number of items for gainers: 0
-🌐 [BROWSER]: [GainLossCard] Component mounting for type: gainers
-🌐 [BROWSER]: [GainLossCard] Query state for gainers: {data: undefined, isLoading: false, isError: false, error: null}
-🌐 [BROWSER]: [GainLossCard] Items for gainers: []
-🌐 [BROWSER]: [GainLossCard] Number of items for gainers: 0
-🌐 [BROWSER]: [AllocationTable] Component mounting...
-🌐 [BROWSER]: [AllocationTable] Query state: {data: undefined, isLoading: false, isError: false, error: null}
-🌐 [BROWSER]: [AllocationTable] Allocation rows: []
-🌐 [BROWSER]: [AllocationTable] Number of rows: 0
-🌐 [BROWSER]: [AllocationTable] Component mounting...
-🌐 [BROWSER]: [AllocationTable] Query state: {data: undefined, isLoading: false, isError: false, error: null}
-🌐 [BROWSER]: [AllocationTable] Allocation rows: []
-🌐 [BROWSER]: [AllocationTable] Number of rows: 0
-🌐 [BROWSER]: [PortfolioChart] Component mounting...
-🌐 [BROWSER]: [PortfolioChart] Component state: {userId: null, range: 1Y, mode: value, benchmark: SPY}
-🌐 [BROWSER]: [PortfolioChart] Query state: {data: undefined, isLoading: false, error: null}
-🌐 [BROWSER]: [PortfolioChart] Parsed performance data: undefined
-🌐 [BROWSER]: [PortfolioChart] Portfolio performance data length: 0
-🌐 [BROWSER]: [PortfolioChart] Benchmark performance data length: 0
-🌐 [BROWSER]: [PortfolioChart] Sample portfolio data: []
-🌐 [BROWSER]: [PortfolioChart] Sample benchmark data: []
-🌐 [BROWSER]: [PortfolioChart] Chart data Y values: {portfolioY: Array(0), benchmarkY: Array(0)}
-🌐 [BROWSER]: [PortfolioChart] Component mounting...
-🌐 [BROWSER]: [PortfolioChart] Component state: {userId: null, range: 1Y, mode: value, benchmark: SPY}
-🌐 [BROWSER]: [PortfolioChart] Query state: {data: undefined, isLoading: false, error: null}
-🌐 [BROWSER]: [PortfolioChart] Parsed performance data: undefined
-🌐 [BROWSER]: [PortfolioChart] Portfolio performance data length: 0
-🌐 [BROWSER]: [PortfolioChart] Benchmark performance data length: 0
-🌐 [BROWSER]: [PortfolioChart] Sample portfolio data: []
-🌐 [BROWSER]: [PortfolioChart] Sample benchmark data: []
-🌐 [BROWSER]: [PortfolioChart] Chart data Y values: {portfolioY: Array(0), benchmarkY: Array(0)}
-🌐 [BROWSER]: [GainLossCard] Component mounting for type: gainers
-🌐 [BROWSER]: [GainLossCard] Query state for gainers: {data: undefined, isLoading: false, isError: false, error: null}
-🌐 [BROWSER]: [GainLossCard] Items for gainers: []
-🌐 [BROWSER]: [GainLossCard] Number of items for gainers: 0
-🌐 [BROWSER]: [GainLossCard] Component mounting for type: gainers
-🌐 [BROWSER]: [GainLossCard] Query state for gainers: {data: undefined, isLoading: false, isError: false, error: null}
-🌐 [BROWSER]: [GainLossCard] Items for gainers: []
-🌐 [BROWSER]: [GainLossCard] Number of items for gainers: 0
-🌐 [BROWSER]: [GainLossCard] Component mounting for type: losers
-🌐 [BROWSER]: [GainLossCard] Query state for losers: {data: undefined, isLoading: false, isError: false, error: null}
-🌐 [BROWSER]: [GainLossCard] Items for losers: []
-🌐 [BROWSER]: [GainLossCard] Number of items for losers: 0
-🌐 [BROWSER]: [GainLossCard] Component mounting for type: losers
-🌐 [BROWSER]: [GainLossCard] Query state for losers: {data: undefined, isLoading: false, isError: false, error: null}
-🌐 [BROWSER]: [GainLossCard] Items for losers: []
-🌐 [BROWSER]: [GainLossCard] Number of items for losers: 0
-🌐 [BROWSER]: [AllocationTable] useEffect: Checking user session...
-🌐 [BROWSER]: [API] 🚀 Starting request to: http://localhost:8000/api/fx/latest?base=AUD
-🌐 [BROWSER]: [API] 📝 Request options: {}
-🌐 [BROWSER]: [PortfolioChart] useEffect: Checking user session...
-🌐 [BROWSER]: [GainLossCard] useEffect: Checking user session for gainers...
-🌐 [BROWSER]: [GainLossCard] useEffect: Checking user session for losers...
-🌐 [BROWSER]: [AllocationTable] useEffect: Checking user session...
-🌐 [BROWSER]: [PortfolioChart] useEffect: Checking user session...
-🌐 [BROWSER]: [GainLossCard] useEffect: Checking user session for gainers...
-🌐 [BROWSER]: [GainLossCard] useEffect: Checking user session for losers...
-🌐 [BROWSER]: [KPIGrid] 🔐 Session user ID: undefined
-🌐 [BROWSER]: [KPIGrid] ❌ No user session found
-🌐 [BROWSER]: [KPIGrid] 🔐 Session user ID: undefined
-🌐 [BROWSER]: [KPIGrid] ❌ No user session found
-🌐 [BROWSER]: [AllocationTable] Session user ID: undefined
-🌐 [BROWSER]: [AllocationTable] No user session found
-🌐 [BROWSER]: [API] 🔐 Auth token available: false
-🌐 [BROWSER]: [API] 🔐 Token preview: none
-🌐 [BROWSER]: [API] 📤 Final request headers: {Content-Type: application/json}
-🌐 [BROWSER]: [API] 📡 Making fetch request to: http://localhost:8000/api/fx/latest?base=AUD
-🌐 [BROWSER]: [PortfolioChart] Session user ID: undefined
-🌐 [BROWSER]: [PortfolioChart] No user session found
-🌐 [BROWSER]: [GainLossCard] Session user ID for gainers: undefined
-🌐 [BROWSER]: [GainLossCard] No user session found for gainers
-🌐 [BROWSER]: [GainLossCard] Session user ID for losers: undefined
-🌐 [BROWSER]: [GainLossCard] No user session found for losers
-🌐 [BROWSER]: [AllocationTable] Session user ID: undefined
-🌐 [BROWSER]: [AllocationTable] No user session found
-🌐 [BROWSER]: [PortfolioChart] Session user ID: undefined
-🌐 [BROWSER]: [PortfolioChart] No user session found
-🌐 [BROWSER]: [GainLossCard] Session user ID for gainers: undefined
-🌐 [BROWSER]: [GainLossCard] No user session found for gainers
-🌐 [BROWSER]: [GainLossCard] Session user ID for losers: undefined
-🌐 [BROWSER]: [GainLossCard] No user session found for losers
-📡 API Call: 200 http://localhost:8000/api/fx/latest?base=AUD
-🌐 [BROWSER]: [API] 📨 Response received: {status: 200, statusText: OK, ok: true, url: http://localhost:8000/api/fx/latest?base=AUD, headers: Object}
-🌐 [BROWSER]: [API] 📄 Raw success response text: {"ok": true, "message": "Success", "data": {"rates": [{"pair": "AUDUSD", "rate": 1.0, "change": 0.0}, {"pair": "AUDEUR", "rate": 0.65, "change": 0.0}, {"pair": "AUDGBP", "rate": 0.65, "change": 0.0}, {"pair": "AUDJPY", "rate": 0.65, "change": 0.0}]}}
-🌐 [BROWSER]: [API] 📊 Parsed response data: {ok: true, message: Success, data: Object}
-🌐 [BROWSER]: [API] ✅ Request completed successfully for http://localhost:8000/api/fx/latest?base=AUD
-📍 Dashboard URL: http://localhost:3000/auth
-🔐 Redirected to auth - login required
-📸 Screenshot: auth page
-📝 Filling login form...
-📧 Using email: 3200163@proton.me
-📸 Screenshot: form filled
-🚀 Submitting login form...
-🌐 [BROWSER]: %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold
-🌐 [BROWSER]: [KPIGrid] 🚀 Enhanced KPI Grid component rendering with initial data: undefined
-🌐 [BROWSER]: [KPIGrid] 📊 Initial data type: undefined
-🌐 [BROWSER]: [KPIGrid] 📊 Initial data keys: null
-🌐 [BROWSER]: [KPIGrid] 🎯 Query state: {isLoading: false, isError: false, error: null, hasApiData: false, hasInitialData: false}
-🌐 [BROWSER]: [KPIGrid] 🎯 Using processed data: undefined
-🌐 [BROWSER]: [KPIGrid] 🎯 Data validation check: {hasData: false, hasMarketValue: no, hasTotalProfit: no, hasIRR: no, hasPassiveIncome: no}
-🌐 [BROWSER]: [KPIGrid] ❌ No data available, showing skeleton
-🌐 [BROWSER]: [KPIGrid] 🚀 Enhanced KPI Grid component rendering with initial data: undefined
-🌐 [BROWSER]: [KPIGrid] 📊 Initial data type: undefined
-🌐 [BROWSER]: [KPIGrid] 📊 Initial data keys: null
-🌐 [BROWSER]: [KPIGrid] 🎯 Query state: {isLoading: false, isError: false, error: null, hasApiData: false, hasInitialData: false}
-🌐 [BROWSER]: [KPIGrid] 🎯 Using processed data: undefined
-🌐 [BROWSER]: [KPIGrid] 🎯 Data validation check: {hasData: false, hasMarketValue: no, hasTotalProfit: no, hasIRR: no, hasPassiveIncome: no}
-🌐 [BROWSER]: [KPIGrid] ❌ No data available, showing skeleton
-🌐 [BROWSER]: [KPIGrid] 🔐 useEffect: Checking user session...
-🌐 [BROWSER]: [KPIGrid] 🔐 useEffect: Checking user session...
-🌐 [BROWSER]: [AllocationTable] Component mounting...
-🌐 [BROWSER]: [AllocationTable] Query state: {data: undefined, isLoading: false, isError: false, error: null}
-🌐 [BROWSER]: [AllocationTable] Allocation rows: []
-🌐 [BROWSER]: [AllocationTable] Number of rows: 0
-🌐 [BROWSER]: [AllocationTable] Component mounting...
-🌐 [BROWSER]: [AllocationTable] Query state: {data: undefined, isLoading: false, isError: false, error: null}
-🌐 [BROWSER]: [AllocationTable] Allocation rows: []
-🌐 [BROWSER]: [AllocationTable] Number of rows: 0
-🌐 [BROWSER]: [PortfolioChart] Component mounting...
-🌐 [BROWSER]: [PortfolioChart] Component state: {userId: null, range: 1Y, mode: value, benchmark: SPY}
-🌐 [BROWSER]: [PortfolioChart] Query state: {data: undefined, isLoading: false, error: null}
-🌐 [BROWSER]: [PortfolioChart] Parsed performance data: undefined
-🌐 [BROWSER]: [PortfolioChart] Portfolio performance data length: 0
-🌐 [BROWSER]: [PortfolioChart] Benchmark performance data length: 0
-🌐 [BROWSER]: [PortfolioChart] Sample portfolio data: []
-🌐 [BROWSER]: [PortfolioChart] Sample benchmark data: []
-🌐 [BROWSER]: [PortfolioChart] Chart data Y values: {portfolioY: Array(0), benchmarkY: Array(0)}
-🌐 [BROWSER]: [PortfolioChart] Component mounting...
-🌐 [BROWSER]: [PortfolioChart] Component state: {userId: null, range: 1Y, mode: value, benchmark: SPY}
-🌐 [BROWSER]: [PortfolioChart] Query state: {data: undefined, isLoading: false, error: null}
-🌐 [BROWSER]: [PortfolioChart] Parsed performance data: undefined
-🌐 [BROWSER]: [PortfolioChart] Portfolio performance data length: 0
-🌐 [BROWSER]: [PortfolioChart] Benchmark performance data length: 0
-🌐 [BROWSER]: [PortfolioChart] Sample portfolio data: []
-🌐 [BROWSER]: [PortfolioChart] Sample benchmark data: []
-🌐 [BROWSER]: [PortfolioChart] Chart data Y values: {portfolioY: Array(0), benchmarkY: Array(0)}
-🌐 [BROWSER]: [GainLossCard] Component mounting for type: gainers
-🌐 [BROWSER]: [GainLossCard] Query state for gainers: {data: undefined, isLoading: false, isError: false, error: null}
-🌐 [BROWSER]: [GainLossCard] Items for gainers: []
-🌐 [BROWSER]: [GainLossCard] Number of items for gainers: 0
-🌐 [BROWSER]: [GainLossCard] Component mounting for type: gainers
-🌐 [BROWSER]: [GainLossCard] Query state for gainers: {data: undefined, isLoading: false, isError: false, error: null}
-🌐 [BROWSER]: [GainLossCard] Items for gainers: []
-🌐 [BROWSER]: [GainLossCard] Number of items for gainers: 0
-🌐 [BROWSER]: [GainLossCard] Component mounting for type: losers
-🌐 [BROWSER]: [GainLossCard] Query state for losers: {data: undefined, isLoading: false, isError: false, error: null}
-🌐 [BROWSER]: [GainLossCard] Items for losers: []
-🌐 [BROWSER]: [GainLossCard] Number of items for losers: 0
-🌐 [BROWSER]: [GainLossCard] Component mounting for type: losers
-🌐 [BROWSER]: [GainLossCard] Query state for losers: {data: undefined, isLoading: false, isError: false, error: null}
-🌐 [BROWSER]: [GainLossCard] Items for losers: []
-🌐 [BROWSER]: [GainLossCard] Number of items for losers: 0
-🌐 [BROWSER]: [AllocationTable] useEffect: Checking user session...
-🌐 [BROWSER]: [API] 🚀 Starting request to: http://localhost:8000/api/fx/latest?base=AUD
-🌐 [BROWSER]: [API] 📝 Request options: {}
-🌐 [BROWSER]: [PortfolioChart] useEffect: Checking user session...
-🌐 [BROWSER]: [GainLossCard] useEffect: Checking user session for gainers...
-🌐 [BROWSER]: [GainLossCard] useEffect: Checking user session for losers...
-🌐 [BROWSER]: [AllocationTable] useEffect: Checking user session...
-🌐 [BROWSER]: [PortfolioChart] useEffect: Checking user session...
-🌐 [BROWSER]: [GainLossCard] useEffect: Checking user session for gainers...
-🌐 [BROWSER]: [GainLossCard] useEffect: Checking user session for losers...
-🌐 [BROWSER]: [KPIGrid] 🔐 Session user ID: 28eff71a-87bd-433f-bd6c-8701801e2261
-🌐 [BROWSER]: [KPIGrid] 🔐 User ID set to: 28eff71a-87bd-433f-bd6c-8701801e2261
-🌐 [BROWSER]: [KPIGrid] 🚀 Enhanced KPI Grid component rendering with initial data: undefined
-🌐 [BROWSER]: [KPIGrid] 📊 Initial data type: undefined
-🌐 [BROWSER]: [KPIGrid] 📊 Initial data keys: null
-🌐 [BROWSER]: [KPIGrid] 🎯 Query state: {isLoading: true, isError: false, error: null, hasApiData: false, hasInitialData: false}
-🌐 [BROWSER]: [KPIGrid] 🎯 Using processed data: undefined
-🌐 [BROWSER]: [KPIGrid] 🎯 Data validation check: {hasData: false, hasMarketValue: no, hasTotalProfit: no, hasIRR: no, hasPassiveIncome: no}
-🌐 [BROWSER]: [KPIGrid] ⏳ Loading data, showing skeleton
-🌐 [BROWSER]: [KPIGrid] 🚀 Enhanced KPI Grid component rendering with initial data: undefined
-🌐 [BROWSER]: [KPIGrid] 📊 Initial data type: undefined
-🌐 [BROWSER]: [KPIGrid] 📊 Initial data keys: null
-🌐 [BROWSER]: [KPIGrid] 🎯 Query state: {isLoading: true, isError: false, error: null, hasApiData: false, hasInitialData: false}
-🌐 [BROWSER]: [KPIGrid] 🎯 Using processed data: undefined
-🌐 [BROWSER]: [KPIGrid] 🎯 Data validation check: {hasData: false, hasMarketValue: no, hasTotalProfit: no, hasIRR: no, hasPassiveIncome: no}
-🌐 [BROWSER]: [KPIGrid] ⏳ Loading data, showing skeleton
-🌐 [BROWSER]: [KPIGrid] 📡 Making API call for dashboard overview...
-🌐 [BROWSER]: [KPIGrid] 📡 User ID for API call: 28eff71a-87bd-433f-bd6c-8701801e2261
-🌐 [BROWSER]: [API] 🚀 Starting request to: http://localhost:8000/api/dashboard/overview
-🌐 [BROWSER]: [API] 📝 Request options: {}
-🌐 [BROWSER]: [KPIGrid] 🔐 Session user ID: 28eff71a-87bd-433f-bd6c-8701801e2261
-🌐 [BROWSER]: [KPIGrid] 🔐 User ID set to: 28eff71a-87bd-433f-bd6c-8701801e2261
-🌐 [BROWSER]: [KPIGrid] 🚀 Enhanced KPI Grid component rendering with initial data: undefined
-🌐 [BROWSER]: [KPIGrid] 📊 Initial data type: undefined
-🌐 [BROWSER]: [KPIGrid] 📊 Initial data keys: null
-🌐 [BROWSER]: [KPIGrid] 🎯 Query state: {isLoading: true, isError: false, error: null, hasApiData: false, hasInitialData: false}
-🌐 [BROWSER]: [KPIGrid] 🎯 Using processed data: undefined
-🌐 [BROWSER]: [KPIGrid] 🎯 Data validation check: {hasData: false, hasMarketValue: no, hasTotalProfit: no, hasIRR: no, hasPassiveIncome: no}
-🌐 [BROWSER]: [KPIGrid] ⏳ Loading data, showing skeleton
-🌐 [BROWSER]: [KPIGrid] 🚀 Enhanced KPI Grid component rendering with initial data: undefined
-🌐 [BROWSER]: [KPIGrid] 📊 Initial data type: undefined
-🌐 [BROWSER]: [KPIGrid] 📊 Initial data keys: null
-🌐 [BROWSER]: [KPIGrid] 🎯 Query state: {isLoading: true, isError: false, error: null, hasApiData: false, hasInitialData: false}
-🌐 [BROWSER]: [KPIGrid] 🎯 Using processed data: undefined
-🌐 [BROWSER]: [KPIGrid] 🎯 Data validation check: {hasData: false, hasMarketValue: no, hasTotalProfit: no, hasIRR: no, hasPassiveIncome: no}
-🌐 [BROWSER]: [KPIGrid] ⏳ Loading data, showing skeleton
-🌐 [BROWSER]: [AllocationTable] Session user ID: 28eff71a-87bd-433f-bd6c-8701801e2261
-🌐 [BROWSER]: [AllocationTable] User ID set to: 28eff71a-87bd-433f-bd6c-8701801e2261
-🌐 [BROWSER]: [AllocationTable] Component mounting...
-🌐 [BROWSER]: [AllocationTable] Query state: {data: undefined, isLoading: true, isError: false, error: null}
-🌐 [BROWSER]: [AllocationTable] Still loading, showing skeleton
-🌐 [BROWSER]: [AllocationTable] Component mounting...
-🌐 [BROWSER]: [AllocationTable] Query state: {data: undefined, isLoading: true, isError: false, error: null}
-🌐 [BROWSER]: [AllocationTable] Still loading, showing skeleton
-🌐 [BROWSER]: [AllocationTable] Making API call for allocation data...
-🌐 [BROWSER]: [API] 🚀 Starting request to: http://localhost:8000/api/dashboard/allocation?groupBy=sector
-🌐 [BROWSER]: [API] 📝 Request options: {}
-🌐 [BROWSER]: [API] 🔐 Auth token available: true
-🌐 [BROWSER]: [API] 🔐 Token preview: eyJhbGciOiJIUzI1NiIs...
-🌐 [BROWSER]: [API] 📤 Final request headers: {Content-Type: application/json, Authorization: Bearer eyJhbGciOiJIUzI1NiIsImtpZCI6ImVJdWpzR3M5UVR…sc2V9.j6TpdCSCYpN6kqA1NrKLB2NbL7qNNeIRty0fWSu4wFE}
-🌐 [BROWSER]: [API] 📡 Making fetch request to: http://localhost:8000/api/fx/latest?base=AUD
-📡 API Call: 200 http://localhost:8000/api/fx/latest?base=AUD
-🌐 [BROWSER]: [API] 📨 Response received: {status: 200, statusText: OK, ok: true, url: http://localhost:8000/api/fx/latest?base=AUD, headers: Object}
-🌐 [BROWSER]: [PortfolioChart] Session user ID: 28eff71a-87bd-433f-bd6c-8701801e2261
-🌐 [BROWSER]: [PortfolioChart] User ID set to: 28eff71a-87bd-433f-bd6c-8701801e2261
-🌐 [BROWSER]: [PortfolioChart] Component mounting...
-🌐 [BROWSER]: [PortfolioChart] Component state: {userId: 28eff71a-87bd-433f-bd6c-8701801e2261, range: 1Y, mode: value, benchmark: SPY}
-🌐 [BROWSER]: [PortfolioChart] Query state: {data: undefined, isLoading: true, error: null}
-🌐 [BROWSER]: [PortfolioChart] Parsed performance data: undefined
-🌐 [BROWSER]: [PortfolioChart] Portfolio performance data length: 0
-🌐 [BROWSER]: [PortfolioChart] Benchmark performance data length: 0
-🌐 [BROWSER]: [PortfolioChart] Sample portfolio data: []
-🌐 [BROWSER]: [PortfolioChart] Sample benchmark data: []
-🌐 [BROWSER]: [PortfolioChart] Chart data Y values: {portfolioY: Array(0), benchmarkY: Array(0)}
-🌐 [BROWSER]: [PortfolioChart] Component mounting...
-🌐 [BROWSER]: [PortfolioChart] Component state: {userId: 28eff71a-87bd-433f-bd6c-8701801e2261, range: 1Y, mode: value, benchmark: SPY}
-🌐 [BROWSER]: [PortfolioChart] Query state: {data: undefined, isLoading: true, error: null}
-🌐 [BROWSER]: [PortfolioChart] Parsed performance data: undefined
-🌐 [BROWSER]: [PortfolioChart] Portfolio performance data length: 0
-🌐 [BROWSER]: [PortfolioChart] Benchmark performance data length: 0
-🌐 [BROWSER]: [PortfolioChart] Sample portfolio data: []
-🌐 [BROWSER]: [PortfolioChart] Sample benchmark data: []
-🌐 [BROWSER]: [PortfolioChart] Chart data Y values: {portfolioY: Array(0), benchmarkY: Array(0)}
-🌐 [BROWSER]: [PortfolioChart] Making API call for portfolio performance...
-🌐 [BROWSER]: [PortfolioChart] API params: {userId: 28eff71a-87bd-433f-bd6c-8701801e2261, range: 1Y, benchmark: SPY}
-🌐 [BROWSER]: [API] 🚀 Starting request to: http://localhost:8000/api/portfolios/28eff71a-87bd-433f-bd6c-8701801e2261/performance?period=1Y&benchmark=SPY
-🌐 [BROWSER]: [API] 📝 Request options: {}
-🌐 [BROWSER]: [API] 📄 Raw success response text: {"ok": true, "message": "Success", "data": {"rates": [{"pair": "AUDUSD", "rate": 1.0, "change": 0.0}, {"pair": "AUDEUR", "rate": 0.65, "change": 0.0}, {"pair": "AUDGBP", "rate": 0.65, "change": 0.0}, {"pair": "AUDJPY", "rate": 0.65, "change": 0.0}]}}
-🌐 [BROWSER]: [API] 📊 Parsed response data: {ok: true, message: Success, data: Object}
-🌐 [BROWSER]: [API] ✅ Request completed successfully for http://localhost:8000/api/fx/latest?base=AUD
-🌐 [BROWSER]: [GainLossCard] Session user ID for gainers: 28eff71a-87bd-433f-bd6c-8701801e2261
-🌐 [BROWSER]: [GainLossCard] User ID set for gainers: 28eff71a-87bd-433f-bd6c-8701801e2261
-🌐 [BROWSER]: [GainLossCard] Component mounting for type: gainers
-🌐 [BROWSER]: [GainLossCard] Query state for gainers: {data: undefined, isLoading: true, isError: false, error: null}
-🌐 [BROWSER]: [GainLossCard] Still loading gainers, showing skeleton
-🌐 [BROWSER]: [GainLossCard] Component mounting for type: gainers
-🌐 [BROWSER]: [GainLossCard] Query state for gainers: {data: undefined, isLoading: true, isError: false, error: null}
-🌐 [BROWSER]: [GainLossCard] Still loading gainers, showing skeleton
-🌐 [BROWSER]: [GainLossCard] Making API call for gainers...
-🌐 [BROWSER]: [API] 🚀 Starting request to: http://localhost:8000/api/dashboard/gainers?limit=5
-🌐 [BROWSER]: [API] 📝 Request options: {}
-🌐 [BROWSER]: [GainLossCard] Session user ID for losers: 28eff71a-87bd-433f-bd6c-8701801e2261
-🌐 [BROWSER]: [GainLossCard] User ID set for losers: 28eff71a-87bd-433f-bd6c-8701801e2261
-🌐 [BROWSER]: [GainLossCard] Component mounting for type: losers
-🌐 [BROWSER]: [GainLossCard] Query state for losers: {data: undefined, isLoading: true, isError: false, error: null}
-🌐 [BROWSER]: [GainLossCard] Still loading losers, showing skeleton
-🌐 [BROWSER]: [GainLossCard] Component mounting for type: losers
-🌐 [BROWSER]: [GainLossCard] Query state for losers: {data: undefined, isLoading: true, isError: false, error: null}
-🌐 [BROWSER]: [GainLossCard] Still loading losers, showing skeleton
-🌐 [BROWSER]: [GainLossCard] Making API call for losers...
-🌐 [BROWSER]: [API] 🚀 Starting request to: http://localhost:8000/api/dashboard/losers?limit=5
-🌐 [BROWSER]: [API] 📝 Request options: {}
-🌐 [BROWSER]: [AllocationTable] Session user ID: 28eff71a-87bd-433f-bd6c-8701801e2261
-🌐 [BROWSER]: [AllocationTable] User ID set to: 28eff71a-87bd-433f-bd6c-8701801e2261
-🌐 [BROWSER]: [AllocationTable] Component mounting...
-🌐 [BROWSER]: [AllocationTable] Query state: {data: undefined, isLoading: true, isError: false, error: null}
-🌐 [BROWSER]: [AllocationTable] Still loading, showing skeleton
-🌐 [BROWSER]: [AllocationTable] Component mounting...
-🌐 [BROWSER]: [AllocationTable] Query state: {data: undefined, isLoading: true, isError: false, error: null}
-🌐 [BROWSER]: [AllocationTable] Still loading, showing skeleton
-🌐 [BROWSER]: [PortfolioChart] Session user ID: 28eff71a-87bd-433f-bd6c-8701801e2261
-🌐 [BROWSER]: [PortfolioChart] User ID set to: 28eff71a-87bd-433f-bd6c-8701801e2261
-🌐 [BROWSER]: [PortfolioChart] Component mounting...
-🌐 [BROWSER]: [PortfolioChart] Component state: {userId: 28eff71a-87bd-433f-bd6c-8701801e2261, range: 1Y, mode: value, benchmark: SPY}
-🌐 [BROWSER]: [PortfolioChart] Query state: {data: undefined, isLoading: true, error: null}
-🌐 [BROWSER]: [PortfolioChart] Parsed performance data: undefined
-🌐 [BROWSER]: [PortfolioChart] Portfolio performance data length: 0
-🌐 [BROWSER]: [PortfolioChart] Benchmark performance data length: 0
-🌐 [BROWSER]: [PortfolioChart] Sample portfolio data: []
-🌐 [BROWSER]: [PortfolioChart] Sample benchmark data: []
-🌐 [BROWSER]: [PortfolioChart] Chart data Y values: {portfolioY: Array(0), benchmarkY: Array(0)}
-🌐 [BROWSER]: [PortfolioChart] Component mounting...
-🌐 [BROWSER]: [PortfolioChart] Component state: {userId: 28eff71a-87bd-433f-bd6c-8701801e2261, range: 1Y, mode: value, benchmark: SPY}
-🌐 [BROWSER]: [PortfolioChart] Query state: {data: undefined, isLoading: true, error: null}
-🌐 [BROWSER]: [PortfolioChart] Parsed performance data: undefined
-🌐 [BROWSER]: [PortfolioChart] Portfolio performance data length: 0
-🌐 [BROWSER]: [PortfolioChart] Benchmark performance data length: 0
-🌐 [BROWSER]: [PortfolioChart] Sample portfolio data: []
-🌐 [BROWSER]: [PortfolioChart] Sample benchmark data: []
-🌐 [BROWSER]: [PortfolioChart] Chart data Y values: {portfolioY: Array(0), benchmarkY: Array(0)}
-🌐 [BROWSER]: [GainLossCard] Session user ID for gainers: 28eff71a-87bd-433f-bd6c-8701801e2261
-🌐 [BROWSER]: [GainLossCard] User ID set for gainers: 28eff71a-87bd-433f-bd6c-8701801e2261
-🌐 [BROWSER]: [GainLossCard] Session user ID for losers: 28eff71a-87bd-433f-bd6c-8701801e2261
-🌐 [BROWSER]: [GainLossCard] User ID set for losers: 28eff71a-87bd-433f-bd6c-8701801e2261
-🌐 [BROWSER]: [GainLossCard] Component mounting for type: losers
-🌐 [BROWSER]: [GainLossCard] Query state for losers: {data: undefined, isLoading: true, isError: false, error: null}
-🌐 [BROWSER]: [GainLossCard] Still loading losers, showing skeleton
-🌐 [BROWSER]: [GainLossCard] Component mounting for type: losers
-🌐 [BROWSER]: [GainLossCard] Query state for losers: {data: undefined, isLoading: true, isError: false, error: null}
-🌐 [BROWSER]: [GainLossCard] Still loading losers, showing skeleton
-🌐 [BROWSER]: [API] 🔐 Auth token available: true
-🌐 [BROWSER]: [API] 🔐 Token preview: eyJhbGciOiJIUzI1NiIs...
-🌐 [BROWSER]: [API] 📤 Final request headers: {Content-Type: application/json, Authorization: Bearer eyJhbGciOiJIUzI1NiIsImtpZCI6ImVJdWpzR3M5UVR…sc2V9.j6TpdCSCYpN6kqA1NrKLB2NbL7qNNeIRty0fWSu4wFE}
-🌐 [BROWSER]: [API] 📡 Making fetch request to: http://localhost:8000/api/dashboard/overview
-🌐 [BROWSER]: [API] 🔐 Auth token available: true
-🌐 [BROWSER]: [API] 🔐 Token preview: eyJhbGciOiJIUzI1NiIs...
-🌐 [BROWSER]: [API] 📤 Final request headers: {Content-Type: application/json, Authorization: Bearer eyJhbGciOiJIUzI1NiIsImtpZCI6ImVJdWpzR3M5UVR…sc2V9.j6TpdCSCYpN6kqA1NrKLB2NbL7qNNeIRty0fWSu4wFE}
-🌐 [BROWSER]: [API] 📡 Making fetch request to: http://localhost:8000/api/dashboard/allocation?groupBy=sector
-🌐 [BROWSER]: [API] 🔐 Auth token available: true
-🌐 [BROWSER]: [API] 🔐 Token preview: eyJhbGciOiJIUzI1NiIs...
-🌐 [BROWSER]: [API] 📤 Final request headers: {Content-Type: application/json, Authorization: Bearer eyJhbGciOiJIUzI1NiIsImtpZCI6ImVJdWpzR3M5UVR…sc2V9.j6TpdCSCYpN6kqA1NrKLB2NbL7qNNeIRty0fWSu4wFE}
-🌐 [BROWSER]: [API] 📡 Making fetch request to: http://localhost:8000/api/portfolios/28eff71a-87bd-433f-bd6c-8701801e2261/performance?period=1Y&benchmark=SPY
-🌐 [BROWSER]: [API] 🔐 Auth token available: true
-🌐 [BROWSER]: [API] 🔐 Token preview: eyJhbGciOiJIUzI1NiIs...
-🌐 [BROWSER]: [API] 📤 Final request headers: {Content-Type: application/json, Authorization: Bearer eyJhbGciOiJIUzI1NiIsImtpZCI6ImVJdWpzR3M5UVR…sc2V9.j6TpdCSCYpN6kqA1NrKLB2NbL7qNNeIRty0fWSu4wFE}
-🌐 [BROWSER]: [API] 📡 Making fetch request to: http://localhost:8000/api/dashboard/gainers?limit=5
-🌐 [BROWSER]: [API] 🔐 Auth token available: true
-🌐 [BROWSER]: [API] 🔐 Token preview: eyJhbGciOiJIUzI1NiIs...
-🌐 [BROWSER]: [API] 📤 Final request headers: {Content-Type: application/json, Authorization: Bearer eyJhbGciOiJIUzI1NiIsImtpZCI6ImVJdWpzR3M5UVR…sc2V9.j6TpdCSCYpN6kqA1NrKLB2NbL7qNNeIRty0fWSu4wFE}
-🌐 [BROWSER]: [API] 📡 Making fetch request to: http://localhost:8000/api/dashboard/losers?limit=5
-📡 API Call: 200 http://localhost:8000/api/dashboard/allocation?groupBy=sector
-🌐 [BROWSER]: [API] 📨 Response received: {status: 200, statusText: OK, ok: true, url: http://localhost:8000/api/dashboard/allocation?groupBy=sector, headers: Object}
-🌐 [BROWSER]: [API] 📄 Raw success response text: {"rows": [{"groupKey": "WULF", "value": "380.00", "invested": "251.00", "gainValue": "129.00", "gainPercent": "51.39", "allocation": "1.65", "accentColor": "blue"}, {"groupKey": "AAAIF", "value": "6.76", "invested": "123.00", "gainValue": "-116.24", "gainPercent": "-94.50", "allocation": "0.03", "accentColor": "blue"}, {"groupKey": "AAA", "value": "2505.00", "invested": "2439.00", "gainValue": "66.00", "gainPercent": "2.71", "allocation": "10.87", "accentColor": "blue"}, {"groupKey": "AAPL", "value": "20156.00", "invested": "17114.00", "gainValue": "3042.00", "gainPercent": "17.77", "allocation": "87.45", "accentColor": "blue"}]}
-🌐 [BROWSER]: [API] 📊 Parsed response data: {rows: Array(4)}
-🌐 [BROWSER]: [API] ✅ Request completed successfully for http://localhost:8000/api/dashboard/allocation?groupBy=sector
-🌐 [BROWSER]: [AllocationTable] API response: {ok: true, data: Object}
-🌐 [BROWSER]: [AllocationTable] API response data type: object
-🌐 [BROWSER]: [AllocationTable] API response rows: [Object, Object, Object, Object]
-🌐 [BROWSER]: [AllocationTable] Row 0 (WULF): {allocation: 1.65, allocationType: string, allocationValue: 1.65, canCallToFixed: true}
-🌐 [BROWSER]: [AllocationTable] Row 1 (AAAIF): {allocation: 0.03, allocationType: string, allocationValue: 0.03, canCallToFixed: true}
-🌐 [BROWSER]: [AllocationTable] Row 2 (AAA): {allocation: 10.87, allocationType: string, allocationValue: 10.87, canCallToFixed: true}
-🌐 [BROWSER]: [AllocationTable] Row 3 (AAPL): {allocation: 87.45, allocationType: string, allocationValue: 87.45, canCallToFixed: true}
-🌐 [BROWSER]: [AllocationTable] Component mounting...
-🌐 [BROWSER]: [AllocationTable] Query state: {data: Object, isLoading: false, isError: false, error: null}
-🌐 [BROWSER]: [AllocationTable] Allocation rows: [Object, Object, Object, Object]
-🌐 [BROWSER]: [AllocationTable] Number of rows: 4
-🌐 [BROWSER]: [AllocationTable] Rendering row 0: {groupKey: WULF, value: 380.00, invested: 251.00, gainValue: 129.00, gainPercent: 51.39}
-🌐 [BROWSER]: [AllocationTable] Row 0 allocation details: {allocation: 1.65, type: string, value: 1.65}
-🌐 [BROWSER]: [AllocationTable] safeFormatAllocation called with: 1.65 type: string
-🌐 [BROWSER]: [AllocationTable] safeFormatAllocation: allocation is string, attempting to parse
-🌐 [BROWSER]: [AllocationTable] safeFormatAllocation: successfully parsed string to number: 1.65
-🌐 [BROWSER]: [AllocationTable] Rendering row 1: {groupKey: AAAIF, value: 6.76, invested: 123.00, gainValue: -116.24, gainPercent: -94.50}
-🌐 [BROWSER]: [AllocationTable] Row 1 allocation details: {allocation: 0.03, type: string, value: 0.03}
-🌐 [BROWSER]: [AllocationTable] safeFormatAllocation called with: 0.03 type: string
-🌐 [BROWSER]: [AllocationTable] safeFormatAllocation: allocation is string, attempting to parse
-🌐 [BROWSER]: [AllocationTable] safeFormatAllocation: successfully parsed string to number: 0.03
-🌐 [BROWSER]: [AllocationTable] Rendering row 2: {groupKey: AAA, value: 2505.00, invested: 2439.00, gainValue: 66.00, gainPercent: 2.71}
-🌐 [BROWSER]: [AllocationTable] Row 2 allocation details: {allocation: 10.87, type: string, value: 10.87}
-🌐 [BROWSER]: [AllocationTable] safeFormatAllocation called with: 10.87 type: string
-🌐 [BROWSER]: [AllocationTable] safeFormatAllocation: allocation is string, attempting to parse
-🌐 [BROWSER]: [AllocationTable] safeFormatAllocation: successfully parsed string to number: 10.87
-🌐 [BROWSER]: [AllocationTable] Rendering row 3: {groupKey: AAPL, value: 20156.00, invested: 17114.00, gainValue: 3042.00, gainPercent: 17.77}
-🌐 [BROWSER]: [AllocationTable] Row 3 allocation details: {allocation: 87.45, type: string, value: 87.45}
-🌐 [BROWSER]: [AllocationTable] safeFormatAllocation called with: 87.45 type: string
-🌐 [BROWSER]: [AllocationTable] safeFormatAllocation: allocation is string, attempting to parse
-🌐 [BROWSER]: [AllocationTable] safeFormatAllocation: successfully parsed string to number: 87.45
-🌐 [BROWSER]: [AllocationTable] Component mounting...
-🌐 [BROWSER]: [AllocationTable] Query state: {data: Object, isLoading: false, isError: false, error: null}
-🌐 [BROWSER]: [AllocationTable] Allocation rows: [Object, Object, Object, Object]
-🌐 [BROWSER]: [AllocationTable] Number of rows: 4
-🌐 [BROWSER]: [AllocationTable] Rendering row 0: {groupKey: WULF, value: 380.00, invested: 251.00, gainValue: 129.00, gainPercent: 51.39}
-🌐 [BROWSER]: [AllocationTable] Row 0 allocation details: {allocation: 1.65, type: string, value: 1.65}
-🌐 [BROWSER]: [AllocationTable] safeFormatAllocation called with: 1.65 type: string
-🌐 [BROWSER]: [AllocationTable] safeFormatAllocation: allocation is string, attempting to parse
-🌐 [BROWSER]: [AllocationTable] safeFormatAllocation: successfully parsed string to number: 1.65
-🌐 [BROWSER]: [AllocationTable] Rendering row 1: {groupKey: AAAIF, value: 6.76, invested: 123.00, gainValue: -116.24, gainPercent: -94.50}
-🌐 [BROWSER]: [AllocationTable] Row 1 allocation details: {allocation: 0.03, type: string, value: 0.03}
-🌐 [BROWSER]: [AllocationTable] safeFormatAllocation called with: 0.03 type: string
-🌐 [BROWSER]: [AllocationTable] safeFormatAllocation: allocation is string, attempting to parse
-🌐 [BROWSER]: [AllocationTable] safeFormatAllocation: successfully parsed string to number: 0.03
-🌐 [BROWSER]: [AllocationTable] Rendering row 2: {groupKey: AAA, value: 2505.00, invested: 2439.00, gainValue: 66.00, gainPercent: 2.71}
-🌐 [BROWSER]: [AllocationTable] Row 2 allocation details: {allocation: 10.87, type: string, value: 10.87}
-🌐 [BROWSER]: [AllocationTable] safeFormatAllocation called with: 10.87 type: string
-🌐 [BROWSER]: [AllocationTable] safeFormatAllocation: allocation is string, attempting to parse
-🌐 [BROWSER]: [AllocationTable] safeFormatAllocation: successfully parsed string to number: 10.87
-🌐 [BROWSER]: [AllocationTable] Rendering row 3: {groupKey: AAPL, value: 20156.00, invested: 17114.00, gainValue: 3042.00, gainPercent: 17.77}
-🌐 [BROWSER]: [AllocationTable] Row 3 allocation details: {allocation: 87.45, type: string, value: 87.45}
-🌐 [BROWSER]: [AllocationTable] safeFormatAllocation called with: 87.45 type: string
-🌐 [BROWSER]: [AllocationTable] safeFormatAllocation: allocation is string, attempting to parse
-🌐 [BROWSER]: [AllocationTable] safeFormatAllocation: successfully parsed string to number: 87.45
-📡 API Call: 200 http://localhost:8000/api/dashboard/overview
-🌐 [BROWSER]: [API] 📨 Response received: {status: 200, statusText: OK, ok: true, url: http://localhost:8000/api/dashboard/overview, headers: Object}
-🌐 [BROWSER]: [API] 📄 Raw success response text: {"market_value": {"value": "141234.57", "sub_label": "+AU$47560.47 (+50.77%)", "delta": null, "delta_percent": null, "is_positive": true}, "total_profit": {"value": "47560.47", "sub_label": "Total P&L: +50.77%", "delta": null, "delta_percent": null, "is_positive": true}, "irr": {"value": "0.00", "sub_label": "vs SPY: +0.0%", "delta": null, "delta_percent": null, "is_positive": false}, "passive_income": {"value": "0.00", "sub_label": "0.00% yield (AU$0.00 annual)", "delta": null, "delta_percent": null, "is_positive": false}}
-🌐 [BROWSER]: [API] 📊 Parsed response data: {market_value: Object, total_profit: Object, irr: Object, passive_income: Object}
-🌐 [BROWSER]: [API] ✅ Request completed successfully for http://localhost:8000/api/dashboard/overview
-🌐 [BROWSER]: [KPIGrid] 📡 Raw API result: {ok: true, data: Object}
-🌐 [BROWSER]: [KPIGrid] 📡 API result type: object
-🌐 [BROWSER]: [KPIGrid] 📡 API result.ok: true
-🌐 [BROWSER]: [KPIGrid] 📡 API result.data: {market_value: Object, total_profit: Object, irr: Object, passive_income: Object}
-🌐 [BROWSER]: [KPIGrid] 📡 API result.error: undefined
-🌐 [BROWSER]: [KPIGrid] ✅ API call successful, returning result
-🌐 [BROWSER]: [KPIGrid] 🚀 Enhanced KPI Grid component rendering with initial data: undefined
-🌐 [BROWSER]: [KPIGrid] 📊 Initial data type: undefined
-🌐 [BROWSER]: [KPIGrid] 📊 Initial data keys: null
-🌐 [BROWSER]: [KPIGrid] 🎯 Query state: {isLoading: false, isError: false, error: null, hasApiData: true, hasInitialData: false}
-🌐 [BROWSER]: [KPIGrid] 🎯 Using processed data: {market_value: Object, total_profit: Object, irr: Object, passive_income: Object}
-🌐 [BROWSER]: [KPIGrid] 🎯 Data validation check: {hasData: true, hasMarketValue: no, hasTotalProfit: no, hasIRR: yes, hasPassiveIncome: no}
-🌐 [BROWSER]: [KPIGrid] ✅ Rendering enhanced KPI cards with data structure:
-🌐 [BROWSER]: [KPIGrid]   📈 Portfolio Value (marketValue): undefined
-🌐 [BROWSER]: [KPIGrid]   📊 Portfolio Beta (totalProfit): undefined
-🌐 [BROWSER]: [KPIGrid]   📈 IRR (irr): {value: 0.00, sub_label: vs SPY: +0.0%, delta: null, delta_percent: null, is_positive: false}
-🌐 [BROWSER]: [KPIGrid]   💰 Dividend Yield (passiveIncome): undefined
-🌐 [BROWSER]: [KPIGrid] 🔍 Validating Portfolio Value KPI data: undefined
-🌐 [BROWSER]: [KPIGrid] ⚠️  Portfolio Value KPI data is null/undefined
-🌐 [BROWSER]: [KPIGrid] 🔍 Validating Portfolio Beta KPI data: undefined
-🌐 [BROWSER]: [KPIGrid] ⚠️  Portfolio Beta KPI data is null/undefined
-🌐 [BROWSER]: [KPIGrid] 🔍 Validating IRR KPI data: {value: 0.00, sub_label: vs SPY: +0.0%, delta: null, delta_percent: null, is_positive: false}
-🌐 [BROWSER]: [KPIGrid] ✅ IRR KPI validation passed
-🌐 [BROWSER]: [KPIGrid] 🔍 Validating Dividend Yield KPI data: undefined
-🌐 [BROWSER]: [KPIGrid] ⚠️  Dividend Yield KPI data is null/undefined
-🌐 [BROWSER]: [KPIGrid] 🚀 Enhanced KPI Grid component rendering with initial data: undefined
-🌐 [BROWSER]: [KPIGrid] 📊 Initial data type: undefined
-🌐 [BROWSER]: [KPIGrid] 📊 Initial data keys: null
-🌐 [BROWSER]: [KPIGrid] 🎯 Query state: {isLoading: false, isError: false, error: null, hasApiData: true, hasInitialData: false}
-🌐 [BROWSER]: [KPIGrid] 🎯 Using processed data: {market_value: Object, total_profit: Object, irr: Object, passive_income: Object}
-🌐 [BROWSER]: [KPIGrid] 🎯 Data validation check: {hasData: true, hasMarketValue: no, hasTotalProfit: no, hasIRR: yes, hasPassiveIncome: no}
-🌐 [BROWSER]: [KPIGrid] ✅ Rendering enhanced KPI cards with data structure:
-🌐 [BROWSER]: [KPIGrid]   📈 Portfolio Value (marketValue): undefined
-🌐 [BROWSER]: [KPIGrid]   📊 Portfolio Beta (totalProfit): undefined
-🌐 [BROWSER]: [KPIGrid]   📈 IRR (irr): {value: 0.00, sub_label: vs SPY: +0.0%, delta: null, delta_percent: null, is_positive: false}
-🌐 [BROWSER]: [KPIGrid]   💰 Dividend Yield (passiveIncome): undefined
-🌐 [BROWSER]: [KPIGrid] 🔍 Validating Portfolio Value KPI data: undefined
-🌐 [BROWSER]: [KPIGrid] ⚠️  Portfolio Value KPI data is null/undefined
-🌐 [BROWSER]: [KPIGrid] 🔍 Validating Portfolio Beta KPI data: undefined
-🌐 [BROWSER]: [KPIGrid] ⚠️  Portfolio Beta KPI data is null/undefined
-🌐 [BROWSER]: [KPIGrid] 🔍 Validating IRR KPI data: {value: 0.00, sub_label: vs SPY: +0.0%, delta: null, delta_percent: null, is_positive: false}
-🌐 [BROWSER]: [KPIGrid] ✅ IRR KPI validation passed
-🌐 [BROWSER]: [KPIGrid] 🔍 Validating Dividend Yield KPI data: undefined
-🌐 [BROWSER]: [KPIGrid] ⚠️  Dividend Yield KPI data is null/undefined
-🌐 [BROWSER]: [KPICard] 🚀 Enhanced KPI card rendering for: Portfolio Value
-🌐 [BROWSER]: [KPICard] 📊 Raw data received: undefined
-🌐 [BROWSER]: [KPICard] 📊 Data type: undefined
-🌐 [BROWSER]: [KPICard] 📊 Data keys: null
-🌐 [BROWSER]: [KPICard] 🎯 Props - title: "Portfolio Value", prefix: "", suffix: ""
-🌐 [BROWSER]: [KPICard] ❌ Invalid data for Portfolio Value: undefined
-🌐 [BROWSER]: [KPICard] 🚀 Enhanced KPI card rendering for: Portfolio Value
-🌐 [BROWSER]: [KPICard] 📊 Raw data received: undefined
-🌐 [BROWSER]: [KPICard] 📊 Data type: undefined
-🌐 [BROWSER]: [KPICard] 📊 Data keys: null
-🌐 [BROWSER]: [KPICard] 🎯 Props - title: "Portfolio Value", prefix: "", suffix: ""
-🌐 [BROWSER]: [KPICard] ❌ Invalid data for Portfolio Value: undefined
-🌐 [BROWSER]: [KPICard] 🚀 Enhanced KPI card rendering for: IRR
-🌐 [BROWSER]: [KPICard] 📊 Raw data received: {value: 0.00, sub_label: vs SPY: +0.0%, delta: null, delta_percent: null, is_positive: false}
-🌐 [BROWSER]: [KPICard] 📊 Data type: object
-🌐 [BROWSER]: [KPICard] 📊 Data keys: [value, sub_label, delta, delta_percent, is_positive]
-🌐 [BROWSER]: [KPICard] 🎯 Props - title: "IRR", prefix: "", suffix: ""
-🌐 [BROWSER]: [KPICard] 🔍 Extracted fields for IRR:
-🌐 [BROWSER]: [KPICard]   - value: "0.00" (type: string)
-🌐 [BROWSER]: [KPICard]   - sub_label: "vs SPY: +0.0%" (type: string)
-🌐 [BROWSER]: [KPICard]   - deltaPercent: "undefined" (type: undefined)
-🌐 [BROWSER]: [KPICard]   - is_positive: false (type: boolean)
-🌐 [BROWSER]: [KPICard] safeFormatValue called with: 0.00 type: string
-🌐 [BROWSER]: [KPICard] safeFormatValue: value is string, attempting to parse
-🌐 [BROWSER]: [KPICard] safeFormatValue: successfully parsed string to number: 0
-🌐 [BROWSER]: [KPICard] 🎯 Final render data for IRR:
-🌐 [BROWSER]: [KPICard]   - Raw value: "0.00" (string)
-🌐 [BROWSER]: [KPICard]   - Safe formatted value: "0.00"
-🌐 [BROWSER]: [KPICard]   - Final display value: "0.00"
-🌐 [BROWSER]: [KPICard]   - Sub label: "vs SPY: +0.0%"
-🌐 [BROWSER]: [KPICard]   - Delta percent: "undefined" -> "null"
-🌐 [BROWSER]: [KPICard]   - Is positive: false
-🌐 [BROWSER]: [KPICard]   - Trend color: red
-🌐 [BROWSER]: [KPICard] 🚀 Enhanced KPI card rendering for: IRR
-🌐 [BROWSER]: [KPICard] 📊 Raw data received: {value: 0.00, sub_label: vs SPY: +0.0%, delta: null, delta_percent: null, is_positive: false}
-🌐 [BROWSER]: [KPICard] 📊 Data type: object
-🌐 [BROWSER]: [KPICard] 📊 Data keys: [value, sub_label, delta, delta_percent, is_positive]
-🌐 [BROWSER]: [KPICard] 🎯 Props - title: "IRR", prefix: "", suffix: ""
-🌐 [BROWSER]: [KPICard] 🔍 Extracted fields for IRR:
-🌐 [BROWSER]: [KPICard]   - value: "0.00" (type: string)
-🌐 [BROWSER]: [KPICard]   - sub_label: "vs SPY: +0.0%" (type: string)
-🌐 [BROWSER]: [KPICard]   - deltaPercent: "undefined" (type: undefined)
-🌐 [BROWSER]: [KPICard]   - is_positive: false (type: boolean)
-🌐 [BROWSER]: [KPICard] safeFormatValue called with: 0.00 type: string
-🌐 [BROWSER]: [KPICard] safeFormatValue: value is string, attempting to parse
-🌐 [BROWSER]: [KPICard] safeFormatValue: successfully parsed string to number: 0
-🌐 [BROWSER]: [KPICard] 🎯 Final render data for IRR:
-🌐 [BROWSER]: [KPICard]   - Raw value: "0.00" (string)
-🌐 [BROWSER]: [KPICard]   - Safe formatted value: "0.00"
-🌐 [BROWSER]: [KPICard]   - Final display value: "0.00"
-🌐 [BROWSER]: [KPICard]   - Sub label: "vs SPY: +0.0%"
-🌐 [BROWSER]: [KPICard]   - Delta percent: "undefined" -> "null"
-🌐 [BROWSER]: [KPICard]   - Is positive: false
-🌐 [BROWSER]: [KPICard]   - Trend color: red
-🌐 [BROWSER]: [KPICard] 🚀 Enhanced KPI card rendering for: Dividend Yield
-🌐 [BROWSER]: [KPICard] 📊 Raw data received: undefined
-🌐 [BROWSER]: [KPICard] 📊 Data type: undefined
-🌐 [BROWSER]: [KPICard] 📊 Data keys: null
-🌐 [BROWSER]: [KPICard] 🎯 Props - title: "Dividend Yield", prefix: "", suffix: ""
-🌐 [BROWSER]: [KPICard] ❌ Invalid data for Dividend Yield: undefined
-🌐 [BROWSER]: [KPICard] 🚀 Enhanced KPI card rendering for: Dividend Yield
-🌐 [BROWSER]: [KPICard] 📊 Raw data received: undefined
-🌐 [BROWSER]: [KPICard] 📊 Data type: undefined
-🌐 [BROWSER]: [KPICard] 📊 Data keys: null
-🌐 [BROWSER]: [KPICard] 🎯 Props - title: "Dividend Yield", prefix: "", suffix: ""
-🌐 [BROWSER]: [KPICard] ❌ Invalid data for Dividend Yield: undefined
-🌐 [BROWSER]: [KPICard] 🚀 Enhanced KPI card rendering for: Portfolio Beta
-🌐 [BROWSER]: [KPICard] 📊 Raw data received: undefined
-🌐 [BROWSER]: [KPICard] 📊 Data type: undefined
-🌐 [BROWSER]: [KPICard] 📊 Data keys: null
-🌐 [BROWSER]: [KPICard] 🎯 Props - title: "Portfolio Beta", prefix: "", suffix: ""
-🌐 [BROWSER]: [KPICard] ❌ Invalid data for Portfolio Beta: undefined
-🌐 [BROWSER]: [KPICard] 🚀 Enhanced KPI card rendering for: Portfolio Beta
-🌐 [BROWSER]: [KPICard] 📊 Raw data received: undefined
-🌐 [BROWSER]: [KPICard] 📊 Data type: undefined
-🌐 [BROWSER]: [KPICard] 📊 Data keys: null
-🌐 [BROWSER]: [KPICard] 🎯 Props - title: "Portfolio Beta", prefix: "", suffix: ""
-🌐 [BROWSER]: [KPICard] ❌ Invalid data for Portfolio Beta: undefined
-📡 API Call: 200 http://localhost:8000/api/dashboard/losers?limit=5
-🌐 [BROWSER]: [API] 📨 Response received: {status: 200, statusText: OK, ok: true, url: http://localhost:8000/api/dashboard/losers?limit=5, headers: Object}
-📡 API Call: 200 http://localhost:8000/api/dashboard/gainers?limit=5
-🌐 [BROWSER]: [API] 📨 Response received: {status: 200, statusText: OK, ok: true, url: http://localhost:8000/api/dashboard/gainers?limit=5, headers: Object}
-🌐 [BROWSER]: [API] 📄 Raw success response text: {"items": [{"logoUrl": null, "name": "WULF", "ticker": "WULF", "value": "3.80", "changePercent": "-1.04", "changeValue": "-0.04"}, {"logoUrl": null, "name": "AAAIF", "ticker": "AAAIF", "value": "0.06", "changePercent": "0.0", "changeValue": "0.0"}, {"logoUrl": null, "name": "AAA", "ticker": "AAA", "value": "25.05", "changePercent": "0.05", "changeValue": "0.01"}, {"logoUrl": null, "name": "AAPL", "ticker": "AAPL", "value": "201.56", "changePercent": "0.63", "changeValue": "1.26"}]}
-🌐 [BROWSER]: [API] 📊 Parsed response data: {items: Array(4)}
-🌐 [BROWSER]: [API] ✅ Request completed successfully for http://localhost:8000/api/dashboard/losers?limit=5
-🌐 [BROWSER]: [GainLossCard] API response for losers: {ok: true, data: Object}
-🌐 [BROWSER]: [GainLossCard] API response data type for losers: object
-🌐 [BROWSER]: [GainLossCard] API response items for losers: [Object, Object, Object, Object]
-🌐 [BROWSER]: [GainLossCard] losers Item 0 (WULF): {changePercent: -1.04, changePercentType: string, changeValue: -0.04, changeValueType: string, canCallToFixed: true}
-🌐 [BROWSER]: [GainLossCard] losers Item 1 (AAAIF): {changePercent: 0.0, changePercentType: string, changeValue: 0.0, changeValueType: string, canCallToFixed: true}
-🌐 [BROWSER]: [GainLossCard] losers Item 2 (AAA): {changePercent: 0.05, changePercentType: string, changeValue: 0.01, changeValueType: string, canCallToFixed: true}
-🌐 [BROWSER]: [GainLossCard] losers Item 3 (AAPL): {changePercent: 0.63, changePercentType: string, changeValue: 1.26, changeValueType: string, canCallToFixed: true}
-🌐 [BROWSER]: [API] 📄 Raw success response text: {"items": [{"logoUrl": null, "name": "AAPL", "ticker": "AAPL", "value": "201.56", "changePercent": "0.63", "changeValue": "1.26"}, {"logoUrl": null, "name": "AAA", "ticker": "AAA", "value": "25.05", "changePercent": "0.05", "changeValue": "0.01"}, {"logoUrl": null, "name": "AAAIF", "ticker": "AAAIF", "value": "0.06", "changePercent": "0.0", "changeValue": "0.0"}, {"logoUrl": null, "name": "WULF", "ticker": "WULF", "value": "3.80", "changePercent": "-1.04", "changeValue": "-0.04"}]}
-🌐 [BROWSER]: [API] 📊 Parsed response data: {items: Array(4)}
-🌐 [BROWSER]: [API] ✅ Request completed successfully for http://localhost:8000/api/dashboard/gainers?limit=5
-🌐 [BROWSER]: [GainLossCard] API response for gainers: {ok: true, data: Object}
-🌐 [BROWSER]: [GainLossCard] API response data type for gainers: object
-🌐 [BROWSER]: [GainLossCard] API response items for gainers: [Object, Object, Object, Object]
-🌐 [BROWSER]: [GainLossCard] gainers Item 0 (AAPL): {changePercent: 0.63, changePercentType: string, changeValue: 1.26, changeValueType: string, canCallToFixed: true}
-🌐 [BROWSER]: [GainLossCard] gainers Item 1 (AAA): {changePercent: 0.05, changePercentType: string, changeValue: 0.01, changeValueType: string, canCallToFixed: true}
-🌐 [BROWSER]: [GainLossCard] gainers Item 2 (AAAIF): {changePercent: 0.0, changePercentType: string, changeValue: 0.0, changeValueType: string, canCallToFixed: true}
-🌐 [BROWSER]: [GainLossCard] gainers Item 3 (WULF): {changePercent: -1.04, changePercentType: string, changeValue: -0.04, changeValueType: string, canCallToFixed: true}
-🌐 [BROWSER]: [GainLossCard] Component mounting for type: losers
-🌐 [BROWSER]: [GainLossCard] Query state for losers: {data: Object, isLoading: false, isError: false, error: null}
-🌐 [BROWSER]: [GainLossCard] Items for losers: [Object, Object, Object, Object]
-🌐 [BROWSER]: [GainLossCard] Number of items for losers: 4
-🌐 [BROWSER]: [GainLossCard] Rendering losers item 0: {logoUrl: null, name: WULF, ticker: WULF, value: 3.80, changePercent: -1.04}
-🌐 [BROWSER]: [GainLossCard] losers Item 0 numeric field details: {changePercent: -1.04, changePercentType: string, changeValue: -0.04, changeValueType: string}
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 3.80 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 3.8
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: -1.04 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: -1.04
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: -0.04 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: -0.04
-🌐 [BROWSER]: [GainLossCard] Rendering losers item 1: {logoUrl: null, name: AAAIF, ticker: AAAIF, value: 0.06, changePercent: 0.0}
-🌐 [BROWSER]: [GainLossCard] losers Item 1 numeric field details: {changePercent: 0.0, changePercentType: string, changeValue: 0.0, changeValueType: string}
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 0.06 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 0.06
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: 0.0 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: 0
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 0.0 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 0
-🌐 [BROWSER]: [GainLossCard] Rendering losers item 2: {logoUrl: null, name: AAA, ticker: AAA, value: 25.05, changePercent: 0.05}
-🌐 [BROWSER]: [GainLossCard] losers Item 2 numeric field details: {changePercent: 0.05, changePercentType: string, changeValue: 0.01, changeValueType: string}
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 25.05 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 25.05
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: 0.05 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: 0.05
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 0.01 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 0.01
-🌐 [BROWSER]: [GainLossCard] Rendering losers item 3: {logoUrl: null, name: AAPL, ticker: AAPL, value: 201.56, changePercent: 0.63}
-🌐 [BROWSER]: [GainLossCard] losers Item 3 numeric field details: {changePercent: 0.63, changePercentType: string, changeValue: 1.26, changeValueType: string}
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 201.56 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 201.56
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: 0.63 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: 0.63
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 1.26 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 1.26
-🌐 [BROWSER]: [GainLossCard] Component mounting for type: losers
-🌐 [BROWSER]: [GainLossCard] Query state for losers: {data: Object, isLoading: false, isError: false, error: null}
-🌐 [BROWSER]: [GainLossCard] Items for losers: [Object, Object, Object, Object]
-🌐 [BROWSER]: [GainLossCard] Number of items for losers: 4
-🌐 [BROWSER]: [GainLossCard] Rendering losers item 0: {logoUrl: null, name: WULF, ticker: WULF, value: 3.80, changePercent: -1.04}
-🌐 [BROWSER]: [GainLossCard] losers Item 0 numeric field details: {changePercent: -1.04, changePercentType: string, changeValue: -0.04, changeValueType: string}
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 3.80 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 3.8
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: -1.04 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: -1.04
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: -0.04 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: -0.04
-🌐 [BROWSER]: [GainLossCard] Rendering losers item 1: {logoUrl: null, name: AAAIF, ticker: AAAIF, value: 0.06, changePercent: 0.0}
-🌐 [BROWSER]: [GainLossCard] losers Item 1 numeric field details: {changePercent: 0.0, changePercentType: string, changeValue: 0.0, changeValueType: string}
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 0.06 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 0.06
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: 0.0 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: 0
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 0.0 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 0
-🌐 [BROWSER]: [GainLossCard] Rendering losers item 2: {logoUrl: null, name: AAA, ticker: AAA, value: 25.05, changePercent: 0.05}
-🌐 [BROWSER]: [GainLossCard] losers Item 2 numeric field details: {changePercent: 0.05, changePercentType: string, changeValue: 0.01, changeValueType: string}
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 25.05 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 25.05
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: 0.05 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: 0.05
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 0.01 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 0.01
-🌐 [BROWSER]: [GainLossCard] Rendering losers item 3: {logoUrl: null, name: AAPL, ticker: AAPL, value: 201.56, changePercent: 0.63}
-🌐 [BROWSER]: [GainLossCard] losers Item 3 numeric field details: {changePercent: 0.63, changePercentType: string, changeValue: 1.26, changeValueType: string}
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 201.56 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 201.56
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: 0.63 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: 0.63
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 1.26 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 1.26
-🌐 [BROWSER]: [GainLossCard] Component mounting for type: gainers
-🌐 [BROWSER]: [GainLossCard] Query state for gainers: {data: Object, isLoading: false, isError: false, error: null}
-🌐 [BROWSER]: [GainLossCard] Items for gainers: [Object, Object, Object, Object]
-🌐 [BROWSER]: [GainLossCard] Number of items for gainers: 4
-🌐 [BROWSER]: [GainLossCard] Rendering gainers item 0: {logoUrl: null, name: AAPL, ticker: AAPL, value: 201.56, changePercent: 0.63}
-🌐 [BROWSER]: [GainLossCard] gainers Item 0 numeric field details: {changePercent: 0.63, changePercentType: string, changeValue: 1.26, changeValueType: string}
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 201.56 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 201.56
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: 0.63 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: 0.63
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 1.26 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 1.26
-🌐 [BROWSER]: [GainLossCard] Rendering gainers item 1: {logoUrl: null, name: AAA, ticker: AAA, value: 25.05, changePercent: 0.05}
-🌐 [BROWSER]: [GainLossCard] gainers Item 1 numeric field details: {changePercent: 0.05, changePercentType: string, changeValue: 0.01, changeValueType: string}
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 25.05 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 25.05
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: 0.05 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: 0.05
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 0.01 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 0.01
-🌐 [BROWSER]: [GainLossCard] Rendering gainers item 2: {logoUrl: null, name: AAAIF, ticker: AAAIF, value: 0.06, changePercent: 0.0}
-🌐 [BROWSER]: [GainLossCard] gainers Item 2 numeric field details: {changePercent: 0.0, changePercentType: string, changeValue: 0.0, changeValueType: string}
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 0.06 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 0.06
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: 0.0 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: 0
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 0.0 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 0
-🌐 [BROWSER]: [GainLossCard] Rendering gainers item 3: {logoUrl: null, name: WULF, ticker: WULF, value: 3.80, changePercent: -1.04}
-🌐 [BROWSER]: [GainLossCard] gainers Item 3 numeric field details: {changePercent: -1.04, changePercentType: string, changeValue: -0.04, changeValueType: string}
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 3.80 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 3.8
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: -1.04 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: -1.04
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: -0.04 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: -0.04
-🌐 [BROWSER]: [GainLossCard] Component mounting for type: gainers
-🌐 [BROWSER]: [GainLossCard] Query state for gainers: {data: Object, isLoading: false, isError: false, error: null}
-🌐 [BROWSER]: [GainLossCard] Items for gainers: [Object, Object, Object, Object]
-🌐 [BROWSER]: [GainLossCard] Number of items for gainers: 4
-🌐 [BROWSER]: [GainLossCard] Rendering gainers item 0: {logoUrl: null, name: AAPL, ticker: AAPL, value: 201.56, changePercent: 0.63}
-🌐 [BROWSER]: [GainLossCard] gainers Item 0 numeric field details: {changePercent: 0.63, changePercentType: string, changeValue: 1.26, changeValueType: string}
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 201.56 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 201.56
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: 0.63 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: 0.63
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 1.26 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 1.26
-🌐 [BROWSER]: [GainLossCard] Rendering gainers item 1: {logoUrl: null, name: AAA, ticker: AAA, value: 25.05, changePercent: 0.05}
-🌐 [BROWSER]: [GainLossCard] gainers Item 1 numeric field details: {changePercent: 0.05, changePercentType: string, changeValue: 0.01, changeValueType: string}
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 25.05 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 25.05
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: 0.05 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: 0.05
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 0.01 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 0.01
-🌐 [BROWSER]: [GainLossCard] Rendering gainers item 2: {logoUrl: null, name: AAAIF, ticker: AAAIF, value: 0.06, changePercent: 0.0}
-🌐 [BROWSER]: [GainLossCard] gainers Item 2 numeric field details: {changePercent: 0.0, changePercentType: string, changeValue: 0.0, changeValueType: string}
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 0.06 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 0.06
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: 0.0 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: 0
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 0.0 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 0
-🌐 [BROWSER]: [GainLossCard] Rendering gainers item 3: {logoUrl: null, name: WULF, ticker: WULF, value: 3.80, changePercent: -1.04}
-🌐 [BROWSER]: [GainLossCard] gainers Item 3 numeric field details: {changePercent: -1.04, changePercentType: string, changeValue: -0.04, changeValueType: string}
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 3.80 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 3.8
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: -1.04 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: -1.04
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: -0.04 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: -0.04
-🌐 [BROWSER]: [GainLossCard] Component mounting for type: gainers
-🌐 [BROWSER]: [GainLossCard] Query state for gainers: {data: Object, isLoading: false, isError: false, error: null}
-🌐 [BROWSER]: [GainLossCard] Items for gainers: [Object, Object, Object, Object]
-🌐 [BROWSER]: [GainLossCard] Number of items for gainers: 4
-🌐 [BROWSER]: [GainLossCard] Rendering gainers item 0: {logoUrl: null, name: AAPL, ticker: AAPL, value: 201.56, changePercent: 0.63}
-🌐 [BROWSER]: [GainLossCard] gainers Item 0 numeric field details: {changePercent: 0.63, changePercentType: string, changeValue: 1.26, changeValueType: string}
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 201.56 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 201.56
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: 0.63 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: 0.63
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 1.26 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 1.26
-🌐 [BROWSER]: [GainLossCard] Rendering gainers item 1: {logoUrl: null, name: AAA, ticker: AAA, value: 25.05, changePercent: 0.05}
-🌐 [BROWSER]: [GainLossCard] gainers Item 1 numeric field details: {changePercent: 0.05, changePercentType: string, changeValue: 0.01, changeValueType: string}
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 25.05 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 25.05
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: 0.05 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: 0.05
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 0.01 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 0.01
-🌐 [BROWSER]: [GainLossCard] Rendering gainers item 2: {logoUrl: null, name: AAAIF, ticker: AAAIF, value: 0.06, changePercent: 0.0}
-🌐 [BROWSER]: [GainLossCard] gainers Item 2 numeric field details: {changePercent: 0.0, changePercentType: string, changeValue: 0.0, changeValueType: string}
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 0.06 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 0.06
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: 0.0 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: 0
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 0.0 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 0
-🌐 [BROWSER]: [GainLossCard] Rendering gainers item 3: {logoUrl: null, name: WULF, ticker: WULF, value: 3.80, changePercent: -1.04}
-🌐 [BROWSER]: [GainLossCard] gainers Item 3 numeric field details: {changePercent: -1.04, changePercentType: string, changeValue: -0.04, changeValueType: string}
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 3.80 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 3.8
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: -1.04 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: -1.04
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: -0.04 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: -0.04
-🌐 [BROWSER]: [GainLossCard] Component mounting for type: gainers
-🌐 [BROWSER]: [GainLossCard] Query state for gainers: {data: Object, isLoading: false, isError: false, error: null}
-🌐 [BROWSER]: [GainLossCard] Items for gainers: [Object, Object, Object, Object]
-🌐 [BROWSER]: [GainLossCard] Number of items for gainers: 4
-🌐 [BROWSER]: [GainLossCard] Rendering gainers item 0: {logoUrl: null, name: AAPL, ticker: AAPL, value: 201.56, changePercent: 0.63}
-🌐 [BROWSER]: [GainLossCard] gainers Item 0 numeric field details: {changePercent: 0.63, changePercentType: string, changeValue: 1.26, changeValueType: string}
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 201.56 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 201.56
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: 0.63 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: 0.63
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 1.26 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 1.26
-🌐 [BROWSER]: [GainLossCard] Rendering gainers item 1: {logoUrl: null, name: AAA, ticker: AAA, value: 25.05, changePercent: 0.05}
-🌐 [BROWSER]: [GainLossCard] gainers Item 1 numeric field details: {changePercent: 0.05, changePercentType: string, changeValue: 0.01, changeValueType: string}
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 25.05 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 25.05
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: 0.05 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: 0.05
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 0.01 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 0.01
-🌐 [BROWSER]: [GainLossCard] Rendering gainers item 2: {logoUrl: null, name: AAAIF, ticker: AAAIF, value: 0.06, changePercent: 0.0}
-🌐 [BROWSER]: [GainLossCard] gainers Item 2 numeric field details: {changePercent: 0.0, changePercentType: string, changeValue: 0.0, changeValueType: string}
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 0.06 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 0.06
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: 0.0 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: 0
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 0.0 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 0
-🌐 [BROWSER]: [GainLossCard] Rendering gainers item 3: {logoUrl: null, name: WULF, ticker: WULF, value: 3.80, changePercent: -1.04}
-🌐 [BROWSER]: [GainLossCard] gainers Item 3 numeric field details: {changePercent: -1.04, changePercentType: string, changeValue: -0.04, changeValueType: string}
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: 3.80 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: 3.8
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent called with: -1.04 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: changePercent is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatPercent: successfully parsed string to number: -1.04
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency called with: -0.04 type: string
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse
-🌐 [BROWSER]: [GainLossCard] safeFormatCurrency: successfully parsed string to number: -0.04
-📍 After submit URL: http://localhost:3000/dashboard
-📸 Screenshot: after submit
-✅ Successfully redirected to dashboard!
-📍 Final URL: http://localhost:3000/dashboard
-🎯 Now on dashboard! Checking KPI components...
-📸 Screenshot: dashboard loaded
-📊 Found 8 KPI cards
-🔍 KPI card 1: "Portfolio Value"
-✅ Card 1 appears to have real data
-🔍 KPI card 2: "IRR"
-✅ Card 2 appears to have real data
-🔍 KPI card 3: "Dividend Yield"
-✅ Card 3 appears to have real data
-🔍 KPI card 4: "Portfolio Beta"
-✅ Card 4 appears to have real data
-📸 Screenshot: final state
-📡 Total API calls: 8
-  📋 200 - http://localhost:8000/api/health
-  📋 200 - http://localhost:8000/api/health
-  📋 200 - http://localhost:8000/api/fx/latest?base=AUD
-  📋 200 - http://localhost:8000/api/fx/latest?base=AUD
-  📋 200 - http://localhost:8000/api/dashboard/allocation?groupBy=sector
-  📋 200 - http://localhost:8000/api/dashboard/overview
-  📋 200 - http://localhost:8000/api/dashboard/losers?limit=5
-  📋 200 - http://localhost:8000/api/dashboard/gainers?limit=5
-✅ Login test completed successfully!
+<![CDATA[🚀 Navigating to /auth...
+🌐 [BROWSER INFO]: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+🌐 [BROWSER LOG]: %c%s%c [DEBUG_MODULE] 🔧 patchConsole called background: #e6e6e6;background: light-dark(rgba(0,0,0,0.1), rgba(255,255,255,0.25));color: #000000;color: light-dark(#000000, #ffffff);border-radius: 2px  Server  
+🌐 [BROWSER LOG]: %c%s%c [DEBUG_MODULE] 🔊 Development mode, console logging active background: #e6e6e6;background: light-dark(rgba(0,0,0,0.1), rgba(255,255,255,0.25));color: #000000;color: light-dark(#000000, #ffffff);border-radius: 2px  Server  
+🌐 [BROWSER LOG]: [AUTH-DEBUG] [2025-07-05T09:03:32.769Z] [page:render] {
+  "isSignUp": false,
+  "email": "empty",
+  "loading": false
+}
+🌐 [BROWSER LOG]: [AUTH-DEBUG] [2025-07-05T09:03:32.771Z] [page:render] {
+  "isSignUp": false,
+  "email": "empty",
+  "loading": false
+}
+🌐 [BROWSER LOG]: [AUTH-DEBUG] [2025-07-05T09:03:33.216Z] [input:email:change] {
+  "value": "3200163@proton.me"
+}
+🌐 [BROWSER LOG]: [AUTH-DEBUG] [2025-07-05T09:03:33.218Z] [page:render] {
+  "isSignUp": false,
+  "email": "***filled***",
+  "loading": false
+}
+🌐 [BROWSER LOG]: [AUTH-DEBUG] [2025-07-05T09:03:33.219Z] [page:render] {
+  "isSignUp": false,
+  "email": "***filled***",
+  "loading": false
+}
+🌐 [BROWSER LOG]: [AUTH-DEBUG] [2025-07-05T09:03:33.251Z] [input:password:change] {
+  "length": 8
+}
+🌐 [BROWSER LOG]: [AUTH-DEBUG] [2025-07-05T09:03:33.251Z] [page:render] {
+  "isSignUp": false,
+  "email": "***filled***",
+  "loading": false
+}
+🌐 [BROWSER LOG]: [AUTH-DEBUG] [2025-07-05T09:03:33.252Z] [page:render] {
+  "isSignUp": false,
+  "email": "***filled***",
+  "loading": false
+}
+🌐 [BROWSER LOG]: [AUTH-DEBUG] [2025-07-05T09:03:33.392Z] [form:submit:start] {
+  "isSignUp": false,
+  "email": "3200163@proton.me",
+  "passwordLength": 8,
+  "fullName": "N/A"
+}
+🌐 [BROWSER LOG]: [AUTH-DEBUG] [2025-07-05T09:03:33.392Z] [signin:api:calling] {
+  "email": "3200163@proton.me"
+}
+🌐 [BROWSER LOG]: [AUTH-DEBUG] [2025-07-05T09:03:33.395Z] [page:render] {
+  "isSignUp": false,
+  "email": "***filled***",
+  "loading": true
+}
+🌐 [BROWSER LOG]: [AUTH-DEBUG] [2025-07-05T09:03:33.396Z] [page:render] {
+  "isSignUp": false,
+  "email": "***filled***",
+  "loading": true
+}
+🌐 [BROWSER LOG]: [AUTH-DEBUG] [2025-07-05T09:03:36.745Z] [signin:api:response] {
+  "success": true,
+  "user": {
+    "id": "28eff71a-87bd-433f-bd6c-8701801e2261",
+    "email": "3200163@proton.me",
+    "confirmed": "2025-06-26T07:39:24.35038Z"
+  },
+  "session": {
+    "expires_at": 1751709818
+  }
+}
+🌐 [BROWSER LOG]: [AUTH-DEBUG] [2025-07-05T09:03:36.745Z] [signin:success] {
+  "userId": "28eff71a-87bd-433f-bd6c-8701801e2261",
+  "email": "3200163@proton.me"
+}
+🌐 [BROWSER LOG]: [AUTH-DEBUG] [2025-07-05T09:03:36.745Z] [signin:redirect:scheduled] {
+  "target": "/dashboard",
+  "delay": 1500
+}
+🌐 [BROWSER LOG]: [AUTH-DEBUG] [2025-07-05T09:03:36.745Z] [form:submit:complete] {
+  "loading": false
+}
+🌐 [BROWSER LOG]: [AUTH-DEBUG] [2025-07-05T09:03:36.746Z] [page:render] {
+  "isSignUp": false,
+  "email": "***filled***",
+  "loading": false
+}
+🌐 [BROWSER LOG]: [AUTH-DEBUG] [2025-07-05T09:03:36.746Z] [page:render] {
+  "isSignUp": false,
+  "email": "***filled***",
+  "loading": false
+}
+🌐 [BROWSER LOG]: [AUTH-DEBUG] [2025-07-05T09:03:38.251Z] [signin:redirect:executing] {
+  "target": "/dashboard"
+}
+🌐 [BROWSER LOG]: [Fast Refresh] rebuilding
+🌐 [BROWSER WARNING]: [Fast Refresh] performing full reload
+
+Fast Refresh will perform a full reload when you edit a file that's imported by modules outside of the React rendering tree.
+You might have a file which exports a React component but also exports a value that is imported by a non-React component file.
+Consider migrating the non-React component export to a separate file and importing it into both files.
+
+It is also possible the parent component of the component you edited is a class component, which disables Fast Refresh.
+Fast Refresh requires at least one parent function component in your React tree.
+🌐 [BROWSER INFO]: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+🌐 [BROWSER LOG]: [DEBUG_MODULE] 🚀 debug.ts module loading at: 2025-07-05T09:03:46.218Z
+🌐 [BROWSER LOG]: [DEBUG_MODULE] 🌍 Environment check: {isClient: true, hostname: localhost, nodeEnv: development}
+🌐 [BROWSER LOG]: [DEBUG_MODULE] 📤 Setting up default export...
+🌐 [BROWSER LOG]: [DEBUG_MODULE] ✅ Debug function type check: function
+🌐 [BROWSER LOG]: [DEBUG_MODULE] 🧪 Testing debug function call...
+🌐 [BROWSER LOG]: [DEBUG] 2025-07-05T09:03:46.220Z [DEBUG_MODULE] 🎉 Debug function self-test successful!
+🌐 [BROWSER DEBUG]: [DEBUG_FALLBACK] [DEBUG] 2025-07-05T09:03:46.220Z [DEBUG_MODULE] 🎉 Debug function self-test successful!
+🌐 [BROWSER LOG]: [DEBUG] 2025-07-05T09:03:46.221Z [KPI_GRID] 🎉 Debug function import successful!
+🌐 [BROWSER DEBUG]: [DEBUG_FALLBACK] [DEBUG] 2025-07-05T09:03:46.221Z [KPI_GRID] 🎉 Debug function import successful!
+🌐 [BROWSER LOG]: [PORTFOLIO_CHART] 🔍 Import verification at: 2025-07-05T09:03:46.224Z
+🌐 [BROWSER LOG]: [PORTFOLIO_CHART] 📦 debug import type: function
+🌐 [BROWSER LOG]: [PORTFOLIO_CHART] 🧪 debug function test:
+🌐 [BROWSER LOG]: [PORTFOLIO_CHART] ✅ debug is a function, testing call...
+🌐 [BROWSER LOG]: [DEBUG] 2025-07-05T09:03:46.224Z [PORTFOLIO_CHART] 🎉 Debug function import successful!
+🌐 [BROWSER DEBUG]: [DEBUG_FALLBACK] [DEBUG] 2025-07-05T09:03:46.224Z [PORTFOLIO_CHART] 🎉 Debug function import successful!
+🌐 [BROWSER LOG]: [PORTFOLIO_CHART] ✅ Debug function call successful!
+🌐 [BROWSER LOG]: %c%s%c [DEBUG_MODULE] 🔧 patchConsole called background: #e6e6e6;background: light-dark(rgba(0,0,0,0.1), rgba(255,255,255,0.25));color: #000000;color: light-dark(#000000, #ffffff);border-radius: 2px  Server  
+🌐 [BROWSER LOG]: %c%s%c [DEBUG_MODULE] 🔊 Development mode, console logging active background: #e6e6e6;background: light-dark(rgba(0,0,0,0.1), rgba(255,255,255,0.25));color: #000000;color: light-dark(#000000, #ffffff);border-radius: 2px  Server  
+✅ Logged in, now on dashboard
+🌐 [BROWSER LOG]: [AllocationTable] Still loading, showing skeleton
+🌐 [BROWSER LOG]: [AllocationTable] Still loading, showing skeleton
+🌐 [BROWSER LOG]: [PortfolioChart] === ENHANCED PORTFOLIO CHART START ===
+🌐 [BROWSER LOG]: [PortfolioChart] Component mounting with props: {defaultRange: 1Y, defaultBenchmark: SPY}
+🌐 [BROWSER LOG]: [PortfolioChart] Timestamp: 2025-07-05T09:03:46.448Z
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Component state:
+🌐 [BROWSER LOG]: [PortfolioChart] - Selected range: 1Y
+🌐 [BROWSER LOG]: [PortfolioChart] - Selected benchmark: SPY
+🌐 [BROWSER LOG]: [PortfolioChart] - Display mode: value
+🌐 [BROWSER LOG]: [usePerformance] 🚀 Hook called with: {range: 1Y, benchmark: SPY, options: Object}
+🌐 [BROWSER LOG]: [usePerformance] 🔐 Authentication status:
+🌐 [BROWSER LOG]: [usePerformance] - User present: true
+🌐 [BROWSER LOG]: [usePerformance] - User ID: 28eff71a-87bd-433f-bd6c-8701801e2261
+🌐 [BROWSER LOG]: [usePerformance] - User email: 3200163@proton.me
+🌐 [BROWSER LOG]: [usePerformance] ✅ Input validation passed
+🌐 [BROWSER LOG]: [usePerformance] 📋 Query configuration:
+🌐 [BROWSER LOG]: [usePerformance] - Enabled: true
+🌐 [BROWSER LOG]: [usePerformance] - Stale time: 300000ms
+🌐 [BROWSER LOG]: [usePerformance] - Refetch on focus: false
+🌐 [BROWSER LOG]: [usePerformance] - Retry attempts: 3
+🌐 [BROWSER LOG]: [usePerformance] 📊 Query state:
+🌐 [BROWSER LOG]: [usePerformance] - isLoading: true
+🌐 [BROWSER LOG]: [usePerformance] - isError: false
+🌐 [BROWSER LOG]: [usePerformance] - isSuccess: false
+🌐 [BROWSER LOG]: [usePerformance] - hasData: false
+🌐 [BROWSER LOG]: [usePerformance] - error: undefined
+🌐 [BROWSER LOG]: [usePerformance] 📈 Processed data:
+🌐 [BROWSER LOG]: [usePerformance] - Portfolio data points: 0
+🌐 [BROWSER LOG]: [usePerformance] - Benchmark data points: 0
+🌐 [BROWSER LOG]: [usePerformance] - Has metrics: false
+🌐 [BROWSER LOG]: [usePerformance] === HOOK RESULT READY ===
+🌐 [BROWSER LOG]: [PortfolioChart] 🔄 Performance hook state:
+🌐 [BROWSER LOG]: [PortfolioChart] - Loading: true
+🌐 [BROWSER LOG]: [PortfolioChart] - Error: false
+🌐 [BROWSER LOG]: [PortfolioChart] - Success: false
+🌐 [BROWSER LOG]: [PortfolioChart] - Has data: false
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio points: 0
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark points: 0
+🌐 [BROWSER LOG]: [PortfolioChart] - Has metrics: false
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Processing chart data...
+🌐 [BROWSER LOG]: [PortfolioChart] - Display mode: value
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio data points: 0
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark data points: 0
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 calculatePercentageReturns called with data length: 0
+🌐 [BROWSER LOG]: [PortfolioChart] ⚠️ No data points for percentage calculation
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 calculatePercentageReturns called with data length: 0
+🌐 [BROWSER LOG]: [PortfolioChart] ⚠️ No data points for percentage calculation
+🌐 [BROWSER LOG]: [PortfolioChart] 📈 Calculated percentage returns:
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio data length: 0
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark data length: 0
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio percent returns length: 0
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark percent returns length: 0
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio final return: 0
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark final return: 0
+🌐 [BROWSER LOG]: [PortfolioChart] 🎨 Rendering component...
+🌐 [BROWSER LOG]: [PortfolioChart] === ENHANCED PORTFOLIO CHART START ===
+🌐 [BROWSER LOG]: [PortfolioChart] Component mounting with props: {defaultRange: 1Y, defaultBenchmark: SPY}
+🌐 [BROWSER LOG]: [PortfolioChart] Timestamp: 2025-07-05T09:03:46.456Z
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Component state:
+🌐 [BROWSER LOG]: [PortfolioChart] - Selected range: 1Y
+🌐 [BROWSER LOG]: [PortfolioChart] - Selected benchmark: SPY
+🌐 [BROWSER LOG]: [PortfolioChart] - Display mode: value
+🌐 [BROWSER LOG]: [usePerformance] 🚀 Hook called with: {range: 1Y, benchmark: SPY, options: Object}
+🌐 [BROWSER LOG]: [usePerformance] 🔐 Authentication status:
+🌐 [BROWSER LOG]: [usePerformance] - User present: true
+🌐 [BROWSER LOG]: [usePerformance] - User ID: 28eff71a-87bd-433f-bd6c-8701801e2261
+🌐 [BROWSER LOG]: [usePerformance] - User email: 3200163@proton.me
+🌐 [BROWSER LOG]: [usePerformance] ✅ Input validation passed
+🌐 [BROWSER LOG]: [usePerformance] 📋 Query configuration:
+🌐 [BROWSER LOG]: [usePerformance] - Enabled: true
+🌐 [BROWSER LOG]: [usePerformance] - Stale time: 300000ms
+🌐 [BROWSER LOG]: [usePerformance] - Refetch on focus: false
+🌐 [BROWSER LOG]: [usePerformance] - Retry attempts: 3
+🌐 [BROWSER LOG]: [usePerformance] 📊 Query state:
+🌐 [BROWSER LOG]: [usePerformance] - isLoading: true
+🌐 [BROWSER LOG]: [usePerformance] - isError: false
+🌐 [BROWSER LOG]: [usePerformance] - isSuccess: false
+🌐 [BROWSER LOG]: [usePerformance] - hasData: false
+🌐 [BROWSER LOG]: [usePerformance] - error: undefined
+🌐 [BROWSER LOG]: [usePerformance] 📈 Processed data:
+🌐 [BROWSER LOG]: [usePerformance] - Portfolio data points: 0
+🌐 [BROWSER LOG]: [usePerformance] - Benchmark data points: 0
+🌐 [BROWSER LOG]: [usePerformance] - Has metrics: false
+🌐 [BROWSER LOG]: [usePerformance] === HOOK RESULT READY ===
+🌐 [BROWSER LOG]: [PortfolioChart] 🔄 Performance hook state:
+🌐 [BROWSER LOG]: [PortfolioChart] - Loading: true
+🌐 [BROWSER LOG]: [PortfolioChart] - Error: false
+🌐 [BROWSER LOG]: [PortfolioChart] - Success: false
+🌐 [BROWSER LOG]: [PortfolioChart] - Has data: false
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio points: 0
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark points: 0
+🌐 [BROWSER LOG]: [PortfolioChart] - Has metrics: false
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Processing chart data...
+🌐 [BROWSER LOG]: [PortfolioChart] - Display mode: value
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio data points: 0
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark data points: 0
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 calculatePercentageReturns called with data length: 0
+🌐 [BROWSER LOG]: [PortfolioChart] ⚠️ No data points for percentage calculation
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 calculatePercentageReturns called with data length: 0
+🌐 [BROWSER LOG]: [PortfolioChart] ⚠️ No data points for percentage calculation
+🌐 [BROWSER LOG]: [PortfolioChart] 📈 Calculated percentage returns:
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio data length: 0
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark data length: 0
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio percent returns length: 0
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark percent returns length: 0
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio final return: 0
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark final return: 0
+🌐 [BROWSER LOG]: [PortfolioChart] 🎨 Rendering component...
+🌐 [BROWSER LOG]: [GainLossCard] Still loading gainers, showing skeleton
+🌐 [BROWSER LOG]: [GainLossCard] Still loading gainers, showing skeleton
+🌐 [BROWSER LOG]: [GainLossCard] Still loading losers, showing skeleton
+🌐 [BROWSER LOG]: [GainLossCard] Still loading losers, showing skeleton
+🌐 [BROWSER LOG]: [DEBUG] 2025-07-05T09:03:46.490Z 📡 Making API call for dashboard overview using front_api_get_dashboard...
+🌐 [BROWSER DEBUG]: [DEBUG_FALLBACK] [DEBUG] 2025-07-05T09:03:46.490Z 📡 Making API call for dashboard overview using front_api_get_dashboard...
+🌐 [BROWSER LOG]: [DEBUG] 2025-07-05T09:03:46.491Z 📡 User ID for API call: 28eff71a-87bd-433f-bd6c-8701801e2261
+🌐 [BROWSER DEBUG]: [DEBUG_FALLBACK] [DEBUG] 2025-07-05T09:03:46.491Z 📡 User ID for API call: 28eff71a-87bd-433f-bd6c-8701801e2261
+🌐 [BROWSER LOG]: [AllocationTable] Allocation API not yet implemented, showing empty state
+🌐 [BROWSER LOG]: [FxTicker] FX rates API not yet implemented, showing empty state
+🌐 [BROWSER LOG]: [usePerformance] === PERFORMANCE REQUEST START ===
+🌐 [BROWSER LOG]: [usePerformance] Timestamp: 2025-07-05T09:03:46.494Z
+🌐 [BROWSER LOG]: [usePerformance] Range: 1Y
+🌐 [BROWSER LOG]: [usePerformance] Benchmark: SPY
+🌐 [BROWSER LOG]: [usePerformance] User ID present: true
+🌐 [BROWSER LOG]: [usePerformance] React Query key: [performance, 1Y, SPY, 28eff71a-87bd-433f-bd6c-8701801e2261]
+🌐 [BROWSER LOG]: [usePerformance] 📡 Making API call...
+🌐 [BROWSER LOG]: [usePerformance] API call: front_api_client.front_api_get_performance
+🌐 [BROWSER LOG]: [usePerformance] Parameters: period = 1Y
+🌐 [BROWSER LOG]: [usePerformance] 📡 Calling front_api_get_performance with parameters:
+🌐 [BROWSER LOG]: [usePerformance] - range: 1Y
+🌐 [BROWSER LOG]: [usePerformance] - benchmark: SPY
+🌐 [BROWSER LOG]: 📈 [front_api_get_performance] === PERFORMANCE API CALL START ===
+🌐 [BROWSER LOG]: 📈 [front_api_get_performance] Timestamp: 2025-07-05T09:03:46.500Z
+🌐 [BROWSER LOG]: 📈 [front_api_get_performance] Period parameter: "1Y"
+🌐 [BROWSER LOG]: 📈 [front_api_get_performance] Period type: string
+🌐 [BROWSER LOG]: 📈 [front_api_get_performance] Benchmark parameter: "SPY"
+🌐 [BROWSER LOG]: 📈 [front_api_get_performance] Benchmark type: string
+🌐 [BROWSER LOG]: 📈 [front_api_get_performance] Encoded period: "1Y"
+🌐 [BROWSER LOG]: 📈 [front_api_get_performance] Encoded benchmark: "SPY"
+🌐 [BROWSER LOG]: 📈 [front_api_get_performance] Target URL: /api/dashboard/performance?period=1Y&benchmark=SPY
+🌐 [BROWSER LOG]: 📈 [front_api_get_performance] Full URL: http://localhost:8000/api/dashboard/performance?period=1Y&benchmark=SPY
+🌐 [BROWSER LOG]: 📈 [front_api_get_performance] === PERFORMANCE API CALL INITIATED ===
+🌐 [BROWSER LOG]: [PortfolioChart] 🔄 Updating dashboard context...
+🌐 [BROWSER LOG]: [PortfolioChart] - Loading state: true
+🌐 [BROWSER LOG]: [PortfolioChart] - Has portfolio data: false
+🌐 [BROWSER LOG]: [PortfolioChart] - Has benchmark data: false
+🌐 [BROWSER LOG]: [PortfolioChart] ⚠️ No data available for dashboard context
+🌐 [BROWSER LOG]: [GainLossCard] Making API call for gainers...
+🌐 [BROWSER LOG]: [GainLossCard] gainers API not yet implemented, showing empty state
+🌐 [BROWSER LOG]: [GainLossCard] Making API call for losers...
+🌐 [BROWSER LOG]: [GainLossCard] losers API not yet implemented, showing empty state
+🌐 [BROWSER LOG]: [PortfolioChart] 🔄 Updating dashboard context...
+🌐 [BROWSER LOG]: [PortfolioChart] - Loading state: true
+🌐 [BROWSER LOG]: [PortfolioChart] - Has portfolio data: false
+🌐 [BROWSER LOG]: [PortfolioChart] - Has benchmark data: false
+🌐 [BROWSER LOG]: [PortfolioChart] ⚠️ No data available for dashboard context
+🌐 [BROWSER LOG]: [GainLossCard] API response for gainers: {data: Object}
+🌐 [BROWSER LOG]: [GainLossCard] API response data type for gainers: object
+🌐 [BROWSER LOG]: [GainLossCard] API response items for gainers: []
+🌐 [BROWSER LOG]: [GainLossCard] API response for losers: {data: Object}
+🌐 [BROWSER LOG]: [GainLossCard] API response data type for losers: object
+🌐 [BROWSER LOG]: [GainLossCard] API response items for losers: []
+🌐 [BROWSER LOG]: [PortfolioChart] === ENHANCED PORTFOLIO CHART START ===
+🌐 [BROWSER LOG]: [PortfolioChart] Component mounting with props: {defaultRange: 1Y, defaultBenchmark: SPY}
+🌐 [BROWSER LOG]: [PortfolioChart] Timestamp: 2025-07-05T09:03:46.539Z
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Component state:
+🌐 [BROWSER LOG]: [PortfolioChart] - Selected range: 1Y
+🌐 [BROWSER LOG]: [PortfolioChart] - Selected benchmark: SPY
+🌐 [BROWSER LOG]: [PortfolioChart] - Display mode: value
+🌐 [BROWSER LOG]: [usePerformance] 🚀 Hook called with: {range: 1Y, benchmark: SPY, options: Object}
+🌐 [BROWSER LOG]: [usePerformance] 🔐 Authentication status:
+🌐 [BROWSER LOG]: [usePerformance] - User present: true
+🌐 [BROWSER LOG]: [usePerformance] - User ID: 28eff71a-87bd-433f-bd6c-8701801e2261
+🌐 [BROWSER LOG]: [usePerformance] - User email: 3200163@proton.me
+🌐 [BROWSER LOG]: [usePerformance] ✅ Input validation passed
+🌐 [BROWSER LOG]: [usePerformance] 📋 Query configuration:
+🌐 [BROWSER LOG]: [usePerformance] - Enabled: true
+🌐 [BROWSER LOG]: [usePerformance] - Stale time: 300000ms
+🌐 [BROWSER LOG]: [usePerformance] - Refetch on focus: false
+🌐 [BROWSER LOG]: [usePerformance] - Retry attempts: 3
+🌐 [BROWSER LOG]: [usePerformance] 📊 Query state:
+🌐 [BROWSER LOG]: [usePerformance] - isLoading: true
+🌐 [BROWSER LOG]: [usePerformance] - isError: false
+🌐 [BROWSER LOG]: [usePerformance] - isSuccess: false
+🌐 [BROWSER LOG]: [usePerformance] - hasData: false
+🌐 [BROWSER LOG]: [usePerformance] - error: undefined
+🌐 [BROWSER LOG]: [usePerformance] 📈 Processed data:
+🌐 [BROWSER LOG]: [usePerformance] - Portfolio data points: 0
+🌐 [BROWSER LOG]: [usePerformance] - Benchmark data points: 0
+🌐 [BROWSER LOG]: [usePerformance] - Has metrics: false
+🌐 [BROWSER LOG]: [usePerformance] === HOOK RESULT READY ===
+🌐 [BROWSER LOG]: [PortfolioChart] 🔄 Performance hook state:
+🌐 [BROWSER LOG]: [PortfolioChart] - Loading: true
+🌐 [BROWSER LOG]: [PortfolioChart] - Error: false
+🌐 [BROWSER LOG]: [PortfolioChart] - Success: false
+🌐 [BROWSER LOG]: [PortfolioChart] - Has data: false
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio points: 0
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark points: 0
+🌐 [BROWSER LOG]: [PortfolioChart] - Has metrics: false
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Processing chart data...
+🌐 [BROWSER LOG]: [PortfolioChart] - Display mode: value
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio data points: 0
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark data points: 0
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 calculatePercentageReturns called with data length: 0
+🌐 [BROWSER LOG]: [PortfolioChart] ⚠️ No data points for percentage calculation
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 calculatePercentageReturns called with data length: 0
+🌐 [BROWSER LOG]: [PortfolioChart] ⚠️ No data points for percentage calculation
+🌐 [BROWSER LOG]: [PortfolioChart] 📈 Calculated percentage returns:
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio data length: 0
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark data length: 0
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio percent returns length: 0
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark percent returns length: 0
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio final return: 0
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark final return: 0
+🌐 [BROWSER LOG]: [PortfolioChart] 🎨 Rendering component...
+🌐 [BROWSER LOG]: [PortfolioChart] === ENHANCED PORTFOLIO CHART START ===
+🌐 [BROWSER LOG]: [PortfolioChart] Component mounting with props: {defaultRange: 1Y, defaultBenchmark: SPY}
+🌐 [BROWSER LOG]: [PortfolioChart] Timestamp: 2025-07-05T09:03:46.544Z
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Component state:
+🌐 [BROWSER LOG]: [PortfolioChart] - Selected range: 1Y
+🌐 [BROWSER LOG]: [PortfolioChart] - Selected benchmark: SPY
+🌐 [BROWSER LOG]: [PortfolioChart] - Display mode: value
+🌐 [BROWSER LOG]: [usePerformance] 🚀 Hook called with: {range: 1Y, benchmark: SPY, options: Object}
+🌐 [BROWSER LOG]: [usePerformance] 🔐 Authentication status:
+🌐 [BROWSER LOG]: [usePerformance] - User present: true
+🌐 [BROWSER LOG]: [usePerformance] - User ID: 28eff71a-87bd-433f-bd6c-8701801e2261
+🌐 [BROWSER LOG]: [usePerformance] - User email: 3200163@proton.me
+🌐 [BROWSER LOG]: [usePerformance] ✅ Input validation passed
+🌐 [BROWSER LOG]: [usePerformance] 📋 Query configuration:
+🌐 [BROWSER LOG]: [usePerformance] - Enabled: true
+🌐 [BROWSER LOG]: [usePerformance] - Stale time: 300000ms
+🌐 [BROWSER LOG]: [usePerformance] - Refetch on focus: false
+🌐 [BROWSER LOG]: [usePerformance] - Retry attempts: 3
+🌐 [BROWSER LOG]: [usePerformance] 📊 Query state:
+🌐 [BROWSER LOG]: [usePerformance] - isLoading: true
+🌐 [BROWSER LOG]: [usePerformance] - isError: false
+🌐 [BROWSER LOG]: [usePerformance] - isSuccess: false
+🌐 [BROWSER LOG]: [usePerformance] - hasData: false
+🌐 [BROWSER LOG]: [usePerformance] - error: undefined
+🌐 [BROWSER LOG]: [usePerformance] 📈 Processed data:
+🌐 [BROWSER LOG]: [usePerformance] - Portfolio data points: 0
+🌐 [BROWSER LOG]: [usePerformance] - Benchmark data points: 0
+🌐 [BROWSER LOG]: [usePerformance] - Has metrics: false
+🌐 [BROWSER LOG]: [usePerformance] === HOOK RESULT READY ===
+🌐 [BROWSER LOG]: [PortfolioChart] 🔄 Performance hook state:
+🌐 [BROWSER LOG]: [PortfolioChart] - Loading: true
+🌐 [BROWSER LOG]: [PortfolioChart] - Error: false
+🌐 [BROWSER LOG]: [PortfolioChart] - Success: false
+🌐 [BROWSER LOG]: [PortfolioChart] - Has data: false
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio points: 0
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark points: 0
+🌐 [BROWSER LOG]: [PortfolioChart] - Has metrics: false
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Processing chart data...
+🌐 [BROWSER LOG]: [PortfolioChart] - Display mode: value
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio data points: 0
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark data points: 0
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 calculatePercentageReturns called with data length: 0
+🌐 [BROWSER LOG]: [PortfolioChart] ⚠️ No data points for percentage calculation
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 calculatePercentageReturns called with data length: 0
+🌐 [BROWSER LOG]: [PortfolioChart] ⚠️ No data points for percentage calculation
+🌐 [BROWSER LOG]: [PortfolioChart] 📈 Calculated percentage returns:
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio data length: 0
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark data length: 0
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio percent returns length: 0
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark percent returns length: 0
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio final return: 0
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark final return: 0
+🌐 [BROWSER LOG]: [PortfolioChart] 🎨 Rendering component...
+🌐 [BROWSER LOG]: [GainLossCard] Items for gainers: []
+🌐 [BROWSER LOG]: [GainLossCard] Number of items for gainers: 0
+🌐 [BROWSER LOG]: [GainLossCard] Items for gainers: []
+🌐 [BROWSER LOG]: [GainLossCard] Number of items for gainers: 0
+🌐 [BROWSER LOG]: [GainLossCard] Items for losers: []
+🌐 [BROWSER LOG]: [GainLossCard] Number of items for losers: 0
+🌐 [BROWSER LOG]: [GainLossCard] Items for losers: []
+🌐 [BROWSER LOG]: [GainLossCard] Number of items for losers: 0
+🌐 [BROWSER LOG]: [PortfolioChart] 🔄 Updating dashboard context...
+🌐 [BROWSER LOG]: [PortfolioChart] - Loading state: true
+🌐 [BROWSER LOG]: [PortfolioChart] - Has portfolio data: false
+🌐 [BROWSER LOG]: [PortfolioChart] - Has benchmark data: false
+🌐 [BROWSER LOG]: [PortfolioChart] ⚠️ No data available for dashboard context
+🔎 Navigating to /research...
+🌐 [BROWSER LOG]: [Fast Refresh] rebuilding
+🌐 [BROWSER ERROR]: ./src/components/StockSearchInput.tsx
+Error:   x Unexpected eof
+     ,-[/app/src/components/StockSearchInput.tsx:245:1]
+ 242 |       )}
+ 243 |     </div>
+ 244 |   );
+ 245 | } 
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/components/StockSearchInput.tsx
+./src/app/research/page.tsx
+🌐 [BROWSER LOG]: 📈 [front_api_get_performance] ✅ Success response received: {success: true, period: 1Y, benchmark: SPY, portfolio_performance: Array(366), benchmark_performance: Array(366)}
+🌐 [BROWSER LOG]: 📈 [front_api_get_performance] Response type: object
+🌐 [BROWSER LOG]: 📈 [front_api_get_performance] Response keys: [success, period, benchmark, portfolio_performance, benchmark_performance, metadata, performance_metrics]
+🌐 [BROWSER LOG]: [usePerformance] ✅ API call successful
+🌐 [BROWSER LOG]: [usePerformance] Raw API response: {success: true, period: 1Y, benchmark: SPY, portfolio_performance: Array(366), benchmark_performance: Array(366)}
+🌐 [BROWSER LOG]: [usePerformance] Response type: object
+🌐 [BROWSER LOG]: [usePerformance] Response keys: [success, period, benchmark, portfolio_performance, benchmark_performance, metadata, performance_metrics]
+🌐 [BROWSER LOG]: [usePerformance] ✅ Performance data validated
+🌐 [BROWSER LOG]: [usePerformance] ✅ Performance data received:
+🌐 [BROWSER LOG]: [usePerformance] - Success: true
+🌐 [BROWSER LOG]: [usePerformance] - Period: 1Y
+🌐 [BROWSER LOG]: [usePerformance] - Benchmark: SPY
+🌐 [BROWSER LOG]: [usePerformance] - Portfolio points: 366
+🌐 [BROWSER LOG]: [usePerformance] - Benchmark points: 366
+🌐 [BROWSER LOG]: [usePerformance] - Portfolio final value: 9363
+🌐 [BROWSER LOG]: [usePerformance] - Index final value: 8011.80232222703
+🌐 [BROWSER LOG]: [usePerformance] - Cached: false
+🌐 [BROWSER LOG]: [usePerformance] - Calculation timestamp: 2025-07-05T09:03:48.850579
+🌐 [BROWSER LOG]: [usePerformance] 📊 Performance metrics:
+🌐 [BROWSER LOG]: [usePerformance] - Portfolio return: 31.76%
+🌐 [BROWSER LOG]: [usePerformance] - Index return: 12.75%
+🌐 [BROWSER LOG]: [usePerformance] - Outperformance: 19.01%
+🌐 [BROWSER LOG]: [PortfolioChart] === ENHANCED PORTFOLIO CHART START ===
+🌐 [BROWSER LOG]: [PortfolioChart] Component mounting with props: {defaultRange: 1Y, defaultBenchmark: SPY}
+🌐 [BROWSER LOG]: [PortfolioChart] Timestamp: 2025-07-05T09:03:48.066Z
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Component state:
+🌐 [BROWSER LOG]: [PortfolioChart] - Selected range: 1Y
+🌐 [BROWSER LOG]: [PortfolioChart] - Selected benchmark: SPY
+🌐 [BROWSER LOG]: [PortfolioChart] - Display mode: value
+🌐 [BROWSER LOG]: [usePerformance] 🚀 Hook called with: {range: 1Y, benchmark: SPY, options: Object}
+🌐 [BROWSER LOG]: [usePerformance] 🔐 Authentication status:
+🌐 [BROWSER LOG]: [usePerformance] - User present: true
+🌐 [BROWSER LOG]: [usePerformance] - User ID: 28eff71a-87bd-433f-bd6c-8701801e2261
+🌐 [BROWSER LOG]: [usePerformance] - User email: 3200163@proton.me
+🌐 [BROWSER LOG]: [usePerformance] ✅ Input validation passed
+🌐 [BROWSER LOG]: [usePerformance] 📋 Query configuration:
+🌐 [BROWSER LOG]: [usePerformance] - Enabled: true
+🌐 [BROWSER LOG]: [usePerformance] - Stale time: 300000ms
+🌐 [BROWSER LOG]: [usePerformance] - Refetch on focus: false
+🌐 [BROWSER LOG]: [usePerformance] - Retry attempts: 3
+🌐 [BROWSER LOG]: [usePerformance] 📊 Query state:
+🌐 [BROWSER LOG]: [usePerformance] - isLoading: false
+🌐 [BROWSER LOG]: [usePerformance] - isError: false
+🌐 [BROWSER LOG]: [usePerformance] - isSuccess: true
+🌐 [BROWSER LOG]: [usePerformance] - hasData: true
+🌐 [BROWSER LOG]: [usePerformance] - error: undefined
+🌐 [BROWSER LOG]: [usePerformance] 📈 Processed data:
+🌐 [BROWSER LOG]: [usePerformance] - Portfolio data points: 366
+🌐 [BROWSER LOG]: [usePerformance] - Benchmark data points: 366
+🌐 [BROWSER LOG]: [usePerformance] - Has metrics: true
+🌐 [BROWSER LOG]: [usePerformance] - Portfolio sample data: [Object, Object, Object]
+🌐 [BROWSER LOG]: [usePerformance] - Portfolio final value: 9363
+🌐 [BROWSER LOG]: [usePerformance] - Benchmark sample data: [Object, Object, Object]
+🌐 [BROWSER LOG]: [usePerformance] - Benchmark final value: 8011.80232222703
+🌐 [BROWSER LOG]: [usePerformance] === HOOK RESULT READY ===
+🌐 [BROWSER LOG]: [PortfolioChart] 🔄 Performance hook state:
+🌐 [BROWSER LOG]: [PortfolioChart] - Loading: false
+🌐 [BROWSER LOG]: [PortfolioChart] - Error: false
+🌐 [BROWSER LOG]: [PortfolioChart] - Success: true
+🌐 [BROWSER LOG]: [PortfolioChart] - Has data: true
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio points: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark points: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Has metrics: true
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Processing chart data...
+🌐 [BROWSER LOG]: [PortfolioChart] - Display mode: value
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio data points: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark data points: 366
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 calculatePercentageReturns called with data length: 366
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Initial value for percentage calculation: 7106
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Percentage returns calculated:
+🌐 [BROWSER LOG]: [PortfolioChart] - First return: 0
+🌐 [BROWSER LOG]: [PortfolioChart] - Last return: 31.76189135941458
+🌐 [BROWSER LOG]: [PortfolioChart] - Sample values: [0, 0, 0, 0.267379679144385, 0.3658879819870532]
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 calculatePercentageReturns called with data length: 366
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Initial value for percentage calculation: 7106
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Percentage returns calculated:
+🌐 [BROWSER LOG]: [PortfolioChart] - First return: 0
+🌐 [BROWSER LOG]: [PortfolioChart] - Last return: 12.747007067647488
+🌐 [BROWSER LOG]: [PortfolioChart] - Sample values: [0, 0, 0, 0.11539016298860645, 0.2127506130102443]
+🌐 [BROWSER LOG]: [PortfolioChart] 📈 Calculated percentage returns:
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio data length: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark data length: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio percent returns length: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark percent returns length: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio final return: 31.76189135941458
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark final return: 12.747007067647488
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Portfolio data sample: [Object, Object, Object]
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Portfolio first value: 7106
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Portfolio last value: 9363
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Benchmark data sample: [Object, Object, Object]
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Benchmark first value: 7106
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Benchmark last value: 8011.80232222703
+🌐 [BROWSER LOG]: [PortfolioChart] 🎨 Rendering component...
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Creating plot data...
+🌐 [BROWSER LOG]: [PortfolioChart] - Display mode: value
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio data points: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark data points: 366
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Portfolio trace data:
+🌐 [BROWSER LOG]: [PortfolioChart] - X points: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Y points: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Y sample: [7106, 7106, 7106, 7125, 7132]
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Benchmark trace data:
+🌐 [BROWSER LOG]: [PortfolioChart] - X points: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Y points: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Y sample: [7106, 7106, 7106, 7114.19962498197, 7121.118058560508]
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark visible: true
+🌐 [BROWSER LOG]: [PortfolioChart] ✅ Portfolio trace added to chart
+🌐 [BROWSER LOG]: [PortfolioChart] ✅ Benchmark trace added to chart
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Final traces count: 2
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Traces summary: [Object, Object]
+🌐 [BROWSER LOG]: [PortfolioChart] === ENHANCED PORTFOLIO CHART START ===
+🌐 [BROWSER LOG]: [PortfolioChart] Component mounting with props: {defaultRange: 1Y, defaultBenchmark: SPY}
+🌐 [BROWSER LOG]: [PortfolioChart] Timestamp: 2025-07-05T09:03:48.078Z
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Component state:
+🌐 [BROWSER LOG]: [PortfolioChart] - Selected range: 1Y
+🌐 [BROWSER LOG]: [PortfolioChart] - Selected benchmark: SPY
+🌐 [BROWSER LOG]: [PortfolioChart] - Display mode: value
+🌐 [BROWSER LOG]: [usePerformance] 🚀 Hook called with: {range: 1Y, benchmark: SPY, options: Object}
+🌐 [BROWSER LOG]: [usePerformance] 🔐 Authentication status:
+🌐 [BROWSER LOG]: [usePerformance] - User present: true
+🌐 [BROWSER LOG]: [usePerformance] - User ID: 28eff71a-87bd-433f-bd6c-8701801e2261
+🌐 [BROWSER LOG]: [usePerformance] - User email: 3200163@proton.me
+🌐 [BROWSER LOG]: [usePerformance] ✅ Input validation passed
+🌐 [BROWSER LOG]: [usePerformance] 📋 Query configuration:
+🌐 [BROWSER LOG]: [usePerformance] - Enabled: true
+🌐 [BROWSER LOG]: [usePerformance] - Stale time: 300000ms
+🌐 [BROWSER LOG]: [usePerformance] - Refetch on focus: false
+🌐 [BROWSER LOG]: [usePerformance] - Retry attempts: 3
+🌐 [BROWSER LOG]: [usePerformance] 📊 Query state:
+🌐 [BROWSER LOG]: [usePerformance] - isLoading: false
+🌐 [BROWSER LOG]: [usePerformance] - isError: false
+🌐 [BROWSER LOG]: [usePerformance] - isSuccess: true
+🌐 [BROWSER LOG]: [usePerformance] - hasData: true
+🌐 [BROWSER LOG]: [usePerformance] - error: undefined
+🌐 [BROWSER LOG]: [usePerformance] 📈 Processed data:
+🌐 [BROWSER LOG]: [usePerformance] - Portfolio data points: 366
+🌐 [BROWSER LOG]: [usePerformance] - Benchmark data points: 366
+🌐 [BROWSER LOG]: [usePerformance] - Has metrics: true
+🌐 [BROWSER LOG]: [usePerformance] - Portfolio sample data: [Object, Object, Object]
+🌐 [BROWSER LOG]: [usePerformance] - Portfolio final value: 9363
+🌐 [BROWSER LOG]: [usePerformance] - Benchmark sample data: [Object, Object, Object]
+🌐 [BROWSER LOG]: [usePerformance] - Benchmark final value: 8011.80232222703
+🌐 [BROWSER LOG]: [usePerformance] === HOOK RESULT READY ===
+🌐 [BROWSER LOG]: [PortfolioChart] 🔄 Performance hook state:
+🌐 [BROWSER LOG]: [PortfolioChart] - Loading: false
+🌐 [BROWSER LOG]: [PortfolioChart] - Error: false
+🌐 [BROWSER LOG]: [PortfolioChart] - Success: true
+🌐 [BROWSER LOG]: [PortfolioChart] - Has data: true
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio points: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark points: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Has metrics: true
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Processing chart data...
+🌐 [BROWSER LOG]: [PortfolioChart] - Display mode: value
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio data points: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark data points: 366
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 calculatePercentageReturns called with data length: 366
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Initial value for percentage calculation: 7106
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Percentage returns calculated:
+🌐 [BROWSER LOG]: [PortfolioChart] - First return: 0
+🌐 [BROWSER LOG]: [PortfolioChart] - Last return: 31.76189135941458
+🌐 [BROWSER LOG]: [PortfolioChart] - Sample values: [0, 0, 0, 0.267379679144385, 0.3658879819870532]
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 calculatePercentageReturns called with data length: 366
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Initial value for percentage calculation: 7106
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Percentage returns calculated:
+🌐 [BROWSER LOG]: [PortfolioChart] - First return: 0
+🌐 [BROWSER LOG]: [PortfolioChart] - Last return: 12.747007067647488
+🌐 [BROWSER LOG]: [PortfolioChart] - Sample values: [0, 0, 0, 0.11539016298860645, 0.2127506130102443]
+🌐 [BROWSER LOG]: [PortfolioChart] 📈 Calculated percentage returns:
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio data length: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark data length: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio percent returns length: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark percent returns length: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio final return: 31.76189135941458
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark final return: 12.747007067647488
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Portfolio data sample: [Object, Object, Object]
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Portfolio first value: 7106
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Portfolio last value: 9363
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Benchmark data sample: [Object, Object, Object]
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Benchmark first value: 7106
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Benchmark last value: 8011.80232222703
+🌐 [BROWSER LOG]: [PortfolioChart] 🎨 Rendering component...
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Creating plot data...
+🌐 [BROWSER LOG]: [PortfolioChart] - Display mode: value
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio data points: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark data points: 366
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Portfolio trace data:
+🌐 [BROWSER LOG]: [PortfolioChart] - X points: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Y points: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Y sample: [7106, 7106, 7106, 7125, 7132]
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Benchmark trace data:
+🌐 [BROWSER LOG]: [PortfolioChart] - X points: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Y points: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Y sample: [7106, 7106, 7106, 7114.19962498197, 7121.118058560508]
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark visible: true
+🌐 [BROWSER LOG]: [PortfolioChart] ✅ Portfolio trace added to chart
+🌐 [BROWSER LOG]: [PortfolioChart] ✅ Benchmark trace added to chart
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Final traces count: 2
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Traces summary: [Object, Object]
+🌐 [BROWSER LOG]: [PortfolioChart] 🔄 Updating dashboard context...
+🌐 [BROWSER LOG]: [PortfolioChart] - Loading state: false
+🌐 [BROWSER LOG]: [PortfolioChart] - Has portfolio data: true
+🌐 [BROWSER LOG]: [PortfolioChart] - Has benchmark data: true
+🌐 [BROWSER LOG]: [PortfolioChart] ✅ Setting performance data in dashboard context
+🌐 [BROWSER LOG]: [PortfolioChart] === ENHANCED PORTFOLIO CHART START ===
+🌐 [BROWSER LOG]: [PortfolioChart] Component mounting with props: {defaultRange: 1Y, defaultBenchmark: SPY}
+🌐 [BROWSER LOG]: [PortfolioChart] Timestamp: 2025-07-05T09:03:48.100Z
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Component state:
+🌐 [BROWSER LOG]: [PortfolioChart] - Selected range: 1Y
+🌐 [BROWSER LOG]: [PortfolioChart] - Selected benchmark: SPY
+🌐 [BROWSER LOG]: [PortfolioChart] - Display mode: value
+🌐 [BROWSER LOG]: [usePerformance] 🚀 Hook called with: {range: 1Y, benchmark: SPY, options: Object}
+🌐 [BROWSER LOG]: [usePerformance] 🔐 Authentication status:
+🌐 [BROWSER LOG]: [usePerformance] - User present: true
+🌐 [BROWSER LOG]: [usePerformance] - User ID: 28eff71a-87bd-433f-bd6c-8701801e2261
+🌐 [BROWSER LOG]: [usePerformance] - User email: 3200163@proton.me
+🌐 [BROWSER LOG]: [usePerformance] ✅ Input validation passed
+🌐 [BROWSER LOG]: [usePerformance] 📋 Query configuration:
+🌐 [BROWSER LOG]: [usePerformance] - Enabled: true
+🌐 [BROWSER LOG]: [usePerformance] - Stale time: 300000ms
+🌐 [BROWSER LOG]: [usePerformance] - Refetch on focus: false
+🌐 [BROWSER LOG]: [usePerformance] - Retry attempts: 3
+🌐 [BROWSER LOG]: [usePerformance] 📊 Query state:
+🌐 [BROWSER LOG]: [usePerformance] - isLoading: false
+🌐 [BROWSER LOG]: [usePerformance] - isError: false
+🌐 [BROWSER LOG]: [usePerformance] - isSuccess: true
+🌐 [BROWSER LOG]: [usePerformance] - hasData: true
+🌐 [BROWSER LOG]: [usePerformance] - error: undefined
+🌐 [BROWSER LOG]: [usePerformance] 📈 Processed data:
+🌐 [BROWSER LOG]: [usePerformance] - Portfolio data points: 366
+🌐 [BROWSER LOG]: [usePerformance] - Benchmark data points: 366
+🌐 [BROWSER LOG]: [usePerformance] - Has metrics: true
+🌐 [BROWSER LOG]: [usePerformance] - Portfolio sample data: [Object, Object, Object]
+🌐 [BROWSER LOG]: [usePerformance] - Portfolio final value: 9363
+🌐 [BROWSER LOG]: [usePerformance] - Benchmark sample data: [Object, Object, Object]
+🌐 [BROWSER LOG]: [usePerformance] - Benchmark final value: 8011.80232222703
+🌐 [BROWSER LOG]: [usePerformance] === HOOK RESULT READY ===
+🌐 [BROWSER LOG]: [PortfolioChart] 🔄 Performance hook state:
+🌐 [BROWSER LOG]: [PortfolioChart] - Loading: false
+🌐 [BROWSER LOG]: [PortfolioChart] - Error: false
+🌐 [BROWSER LOG]: [PortfolioChart] - Success: true
+🌐 [BROWSER LOG]: [PortfolioChart] - Has data: true
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio points: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark points: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Has metrics: true
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Processing chart data...
+🌐 [BROWSER LOG]: [PortfolioChart] - Display mode: value
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio data points: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark data points: 366
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 calculatePercentageReturns called with data length: 366
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Initial value for percentage calculation: 7106
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Percentage returns calculated:
+🌐 [BROWSER LOG]: [PortfolioChart] - First return: 0
+🌐 [BROWSER LOG]: [PortfolioChart] - Last return: 31.76189135941458
+🌐 [BROWSER LOG]: [PortfolioChart] - Sample values: [0, 0, 0, 0.267379679144385, 0.3658879819870532]
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 calculatePercentageReturns called with data length: 366
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Initial value for percentage calculation: 7106
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Percentage returns calculated:
+🌐 [BROWSER LOG]: [PortfolioChart] - First return: 0
+🌐 [BROWSER LOG]: [PortfolioChart] - Last return: 12.747007067647488
+🌐 [BROWSER LOG]: [PortfolioChart] - Sample values: [0, 0, 0, 0.11539016298860645, 0.2127506130102443]
+🌐 [BROWSER LOG]: [PortfolioChart] 📈 Calculated percentage returns:
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio data length: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark data length: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio percent returns length: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark percent returns length: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio final return: 31.76189135941458
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark final return: 12.747007067647488
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Portfolio data sample: [Object, Object, Object]
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Portfolio first value: 7106
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Portfolio last value: 9363
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Benchmark data sample: [Object, Object, Object]
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Benchmark first value: 7106
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Benchmark last value: 8011.80232222703
+🌐 [BROWSER LOG]: [PortfolioChart] 🎨 Rendering component...
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Creating plot data...
+🌐 [BROWSER LOG]: [PortfolioChart] - Display mode: value
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio data points: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark data points: 366
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Portfolio trace data:
+🌐 [BROWSER LOG]: [PortfolioChart] - X points: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Y points: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Y sample: [7106, 7106, 7106, 7125, 7132]
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Benchmark trace data:
+🌐 [BROWSER LOG]: [PortfolioChart] - X points: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Y points: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Y sample: [7106, 7106, 7106, 7114.19962498197, 7121.118058560508]
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark visible: true
+🌐 [BROWSER LOG]: [PortfolioChart] ✅ Portfolio trace added to chart
+🌐 [BROWSER LOG]: [PortfolioChart] ✅ Benchmark trace added to chart
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Final traces count: 2
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Traces summary: [Object, Object]
+🌐 [BROWSER LOG]: [PortfolioChart] === ENHANCED PORTFOLIO CHART START ===
+🌐 [BROWSER LOG]: [PortfolioChart] Component mounting with props: {defaultRange: 1Y, defaultBenchmark: SPY}
+🌐 [BROWSER LOG]: [PortfolioChart] Timestamp: 2025-07-05T09:03:48.106Z
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Component state:
+🌐 [BROWSER LOG]: [PortfolioChart] - Selected range: 1Y
+🌐 [BROWSER LOG]: [PortfolioChart] - Selected benchmark: SPY
+🌐 [BROWSER LOG]: [PortfolioChart] - Display mode: value
+🌐 [BROWSER LOG]: [usePerformance] 🚀 Hook called with: {range: 1Y, benchmark: SPY, options: Object}
+🌐 [BROWSER LOG]: [usePerformance] 🔐 Authentication status:
+🌐 [BROWSER LOG]: [usePerformance] - User present: true
+🌐 [BROWSER LOG]: [usePerformance] - User ID: 28eff71a-87bd-433f-bd6c-8701801e2261
+🌐 [BROWSER LOG]: [usePerformance] - User email: 3200163@proton.me
+🌐 [BROWSER LOG]: [usePerformance] ✅ Input validation passed
+🌐 [BROWSER LOG]: [usePerformance] 📋 Query configuration:
+🌐 [BROWSER LOG]: [usePerformance] - Enabled: true
+🌐 [BROWSER LOG]: [usePerformance] - Stale time: 300000ms
+🌐 [BROWSER LOG]: [usePerformance] - Refetch on focus: false
+🌐 [BROWSER LOG]: [usePerformance] - Retry attempts: 3
+🌐 [BROWSER LOG]: [usePerformance] 📊 Query state:
+🌐 [BROWSER LOG]: [usePerformance] - isLoading: false
+🌐 [BROWSER LOG]: [usePerformance] - isError: false
+🌐 [BROWSER LOG]: [usePerformance] - isSuccess: true
+🌐 [BROWSER LOG]: [usePerformance] - hasData: true
+🌐 [BROWSER LOG]: [usePerformance] - error: undefined
+🌐 [BROWSER LOG]: [usePerformance] 📈 Processed data:
+🌐 [BROWSER LOG]: [usePerformance] - Portfolio data points: 366
+🌐 [BROWSER LOG]: [usePerformance] - Benchmark data points: 366
+🌐 [BROWSER LOG]: [usePerformance] - Has metrics: true
+🌐 [BROWSER LOG]: [usePerformance] - Portfolio sample data: [Object, Object, Object]
+🌐 [BROWSER LOG]: [usePerformance] - Portfolio final value: 9363
+🌐 [BROWSER LOG]: [usePerformance] - Benchmark sample data: [Object, Object, Object]
+🌐 [BROWSER LOG]: [usePerformance] - Benchmark final value: 8011.80232222703
+🌐 [BROWSER LOG]: [usePerformance] === HOOK RESULT READY ===
+🌐 [BROWSER LOG]: [PortfolioChart] 🔄 Performance hook state:
+🌐 [BROWSER LOG]: [PortfolioChart] - Loading: false
+🌐 [BROWSER LOG]: [PortfolioChart] - Error: false
+🌐 [BROWSER LOG]: [PortfolioChart] - Success: true
+🌐 [BROWSER LOG]: [PortfolioChart] - Has data: true
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio points: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark points: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Has metrics: true
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Processing chart data...
+🌐 [BROWSER LOG]: [PortfolioChart] - Display mode: value
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio data points: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark data points: 366
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 calculatePercentageReturns called with data length: 366
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Initial value for percentage calculation: 7106
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Percentage returns calculated:
+🌐 [BROWSER LOG]: [PortfolioChart] - First return: 0
+🌐 [BROWSER LOG]: [PortfolioChart] - Last return: 31.76189135941458
+🌐 [BROWSER LOG]: [PortfolioChart] - Sample values: [0, 0, 0, 0.267379679144385, 0.3658879819870532]
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 calculatePercentageReturns called with data length: 366
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Initial value for percentage calculation: 7106
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Percentage returns calculated:
+🌐 [BROWSER LOG]: [PortfolioChart] - First return: 0
+🌐 [BROWSER LOG]: [PortfolioChart] - Last return: 12.747007067647488
+🌐 [BROWSER LOG]: [PortfolioChart] - Sample values: [0, 0, 0, 0.11539016298860645, 0.2127506130102443]
+🌐 [BROWSER LOG]: [PortfolioChart] 📈 Calculated percentage returns:
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio data length: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark data length: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio percent returns length: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark percent returns length: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio final return: 31.76189135941458
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark final return: 12.747007067647488
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Portfolio data sample: [Object, Object, Object]
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Portfolio first value: 7106
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Portfolio last value: 9363
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Benchmark data sample: [Object, Object, Object]
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Benchmark first value: 7106
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Benchmark last value: 8011.80232222703
+🌐 [BROWSER LOG]: [PortfolioChart] 🎨 Rendering component...
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Creating plot data...
+🌐 [BROWSER LOG]: [PortfolioChart] - Display mode: value
+🌐 [BROWSER LOG]: [PortfolioChart] - Portfolio data points: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark data points: 366
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Portfolio trace data:
+🌐 [BROWSER LOG]: [PortfolioChart] - X points: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Y points: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Y sample: [7106, 7106, 7106, 7125, 7132]
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Benchmark trace data:
+🌐 [BROWSER LOG]: [PortfolioChart] - X points: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Y points: 366
+🌐 [BROWSER LOG]: [PortfolioChart] - Y sample: [7106, 7106, 7106, 7114.19962498197, 7121.118058560508]
+🌐 [BROWSER LOG]: [PortfolioChart] - Benchmark visible: true
+🌐 [BROWSER LOG]: [PortfolioChart] ✅ Portfolio trace added to chart
+🌐 [BROWSER LOG]: [PortfolioChart] ✅ Benchmark trace added to chart
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Final traces count: 2
+🌐 [BROWSER LOG]: [PortfolioChart] 📊 Traces summary: [Object, Object]
+🌐 [BROWSER LOG]: [GainLossCard] Items for gainers: []
+🌐 [BROWSER LOG]: [GainLossCard] Number of items for gainers: 0
+🌐 [BROWSER LOG]: [GainLossCard] Items for gainers: []
+🌐 [BROWSER LOG]: [GainLossCard] Number of items for gainers: 0
+🌐 [BROWSER LOG]: [GainLossCard] Items for losers: []
+🌐 [BROWSER LOG]: [GainLossCard] Number of items for losers: 0
+🌐 [BROWSER LOG]: [GainLossCard] Items for losers: []
+🌐 [BROWSER LOG]: [GainLossCard] Number of items for losers: 0
+🌐 [BROWSER ERROR]: ./src/components/StockSearchInput.tsx
+Error:   x Unexpected eof
+     ,-[/app/src/components/StockSearchInput.tsx:245:1]
+ 242 |       )}
+ 243 |     </div>
+ 244 |   );
+ 245 | } 
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/components/StockSearchInput.tsx
+./src/app/research/page.tsx
+🌐 [BROWSER ERROR]: ./src/components/StockSearchInput.tsx
+Error:   x Unexpected eof
+     ,-[/app/src/components/StockSearchInput.tsx:245:1]
+ 242 |       )}
+ 243 |     </div>
+ 244 |   );
+ 245 | } 
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/components/StockSearchInput.tsx
+./src/app/research/page.tsx
+🌐 [BROWSER ERROR]: ./src/components/StockSearchInput.tsx
+Error:   x Unexpected eof
+     ,-[/app/src/components/StockSearchInput.tsx:245:1]
+ 242 |       )}
+ 243 |     </div>
+ 244 |   );
+ 245 | } 
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/components/StockSearchInput.tsx
+./src/app/research/page.tsx
+🌐 [BROWSER ERROR]: ./src/components/StockSearchInput.tsx
+Error:   x Unexpected eof
+     ,-[/app/src/components/StockSearchInput.tsx:245:1]
+ 242 |       )}
+ 243 |     </div>
+ 244 |   );
+ 245 | } 
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/components/StockSearchInput.tsx
+./src/app/research/page.tsx
+🌐 [BROWSER ERROR]: ./src/components/StockSearchInput.tsx
+Error:   x Unexpected eof
+     ,-[/app/src/components/StockSearchInput.tsx:245:1]
+ 242 |       )}
+ 243 |     </div>
+ 244 |   );
+ 245 | } 
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/components/StockSearchInput.tsx
+./src/app/research/page.tsx
+🌐 [BROWSER ERROR]: ./src/components/StockSearchInput.tsx
+Error:   x Unexpected eof
+     ,-[/app/src/components/StockSearchInput.tsx:245:1]
+ 242 |       )}
+ 243 |     </div>
+ 244 |   );
+ 245 | } 
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/components/StockSearchInput.tsx
+./src/app/research/page.tsx
+🌐 [BROWSER ERROR]: ./src/components/StockSearchInput.tsx
+Error:   x Unexpected eof
+     ,-[/app/src/components/StockSearchInput.tsx:245:1]
+ 242 |       )}
+ 243 |     </div>
+ 244 |   );
+ 245 | } 
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./src/components/StockSearchInput.tsx
+./src/app/research/page.tsx
+🌐 [BROWSER ERROR]: Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+🌐 [BROWSER INFO]: %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold
+🌐 [BROWSER LOG]: [HMR] connected
+🌐 [BROWSER ERROR]: ./src/components/StockSearchInput.tsx
+Error:   x Unexpected eof
+     ,-[/app/src/components/StockSearchInput.tsx:245:1]
+ 242 |       )}
+ 243 |     </div>
+ 244 |   );
+ 245 | } 
+     `----
+
+Caused by:
+    Syntax Error
+🔍 Typing "AAPL" in search bar...
+
+[[ATTACHMENT|artifacts\research-tabs-debug-Resear-8980d-ll-research-tabs-with-debug-chromium\test-failed-1.png]]
+
+[[ATTACHMENT|artifacts\research-tabs-debug-Resear-8980d-ll-research-tabs-with-debug-chromium\video.webm]]
+
+[[ATTACHMENT|artifacts\research-tabs-debug-Resear-8980d-ll-research-tabs-with-debug-chromium\error-context.md]]
+🚀 Navigating to /auth...
+🌐 [BROWSER ERROR]: Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+🌐 [BROWSER INFO]: %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold
+🌐 [BROWSER LOG]: [HMR] connected
+🌐 [BROWSER ERROR]: ./src/components/StockSearchInput.tsx
+Error:   x Unexpected eof
+     ,-[/app/src/components/StockSearchInput.tsx:245:1]
+ 242 |       )}
+ 243 |     </div>
+ 244 |   );
+ 245 | } 
+     `----
+
+Caused by:
+    Syntax Error
+
+[[ATTACHMENT|artifacts\research-tabs-debug-Resear-8980d-ll-research-tabs-with-debug-chromium-retry1\test-failed-1.png]]
+
+[[ATTACHMENT|artifacts\research-tabs-debug-Resear-8980d-ll-research-tabs-with-debug-chromium-retry1\video.webm]]
+
+[[ATTACHMENT|artifacts\research-tabs-debug-Resear-8980d-ll-research-tabs-with-debug-chromium-retry1\error-context.md]]
+
+[[ATTACHMENT|artifacts\research-tabs-debug-Resear-8980d-ll-research-tabs-with-debug-chromium-retry1\trace.zip]]
 ]]>
 </system-out>
+<system-err>
+<![CDATA[❌ [PAGE ERROR]: Module build failed (from ./node_modules/next/dist/build/webpack/loaders/next-swc-loader.js):
+Error:   x Unexpected eof
+     ,-[/app/src/components/StockSearchInput.tsx:245:1]
+ 242 |       )}
+ 243 |     </div>
+ 244 |   );
+ 245 | } 
+     `----
+
+
+Caused by:
+    Syntax Error
+❌ [PAGE ERROR]: Module build failed (from ./node_modules/next/dist/build/webpack/loaders/next-swc-loader.js):
+Error:   x Unexpected eof
+     ,-[/app/src/components/StockSearchInput.tsx:245:1]
+ 242 |       )}
+ 243 |     </div>
+ 244 |   );
+ 245 | } 
+     `----
+
+
+Caused by:
+    Syntax Error
+]]>
+</system-err>
+</testcase>
+</testsuite>
+<testsuite name="research-tabs-debug.spec.ts" timestamp="2025-07-05T09:03:24.444Z" hostname="Google Chrome" tests="1" failures="1" skipped="0" time="35.907" errors="0">
+<testcase name="Research Page Tabs Debug E2E › Login, search AAPL, view all research tabs with debug" classname="research-tabs-debug.spec.ts" time="35.907">
+<failure message="research-tabs-debug.spec.ts:9:7 Login, search AAPL, view all research tabs with debug" type="FAILURE">
+<![CDATA[  [Google Chrome] › research-tabs-debug.spec.ts:9:7 › Research Page Tabs Debug E2E › Login, search AAPL, view all research tabs with debug 
+
+    TimeoutError: page.fill: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('input[type="email"]')
+
+
+      22 |     await page.screenshot({ path: 'test-results/research-01-auth.png', fullPage: true });
+      23 |
+    > 24 |     await page.fill('input[type="email"]', EMAIL);
+         |                ^
+      25 |     await page.fill('input[type="password"]', PASSWORD);
+      26 |     await page.screenshot({ path: 'test-results/research-02-login-filled.png', fullPage: true });
+      27 |     await page.click('button[type="submit"]');
+        at C:\Users\mike2\Documents\portfolio-tracker\e2e_test_suite\tests\research-tabs-debug.spec.ts:24:16
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\artifacts\research-tabs-debug-Resear-8980d-ll-research-tabs-with-debug-Google-Chrome\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\artifacts\research-tabs-debug-Resear-8980d-ll-research-tabs-with-debug-Google-Chrome\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ..\test-results\artifacts\research-tabs-debug-Resear-8980d-ll-research-tabs-with-debug-Google-Chrome\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    TimeoutError: page.fill: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('input[type="email"]')
+
+
+      22 |     await page.screenshot({ path: 'test-results/research-01-auth.png', fullPage: true });
+      23 |
+    > 24 |     await page.fill('input[type="email"]', EMAIL);
+         |                ^
+      25 |     await page.fill('input[type="password"]', PASSWORD);
+      26 |     await page.screenshot({ path: 'test-results/research-02-login-filled.png', fullPage: true });
+      27 |     await page.click('button[type="submit"]');
+        at C:\Users\mike2\Documents\portfolio-tracker\e2e_test_suite\tests\research-tabs-debug.spec.ts:24:16
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\artifacts\research-tabs-debug-Resear-8980d-ll-research-tabs-with-debug-Google-Chrome-retry1\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\artifacts\research-tabs-debug-Resear-8980d-ll-research-tabs-with-debug-Google-Chrome-retry1\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ..\test-results\artifacts\research-tabs-debug-Resear-8980d-ll-research-tabs-with-debug-Google-Chrome-retry1\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\artifacts\research-tabs-debug-Resear-8980d-ll-research-tabs-with-debug-Google-Chrome-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\artifacts\research-tabs-debug-Resear-8980d-ll-research-tabs-with-debug-Google-Chrome-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+]]>
+</failure>
+<system-out>
+<![CDATA[🚀 Navigating to /auth...
+🌐 [BROWSER ERROR]: Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+🌐 [BROWSER INFO]: %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold
+🌐 [BROWSER LOG]: [HMR] connected
+🌐 [BROWSER ERROR]: ./src/components/StockSearchInput.tsx
+Error:   x Unexpected eof
+     ,-[/app/src/components/StockSearchInput.tsx:245:1]
+ 242 |       )}
+ 243 |     </div>
+ 244 |   );
+ 245 | } 
+     `----
+
+Caused by:
+    Syntax Error
+🌐 [BROWSER ERROR]: Failed to load resource: the server responded with a status of 404 (Not Found)
+
+[[ATTACHMENT|artifacts\research-tabs-debug-Resear-8980d-ll-research-tabs-with-debug-Google-Chrome\test-failed-1.png]]
+
+[[ATTACHMENT|artifacts\research-tabs-debug-Resear-8980d-ll-research-tabs-with-debug-Google-Chrome\video.webm]]
+
+[[ATTACHMENT|artifacts\research-tabs-debug-Resear-8980d-ll-research-tabs-with-debug-Google-Chrome\error-context.md]]
+🚀 Navigating to /auth...
+🌐 [BROWSER ERROR]: Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+🌐 [BROWSER INFO]: %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold
+🌐 [BROWSER LOG]: [HMR] connected
+🌐 [BROWSER ERROR]: ./src/components/StockSearchInput.tsx
+Error:   x Unexpected eof
+     ,-[/app/src/components/StockSearchInput.tsx:245:1]
+ 242 |       )}
+ 243 |     </div>
+ 244 |   );
+ 245 | } 
+     `----
+
+Caused by:
+    Syntax Error
+🌐 [BROWSER ERROR]: Failed to load resource: the server responded with a status of 404 (Not Found)
+
+[[ATTACHMENT|artifacts\research-tabs-debug-Resear-8980d-ll-research-tabs-with-debug-Google-Chrome-retry1\test-failed-1.png]]
+
+[[ATTACHMENT|artifacts\research-tabs-debug-Resear-8980d-ll-research-tabs-with-debug-Google-Chrome-retry1\video.webm]]
+
+[[ATTACHMENT|artifacts\research-tabs-debug-Resear-8980d-ll-research-tabs-with-debug-Google-Chrome-retry1\error-context.md]]
+
+[[ATTACHMENT|artifacts\research-tabs-debug-Resear-8980d-ll-research-tabs-with-debug-Google-Chrome-retry1\trace.zip]]
+]]>
+</system-out>
+<system-err>
+<![CDATA[❌ [PAGE ERROR]: Module build failed (from ./node_modules/next/dist/build/webpack/loaders/next-swc-loader.js):
+Error:   x Unexpected eof
+     ,-[/app/src/components/StockSearchInput.tsx:245:1]
+ 242 |       )}
+ 243 |     </div>
+ 244 |   );
+ 245 | } 
+     `----
+
+
+Caused by:
+    Syntax Error
+❌ [PAGE ERROR]: Module build failed (from ./node_modules/next/dist/build/webpack/loaders/next-swc-loader.js):
+Error:   x Unexpected eof
+     ,-[/app/src/components/StockSearchInput.tsx:245:1]
+ 242 |       )}
+ 243 |     </div>
+ 244 |   );
+ 245 | } 
+     `----
+
+
+Caused by:
+    Syntax Error
+]]>
+</system-err>
 </testcase>
 </testsuite>
 </testsuites>

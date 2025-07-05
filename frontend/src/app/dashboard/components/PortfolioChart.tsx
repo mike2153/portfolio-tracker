@@ -47,22 +47,14 @@ interface PortfolioChartProps {
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 export default function PortfolioChart({ 
-  defaultRange = '1Y', 
+  defaultRange = 'MAX', 
   defaultBenchmark = 'SPY' 
 }: PortfolioChartProps = {}) {
-  console.log('[PortfolioChart] === ENHANCED PORTFOLIO CHART START ===');
-  console.log('[PortfolioChart] Component mounting with props:', { defaultRange, defaultBenchmark });
-  console.log('[PortfolioChart] Timestamp:', new Date().toISOString());
   
   // === STATE MANAGEMENT ===
   const [selectedRange, setSelectedRange] = useState<RangeKey>(defaultRange);
   const [selectedBenchmark, setSelectedBenchmark] = useState<BenchmarkTicker>(defaultBenchmark);
   const [displayMode, setDisplayMode] = useState<DisplayMode>('value');
-  
-  console.log('[PortfolioChart] 📊 Component state:');
-  console.log('[PortfolioChart] - Selected range:', selectedRange);
-  console.log('[PortfolioChart] - Selected benchmark:', selectedBenchmark);
-  console.log('[PortfolioChart] - Display mode:', displayMode);
   
   // === DATA FETCHING ===
   const {
@@ -74,23 +66,29 @@ export default function PortfolioChart({
     benchmarkData,
     metrics,
     refetch,
-    isSuccess
+    isSuccess,
+    isIndexOnly,
+    userGuidance
   } = usePerformance(selectedRange, selectedBenchmark, {
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false
   });
   
-  console.log('[PortfolioChart] 🔄 Performance hook state:');
-  console.log('[PortfolioChart] - Loading:', isLoading);
-  console.log('[PortfolioChart] - Error:', isError);
-  console.log('[PortfolioChart] - Success:', isSuccess);
-  console.log('[PortfolioChart] - Has data:', !!performanceData);
-  console.log('[PortfolioChart] - Portfolio points:', portfolioData.length);
-  console.log('[PortfolioChart] - Benchmark points:', benchmarkData.length);
-  console.log('[PortfolioChart] - Has metrics:', !!metrics);
-  
   if (error) {
     console.error('[PortfolioChart] ❌ Performance data error:', error.message);
+  }
+  
+  // === INDEX-ONLY MODE HANDLING ===
+  console.log('[PortfolioChart] 🎯 === INDEX-ONLY MODE CHECK ===');
+  console.log('[PortfolioChart] - isIndexOnly:', isIndexOnly);
+  console.log('[PortfolioChart] - userGuidance:', userGuidance);
+  console.log('[PortfolioChart] - portfolioData length:', portfolioData?.length);
+  console.log('[PortfolioChart] - benchmarkData length:', benchmarkData?.length);
+  
+  if (isIndexOnly) {
+    console.log('[PortfolioChart] 🎯 INDEX-ONLY MODE ACTIVE');
+    console.log('[PortfolioChart] - Will show benchmark performance only');
+    console.log('[PortfolioChart] - User guidance:', userGuidance);
   }
   
   // === DASHBOARD CONTEXT INTEGRATION ===
@@ -101,14 +99,21 @@ export default function PortfolioChart({
   
   // Update dashboard context when performance data changes
   useEffect(() => {
-    console.log('[PortfolioChart] 🔄 Updating dashboard context...');
+    console.log('[PortfolioChart] 🔄 === DASHBOARD CONTEXT UPDATE DEBUG ===');
     console.log('[PortfolioChart] - Loading state:', isLoading);
-    console.log('[PortfolioChart] - Has portfolio data:', portfolioData.length > 0);
-    console.log('[PortfolioChart] - Has benchmark data:', benchmarkData.length > 0);
+    console.log('[PortfolioChart] - portfolioData type:', typeof portfolioData);
+    console.log('[PortfolioChart] - portfolioData is array:', Array.isArray(portfolioData));
+    console.log('[PortfolioChart] - portfolioData length:', portfolioData?.length);
+    console.log('[PortfolioChart] - benchmarkData type:', typeof benchmarkData);
+    console.log('[PortfolioChart] - benchmarkData is array:', Array.isArray(benchmarkData));
+    console.log('[PortfolioChart] - benchmarkData length:', benchmarkData?.length);
+    console.log('[PortfolioChart] - portfolioData first item:', portfolioData?.[0]);
+    console.log('[PortfolioChart] - benchmarkData first item:', benchmarkData?.[0]);
+    console.log('[PortfolioChart] === END DASHBOARD CONTEXT UPDATE DEBUG ===');
     
     setIsLoadingPerformance(isLoading);
     
-    if (portfolioData.length > 0 && benchmarkData.length > 0) {
+    if (portfolioData && portfolioData.length > 0 && benchmarkData && benchmarkData.length > 0) {
       console.log('[PortfolioChart] ✅ Setting performance data in dashboard context');
       setPerformanceData({
         portfolioPerformance: portfolioData,
@@ -121,6 +126,8 @@ export default function PortfolioChart({
       });
     } else {
       console.log('[PortfolioChart] ⚠️ No data available for dashboard context');
+      console.log('[PortfolioChart] - Portfolio check result:', portfolioData && portfolioData.length > 0);
+      console.log('[PortfolioChart] - Benchmark check result:', benchmarkData && benchmarkData.length > 0);
     }
   }, [isLoading, portfolioData, benchmarkData, metrics, setPerformanceData, setIsLoadingPerformance]);
 
@@ -130,16 +137,69 @@ export default function PortfolioChart({
   console.log('[PortfolioChart] - Portfolio data points:', portfolioData.length);
   console.log('[PortfolioChart] - Benchmark data points:', benchmarkData.length);
   
+  // === DATE RANGE ALIGNMENT ===
+  // Ensure both portfolio and benchmark data cover the same date range
+  const alignDataRanges = (portfolioData: any[], benchmarkData: any[]) => {
+    console.log('[PortfolioChart] 🔄 === DATE RANGE ALIGNMENT START ===');
+    console.log('[PortfolioChart] - Original portfolio points:', portfolioData.length);
+    console.log('[PortfolioChart] - Original benchmark points:', benchmarkData.length);
+    
+    if (portfolioData.length === 0 || benchmarkData.length === 0) {
+      console.log('[PortfolioChart] ⚠️ One or both arrays are empty, returning original data');
+      return { alignedPortfolio: portfolioData, alignedBenchmark: benchmarkData };
+    }
+    
+    // Get date ranges for both arrays
+    const portfolioStartDate = portfolioData[0]?.date;
+    const portfolioEndDate = portfolioData[portfolioData.length - 1]?.date;
+    const benchmarkStartDate = benchmarkData[0]?.date;
+    const benchmarkEndDate = benchmarkData[benchmarkData.length - 1]?.date;
+    
+    console.log('[PortfolioChart] 📅 Date ranges:');
+    console.log('[PortfolioChart] - Portfolio: ', portfolioStartDate, 'to', portfolioEndDate);
+    console.log('[PortfolioChart] - Benchmark:', benchmarkStartDate, 'to', benchmarkEndDate);
+    
+    // Find the overlapping date range (latest start date, earliest end date)
+    const alignmentStartDate = portfolioStartDate > benchmarkStartDate ? portfolioStartDate : benchmarkStartDate;
+    const alignmentEndDate = portfolioEndDate < benchmarkEndDate ? portfolioEndDate : benchmarkEndDate;
+    
+    console.log('[PortfolioChart] 🎯 Alignment range:', alignmentStartDate, 'to', alignmentEndDate);
+    
+    // Filter both arrays to the aligned date range
+    const alignedPortfolio = portfolioData.filter(point => 
+      point.date >= alignmentStartDate && point.date <= alignmentEndDate
+    );
+    
+    const alignedBenchmark = benchmarkData.filter(point => 
+      point.date >= alignmentStartDate && point.date <= alignmentEndDate
+    );
+    
+    console.log('[PortfolioChart] ✅ Aligned data:');
+    console.log('[PortfolioChart] - Aligned portfolio points:', alignedPortfolio.length);
+    console.log('[PortfolioChart] - Aligned benchmark points:', alignedBenchmark.length);
+    console.log('[PortfolioChart] - Portfolio aligned range:', alignedPortfolio[0]?.date, 'to', alignedPortfolio[alignedPortfolio.length - 1]?.date);
+    console.log('[PortfolioChart] - Benchmark aligned range:', alignedBenchmark[0]?.date, 'to', alignedBenchmark[alignedBenchmark.length - 1]?.date);
+    console.log('[PortfolioChart] 🔄 === DATE RANGE ALIGNMENT END ===');
+    
+    return { alignedPortfolio, alignedBenchmark };
+  };
+  
+  // Apply date range alignment
+  const { alignedPortfolio, alignedBenchmark } = alignDataRanges(portfolioData, benchmarkData);
+  
   // Calculate percentage returns from initial values
-  const calculatePercentageReturns = (data: Array<{ date: string; total_value: number }>) => {
+  const calculatePercentageReturns = (data: Array<{ date: string; value?: number; total_value?: number }>) => {
     console.log('[PortfolioChart] 📊 calculatePercentageReturns called with data length:', data.length);
     if (data.length === 0) {
       console.log('[PortfolioChart] ⚠️ No data points for percentage calculation');
       return [];
     }
     
-    const initialValue = data[0].total_value;
+    // Handle both new (value) and old (total_value) formats
+    const getValue = (point: any) => point.value ?? point.total_value ?? 0;
+    const initialValue = getValue(data[0]);
     console.log('[PortfolioChart] 📊 Initial value for percentage calculation:', initialValue);
+    console.log('[PortfolioChart] 📊 Using data format:', data[0].value !== undefined ? 'new (value)' : 'old (total_value)');
     
     if (initialValue === 0) {
       console.log('[PortfolioChart] ⚠️ Initial value is zero, returning zero array');
@@ -147,7 +207,8 @@ export default function PortfolioChart({
     }
     
     const percentageReturns = data.map(point => {
-      const returnValue = ((point.total_value - initialValue) / initialValue) * 100;
+      const currentValue = getValue(point);
+      const returnValue = ((currentValue - initialValue) / initialValue) * 100;
       return returnValue;
     });
     
@@ -159,28 +220,33 @@ export default function PortfolioChart({
     return percentageReturns;
   };
   
-  const portfolioPercentReturns = calculatePercentageReturns(portfolioData);
-  const benchmarkPercentReturns = calculatePercentageReturns(benchmarkData);
-  
-  console.log('[PortfolioChart] 📈 Calculated percentage returns:');
-  console.log('[PortfolioChart] - Portfolio data length:', portfolioData.length);
-  console.log('[PortfolioChart] - Benchmark data length:', benchmarkData.length);
-  console.log('[PortfolioChart] - Portfolio percent returns length:', portfolioPercentReturns.length);
-  console.log('[PortfolioChart] - Benchmark percent returns length:', benchmarkPercentReturns.length);
-  console.log('[PortfolioChart] - Portfolio final return:', portfolioPercentReturns[portfolioPercentReturns.length - 1] || 0);
-  console.log('[PortfolioChart] - Benchmark final return:', benchmarkPercentReturns[benchmarkPercentReturns.length - 1] || 0);
+  const portfolioPercentReturns = calculatePercentageReturns(alignedPortfolio as any);
+  const benchmarkPercentReturns = calculatePercentageReturns(alignedBenchmark as any);
   
   // Debug: Log raw data for troubleshooting
-  if (portfolioData.length > 0) {
-    console.log('[PortfolioChart] 📊 Portfolio data sample:', portfolioData.slice(0, 3));
-    console.log('[PortfolioChart] 📊 Portfolio first value:', portfolioData[0].total_value);
-    console.log('[PortfolioChart] 📊 Portfolio last value:', portfolioData[portfolioData.length - 1].total_value);
+  if (alignedPortfolio.length > 0) {
+    console.log('[PortfolioChart] 📊 === ALIGNED PORTFOLIO DATA ANALYSIS ===');
+    console.log('[PortfolioChart] 📊 Aligned portfolio data length:', alignedPortfolio.length);
+    console.log('[PortfolioChart] 📊 Aligned portfolio data sample:', alignedPortfolio.slice(0, 3));
+    console.log('[PortfolioChart] 📊 Aligned portfolio first point full object:', JSON.stringify(alignedPortfolio[0], null, 2));
+    console.log('[PortfolioChart] 📊 Aligned portfolio first point keys:', Object.keys(alignedPortfolio[0]));
+    console.log('[PortfolioChart] 📊 Aligned portfolio first point values:', Object.values(alignedPortfolio[0]));
+    
+    // Check each field individually
+    const firstPoint = alignedPortfolio[0];
+    console.log('[PortfolioChart] 🔍 firstPoint.value:', firstPoint.value, 'type:', typeof firstPoint.value);
+    console.log('[PortfolioChart] 🔍 firstPoint.total_value:', firstPoint.total_value, 'type:', typeof firstPoint.total_value);
+    console.log('[PortfolioChart] 🔍 firstPoint.date:', firstPoint.date, 'type:', typeof firstPoint.date);
+    
+    console.log('[PortfolioChart] 📊 === END ALIGNED PORTFOLIO DATA ANALYSIS ===');
   }
   
-  if (benchmarkData.length > 0) {
-    console.log('[PortfolioChart] 📊 Benchmark data sample:', benchmarkData.slice(0, 3));
-    console.log('[PortfolioChart] 📊 Benchmark first value:', benchmarkData[0].total_value);
-    console.log('[PortfolioChart] 📊 Benchmark last value:', benchmarkData[benchmarkData.length - 1].total_value);
+  if (alignedBenchmark.length > 0) {
+    console.log('[PortfolioChart] 📊 Aligned benchmark data sample:', alignedBenchmark.slice(0, 3));
+    const getValue = (point: any) => point.value ?? point.total_value ?? 0;
+    console.log('[PortfolioChart] 📊 Aligned benchmark first value:', getValue(alignedBenchmark[0]));
+    console.log('[PortfolioChart] 📊 Aligned benchmark last value:', getValue(alignedBenchmark[alignedBenchmark.length - 1]));
+    console.log('[PortfolioChart] 📊 Aligned benchmark data format:', alignedBenchmark[0].value !== undefined ? 'new (value)' : 'old (total_value)');
   }
   
   // Format currency values
@@ -193,29 +259,44 @@ export default function PortfolioChart({
     }).format(value);
   };
   
-  // Format percentage values
-  const formatPercentage = (value: number) => {
-    return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
+  // Format percentage values with null safety
+  const formatPercentage = (value: number | undefined | null) => {
+    console.log('[PortfolioChart] 🔢 formatPercentage called with:', value, 'type:', typeof value);
+    
+    if (value === undefined || value === null || isNaN(value)) {
+      console.log('[PortfolioChart] ⚠️ formatPercentage received invalid value, returning fallback');
+      return '0.00%';
+    }
+    
+    const numValue = Number(value);
+    if (isNaN(numValue)) {
+      console.log('[PortfolioChart] ⚠️ formatPercentage could not convert to number, returning fallback');
+      return '0.00%';
+    }
+    
+    const result = `${numValue >= 0 ? '+' : ''}${numValue.toFixed(2)}%`;
+    console.log('[PortfolioChart] ✅ formatPercentage result:', result);
+    return result;
   };
   
   // === EVENT HANDLERS ===
   const handleRangeChange = (newRange: RangeKey) => {
-    console.log('[PortfolioChart] 🔄 Range changed from', selectedRange, 'to', newRange);
+    //console.log('[PortfolioChart] 🔄 Range changed from', selectedRange, 'to', newRange);
     setSelectedRange(newRange);
   };
   
   const handleBenchmarkChange = (newBenchmark: string) => {
-    console.log('[PortfolioChart] 🔄 Benchmark changed from', selectedBenchmark, 'to', newBenchmark);
+    //console.log('[PortfolioChart] 🔄 Benchmark changed from', selectedBenchmark, 'to', newBenchmark);
     setSelectedBenchmark(newBenchmark as BenchmarkTicker);
   };
   
   const handleDisplayModeChange = (newMode: DisplayMode) => {
-    console.log('[PortfolioChart] 🔄 Display mode changed from', displayMode, 'to', newMode);
+    //console.log('[PortfolioChart] 🔄 Display mode changed from', displayMode, 'to', newMode);
     setDisplayMode(newMode);
   };
   
   // === RENDER ===
-  console.log('[PortfolioChart] 🎨 Rendering component...');
+  //console.log('[PortfolioChart] 🎨 Rendering component...');
   
   return (
     <div className="rounded-xl bg-gray-800/80 p-6 shadow-lg">
@@ -223,6 +304,18 @@ export default function PortfolioChart({
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-lg font-semibold text-white">Portfolio vs Benchmark</h3>
+          {(() => {
+            console.log('[PortfolioChart] 📊 === METRICS DEBUG ===');
+            console.log('[PortfolioChart] - metrics exists:', !!metrics);
+            console.log('[PortfolioChart] - metrics object:', metrics);
+            if (metrics) {
+              console.log('[PortfolioChart] - portfolio_return_pct:', metrics.portfolio_return_pct, 'type:', typeof metrics.portfolio_return_pct);
+              console.log('[PortfolioChart] - index_return_pct:', metrics.index_return_pct, 'type:', typeof metrics.index_return_pct);
+              console.log('[PortfolioChart] - outperformance_pct:', metrics.outperformance_pct, 'type:', typeof metrics.outperformance_pct);
+            }
+            console.log('[PortfolioChart] === END METRICS DEBUG ===');
+            return null;
+          })()}
           {metrics && (
             <div className="text-sm text-gray-400 mt-1">
               Portfolio: {formatPercentage(metrics.portfolio_return_pct)} | 
@@ -307,11 +400,127 @@ export default function PortfolioChart({
             </button>
           </div>
         </div>
-      ) : portfolioData.length === 0 ? (
+      ) : isIndexOnly ? (
+        // === INDEX-ONLY MODE DISPLAY ===
+        <div className="h-96">
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-700">
+              <strong>Showing {selectedBenchmark} Performance Only</strong>
+            </p>
+            <p className="text-xs text-blue-600 mt-1">
+              {userGuidance}
+            </p>
+          </div>
+          
+          <Plot
+            data={[
+              {
+                x: benchmarkData.map(point => point.date),
+                                 y: benchmarkData.map(point => {
+                   const value = point.value ?? point.total_value ?? 0;
+                   return value;
+                 }),
+                type: 'scatter',
+                mode: 'lines',
+                name: `${selectedBenchmark} Index`,
+                line: { color: '#10b981', width: 2 },
+                hovertemplate: `<b>${selectedBenchmark}</b><br>` +
+                  'Date: %{x}<br>' +
+                  'Value: $%{y:,.2f}<br>' +
+                  '<extra></extra>',
+              }
+            ]}
+            layout={{
+              autosize: true,
+              margin: { t: 20, r: 20, b: 40, l: 60 },
+              paper_bgcolor: 'transparent',
+              plot_bgcolor: 'transparent',
+              xaxis: {
+                type: 'category',
+                showgrid: true,
+                gridcolor: '#f3f4f6',
+                title: 'Date'
+              },
+              yaxis: {
+                showgrid: true,
+                gridcolor: '#f3f4f6',
+                title: displayMode === 'value' ? 'Value ($)' : 'Return (%)',
+                tickformat: displayMode === 'value' ? ',.0f' : '.1%'
+              },
+              font: { family: 'Inter, sans-serif' },
+              hovermode: 'x unified',
+              showlegend: false
+            }}
+            config={{
+              displayModeBar: false,
+              responsive: true
+            }}
+            style={{ width: '100%', height: '100%' }}
+          />
+        </div>
+      ) : alignedPortfolio.length === 0 ? (
         <div className="flex items-center justify-center h-96 text-gray-400">
           <div className="text-center">
-            <p className="text-lg font-semibold">No data available</p>
-            <p className="text-sm mt-2">Add some transactions to see your portfolio performance</p>
+            <p className="text-lg font-semibold">No portfolio data available</p>
+            {(() => {
+              console.log('[PortfolioChart] 🔍 === NO DATA ANALYSIS ===');
+              console.log('[PortfolioChart] - performanceData:', performanceData);
+              console.log('[PortfolioChart] - metadata:', performanceData?.metadata);
+              console.log('[PortfolioChart] - no_data flag:', performanceData?.metadata?.no_data);
+              console.log('[PortfolioChart] - isLoading:', isLoading);
+              console.log('[PortfolioChart] - isError:', isError);
+              console.log('[PortfolioChart] - error:', error);
+              return null;
+            })()}
+                         {performanceData?.metadata?.no_data ? (
+               <div className="text-sm mt-2 space-y-1">
+                 <p>No portfolio data found for the selected period.</p>
+                 <p className="text-xs text-gray-500">
+                   This could mean:
+                 </p>
+                 <ul className="text-xs text-gray-500 list-disc list-inside space-y-1">
+                   <li>No transactions exist for this time period</li>
+                   <li>No historical price data available</li>
+                   <li>Portfolio calculation returned empty results</li>
+                 </ul>
+                 <div className="mt-3 space-y-2">
+                   <p className="text-xs text-blue-400">Try these solutions:</p>
+                   <div className="flex flex-wrap gap-2">
+                     {selectedRange !== 'MAX' && (
+                       <button
+                         onClick={() => handleRangeChange('MAX')}
+                         className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                       >
+                         Show All Data
+                       </button>
+                     )}
+                     {selectedRange !== '3M' && (
+                       <button
+                         onClick={() => handleRangeChange('3M')}
+                         className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+                       >
+                         Try 3 Months
+                       </button>
+                     )}
+                     {selectedRange !== '1M' && (
+                       <button
+                         onClick={() => handleRangeChange('1M')}
+                         className="px-2 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+                       >
+                         Try 1 Month
+                       </button>
+                     )}
+                   </div>
+                 </div>
+               </div>
+             ) : (
+               <div className="text-sm mt-2 space-y-2">
+                 <p>Add some transactions to see your portfolio performance</p>
+                 <p className="text-xs text-gray-500">
+                   Once you add transactions, your portfolio chart will show here automatically.
+                 </p>
+               </div>
+             )}
           </div>
         </div>
       ) : (
@@ -320,13 +529,59 @@ export default function PortfolioChart({
             // Create chart data with extensive debugging
             console.log('[PortfolioChart] 📊 Creating plot data...');
             console.log('[PortfolioChart] - Display mode:', displayMode);
-            console.log('[PortfolioChart] - Portfolio data points:', portfolioData.length);
-            console.log('[PortfolioChart] - Benchmark data points:', benchmarkData.length);
+            console.log('[PortfolioChart] - Aligned portfolio data points:', alignedPortfolio.length);
+            console.log('[PortfolioChart] - Aligned benchmark data points:', alignedBenchmark.length);
+            
+            // Helper to get value from either new or old format with extensive debugging
+            const getValue = (point: any, index: number) => {
+              // Only log first few points to avoid console spam
+              if (index < 5) {
+                console.log(`[PortfolioChart] 🔍 getValue called for point ${index}:`, point);
+                console.log(`[PortfolioChart] 🔍 point type:`, typeof point);
+                console.log(`[PortfolioChart] 🔍 point is object:`, typeof point === 'object' && point !== null);
+                console.log(`[PortfolioChart] 🔍 point keys:`, Object.keys(point || {}));
+                console.log(`[PortfolioChart] 🔍 point.value:`, point?.value, 'type:', typeof point?.value);
+                console.log(`[PortfolioChart] 🔍 point.total_value:`, point?.total_value, 'type:', typeof point?.total_value);
+              }
+              
+              // Ensure we have a valid object
+              if (!point || typeof point !== 'object') {
+                console.error(`[PortfolioChart] ❌ Invalid point at index ${index}:`, point);
+                return 0;
+              }
+              
+              // Try to get value with multiple fallbacks
+              let result = point.value;
+              if (result === undefined || result === null) {
+                result = point.total_value;
+              }
+              if (result === undefined || result === null) {
+                result = 0;
+              }
+              
+              // Convert to number if it's a string
+              if (typeof result === 'string') {
+                result = parseFloat(result);
+              }
+              
+              if (index < 5) {
+                console.log(`[PortfolioChart] 🔍 getValue result for point ${index}:`, result, 'type:', typeof result);
+              }
+              
+              if (isNaN(result)) {
+                console.error(`[PortfolioChart] ❌ NaN detected at index ${index}! Point:`, point);
+                console.error(`[PortfolioChart] ❌ Available keys:`, Object.keys(point));
+                console.error(`[PortfolioChart] ❌ All values:`, Object.values(point));
+                return 0;
+              }
+              
+              return result;
+            };
             
             const portfolioTrace = {
-              x: portfolioData.map(p => p.date),
+              x: alignedPortfolio.map(p => p.date),
               y: displayMode === 'value' 
-                ? portfolioData.map(p => p.total_value)
+                ? alignedPortfolio.map((p, index) => getValue(p, index))
                 : portfolioPercentReturns,
               type: 'scatter' as const,
               mode: 'lines' as const,
@@ -342,9 +597,9 @@ export default function PortfolioChart({
             };
             
             const benchmarkTrace = {
-              x: benchmarkData.map(b => b.date),
+              x: alignedBenchmark.map(b => b.date),
               y: displayMode === 'value' 
-                ? benchmarkData.map(b => b.total_value)
+                ? alignedBenchmark.map((b, index) => getValue(b, index))
                 : benchmarkPercentReturns,
               type: 'scatter' as const,
               mode: 'lines' as const,
@@ -375,7 +630,7 @@ export default function PortfolioChart({
             const traces = [];
             
             // Always include portfolio trace if it has data
-            if (portfolioData.length > 0) {
+            if (alignedPortfolio.length > 0) {
               traces.push(portfolioTrace);
               console.log('[PortfolioChart] ✅ Portfolio trace added to chart');
             } else {
@@ -383,7 +638,7 @@ export default function PortfolioChart({
             }
             
             // Include benchmark trace only if it has data
-            if (benchmarkData.length > 0) {
+            if (alignedBenchmark.length > 0) {
               traces.push(benchmarkTrace);
               console.log('[PortfolioChart] ✅ Benchmark trace added to chart');
             } else {
@@ -413,8 +668,11 @@ export default function PortfolioChart({
               color: '#d1d5db',
               gridcolor: '#374151',
               showgrid: true,
-              tickformat: '%b %d',
-              type: 'date'
+              type: 'category',  // Use categorical instead of date to avoid gap-filling
+              tickangle: -45,    // Rotate labels for better readability
+              tickmode: 'linear',
+              tick0: 0,
+              dtick: Math.max(1, Math.floor(alignedPortfolio.length / 10))  // Show ~10 labels max
             },
             yaxis: { 
               color: '#d1d5db',
@@ -444,7 +702,7 @@ export default function PortfolioChart({
       {/* Debug info in development */}
       {process.env.NODE_ENV === 'development' && (
         <div className="mt-2 text-xs text-gray-500">
-          Debug: {portfolioData.length} portfolio points, {benchmarkData.length} benchmark points, 
+          Debug: {alignedPortfolio.length} aligned portfolio points, {alignedBenchmark.length} aligned benchmark points, 
           Range: {selectedRange}, Benchmark: {selectedBenchmark}, Mode: {displayMode}
         </div>
       )}

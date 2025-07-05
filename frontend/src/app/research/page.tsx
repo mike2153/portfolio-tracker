@@ -16,7 +16,8 @@ import DividendsTab from './components/DividendsTab';
 import NewsTab from './components/NewsTab';
 import NotesTab from './components/NotesTab';
 import ComparisonTab from './components/ComparisonTab';
-import StockSearchInput from './components/StockSearchInput';
+import { StockSearchInput } from '@/components/StockSearchInput';
+
 
 const TABS: { id: StockResearchTab; label: string; icon: React.ReactNode }[] = [
   { id: 'overview', label: 'Overview', icon: <TrendingUp size={16} /> },
@@ -61,18 +62,17 @@ function StockResearchPageContent() {
 
   const loadWatchlist = async () => {
     try {
-      console.log('[ResearchPage] Loading watchlist...');
-              // Note: watchlist functionality needs to be implemented in backend
-        // const response = await front_api_client.front_api_get_watchlist();
-        console.log('[ResearchPage] Watchlist API not yet implemented, using empty array');
-        const response = { ok: true, data: { watchlist: [] } };
-      
-      if (response.ok && response.data && response.data.watchlist) {
-        console.log('[ResearchPage] Watchlist loaded successfully:', response.data.watchlist);
-        setWatchlist(response.data.watchlist.map(item => item.ticker));
+      // console.log('[ResearchPage] Loading watchlist...');
+      // Note: Watchlist API needs to be implemented in backend
+      // For now, use empty array
+      // console.log('[ResearchPage] Watchlist API not yet implemented, using empty array');
+      const response = { success: true, data: { watchlist: [] } };
+      if (response.success) {
+        // console.log('[ResearchPage] Watchlist loaded successfully:', response.data.watchlist);
+        setWatchlist(response.data.watchlist);
       } else {
-        console.log('[ResearchPage] Failed to load watchlist:', response);
-        setWatchlist([]); // Set empty array as fallback
+        // console.log('[ResearchPage] Failed to load watchlist:', response);
+        setWatchlist([]);
       }
     } catch (error) {
       console.error('[ResearchPage] Error loading watchlist:', error);
@@ -99,11 +99,11 @@ function StockResearchPageContent() {
   const loadStockData = async (ticker: string) => {
     setIsLoading(true);
     try {
-      console.log(`[ResearchPage] Loading stock data for: ${ticker}`);
+      // console.log(`[ResearchPage] Loading stock data for: ${ticker}`);
               const data = await front_api_client.front_api_get_stock_research_data(ticker);
+      // console.log(`[ResearchPage] Stock data received for ${ticker}:`, data);
       
-      console.log(`[ResearchPage] Stock data received for ${ticker}:`, data);
-      
+      if (data) {
       setStockData(prev => ({
         ...prev,
         [ticker]: {
@@ -127,6 +127,7 @@ function StockResearchPageContent() {
           isInWatchlist: Boolean(data.isInWatchlist)
         } as StockResearchData
       }));
+      }
     } catch (error) {
       console.error('[ResearchPage] Error loading stock data:', error);
       setError('Failed to load stock data. Please try again.');
@@ -154,13 +155,14 @@ function StockResearchPageContent() {
       const isInWatchlist = watchlist.includes(selectedTicker);
       
       if (isInWatchlist) {
-        // Note: watchlist functionality needs to be implemented in backend
-        // await front_api_client.front_api_remove_from_watchlist(selectedTicker);
-        console.log('[ResearchPage] Remove from watchlist - API not yet implemented');
+        // Remove from watchlist - API not yet implemented
+        // console.log('[ResearchPage] Remove from watchlist - API not yet implemented');
+        alert('Remove from watchlist feature is being migrated and will be available soon.');
         setWatchlist(prev => prev.filter(t => t !== selectedTicker));
       } else {
-        // await front_api_client.front_api_add_to_watchlist(selectedTicker);
-        console.log('[ResearchPage] Add to watchlist - API not yet implemented');
+        // Add to watchlist - API not yet implemented
+        // console.log('[ResearchPage] Add to watchlist - API not yet implemented');
+        alert('Add to watchlist feature is being migrated and will be available soon.');
         setWatchlist(prev => [...prev, selectedTicker]);
       }
       
@@ -241,7 +243,10 @@ function StockResearchPageContent() {
           {/* Search Bar */}
           <div className="max-w-md">
             <StockSearchInput
-              onStockSelect={handleStockSelect}
+              onSelectSymbol={(symbol) => {
+                console.debug('[ResearchPage] onSelectSymbol:', symbol);
+                handleStockSelect(symbol.symbol);
+              }}
               placeholder="Search stocks by ticker or company name..."
               className="w-full"
             />

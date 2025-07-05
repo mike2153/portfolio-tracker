@@ -41,7 +41,7 @@ export class TestDataSeeder {
       process.env.TEST_SUPABASE_SERVICE_ROLE_KEY!
     );
     this.apiBaseUrl = process.env.TEST_BACKEND_URL || 'http://localhost:8000';
-    this.alphaVantageKey = process.env.TEST_ALPHA_VANTAGE_API_KEY || 'demo';
+    this.alphaVantageKey = process.env.TEST_ALPHA_VANTAGE_API_KEY || '';
   }
 
   /**

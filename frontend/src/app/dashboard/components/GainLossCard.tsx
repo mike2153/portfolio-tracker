@@ -26,16 +26,16 @@ const GainLossCard = ({ type, title }: GainLossCardProps) => {
     const { data, isLoading, isError, error } = useQuery({
         queryKey: ['dashboard', type, userId],
         queryFn: async () => {
-            console.log(`[GainLossCard] Making API call for ${type}...`);
+           //console.log(`[GainLossCard] Making API call for ${type}...`);
             const result = await queryFn();
-            console.log(`[GainLossCard] API response for ${type}:`, result);
-            console.log(`[GainLossCard] API response data type for ${type}:`, typeof result.data);
-            console.log(`[GainLossCard] API response items for ${type}:`, result?.data?.items);
+            //console.log(`[GainLossCard] API response for ${type}:`, result);
+            //console.log(`[GainLossCard] API response data type for ${type}:`, typeof result.data);
+            //console.log(`[GainLossCard] API response items for ${type}:`, result?.data?.items);
             
             // Add debugging for each item's numeric fields
             if (result?.data?.items) {
                 result.data.items.forEach((item: any, index: number) => {
-                    console.log(`[GainLossCard] ${type} Item ${index} (${item.ticker}):`, {
+                        console.log(`[GainLossCard] ${type} Item ${index} (${item.ticker}):`, {
                         changePercent: item.changePercent,
                         changePercentType: typeof item.changePercent,
                         changeValue: item.changeValue,
@@ -55,74 +55,74 @@ const GainLossCard = ({ type, title }: GainLossCardProps) => {
     //debug(`[GainLossCard] Query state for ${type}:`, { data, isLoading, isError, error });
 
     if (isLoading) {
-        console.log(`[GainLossCard] Still loading ${type}, showing skeleton`);
+        //console.log(`[GainLossCard] Still loading ${type}, showing skeleton`);
         return <ListSkeleton title={title} />;
     }
     if (isError) {
-        console.log(`[GainLossCard] Error occurred for ${type}:`, error);
+        //console.log(`[GainLossCard] Error occurred for ${type}:`, error);
         return <div className="text-red-500">Error loading {type}</div>;
     }
 
     const items = data?.data?.items || [];
-    console.log(`[GainLossCard] Items for ${type}:`, items);
-    console.log(`[GainLossCard] Number of items for ${type}:`, items.length);
+    //console.log(`[GainLossCard] Items for ${type}:`, items);
+    //console.log(`[GainLossCard] Number of items for ${type}:`, items.length);
 
     // Add defensive function to safely format percentage
     const safeFormatPercent = (changePercent: any): string => {
-        console.log(`[GainLossCard] safeFormatPercent called with:`, changePercent, 'type:', typeof changePercent);
+        //console.log(`[GainLossCard] safeFormatPercent called with:`, changePercent, 'type:', typeof changePercent);
         
         // Handle null/undefined
         if (changePercent == null) {
-            console.log(`[GainLossCard] safeFormatPercent: changePercent is null/undefined, returning 0.00`);
+            //console.log(`[GainLossCard] safeFormatPercent: changePercent is null/undefined, returning 0.00`);
             return '0.00';
         }
         
         // If it's already a number
         if (typeof changePercent === 'number') {
-            console.log(`[GainLossCard] safeFormatPercent: changePercent is number, using toFixed`);
+            //console.log(`[GainLossCard] safeFormatPercent: changePercent is number, using toFixed`);
             return changePercent.toFixed(2);
         }
         
         // If it's a string, try to parse it
         if (typeof changePercent === 'string') {
-            console.log(`[GainLossCard] safeFormatPercent: changePercent is string, attempting to parse`);
+            //console.log(`[GainLossCard] safeFormatPercent: changePercent is string, attempting to parse`);
             const parsed = parseFloat(changePercent);
             if (!isNaN(parsed)) {
-                console.log(`[GainLossCard] safeFormatPercent: successfully parsed string to number:`, parsed);
+                //console.log(`[GainLossCard] safeFormatPercent: successfully parsed string to number:`, parsed);
                 return parsed.toFixed(2);
             } else {
-                console.log(`[GainLossCard] safeFormatPercent: failed to parse string, returning raw value`);
+                //console.log(`[GainLossCard] safeFormatPercent: failed to parse string, returning raw value`);
                 return changePercent;
             }
         }
         
         // Fallback for any other type
-        console.log(`[GainLossCard] safeFormatPercent: unknown type, converting to string`);
+        //console.log(`[GainLossCard] safeFormatPercent: unknown type, converting to string`);
         return String(changePercent);
     };
 
     // Add defensive function to safely format currency value
     const safeFormatCurrency = (changeValue: any): string => {
-        console.log(`[GainLossCard] safeFormatCurrency called with:`, changeValue, 'type:', typeof changeValue);
+        //console.log(`[GainLossCard] safeFormatCurrency called with:`, changeValue, 'type:', typeof changeValue);
         
         // Handle null/undefined
         if (changeValue == null) {
-            console.log(`[GainLossCard] safeFormatCurrency: changeValue is null/undefined, returning 0`);
+            //console.log(`[GainLossCard] safeFormatCurrency: changeValue is null/undefined, returning 0`);
             return '0';
         }
         
         // If it's already a number
         if (typeof changeValue === 'number') {
-            console.log(`[GainLossCard] safeFormatCurrency: changeValue is number, using toLocaleString`);
+            //console.log(`[GainLossCard] safeFormatCurrency: changeValue is number, using toLocaleString`);
             return changeValue.toLocaleString();
         }
         
         // If it's a string, try to parse it
         if (typeof changeValue === 'string') {
-            console.log(`[GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse`);
+            //console.log(`[GainLossCard] safeFormatCurrency: changeValue is string, attempting to parse`);
             const parsed = parseFloat(changeValue);
             if (!isNaN(parsed)) {
-                console.log(`[GainLossCard] safeFormatCurrency: successfully parsed string to number:`, parsed);
+                //console.log(`[GainLossCard] safeFormatCurrency: successfully parsed string to number:`, parsed);
                 return parsed.toLocaleString();
             } else {
                 console.log(`[GainLossCard] safeFormatCurrency: failed to parse string, returning raw value`);

@@ -189,16 +189,17 @@ class IndexSimulationService:
             logger.info(f"[index_sim_service] 💰 Calculated {len(cash_flows)} cash flow events")
 
             # --- Seed index with portfolio value on start_date -----------------
-            start_series = await PortfolioTimeSeriesService.get_portfolio_series(
+            start_series, start_meta = await PortfolioTimeSeriesService.get_portfolio_series(
                 user_id=user_id,
-                start_date=start_date,
-                end_date=start_date,
-                user_token=user_token,
+                range_key="1D",
+                user_token=user_token
             )
-            start_value = start_series[0][1] if start_series else Decimal('0')
-            logger.info(
-                f"[index_sim_service] 🛫 Seeding index on {start_date} with portfolio value ${start_value}"
-            )
+            if not start_series or start_meta.get("no_data"):
+                start_value = Decimal('0')
+                logger.warning(f"[index_sim_service] 🛫 No portfolio value available for {start_date}, seeding with $0")
+            else:
+                start_value = start_series[0][1]
+                logger.info(f"[index_sim_service] 🛫 Seeding index on {start_date} with portfolio value ${start_value}")
 
             # Merge initial investment into cash flows
             cf_dict = defaultdict(Decimal)

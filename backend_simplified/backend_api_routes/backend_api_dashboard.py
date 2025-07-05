@@ -189,8 +189,8 @@ async def backend_api_get_performance(
         
     # --- Portfolio calculation in background -----------------------------
     portfolio_task = asyncio.create_task(
-        PTS.get_portfolio_series(uid, start_date, end_date, user_token=jwt)
-        )
+        PTS.get_portfolio_series(uid, period, jwt)
+    )
         
     # --- Build index series fresh ---------------------------------------
     index_series: List[Tuple[date, Decimal]] = await ISS.get_index_sim_series(  # type: ignore[arg-type]
@@ -202,9 +202,108 @@ async def backend_api_get_performance(
     )
 
     # --- Await portfolio series ------------------------------------------
-    portfolio_series: List[Tuple[date, Any]] = await portfolio_task  # values may be float or Decimal
-    if isinstance(portfolio_series, Exception):
+    portfolio_result = await portfolio_task
+    if isinstance(portfolio_result, Exception):
         raise HTTPException(status_code=500, detail="Portfolio time-series calculation failed")
+    # Support both old and new return types for backward compatibility
+    if isinstance(portfolio_result, tuple) and len(portfolio_result) == 2:
+        portfolio_series, portfolio_meta = portfolio_result
+    else:
+        portfolio_series = portfolio_result
+        portfolio_meta = {"no_data": False}
+    # === INDEX-ONLY FALLBACK MODE ===
+    # If no portfolio data, show index-only performance instead of empty response
+    if portfolio_meta.get("no_data"):
+        logger.warning("[backend_api_get_performance] No portfolio data for this period")
+        logger.info("[backend_api_get_performance] 🎯 Activating INDEX-ONLY FALLBACK MODE")
+        logger.info("[backend_api_get_performance] 📊 User will see benchmark performance instead of empty charts")
+        
+        # Get index-only series using the new method
+        try:
+            index_only_series, index_only_meta = await PTS.get_index_only_series(
+                user_id=uid,
+                range_key=period,
+                benchmark=benchmark,
+                user_token=jwt
+            )
+            
+            if index_only_meta.get("no_data"):
+                logger.error("[backend_api_get_performance] ❌ Even index-only data unavailable")
+                return {
+                    "success": False,
+                    "period": period,
+                    "benchmark": benchmark,
+                    "portfolio_performance": [],
+                    "benchmark_performance": [],
+                    "metadata": {
+                        "no_data": True,
+                        "index_only": True,
+                        "error": "No data available for portfolio or benchmark",
+                        "user_guidance": index_only_meta.get("user_guidance", "No data available"),
+                        "start_date": start_date.isoformat(),
+                        "end_date": end_date.isoformat(),
+                        "benchmark_name": benchmark,
+                        "calculation_timestamp": datetime.utcnow().isoformat(),
+                    },
+                    "performance_metrics": {},
+                }
+            
+            # Format index-only data for chart display
+            logger.info("[backend_api_get_performance] ✅ Index-only data retrieved: %d points", len(index_only_series))
+            
+            # Convert to chart format
+            index_only_chart_data = []
+            for d, v in index_only_series:
+                chart_point = {"date": d.isoformat(), "value": float(v)}
+                index_only_chart_data.append(chart_point)
+                logger.debug("📊 Index-only chart point: %s", chart_point)
+            
+            logger.info("[backend_api_get_performance] 🎯 INDEX-ONLY MODE: Returning %d benchmark data points", len(index_only_chart_data))
+            
+            return {
+                "success": True,
+                "period": period,
+                "benchmark": benchmark,
+                "portfolio_performance": [],  # Empty - no portfolio data
+                "benchmark_performance": index_only_chart_data,  # Show benchmark performance
+                "metadata": {
+                    "no_data": False,  # We have data (benchmark data)
+                    "index_only": True,  # Signal this is index-only mode
+                    "reason": portfolio_meta.get("reason", "no_portfolio_data"),
+                    "user_guidance": portfolio_meta.get("user_guidance", "Add transactions to see portfolio comparison"),
+                    "start_date": index_only_chart_data[0]["date"] if index_only_chart_data else start_date.isoformat(),
+                    "end_date": index_only_chart_data[-1]["date"] if index_only_chart_data else end_date.isoformat(),
+                    "benchmark_name": benchmark,
+                    "calculation_timestamp": datetime.utcnow().isoformat(),
+                    "chart_type": "index_only_mode",
+                },
+                "performance_metrics": {
+                    "portfolio_return_pct": 0,
+                    "index_return_pct": ((float(index_only_series[-1][1]) - float(index_only_series[0][1])) / float(index_only_series[0][1])) * 100 if len(index_only_series) >= 2 and index_only_series[0][1] != 0 else 0,
+                    "outperformance_pct": 0,
+                    "index_only_mode": True
+                },
+            }
+            
+        except Exception as e:
+            logger.error("[backend_api_get_performance] ❌ Index-only fallback failed: %s", str(e))
+            return {
+                "success": False,
+                "period": period,
+                "benchmark": benchmark,
+                "portfolio_performance": [],
+                "benchmark_performance": [],
+                "metadata": {
+                    "no_data": True,
+                    "error": f"Failed to retrieve data: {str(e)}",
+                    "user_guidance": portfolio_meta.get("user_guidance", "Please try again or contact support"),
+                    "start_date": start_date.isoformat(),
+                    "end_date": end_date.isoformat(),
+                    "benchmark_name": benchmark,
+                    "calculation_timestamp": datetime.utcnow().isoformat(),
+                },
+                "performance_metrics": {},
+            }
 
     # --- Helper: safe Decimal coercion --------------------------------------
     def _safe_decimal(raw: Any) -> Decimal:  # noqa: WPS430 (nested def acceptable here)
@@ -217,14 +316,35 @@ async def backend_api_get_performance(
             logger.warning("↪ Invalid numeric value %s – substituting 0", raw)
             return Decimal("0").quantize(Decimal("1.00"), ROUND_HALF_UP)
 
-    # 🔍 DEBUG: Convert portfolio series to Decimal type for precise calculations
-    logger.info("🔄 Converting portfolio series to Decimal - received %d data points", len(portfolio_series))
+    # 🔍 FILTER: Remove zero values and ensure only trading days with actual data
+    logger.info("🔄 Filtering portfolio series - received %d data points", len(portfolio_series))
     logger.debug("📊 Portfolio series sample: %s", portfolio_series[:3] if len(portfolio_series) >= 3 else portfolio_series)
     
-    portfolio_series_dec: List[Tuple[date, Decimal]] = [
-        (d, _safe_decimal(v)) for d, v in portfolio_series
-    ]
-    logger.info("✅ Portfolio series converted to Decimal - %d points processed", len(portfolio_series_dec))
+    # Filter out zero values (non-trading days) and convert to Decimal
+    portfolio_series_filtered = []
+    zero_count = 0
+    for d, v in portfolio_series:
+        decimal_value = _safe_decimal(v)
+        if decimal_value > 0:
+            portfolio_series_filtered.append((d, decimal_value))
+            logger.debug("📊 KEEP: %s = $%s", d, decimal_value)
+        else:
+            zero_count += 1
+            logger.debug("📊 SKIP: %s = $%s (zero value)", d, decimal_value)
+    
+    logger.info("✅ Portfolio series filtered - %d trading days with actual values, %d zero values removed", 
+                len(portfolio_series_filtered), zero_count)
+    logger.info("📊 Filtered series sample: %s", portfolio_series_filtered[:3] if len(portfolio_series_filtered) >= 3 else portfolio_series_filtered)
+    
+    # Log all filtered dates for debugging
+    if portfolio_series_filtered:
+        logger.info("📅 First trading day: %s = $%s", portfolio_series_filtered[0][0], portfolio_series_filtered[0][1])
+        logger.info("📅 Last trading day: %s = $%s", portfolio_series_filtered[-1][0], portfolio_series_filtered[-1][1])
+    else:
+        logger.warning("⚠️ No trading days with portfolio values found!")
+    
+    # Use filtered series for calculations
+    portfolio_series_dec = portfolio_series_filtered
     
     # 🔍 DEBUG: Convert index series to Decimal type for precise calculations
     logger.info("🔄 Converting index series to Decimal - received %d data points", len(index_series))
@@ -266,22 +386,55 @@ async def backend_api_get_performance(
 
     logger.info("✅ Perf ready – %s portfolio pts | %s index pts", len(portfolio_series), len(index_series))
 
+    # 🔍 CHART FORMAT: Create discrete data points for chart plotting (no time-series gaps)
+    logger.info("🔧 Formatting data for discrete chart plotting...")
+    logger.info("📊 Input portfolio series: %d points", len(portfolio_series_dec))
+    logger.info("📊 Input index series: %d points", len(index_series_dec))
+    
+    # Create arrays of actual trading days only (no zero-value gaps)
+    portfolio_chart_data = []
+    for d, v in portfolio_series_dec:
+        chart_point = {"date": d.isoformat(), "value": float(v)}
+        portfolio_chart_data.append(chart_point)
+        logger.debug("📊 Portfolio chart point: %s", chart_point)
+    
+    # Match index series to portfolio dates for consistent chart data
+    portfolio_dates = {d for d, v in portfolio_series_dec}
+    logger.info("📅 Portfolio dates available: %d unique dates", len(portfolio_dates))
+    
+    index_chart_data = []
+    for d, v in index_series_dec:
+        if d in portfolio_dates:
+            chart_point = {"date": d.isoformat(), "value": float(v)}
+            index_chart_data.append(chart_point)
+            logger.debug("📊 Index chart point: %s", chart_point)
+        else:
+            logger.debug("📊 SKIP index point (no matching portfolio date): %s = $%s", d, v)
+    
+    logger.info("✅ Chart data formatted - %d portfolio points, %d index points", 
+                len(portfolio_chart_data), len(index_chart_data))
+    
+    # Log sample of final chart data
+    if portfolio_chart_data:
+        logger.info("📊 First portfolio chart point: %s", portfolio_chart_data[0])
+        logger.info("📊 Last portfolio chart point: %s", portfolio_chart_data[-1])
+    if index_chart_data:
+        logger.info("📊 First index chart point: %s", index_chart_data[0])
+        logger.info("📊 Last index chart point: %s", index_chart_data[-1])
+    
     return {
-            "success": True,
-            "period": period,
-            "benchmark": benchmark,
-        "portfolio_performance": [
-            {"date": d, "total_value": v, "indexed_performance": 0}
-            for d, v in zip(formatted["dates"], formatted["portfolio"])
-            ],
-            "benchmark_performance": [
-            {"date": d, "total_value": v, "indexed_performance": 0}
-            for d, v in zip(formatted["dates"], formatted["index"])
-            ],
-            "metadata": {
-            **formatted["metadata"],
-                "benchmark_name": benchmark,
+        "success": True,
+        "period": period,
+        "benchmark": benchmark,
+        "portfolio_performance": portfolio_chart_data,
+        "benchmark_performance": index_chart_data,
+        "metadata": {
+            "trading_days_count": len(portfolio_chart_data),
+            "start_date": portfolio_chart_data[0]["date"] if portfolio_chart_data else None,
+            "end_date": portfolio_chart_data[-1]["date"] if portfolio_chart_data else None,
+            "benchmark_name": benchmark,
             "calculation_timestamp": datetime.utcnow().isoformat(),
+            "chart_type": "discrete_trading_days",  # Signal to frontend this is discrete data
         },
         "performance_metrics": metrics,
     }

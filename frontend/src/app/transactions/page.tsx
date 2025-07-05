@@ -170,7 +170,8 @@ const TransactionsPage = () => {
     setError(null);
     try {
       const response = await front_api_client.front_api_get_transactions() as TxApiResp;
-      console.log("FETCH_TRANSACTIONS", response);
+      // Commenting out verbose debug logs
+      // console.log("FETCH_TRANSACTIONS", response);
       if (response.success) {
         setRawTransactions(response.transactions);
       } else {
@@ -207,47 +208,22 @@ const TransactionsPage = () => {
   }, [user, transactions]);
 
   const refreshData = useCallback(async () => {
-    console.log('[RefreshData] === COMPREHENSIVE DATA REFRESH START ===');
-    console.log('[RefreshData] Timestamp:', new Date().toISOString());
-    console.log('[RefreshData] User ID:', user?.id);
-    
     try {
-      // Step 1: Refresh local transaction data
-      console.log('[RefreshData] 🔄 Step 1: Refreshing local transaction data...');
       fetchTransactions();
       fetchSummary();
       
-      // Step 2: Invalidate all dashboard-related React Query caches
-      console.log('[RefreshData] 🗂️ Step 2: Invalidating React Query caches...');
-      console.log('[RefreshData] 🎯 CRITICAL: Using exact: false to catch all nested query keys');
-      
-      // Invalidate dashboard queries (exact: false catches all dashboard-related queries)
       await queryClient.invalidateQueries({ queryKey: ['dashboard'], exact: false });
-      console.log('[RefreshData] ✅ Dashboard queries invalidated (exact: false)');
       
-      // Invalidate performance queries (exact: false catches all ranges and benchmarks)
       await queryClient.invalidateQueries({ queryKey: ['performance'], exact: false });
-      console.log('[RefreshData] ✅ Performance queries invalidated (exact: false)');
       
-      // Invalidate portfolio queries
       await queryClient.invalidateQueries({ queryKey: ['portfolio'] });
-      console.log('[RefreshData] ✅ Portfolio queries invalidated');
       
-      // Invalidate any transaction-related queries
       await queryClient.invalidateQueries({ queryKey: ['transactions'] });
-      console.log('[RefreshData] ✅ Transaction queries invalidated');
       
-      // Step 3: Force refresh of performance data specifically for current user
       if (user?.id) {
-        console.log('[RefreshData] 🎯 Step 3: Force refreshing user-specific data...');
-        await queryClient.refetchQueries({ 
-          queryKey: ['performance'],
-          type: 'active'
-        });
-        console.log('[RefreshData] ✅ Performance data refetched');
+        await queryClient.refetchQueries({ queryKey: ['performance'] });
       }
       
-      console.log('[RefreshData] ✅ Data refresh complete');
       addToast({ 
         type: "success", 
         title: "Data Refreshed", 
@@ -255,32 +231,24 @@ const TransactionsPage = () => {
       });
       
     } catch (error) {
-      console.error('[RefreshData] ❌ Error during data refresh:', error);
+      // Commenting out verbose debug logs
+      // console.error('[RefreshData] ❌ Error during data refresh:', error);
       addToast({ 
         type: "error", 
         title: "Refresh Failed", 
         message: "Failed to refresh some data. Please try again." 
       });
     }
-    
-    console.log('[RefreshData] === COMPREHENSIVE DATA REFRESH END ===');
   }, [fetchTransactions, fetchSummary, queryClient, addToast, user?.id]);
 
   /**
    * Fetch historical closing price for a specific stock on a specific date
    */
   const fetchClosingPriceForDate = useCallback(async (ticker: string, date: string) => {
-      console.log(`💰💰💰 [PRICE_FETCH] ================= COMPREHENSIVE DEBUG START =================`);
-      console.log(`💰 [PRICE_FETCH] Function called with parameters:`);
-      console.log(`💰 [PRICE_FETCH] - ticker parameter: "${ticker}"`);
-      console.log(`💰 [PRICE_FETCH] - date parameter: "${date}"`);
-      
       if (!ticker || typeof ticker !== 'string') {
-          console.log(`❌ [PRICE_FETCH] VALIDATION FAILED: Invalid ticker`);
           return;
       }
       if (!date || typeof date !== 'string') {
-          console.log(`❌ [PRICE_FETCH] VALIDATION FAILED: Invalid date`);
           return;
       }
       
@@ -289,7 +257,6 @@ const TransactionsPage = () => {
       today.setHours(0, 0, 0, 0);
       
       if (selectedDate > today) {
-          console.log(`❌ [PRICE_FETCH] Date is in the future, aborting`);
           addToast({
               type: 'warning',
               title: 'Future Date Selected',
@@ -299,7 +266,6 @@ const TransactionsPage = () => {
       }
 
       const upperTicker = ticker.toUpperCase();
-      console.log(`💰 [PRICE_FETCH] About to call: front_api_get_historical_price("${upperTicker}", "${date}")`);
 
       setLoadingPrice(true);
       try {
@@ -307,8 +273,6 @@ const TransactionsPage = () => {
               upperTicker,
               date
           ) as any;
-          
-          console.log(`💰 [PRICE_FETCH] API response received:`, response);
           
           if (response && response.success === true) {
               if (response.price_data && typeof response.price_data.close !== 'undefined') {
@@ -336,15 +300,11 @@ const TransactionsPage = () => {
   }, [addToast]);
 
   const handleDateBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-      console.log(`📅 [DATE_BLUR] Event triggered for date: "${e.target.value}"`);
-      const { value } = e.target;
+      const value = e.target.value;
       const hasValidTicker = form.ticker && form.ticker.trim() !== '';
       const hasValidDate = value && value.trim() !== '';
       if (hasValidTicker && hasValidDate) {
-          console.log(`✅ [DATE_BLUR] Triggering price fetch for ${form.ticker} on ${value}`);
           fetchClosingPriceForDate(form.ticker, value);
-      } else {
-          console.log(`⚠️ [DATE_BLUR] Skipping price fetch. Ticker: ${form.ticker}, Date: ${value}`);
       }
   };
 
@@ -376,39 +336,27 @@ const TransactionsPage = () => {
 
     try {
       const isEditing = !!editingTransaction;
-      console.log('[Submit] 1. Submitting...');
       addToast({ type: 'info', title: 'Submitting', message: `${isEditing ? 'Updating' : 'Adding'} transaction...` });
       
       let response;
       if (isEditing) {
-        console.log('[Submit] 2. Calling update API');
         response = await front_api_client.front_api_update_transaction(editingTransaction.id.toString(), transactionData);
       } else {
-        console.log('[Submit] 2. Calling add API');
         response = await front_api_client.front_api_add_transaction(transactionData);
       }
 
-      console.log('[Submit] 3. API call finished. Response:', response);
-      
-      console.log('[Submit] 4. Firing success toast...');
       addToast({ type: 'success', title: `Transaction ${isEditing ? 'Updated' : 'Added'}`, message: `${transactionData.symbol} has been successfully processed.` });
-      
-      console.log('[Submit] 5. Closing form...');
       setShowAddForm(false);
 
-      console.log('[Submit] 6. Clearing editing state...');
       setEditingTransaction(null);
 
-      console.log('[Submit] 7. Refreshing data...');
-      refreshData();
-      console.log('[Submit] 8. Try block finished.');
+      await refreshData();
 
     } catch (err: any) {
       console.error('[Submit] ERROR CAUGHT:', err);
-      setError(err.message || `Error ${editingTransaction ? 'creating' : 'updating'} transaction`);
+      setError(err.message || `Error ${isEditing ? 'creating' : 'updating'} transaction`);
       addToast({ type: 'error', title: 'Submission Failed', message: err.message });
     } finally {
-      console.log('[Submit] FINALLY: Resetting isSubmitting state.');
       setIsSubmitting(false);
     }
   };
@@ -440,10 +388,8 @@ const TransactionsPage = () => {
       try {
         addToast({ type: 'info', title: 'Deleting...', message: 'Removing transaction.' });
         const response = await front_api_client.front_api_delete_transaction(txnId);
-        console.log('Transaction delete response:', response);
-        // If authFetch didn't throw an error, it was successful.
         addToast({ type: 'success', title: 'Transaction Deleted', message: 'The transaction has been removed.' });
-        refreshData();
+        await refreshData();
       } catch (err: any) {
         addToast({ type: 'error', title: 'Client-side Error', message: err.message });
       }
@@ -610,18 +556,16 @@ const TransactionsPage = () => {
                 <label className="block text-sm font-medium text-gray-400 mb-1">Ticker Symbol</label>
                 <StockSearchInput
                   onSelectSymbol={(symbol) => {
-                    console.log(`[STOCK_SELECTION] Symbol selected:`, symbol);
-                    const newForm = {
-                      ...form,
+                    setForm(prev => ({
+                      ...prev,
                       ticker: symbol.symbol,
                       company_name: symbol.name,
                       currency: symbol.currency || 'USD',
                       exchange: symbol.region || '',
-                    };
-                    setForm(newForm);
-                    const hasValidDate = newForm.purchase_date && newForm.purchase_date.trim() !== '';
+                    }));
+                    const hasValidDate = symbol.purchase_date && symbol.purchase_date.trim() !== '';
                     if (hasValidDate) {
-                      fetchClosingPriceForDate(symbol.symbol, newForm.purchase_date);
+                      fetchClosingPriceForDate(symbol.symbol, symbol.purchase_date);
                     }
                   }}
                   placeholder="e.g., AAPL"

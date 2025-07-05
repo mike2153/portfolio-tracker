@@ -14,21 +14,21 @@ export default function ConditionalLayout({ children }: ConditionalLayoutProps) 
   const { user } = useAuth()
   const pathname = usePathname()
 
-  console.log('[ConditionalLayout] 🔍 Rendering decision check:')
-  console.log('[ConditionalLayout] - User present:', !!user)
-  console.log('[ConditionalLayout] - User email:', user?.email)
-  console.log('[ConditionalLayout] - Current pathname:', pathname)
-  console.log('[ConditionalLayout] - Is auth page:', pathname === '/auth')
+  // console.log('[ConditionalLayout] 🔍 Rendering decision check:')
+  // console.log('[ConditionalLayout] - User present:', !!user)
+  // console.log('[ConditionalLayout] - User email:', user?.email)
+  // console.log('[ConditionalLayout] - Current pathname:', pathname)
+  // console.log('[ConditionalLayout] - Is auth page:', pathname === '/auth')
 
   // For auth page, show simple layout without sidebar
   if (pathname === '/auth') {
-    console.log('[ConditionalLayout] ✅ Rendering auth layout (no sidebar)')
+    // console.log('[ConditionalLayout] ✅ Rendering auth layout (no sidebar)')
     return <div className="min-h-screen">{children}</div>
   }
 
   // For authenticated users, show full app layout with sidebar
   if (user) {
-    console.log('[ConditionalLayout] ✅ Rendering authenticated layout (with sidebar)')
+    // console.log('[ConditionalLayout] ✅ Rendering authenticated layout (with sidebar)')
     return (
       <div className="flex h-screen">
         {/* Sidebar Navigation */}
@@ -58,7 +58,7 @@ export default function ConditionalLayout({ children }: ConditionalLayoutProps) 
             </div>
             <button 
               onClick={() => {
-                console.log('[ConditionalLayout] 🚪 User clicking sign out')
+                // console.log('[ConditionalLayout] 🚪 User clicking sign out')
                 // We'll add sign out functionality here
               }}
               className="mt-3 w-full text-left text-sm text-gray-400 hover:text-white"
@@ -95,7 +95,7 @@ export default function ConditionalLayout({ children }: ConditionalLayoutProps) 
   }
 
   // For unauthenticated users on protected routes, show loading or redirect message
-  console.log('[ConditionalLayout] ⏳ Unauthenticated user on protected route, showing redirect message')
+  // console.log('[ConditionalLayout] ⏳ Unauthenticated user on protected route, showing redirect message')
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900">
       <div className="text-center">
