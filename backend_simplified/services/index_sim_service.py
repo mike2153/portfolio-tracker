@@ -546,6 +546,233 @@ class IndexSimulationService:
         logger.info(f"[index_sim_service] ✅ Generated {len(series)} zero value data points")
         return series
 
+    @staticmethod
+    async def get_rebalanced_index_series(
+        user_id: str,
+        benchmark: str,
+        start_date: date,
+        end_date: date,
+        user_token: Optional[str] = None
+    ) -> List[Tuple[date, Decimal]]:
+        """
+        Create a properly rebalanced index series for the exact timeframe.
+        
+        This method:
+        1. Gets the user's actual portfolio value at the start_date
+        2. Buys that exact dollar amount of the index (fractional shares allowed)
+        3. Simulates the index returns from that purchase date forward
+        
+        This ensures proper comparison between portfolio and index performance
+        for any selected timeframe without rounding errors.
+        
+        Args:
+            user_id: User's UUID
+            benchmark: Index ticker (SPY, QQQ, etc.)
+            start_date: Start date for the comparison
+            end_date: End date for the comparison
+            user_token: JWT token for RLS compliance
+            
+        Returns:
+            List of (date, index_portfolio_value) tuples for the timeframe
+        """
+        logger.info(f"[index_sim_service] 🎯 === REBALANCED INDEX SIMULATION START ===")
+        logger.info(f"[index_sim_service] 📊 User: {user_id}")
+        logger.info(f"[index_sim_service] 📈 Benchmark: {benchmark}")
+        logger.info(f"[index_sim_service] 📅 Timeframe: {start_date} to {end_date}")
+        logger.info(f"[index_sim_service] 🎯 This creates a fresh index portfolio starting at the user's portfolio value")
+        
+        if not user_token:
+            logger.error(f"[index_sim_service] ❌ JWT token required for rebalanced index simulation")
+            raise ValueError("JWT token required for rebalanced index simulation")
+        
+        try:
+            # Use authenticated client for RLS compliance
+            client = create_authenticated_client(user_token)
+            
+            # Step 1: Get the user's actual portfolio value at the start_date
+            logger.info(f"[index_sim_service] 📊 Step 1: Getting user's portfolio value at {start_date}")
+            
+            # Get portfolio data for the exact timeframe we need
+            portfolio_series, portfolio_meta = await PortfolioTimeSeriesService.get_portfolio_series(
+                user_id=user_id,
+                range_key="MAX",  # Get all data to ensure we find the start_date
+                user_token=user_token
+            )
+            
+            if portfolio_meta.get("no_data") or not portfolio_series:
+                logger.warning(f"[index_sim_service] ⚠️ No portfolio data available for user {user_id}")
+                logger.info(f"[index_sim_service] 📊 Returning zero series")
+                return await IndexSimulationService._generate_zero_series(start_date, end_date)
+            
+            # DEBUG: Log all portfolio data points around the start date
+            logger.info(f"[index_sim_service] 🔍 DEBUG: Portfolio series has {len(portfolio_series)} data points")
+            for i, (portfolio_date, portfolio_value) in enumerate(portfolio_series):
+                if abs((portfolio_date - start_date).days) <= 3:  # Show dates within 3 days of start_date
+                    logger.info(f"[index_sim_service] 🔍 DEBUG: Portfolio[{i}] {portfolio_date} = ${portfolio_value}")
+            
+            # Find the portfolio value closest to our start_date
+            start_portfolio_value = None
+            actual_start_date = None
+            
+            # Look for exact match first
+            for portfolio_date, portfolio_value in portfolio_series:
+                if portfolio_date == start_date:
+                    start_portfolio_value = portfolio_value
+                    actual_start_date = portfolio_date
+                    logger.info(f"[index_sim_service] ✅ Found EXACT match for {start_date}: ${start_portfolio_value}")
+                    break
+            
+            # If no exact match, find the closest date on or after start_date
+            if start_portfolio_value is None:
+                for portfolio_date, portfolio_value in portfolio_series:
+                    if portfolio_date >= start_date:
+                        start_portfolio_value = portfolio_value
+                        actual_start_date = portfolio_date
+                        logger.info(f"[index_sim_service] ⚠️ No exact match, using closest date {actual_start_date} (${start_portfolio_value})")
+                        break
+            
+            # If still no match, use the last available value
+            if start_portfolio_value is None:
+                start_portfolio_value = portfolio_series[-1][1]
+                actual_start_date = portfolio_series[-1][0]
+                logger.warning(f"[index_sim_service] ⚠️ Using LAST available portfolio value from {actual_start_date}: ${start_portfolio_value}")
+            
+            logger.info(f"[index_sim_service] 💰 FINAL: Portfolio value at {actual_start_date}: ${start_portfolio_value}")
+            
+            if start_portfolio_value <= 0:
+                logger.warning(f"[index_sim_service] ⚠️ Portfolio value is zero or negative: ${start_portfolio_value}")
+                logger.info(f"[index_sim_service] 📊 Returning zero series")
+                return await IndexSimulationService._generate_zero_series(start_date, end_date)
+            
+            # Step 2: Get benchmark prices for the timeframe
+            # CRITICAL FIX: Use the actual portfolio start date, not the requested start_date
+            # This ensures perfect alignment between portfolio and benchmark baselines
+            if actual_start_date is None:
+                logger.error(f"[index_sim_service] ❌ No actual_start_date found, cannot align benchmark")
+                return await IndexSimulationService._generate_zero_series(start_date, end_date)
+            
+            benchmark_start_date = actual_start_date  # Use portfolio's actual start date
+            logger.info(f"[index_sim_service] 📈 Step 2: Getting {benchmark} prices for {benchmark_start_date} to {end_date}")
+            logger.info(f"[index_sim_service] 🔧 ALIGNMENT FIX: Using portfolio start date {benchmark_start_date} instead of requested {start_date}")
+            
+            prices_response = client.table('historical_prices') \
+                .select('date, close') \
+                .eq('symbol', benchmark) \
+                .gte('date', benchmark_start_date.isoformat()) \
+                .lte('date', end_date.isoformat()) \
+                .order('date', desc=False) \
+                .execute()
+            
+            price_data = prices_response.data
+            logger.info(f"[index_sim_service] ✅ Found {len(price_data)} {benchmark} price records")
+            
+            if not price_data:
+                logger.warning(f"[index_sim_service] ⚠️ No price data found for {benchmark}")
+                logger.info(f"[index_sim_service] 📊 Returning zero series")
+                return await IndexSimulationService._generate_zero_series(start_date, end_date)
+            
+            # Build price lookup
+            benchmark_prices = {}
+            for price_record in price_data:
+                price_date = datetime.strptime(price_record['date'], '%Y-%m-%d').date()
+                close_price = Decimal(str(price_record['close']))
+                benchmark_prices[price_date] = close_price
+            
+            # Step 3: Find the benchmark price at our start date (or closest trading day)
+            logger.info(f"[index_sim_service] 💱 Step 3: Finding {benchmark} price at start date")
+            
+            # DEBUG: Log benchmark prices around the actual start date
+            logger.info(f"[index_sim_service] 🔍 DEBUG: Benchmark prices has {len(benchmark_prices)} data points")
+            for price_date in sorted(benchmark_prices.keys()):
+                if abs((price_date - actual_start_date).days) <= 5:  # Show dates within 3 days of actual_start_date
+                    logger.info(f"[index_sim_service] 🔍 DEBUG: {benchmark}[{price_date}] = ${benchmark_prices[price_date]}")
+            
+            start_benchmark_price = None
+            index_start_date = None
+            
+            # Look for exact match first using the aligned start date
+            if actual_start_date in benchmark_prices:
+                start_benchmark_price = benchmark_prices[actual_start_date]
+                index_start_date = actual_start_date
+                logger.info(f"[index_sim_service] ✅ Found EXACT {benchmark} price for {actual_start_date}: ${start_benchmark_price}")
+            else:
+                # Look for price on or after the actual_start_date
+                for check_date in sorted(benchmark_prices.keys()):
+                    if check_date >= actual_start_date:
+                        start_benchmark_price = benchmark_prices[check_date]
+                        index_start_date = check_date
+                        logger.info(f"[index_sim_service] ⚠️ No exact {benchmark} price, using closest date {index_start_date}: ${start_benchmark_price}")
+                        break
+            
+            if start_benchmark_price is None:
+                logger.error(f"[index_sim_service] ❌ No {benchmark} price found on or after {actual_start_date}")
+                return await IndexSimulationService._generate_zero_series(start_date, end_date)
+            
+            logger.info(f"[index_sim_service] 💱 FINAL: {benchmark} price at {index_start_date}: ${start_benchmark_price}")
+            
+            # Step 4: Calculate fractional shares to buy
+            logger.info(f"[index_sim_service] 🧮 Step 4: Calculating fractional share purchase")
+            
+            # CRITICAL: Ensure we're using the same date for both portfolio and benchmark
+            logger.info(f"[index_sim_service] 🔍 CRITICAL ALIGNMENT CHECK:")
+            logger.info(f"[index_sim_service] 🔍   Portfolio date: {actual_start_date}")
+            logger.info(f"[index_sim_service] 🔍   Benchmark date: {index_start_date}")
+            logger.info(f"[index_sim_service] 🔍   Portfolio value: ${start_portfolio_value}")
+            logger.info(f"[index_sim_service] 🔍   Benchmark price: ${start_benchmark_price}")
+            
+            if actual_start_date != index_start_date:
+                logger.warning(f"[index_sim_service] ⚠️ DATE MISMATCH! Portfolio and benchmark using different dates!")
+                logger.warning(f"[index_sim_service] ⚠️ This will cause baseline alignment issues in the chart!")
+            
+            shares_to_buy = start_portfolio_value / start_benchmark_price
+            logger.info(f"[index_sim_service] 📊 Buying {shares_to_buy} shares of {benchmark}")
+            logger.info(f"[index_sim_service] 💰 Investment: ${start_portfolio_value} ÷ ${start_benchmark_price} = {shares_to_buy} shares")
+            
+            # Step 5: Generate daily index portfolio values
+            logger.info(f"[index_sim_service] 📈 Step 5: Generating daily index portfolio values")
+            
+            index_series = []
+            for price_date in sorted(benchmark_prices.keys()):
+                if price_date >= index_start_date:
+                    current_price = benchmark_prices[price_date]
+                    current_value = shares_to_buy * current_price
+                    index_series.append((price_date, current_value))
+                    logger.debug(f"[index_sim_service] 📊 {price_date}: {shares_to_buy} shares × ${current_price} = ${current_value}")
+            
+            if not index_series:
+                logger.warning(f"[index_sim_service] ⚠️ No index series generated")
+                return await IndexSimulationService._generate_zero_series(start_date, end_date)
+            
+            # Log results
+            logger.info(f"[index_sim_service] ✅ Rebalanced index simulation complete")
+            logger.info(f"[index_sim_service] 📊 Generated {len(index_series)} data points")
+            logger.info(f"[index_sim_service] 💰 Initial value: ${index_series[0][1]} on {index_series[0][0]}")
+            logger.info(f"[index_sim_service] 💰 Final value: ${index_series[-1][1]} on {index_series[-1][0]}")
+            
+            # Calculate return for verification
+            initial_value = float(index_series[0][1])
+            final_value = float(index_series[-1][1])
+            if initial_value > 0:
+                index_return = ((final_value - initial_value) / initial_value) * 100
+                logger.info(f"[index_sim_service] 📈 {benchmark} return: {index_return:.2f}%")
+            
+            logger.info(f"[index_sim_service] 🎯 === REBALANCED INDEX SIMULATION END ===")
+            
+            return index_series
+            
+        except Exception as e:
+            logger.error(f"[index_sim_service] ❌ Error in rebalanced index simulation: {e}")
+            DebugLogger.log_error(
+                file_name="index_sim_service.py",
+                function_name="get_rebalanced_index_series",
+                error=e,
+                user_id=user_id,
+                benchmark=benchmark,
+                start_date=start_date.isoformat(),
+                end_date=end_date.isoformat()
+            )
+            raise
+
 class IndexSimulationUtils:
     """Utility functions for index simulation operations"""
 

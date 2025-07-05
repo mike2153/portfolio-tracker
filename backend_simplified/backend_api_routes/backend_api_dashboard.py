@@ -192,8 +192,9 @@ async def backend_api_get_performance(
         PTS.get_portfolio_series(uid, period, jwt)
     )
         
-    # --- Build index series fresh ---------------------------------------
-    index_series: List[Tuple[date, Decimal]] = await ISS.get_index_sim_series(  # type: ignore[arg-type]
+    # --- Build rebalanced index series for this timeframe --------------
+    logger.info(f"[backend_api_get_performance] 🎯 Using REBALANCED index simulation for accurate comparison")
+    index_series: List[Tuple[date, Decimal]] = await ISS.get_rebalanced_index_series(  # type: ignore[arg-type]
         user_id=uid,
         benchmark=benchmark,
         start_date=start_date,
@@ -355,16 +356,26 @@ async def backend_api_get_performance(
     ]
     logger.info("✅ Index series converted to Decimal - %d points processed", len(index_series_dec))
 
-    # --- Normalise index series to match portfolio start value ---------
-    if portfolio_series_dec and index_series_dec and index_series_dec[0][1] != 0:
-        scale_factor = portfolio_series_dec[0][1] / index_series_dec[0][1]
-        index_series_dec = [
-            (d, v * scale_factor) for d, v in index_series_dec
-        ]
-        logger.info(
-            "🔧 Normalised index series by factor %.6f to match start value",
-            float(scale_factor),
-        )
+    # --- NO NORMALIZATION NEEDED - Rebalanced method already matches portfolio start value ---
+    # The new get_rebalanced_index_series method automatically:
+    # 1. Gets the user's portfolio value at the start date
+    # 2. Buys that exact dollar amount of index shares (fractional)
+    # 3. Simulates returns from that date forward
+    # This eliminates rounding errors and ensures perfect comparison
+    logger.info("🎯 REBALANCED INDEX: No normalization needed - index already starts at portfolio value")
+    logger.info(f"📊 Portfolio start value: ${portfolio_series_dec[0][1] if portfolio_series_dec else 'N/A'}")
+    logger.info(f"📊 Index start value: ${index_series_dec[0][1] if index_series_dec else 'N/A'}")
+    
+    if portfolio_series_dec and index_series_dec:
+        value_difference = abs(float(portfolio_series_dec[0][1]) - float(index_series_dec[0][1]))
+        logger.info(f"📊 Start value difference: ${value_difference:.2f} (should be minimal)")
+        
+        if value_difference > 1.0:  # More than $1 difference suggests an issue
+            logger.warning(f"⚠️ Large start value difference detected: ${value_difference:.2f}")
+            logger.warning(f"⚠️ This may indicate the rebalanced method needs adjustment")
+    
+    # Use index series as-is (no scaling needed)
+    final_index_series_dec = index_series_dec
 
     # --- Format & compute metrics ----------------------------------------
     logger.info("🔧 Formatting series for response...")
@@ -375,21 +386,21 @@ async def backend_api_get_performance(
                  index_series_dec[0][0] if index_series_dec else "N/A",
                  index_series_dec[-1][0] if index_series_dec else "N/A")
     
-    formatted = PSU.format_series_for_response(portfolio_series_dec, index_series_dec)
+    formatted = PSU.format_series_for_response(portfolio_series_dec, final_index_series_dec)
     logger.info("✅ Series formatted successfully")
     logger.debug("📊 Formatted data keys: %s", list(formatted.keys()))
     
     logger.info("🧮 Calculating performance metrics...")
-    metrics = ISU.calculate_performance_metrics(portfolio_series_dec, index_series_dec)
+    metrics = ISU.calculate_performance_metrics(portfolio_series_dec, final_index_series_dec)
     logger.info("✅ Performance metrics calculated")
     logger.debug("📊 Metrics keys: %s", list(metrics.keys()) if metrics else "No metrics")
 
-    logger.info("✅ Perf ready – %s portfolio pts | %s index pts", len(portfolio_series), len(index_series))
+    logger.info("✅ Perf ready – %s portfolio pts | %s index pts", len(portfolio_series), len(final_index_series_dec))
 
     # 🔍 CHART FORMAT: Create discrete data points for chart plotting (no time-series gaps)
     logger.info("🔧 Formatting data for discrete chart plotting...")
     logger.info("📊 Input portfolio series: %d points", len(portfolio_series_dec))
-    logger.info("📊 Input index series: %d points", len(index_series_dec))
+    logger.info("📊 Input index series: %d points", len(final_index_series_dec))
     
     # Create arrays of actual trading days only (no zero-value gaps)
     portfolio_chart_data = []
@@ -403,7 +414,7 @@ async def backend_api_get_performance(
     logger.info("📅 Portfolio dates available: %d unique dates", len(portfolio_dates))
     
     index_chart_data = []
-    for d, v in index_series_dec:
+    for d, v in final_index_series_dec:
         if d in portfolio_dates:
             chart_point = {"date": d.isoformat(), "value": float(v)}
             index_chart_data.append(chart_point)
