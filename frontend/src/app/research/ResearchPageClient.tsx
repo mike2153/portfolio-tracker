@@ -135,7 +135,7 @@ export default function StockResearchPage() {
     }
 
     const isInWatchlist = stockData ? stockData.isInWatchlist : false;
-    console.log(`[ResearchPage] handleToggleWatchlist: (placeholder) would toggle ${selectedTicker}. Currently in watchlist: ${isInWatchlist}`);
+
     // TODO: Integrate with watchlist API once available
     if (stockData) {
       setStockData({ ...stockData, isInWatchlist: !isInWatchlist });

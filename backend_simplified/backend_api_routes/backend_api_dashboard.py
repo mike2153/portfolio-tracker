@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Tuple, Optional, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from debug_logger import DebugLogger
+from debug_logger import DebugLogger, LoggingConfig
 from supa_api.supa_api_auth import require_authenticated_user
 from supa_api.supa_api_portfolio import supa_api_calculate_portfolio
 from supa_api.supa_api_transactions import supa_api_get_transaction_summary
@@ -72,7 +72,7 @@ async def backend_api_get_dashboard(
 ) -> Dict[str, Any]:
     """Return portfolio snapshot + market blurb for the dashboard."""
 
-    logger.info("📥 Dashboard requested for %s", user.get("email", "<unknown>"))
+    #logger.info("📥 Dashboard requested for %s", user.get("email", "<unknown>"))
 
     # --- Auth --------------------------------------------------------------
     uid, jwt = _assert_jwt(user)
@@ -139,7 +139,7 @@ async def backend_api_get_dashboard(
         },
     }
 
-    logger.info("✅ Dashboard payload ready")
+    #logger.info("✅ Dashboard payload ready")
     return resp
 
 
@@ -194,7 +194,7 @@ async def backend_api_get_performance(
         
     # --- Build rebalanced index series for this timeframe --------------
     logger.info(f"[backend_api_get_performance] 🎯 Using REBALANCED index simulation for accurate comparison")
-    index_series: List[Tuple[date, Decimal]] = await ISS.get_rebalanced_index_series(  # type: ignore[arg-type]
+    index_series: List[Tuple[date, Decimal]] = await ISS.get_index_sim_series(  # type: ignore[arg-type]
         user_id=uid,
         benchmark=benchmark,
         start_date=start_date,
@@ -257,7 +257,7 @@ async def backend_api_get_performance(
             for d, v in index_only_series:
                 chart_point = {"date": d.isoformat(), "value": float(v)}
                 index_only_chart_data.append(chart_point)
-                logger.debug("📊 Index-only chart point: %s", chart_point)
+    
             
             logger.info("[backend_api_get_performance] 🎯 INDEX-ONLY MODE: Returning %d benchmark data points", len(index_only_chart_data))
             
@@ -319,7 +319,7 @@ async def backend_api_get_performance(
 
     # 🔍 FILTER: Remove zero values and ensure only trading days with actual data
     logger.info("🔄 Filtering portfolio series - received %d data points", len(portfolio_series))
-    logger.debug("📊 Portfolio series sample: %s", portfolio_series[:3] if len(portfolio_series) >= 3 else portfolio_series)
+    
     
     # Filter out zero values (non-trading days) and convert to Decimal
     portfolio_series_filtered = []
@@ -328,10 +328,8 @@ async def backend_api_get_performance(
         decimal_value = _safe_decimal(v)
         if decimal_value > 0:
             portfolio_series_filtered.append((d, decimal_value))
-            logger.debug("📊 KEEP: %s = $%s", d, decimal_value)
         else:
             zero_count += 1
-            logger.debug("📊 SKIP: %s = $%s (zero value)", d, decimal_value)
     
     logger.info("✅ Portfolio series filtered - %d trading days with actual values, %d zero values removed", 
                 len(portfolio_series_filtered), zero_count)
@@ -349,19 +347,13 @@ async def backend_api_get_performance(
     
     # 🔍 DEBUG: Convert index series to Decimal type for precise calculations
     logger.info("🔄 Converting index series to Decimal - received %d data points", len(index_series))
-    logger.debug("📊 Index series sample: %s", index_series[:3] if len(index_series) >= 3 else index_series)
+
     
     index_series_dec: List[Tuple[date, Decimal]] = [
         (d, _safe_decimal(v)) for d, v in index_series
     ]
     logger.info("✅ Index series converted to Decimal - %d points processed", len(index_series_dec))
 
-    # --- NO NORMALIZATION NEEDED - Rebalanced method already matches portfolio start value ---
-    # The new get_rebalanced_index_series method automatically:
-    # 1. Gets the user's portfolio value at the start date
-    # 2. Buys that exact dollar amount of index shares (fractional)
-    # 3. Simulates returns from that date forward
-    # This eliminates rounding errors and ensures perfect comparison
     logger.info("🎯 REBALANCED INDEX: No normalization needed - index already starts at portfolio value")
     logger.info(f"📊 Portfolio start value: ${portfolio_series_dec[0][1] if portfolio_series_dec else 'N/A'}")
     logger.info(f"📊 Index start value: ${index_series_dec[0][1] if index_series_dec else 'N/A'}")
@@ -379,21 +371,16 @@ async def backend_api_get_performance(
 
     # --- Format & compute metrics ----------------------------------------
     logger.info("🔧 Formatting series for response...")
-    logger.debug("📊 Portfolio series range: %s to %s", 
-                 portfolio_series_dec[0][0] if portfolio_series_dec else "N/A",
-                 portfolio_series_dec[-1][0] if portfolio_series_dec else "N/A")
-    logger.debug("📊 Index series range: %s to %s", 
-                 index_series_dec[0][0] if index_series_dec else "N/A",
-                 index_series_dec[-1][0] if index_series_dec else "N/A")
+
     
     formatted = PSU.format_series_for_response(portfolio_series_dec, final_index_series_dec)
     logger.info("✅ Series formatted successfully")
-    logger.debug("📊 Formatted data keys: %s", list(formatted.keys()))
+
     
     logger.info("🧮 Calculating performance metrics...")
     metrics = ISU.calculate_performance_metrics(portfolio_series_dec, final_index_series_dec)
     logger.info("✅ Performance metrics calculated")
-    logger.debug("📊 Metrics keys: %s", list(metrics.keys()) if metrics else "No metrics")
+
 
     logger.info("✅ Perf ready – %s portfolio pts | %s index pts", len(portfolio_series), len(final_index_series_dec))
 
@@ -407,7 +394,7 @@ async def backend_api_get_performance(
     for d, v in portfolio_series_dec:
         chart_point = {"date": d.isoformat(), "value": float(v)}
         portfolio_chart_data.append(chart_point)
-        logger.debug("📊 Portfolio chart point: %s", chart_point)
+        
     
     # Match index series to portfolio dates for consistent chart data
     portfolio_dates = {d for d, v in portfolio_series_dec}
@@ -418,9 +405,6 @@ async def backend_api_get_performance(
         if d in portfolio_dates:
             chart_point = {"date": d.isoformat(), "value": float(v)}
             index_chart_data.append(chart_point)
-            logger.debug("📊 Index chart point: %s", chart_point)
-        else:
-            logger.debug("📊 SKIP index point (no matching portfolio date): %s = $%s", d, v)
     
     logger.info("✅ Chart data formatted - %d portfolio points, %d index points", 
                 len(portfolio_chart_data), len(index_chart_data))
@@ -448,4 +432,33 @@ async def backend_api_get_performance(
             "chart_type": "discrete_trading_days",  # Signal to frontend this is discrete data
         },
         "performance_metrics": metrics,
+    }
+
+@dashboard_router.post("/debug/toggle-info-logging")
+async def toggle_info_logging(current_user: dict = Depends(require_authenticated_user)):
+    """
+    Toggle info logging on/off at runtime
+    Requires authentication for security
+    """
+    try:
+        new_state = LoggingConfig.toggle_info_logging()
+        return {
+            "success": True,
+            "info_logging_enabled": new_state,
+            "message": f"Info logging {'enabled' if new_state else 'disabled'}"
+        }
+    except Exception as e:
+        logger.error(f"❌ Error toggling info logging: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@dashboard_router.get("/debug/logging-status")
+async def get_logging_status(current_user: dict = Depends(require_authenticated_user)):
+    """
+    Get current logging configuration status
+    """
+    return {
+        "info_logging_enabled": LoggingConfig.is_info_enabled()
     }

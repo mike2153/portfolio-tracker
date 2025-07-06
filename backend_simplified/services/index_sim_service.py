@@ -44,43 +44,11 @@ class IndexSimulationService:
         user_token: Optional[str] = None
     ) -> List[Tuple[date, Decimal]]:
         """
-        Simulate an index portfolio using the user's actual cash flow dates and amounts.
-
-        Algorithm:
-        1. Get all user transactions
-        2. For each transaction date, calculate cash delta (shares * price_per_share)
-        3. Buy/sell fractional benchmark shares using that cash delta on that date
-        4. Track cumulative benchmark shares over time
-        5. Calculate daily portfolio value using benchmark prices
-
-        Args:
-            user_id: User's UUID
-            benchmark: Index ticker (SPY, QQQ, A200, URTH, etc.)
-            start_date: Start date for simulation
-            end_date: End date for simulation
-            user_token: JWT token for RLS compliance
-
-        Returns:
-            List of (date, simulated_portfolio_value_usd) tuples
+        Hybrid index simulation:
+        1. On start_date, buy the index with the user's portfolio value at that date.
+        2. For each transaction after start_date and up to end_date, simulate buying/selling the index with the cash flow amount.
+        3. Simulate index value day by day as before.
         """
-        logger.info("[index_sim_service] === INDEX SIMULATION START ===")
-        # logger.info(f"[index_sim_service] User ID: {user_id}")
-        # logger.info(f"[index_sim_service] Benchmark: {benchmark}")
-        # logger.info(
-        #     f"[index_sim_service] Date range: {start_date} to {end_date}"
-        # )
-        # logger.info(
-        #     f"[index_sim_service] JWT token present: {bool(user_token)}"
-        # )
-        # logger.info(
-        #     f"[index_sim_service] Timestamp: {datetime.now().isoformat()}"
-        # )
-        logger.info(
-            f"[index_sim_service] get_index_sim_series called for {benchmark}"
-            f" {start_date}→{end_date}"
-        )
-        logger.info(f"[index_sim_service] ========= INDEX SIMULATION END =================")
-
         if not user_token:
             logger.warning("🚫 [index_sim_service] JWT missing - returning 401 to client")
             logger.error(f"[index_sim_service] ❌ JWT token required for RLS compliance")
@@ -93,46 +61,48 @@ class IndexSimulationService:
         log_jwt_operation("INDEX_SIMULATION", user_id, bool(user_token))
 
         try:
-            # Use authenticated client for RLS compliance
             client = create_authenticated_client(user_token)
-
-            # 🔑 Use service-role key so we can read the rows we just inserted even under RLS
             supa_client = create_client(
                 cast(str, getenv("SUPA_API_URL")),
                 cast(str, getenv("SUPA_API_SERVICE_KEY"))
             )  # type: ignore[arg-type]
 
-            # Step 1: Get all user transactions up to end_date
-            logger.info(f"[index_sim_service] 📊 Step 1: Fetching user transactions...")
+            # Step 1: Get user's portfolio value at start_date
+            logger.info(f"[index_sim_service] 📊 Step 1: Fetching portfolio value at {start_date}")
+            start_series, start_meta = await PortfolioTimeSeriesService.get_portfolio_series(
+                user_id=user_id,
+                range_key="MAX",
+                user_token=user_token
+            )
+            if not start_series or start_meta.get("no_data"):
+                start_value = Decimal('0')
+                logger.warning(f"[index_sim_service] 🛫 No portfolio value available for {start_date}, seeding with $0")
+            else:
+                # Find the value at or just after start_date
+                start_value = None
+                for d, v in start_series:
+                    if d >= start_date:
+                        start_value = v
+                        break
+                if start_value is None:
+                    start_value = start_series[-1][1]
+                    logger.warning(f"[index_sim_service] ⚠️ No portfolio value on/after {start_date}, using last available value: ${start_value}")
+                logger.info(f"[index_sim_service] 🛫 Seeding index on {start_date} with portfolio value ${start_value}")
 
+            # Step 2: Get all user transactions after start_date and up to end_date
+            logger.info(f"[index_sim_service] 📊 Step 2: Fetching user transactions after {start_date}")
             transactions_response = client.table('transactions') \
                 .select('symbol, quantity, price, date, transaction_type') \
                 .eq('user_id', user_id) \
+                .gte('date', start_date.isoformat()) \
                 .lte('date', end_date.isoformat()) \
                 .order('date', desc=False) \
                 .execute()
-
             transactions = transactions_response.data
-            logger.info(f"[index_sim_service] ✅ Found {len(transactions)} transactions")
+            logger.info(f"[index_sim_service] ✅ Found {len(transactions)} transactions after {start_date}")
 
-            # Determine earliest transaction date to set accurate price-range lower bound
-            if transactions:
-                earliest_tx_date = min(datetime.strptime(t['date'], '%Y-%m-%d').date() for t in transactions)
-            else:
-                earliest_tx_date = start_date
-
-            # Extend price range 30 days before the earliest transaction (avoid weekend gaps)
-            extended_start = earliest_tx_date - timedelta(days=30)
-
-            if not transactions:
-                logger.info(f"[index_sim_service] ⚠️ No transactions found, returning zero values")
-                return await IndexSimulationService._generate_zero_series(start_date, end_date)
-
-            # Step 2: Get benchmark historical prices for the entire range
-            logger.info(f"[index_sim_service] 💰 Step 2: Fetching {benchmark} historical prices (from {extended_start} to {end_date})...")
-
-            logger.info("[index_sim_service] 📥  Querying historical_prices for %s (%s→%s)", benchmark, extended_start, end_date)
-
+            # Step 3: Get benchmark historical prices for the entire range
+            extended_start = start_date - timedelta(days=30)
             prices_response = client.table('historical_prices') \
                 .select('date, close') \
                 .eq('symbol', benchmark) \
@@ -140,21 +110,11 @@ class IndexSimulationService:
                 .lte('date', end_date.isoformat()) \
                 .order('date', desc=False) \
                 .execute()
-
             price_data = prices_response.data
-            logger.info("[index_sim_service] ✅  historical_prices rows returned: %d", len(price_data))
-
             if not price_data:
                 logger.warning(f"[index_sim_service] ⚠️ No price data found for {benchmark}. Attempting Alpha Vantage back-fill…")
-
-                # Lazy import to avoid circular dep
                 from vantage_api.vantage_api_quotes import vantage_api_fetch_and_store_historical_data
-
-                # Use earliest transaction date as lower bound so we don't fetch unnecessary history
-                await vantage_api_fetch_and_store_historical_data(benchmark, earliest_tx_date.strftime('%Y-%m-%d'))
-
-                # Re-query after back-fill
-                logger.info(f"[index_sim_service] 🔄 Re-querying DB for {benchmark} prices after back-fill")
+                await vantage_api_fetch_and_store_historical_data(benchmark, start_date.strftime('%Y-%m-%d'))
                 prices_response = client.table('historical_prices') \
                     .select('date, close') \
                     .eq('symbol', benchmark) \
@@ -162,7 +122,6 @@ class IndexSimulationService:
                     .lte('date', end_date.isoformat()) \
                     .order('date', desc=False) \
                     .execute()
-
                 price_data = prices_response.data
                 if not price_data:
                     logger.error(f"[index_sim_service] ❌ Still no price data for {benchmark} after back-fill")
@@ -171,70 +130,58 @@ class IndexSimulationService:
                         status_code=404,
                         detail=f"No historical price data found for benchmark {benchmark}"
                     )
-
-            # Step 3: Build price lookup dictionary
             benchmark_prices = {}
             for price_record in price_data:
                 price_date = datetime.strptime(price_record['date'], '%Y-%m-%d').date()
                 close_price = Decimal(str(price_record['close']))
                 benchmark_prices[price_date] = close_price
 
-            logger.info(f"[index_sim_service] 🗂️ Step 3: Built price lookup with {len(benchmark_prices)} dates")
-            logger.info(f"[index_sim_service] Price range: {min(benchmark_prices.keys())} to {max(benchmark_prices.keys())}")
-
-            # Step 4: Calculate cash flows and simulate index purchases
-            logger.info(f"[index_sim_service] 🧮 Step 4: Simulating index purchases...")
-
-            cash_flows = IndexSimulationService._calculate_cash_flows(transactions, benchmark_prices)
-            logger.info(f"[index_sim_service] 💰 Calculated {len(cash_flows)} cash flow events")
-
-            # --- Seed index with portfolio value on start_date -----------------
-            start_series, start_meta = await PortfolioTimeSeriesService.get_portfolio_series(
-                user_id=user_id,
-                range_key="1D",
-                user_token=user_token
-            )
-            if not start_series or start_meta.get("no_data"):
-                start_value = Decimal('0')
-                logger.warning(f"[index_sim_service] 🛫 No portfolio value available for {start_date}, seeding with $0")
-            else:
-                start_value = start_series[0][1]
-                logger.info(f"[index_sim_service] 🛫 Seeding index on {start_date} with portfolio value ${start_value}")
-
-            # Merge initial investment into cash flows
-            cf_dict = defaultdict(Decimal)
-            for d, amt in cash_flows:
-                cf_dict[d] += amt
-            cf_dict[start_date] += start_value
-            cash_flows = [(d, amt) for d, amt in sorted(cf_dict.items())]
-
-            # Log sample cash flows
-            for i, (cf_date, amount) in enumerate(cash_flows[:5]):
-                logger.info(f"[index_sim_service] 📝 Cash flow {i+1}: {cf_date} = ${amount}")
-            if len(cash_flows) > 5:
-                logger.info(f"[index_sim_service] ... and {len(cash_flows) - 5} more cash flows")
-
-            # Step 5: Execute index simulation
+            # Step 4: Build cash flows: seed with start_value, then apply each transaction after start_date
+            logger.info(f"[index_sim_service] 🧮 Step 4: Building cash flows for hybrid simulation")
+            cash_flows = []
+            # Seed: buy index with start_value on start_date
+            cash_flows.append((start_date, start_value))
+            logger.info(f"[index_sim_service] 💰 Seed cash flow: {start_date} = ${start_value}")
+            # For each transaction after start_date, simulate cash flow
+            for tx in transactions:
+                tx_date = datetime.strptime(tx['date'], '%Y-%m-%d').date()
+                if tx_date == start_date:
+                    continue  # Already seeded
+                amount_invested = tx.get('amount_invested')
+                if amount_invested is not None:
+                    cash_delta_amount = Decimal(str(amount_invested))
+                else:
+                    shares = Decimal(str(tx['quantity']))
+                    user_price = Decimal(str(tx['price']))
+                    cash_delta_amount = abs(shares) * user_price
+                transaction_type = tx.get('transaction_type', 'Buy').upper()
+                cash_delta_amount = abs(cash_delta_amount)
+                if transaction_type in ['BUY', 'Buy']:
+                    cash_delta = cash_delta_amount
+                elif transaction_type in ['SELL', 'Sell']:
+                    cash_delta = -cash_delta_amount
+                else:
+                    cash_delta = cash_delta_amount
+                cash_flows.append((tx_date, cash_delta))
+                logger.info(f"[index_sim_service] 💰 Transaction cash flow: {tx_date} = ${cash_delta}")
+            # Sort cash flows by date
+            cash_flows.sort(key=lambda x: x[0])
+            logger.info(f"[index_sim_service] 📝 Total cash flow events: {len(cash_flows)}")
+            # Step 5: Simulate index purchases
             cumulative_shares = await IndexSimulationService._simulate_index_transactions(
                 cash_flows, benchmark, benchmark_prices
             )
-
             logger.info(f"[index_sim_service] 📈 Step 5: Simulated {len(cumulative_shares)} share position changes")
-
             # Step 6: Generate daily portfolio values
             logger.info(f"[index_sim_service] 💵 Step 6: Calculating daily portfolio values...")
-
             index_series = await IndexSimulationService._calculate_daily_values(
                 start_date, end_date, cumulative_shares, benchmark_prices
             )
-
             logger.info(f"[index_sim_service] ✅ Index simulation complete")
             logger.info(f"[index_sim_service] 📊 Generated {len(index_series)} data points")
             logger.info(f"[index_sim_service] 💰 Final simulated value: ${index_series[-1][1] if index_series else 0}")
             logger.info(f"[index_sim_service] === INDEX SIMULATION END ===")
-
             return index_series
-
         except Exception as e:
             logger.error(f"[index_sim_service] ❌ Error in index simulation: {e}")
             DebugLogger.log_error(
@@ -255,35 +202,32 @@ class IndexSimulationService:
     ) -> List[Tuple[date, Decimal]]:
         """
         Calculate net cash flows from transactions using benchmark closing prices.
-
         Args:
             transactions: List of transaction records
             benchmark_prices: Dictionary of {date: benchmark_closing_price}
-
         Returns:
             List of (date, net_cash_delta) tuples, sorted by date
         """
         logger.info(f"[index_sim_service] 🔢 Calculating cash flows from {len(transactions)} transactions using benchmark closing prices")
-
         cash_flows_by_date = defaultdict(Decimal)
 
         for tx in transactions:
             tx_date = datetime.strptime(tx['date'], '%Y-%m-%d').date()
-            shares = Decimal(str(tx['quantity']))
-            user_price = Decimal(str(tx['price']))  # User's actual fill price
+            amount_invested = tx.get('amount_invested')
+            if amount_invested is not None:
+                cash_delta_amount = Decimal(str(amount_invested))
+            else:
+                shares = Decimal(str(tx['quantity']))
+                user_price = Decimal(str(tx['price']))
+                cash_delta_amount = abs(shares) * user_price
             transaction_type = tx.get('transaction_type', 'Buy').upper()
 
-            # CRITICAL FIX: Use benchmark closing price, not user's fill price
-            benchmark_close = IndexSimulationService._get_price_for_transaction_date(tx_date, benchmark_prices)
-
-            if benchmark_close is None:
-                logger.warning(f"[index_sim_service] ⚠️ No benchmark price for {tx_date}, skipping transaction")
-                continue
-
             # Calculate cash delta using benchmark closing price
-            cash_delta_amount = abs(shares) * benchmark_close
-            logger.debug(f"[index_sim_service] 💰 {tx_date}: Using benchmark close ${benchmark_close} vs user fill ${user_price}")
-
+            cash_delta_amount = abs(cash_delta_amount)
+            logger.info(f"[index_sim_service] 💰 =====CASH_DELTA_AMOUNT = {cash_delta_amount} ===== ")
+            logger.info(f"[index_sim_service] 💰 =====TX_DATE = {tx_date} ===== ")
+            logger.info(f"[index_sim_service] 💰 =====TRANSACTION_TYPE = {transaction_type} ===== ")
+            logger.info(f"[index_sim_service] 💰 =====TRANSACTIONS = {transactions} ===== ")
             # Cash flow logic for index simulation:
             # - BUY transactions = positive cash flow (invest same amount in index)
             # - SELL transactions = negative cash flow (sell same amount from index)
@@ -294,15 +238,9 @@ class IndexSimulationService:
             else:
                 # For dividends or other types, treat as reinvestment (invest in index)
                 cash_delta = cash_delta_amount
-                logger.debug(f"[index_sim_service] ℹ️ Unknown transaction type '{transaction_type}', treating as reinvestment")
-
             cash_flows_by_date[tx_date] += cash_delta
-
-            logger.debug(f"[index_sim_service] 💸 {tx_date}: {transaction_type} {shares} shares of {tx['symbol']} = ${cash_delta} cash flow (using benchmark close ${benchmark_close})")
-
         # Convert to sorted list
         cash_flows = [(date, amount) for date, amount in sorted(cash_flows_by_date.items())]
-
         total_invested = sum(amount for _, amount in cash_flows if amount > 0)
         total_withdrawn = sum(amount for _, amount in cash_flows if amount < 0)
 
@@ -320,12 +258,10 @@ class IndexSimulationService:
     ) -> Dict[date, Decimal]:
         """
         Simulate buying/selling fractional shares of the benchmark index.
-
         Args:
             cash_flows: List of (date, cash_amount) tuples
             benchmark: Index ticker symbol
             benchmark_prices: Dictionary of {date: price}
-
         Returns:
             Dictionary of {date: cumulative_shares}
         """
@@ -339,25 +275,29 @@ class IndexSimulationService:
             benchmark_price = IndexSimulationService._get_price_for_transaction_date(
                 cash_flow_date, benchmark_prices
             )
+            logger.warning(f"[index_sim_service] ⚠️ ===== Cash flow date: {cash_flow_date} ===== ")
+            logger.warning(f"[index_sim_service] ⚠️ =====CASH_AMOUNT = {cash_amount} ===== ")
+            logger.warning(f"[index_sim_service] ⚠️ ===== BENCHMARK_PRICE = {benchmark_price} ===== ")
+            logger.warning(f"[index_sim_service] ⚠️ ===== CUMULATIVE_SHARES = {cumulative_shares} ===== ")
+            logger.warning(f"[index_sim_service] ⚠️ ===== SHARE_POSITIONS = {share_positions} ===== ")
 
             if benchmark_price is None:
-                logger.warning(f"[index_sim_service] ⚠️ No price found for {benchmark} on {cash_flow_date}, skipping")
+               # logger.warning(f"[index_sim_service] ⚠️ No price found for {benchmark} on {cash_flow_date}, skipping")
                 continue
 
             # Calculate fractional shares to buy/sell
             # Positive cash_amount = buying index (money invested)
             # Negative cash_amount = selling index (money withdrawn)
             shares_delta = cash_amount / benchmark_price
+            logger.info(f"[index_sim_service] ✅ =====CASH_AMOUNT = {cash_amount} ===== ")
+            logger.info(f"[index_sim_service] ✅ =====BENCHMARK_PRICE = {benchmark_price} ===== ")
+            logger.info(f"[index_sim_service] ✅ =====SHARES_DELTA = {shares_delta} ===== ")
+            logger.info(f"[index_sim_service] ✅ =====CASH_FLOW_DATE = {cash_flow_date} ===== ")
             cumulative_shares += shares_delta
-
             share_positions[cash_flow_date] = cumulative_shares
-
-            logger.debug(f"[index_sim_service] 📊 {cash_flow_date}: ${cash_amount} ÷ ${benchmark_price} = {shares_delta:.6f} shares")
-            logger.debug(f"[index_sim_service] 📈 {cash_flow_date}: Cumulative {benchmark} shares = {cumulative_shares:.6f}")
 
         logger.info(f"[index_sim_service] ✅ Simulated {len(share_positions)} index transactions")
         logger.info(f"[index_sim_service] 📊 Final {benchmark} position: {cumulative_shares:.6f} shares")
-
         return share_positions
 
     @staticmethod
@@ -365,16 +305,7 @@ class IndexSimulationService:
         transaction_date: date,
         prices: Dict[date, Decimal]
     ) -> Optional[Decimal]:
-        """
-        Get benchmark price for a transaction date, with fallback to next available trading day.
 
-        Args:
-            transaction_date: Date of transaction
-            prices: Dictionary of {date: price}
-
-        Returns:
-            Price for the date, or None if not found
-        """
         # Try exact date first
         if transaction_date in prices:
             return prices[transaction_date]
@@ -383,14 +314,12 @@ class IndexSimulationService:
         for days_ahead in range(1, 8):  # Look up to 7 days ahead
             future_date = transaction_date + timedelta(days=days_ahead)
             if future_date in prices:
-                logger.debug(f"[index_sim_service] 📅 Using price from {future_date} for transaction on {transaction_date}")
                 return prices[future_date]
 
         # Fallback: find most recent price before transaction date
         available_dates = [d for d in prices.keys() if d <= transaction_date]
         if available_dates:
             most_recent_date = max(available_dates)
-            logger.debug(f"[index_sim_service] 📅 Using price from {most_recent_date} for transaction on {transaction_date}")
             return prices[most_recent_date]
 
         return None
@@ -402,18 +331,7 @@ class IndexSimulationService:
         share_positions: Dict[date, Decimal],
         benchmark_prices: Dict[date, Decimal]
     ) -> List[Tuple[date, Decimal]]:
-        """
-        Calculate daily portfolio values for the simulated index portfolio.
 
-        Args:
-            start_date: Start date for calculation
-            end_date: End date for calculation
-            share_positions: Dictionary of {date: cumulative_shares}
-            benchmark_prices: Dictionary of {date: price}
-
-        Returns:
-            List of (date, portfolio_value) tuples
-        """
         logger.info(f"[index_sim_service] 📊 Calculating daily values from {start_date} to {end_date}")
 
         # Find first transaction date to avoid leading zeros
@@ -426,7 +344,6 @@ class IndexSimulationService:
             logger.info(f"[index_sim_service] 📅 No positions found, using full date range")
 
         daily_values = []
-
         # Seed current shares with the most recent position on or before start_date
         current_shares = Decimal('0')
 
@@ -471,7 +388,7 @@ class IndexSimulationService:
             elif last_known_price is not None:
                 # Forward-fill from last known price
                 price = last_known_price
-                logger.debug(f"[index_sim_service] 📅 {current_date}: Forward-filling price ${price}")
+
             else:
                 # Skip until we get first price data (no double increment)
                 logger.info(f"[index_sim_service] 📅 DEBUG: {current_date}: No price data available, skipping")
@@ -482,9 +399,8 @@ class IndexSimulationService:
             daily_values.append((current_date, daily_value))
 
             # Log first few and last few calculations for debugging
-            if len(daily_values) <= 3 or len(daily_values) >= len(daily_values) - 3:
-                logger.info(f"[index_sim_service] 💵 DEBUG: {current_date}: {current_shares:.6f} × ${price} = ${daily_value}")
-
+            #if len(daily_values) <= 3 or len(daily_values) >= len(daily_values) - 3:
+            #    logger.info(f"[index_sim_service] 💵 DEBUG: {current_date}: {current_shares:.6f} × ${price} = ${daily_value}")
             current_date += timedelta(days=1)
 
         # Validate first point is not zero
@@ -575,11 +491,6 @@ class IndexSimulationService:
         Returns:
             List of (date, index_portfolio_value) tuples for the timeframe
         """
-        logger.info(f"[index_sim_service] 🎯 === REBALANCED INDEX SIMULATION START ===")
-        logger.info(f"[index_sim_service] 📊 User: {user_id}")
-        logger.info(f"[index_sim_service] 📈 Benchmark: {benchmark}")
-        logger.info(f"[index_sim_service] 📅 Timeframe: {start_date} to {end_date}")
-        logger.info(f"[index_sim_service] 🎯 This creates a fresh index portfolio starting at the user's portfolio value")
         
         if not user_token:
             logger.error(f"[index_sim_service] ❌ JWT token required for rebalanced index simulation")
@@ -637,11 +548,8 @@ class IndexSimulationService:
                 actual_start_date = portfolio_series[-1][0]
                 logger.warning(f"[index_sim_service] ⚠️ Using LAST available portfolio value from {actual_start_date}: ${start_portfolio_value}")
             
-            logger.info(f"[index_sim_service] 💰 FINAL: Portfolio value at {actual_start_date}: ${start_portfolio_value}")
-            
             if start_portfolio_value <= 0:
                 logger.warning(f"[index_sim_service] ⚠️ Portfolio value is zero or negative: ${start_portfolio_value}")
-                logger.info(f"[index_sim_service] 📊 Returning zero series")
                 return await IndexSimulationService._generate_zero_series(start_date, end_date)
             
             # Step 2: Get benchmark prices for the timeframe
@@ -652,8 +560,6 @@ class IndexSimulationService:
                 return await IndexSimulationService._generate_zero_series(start_date, end_date)
             
             benchmark_start_date = actual_start_date  # Use portfolio's actual start date
-            logger.info(f"[index_sim_service] 📈 Step 2: Getting {benchmark} prices for {benchmark_start_date} to {end_date}")
-            logger.info(f"[index_sim_service] 🔧 ALIGNMENT FIX: Using portfolio start date {benchmark_start_date} instead of requested {start_date}")
             
             prices_response = client.table('historical_prices') \
                 .select('date, close') \
@@ -737,7 +643,7 @@ class IndexSimulationService:
                     current_price = benchmark_prices[price_date]
                     current_value = shares_to_buy * current_price
                     index_series.append((price_date, current_value))
-                    logger.debug(f"[index_sim_service] 📊 {price_date}: {shares_to_buy} shares × ${current_price} = ${current_value}")
+    
             
             if not index_series:
                 logger.warning(f"[index_sim_service] ⚠️ No index series generated")

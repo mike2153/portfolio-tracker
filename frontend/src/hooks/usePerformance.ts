@@ -193,23 +193,11 @@ export function usePerformance(
   const query: UseQueryResult<PerformanceResponse, Error> = useQuery({
     queryKey: ['performance', range, benchmark, userId],
     queryFn: async (): Promise<PerformanceResponse> => {
-      console.log('[usePerformance] 🚀 === QUERY FUNCTION START ===');
-      console.log('[usePerformance] - range:', range);
-      console.log('[usePerformance] - benchmark:', benchmark);
-      console.log('[usePerformance] - userId:', userId);
-      
       logPerformanceRequest(range, benchmark, userId);
-      
-      console.log('[usePerformance] 📡 Making API call...');
-      console.log('[usePerformance] API call: front_api_client.front_api_get_performance');
-      console.log('[usePerformance] Parameters: period =', range);
       
       try {
         // Use existing API client that already handles JWT authentication
         const response = await front_api_client.front_api_get_performance(range);
-        console.log('[usePerformance] ✅ API response received');
-        console.log('[usePerformance] Response type:', typeof response);
-        console.log('[usePerformance] Response keys:', Object.keys(response || {}));
         
         // === COMPREHENSIVE ERROR HANDLING ===
         if (!response) {
@@ -238,14 +226,10 @@ export function usePerformance(
         }
         
         // === DATA VALIDATION AND SANITIZATION ===
-        console.log('[usePerformance] 🔍 Validating and sanitizing response data...');
         
         // Ensure arrays exist and are valid
         const portfolioData = Array.isArray(responseObj.portfolio_performance) ? responseObj.portfolio_performance : [];
         const benchmarkData = Array.isArray(responseObj.benchmark_performance) ? responseObj.benchmark_performance : [];
-        
-        console.log('[usePerformance] 📊 Portfolio data points:', portfolioData.length);
-        console.log('[usePerformance] 📊 Benchmark data points:', benchmarkData.length);
         
         // Sanitize data points to prevent NaN values
         const sanitizeDataPoint = (point: any, index: number, arrayName: string): any => {
@@ -286,9 +270,7 @@ export function usePerformance(
           .map((point: any, index: number) => sanitizeDataPoint(point, index, 'benchmark'))
           .filter((point: any) => point !== null);
         
-        console.log('[usePerformance] ✅ Data sanitization complete');
-        console.log('[usePerformance] 📊 Sanitized portfolio points:', sanitizedPortfolioData.length);
-        console.log('[usePerformance] 📊 Sanitized benchmark points:', sanitizedBenchmarkData.length);
+
         
         // === METADATA VALIDATION ===
         const metadata = responseObj.metadata || {};
@@ -345,8 +327,7 @@ export function usePerformance(
           performance_metrics: validatedMetrics,
         };
         
-        console.log('[usePerformance] ✅ Response validation complete');
-        console.log('[usePerformance] 📊 Final response structure validated');
+
         
         return validatedResponse;
         
@@ -358,34 +339,13 @@ export function usePerformance(
     ...queryOptions
   });
   
-  // Extract query state with debugging
+  // Extract query state
   const { data, isLoading, isError, error, refetch, isSuccess } = query;
   
-  console.log('[usePerformance] 📊 Query state:');
-  console.log('[usePerformance] - isLoading:', isLoading);
-  console.log('[usePerformance] - isError:', isError);
-  console.log('[usePerformance] - isSuccess:', isSuccess);
-  console.log('[usePerformance] - hasData:', !!data);
-  console.log('[usePerformance] - error:', error?.message);
-  
-  // Process data with extensive debugging
-  console.log('[usePerformance] 🔍 === DATA PROCESSING DEBUG ===');
-  console.log('[usePerformance] - data object:', data);
-  console.log('[usePerformance] - data type:', typeof data);
-  console.log('[usePerformance] - data keys:', data ? Object.keys(data) : 'no data');
-  console.log('[usePerformance] - data.portfolio_performance:', data?.portfolio_performance);
-  console.log('[usePerformance] - data.benchmark_performance:', data?.benchmark_performance);
-  console.log('[usePerformance] - data.performance_metrics:', data?.performance_metrics);
-  
+  // Process data
   const portfolioData: PerformanceDataPoint[] = data?.portfolio_performance || [];
   const benchmarkData: PerformanceDataPoint[] = data?.benchmark_performance || [];
   const metrics: PerformanceMetrics | undefined = data?.performance_metrics;
-  
-  console.log('[usePerformance] 📈 Processed data:');
-  console.log('[usePerformance] - Portfolio data points:', portfolioData.length);
-  console.log('[usePerformance] - Benchmark data points:', benchmarkData.length);
-  console.log('[usePerformance] - Has metrics:', !!metrics);
-  console.log('[usePerformance] 🔍 === END DATA PROCESSING DEBUG ===');
   
   if (portfolioData.length > 0) {
     //console.log('[usePerformance] - Portfolio sample data:', portfolioData.slice(0, 3));
@@ -424,22 +384,19 @@ export function usePerformanceComparison(
   range: RangeKey = 'MAX',
   options: UsePerformanceOptions = {}
 ) {
-  //console.log('[usePerformanceComparison] 🔄 Multi-benchmark comparison starting...');
+
   
   // Get data for multiple benchmarks
   const spyData = usePerformance(range, 'SPY', options);
   const qqqData = usePerformance(range, 'QQQ', { ...options, enabled: false }); // Disabled by default
   
-  //console.log('[usePerformanceComparison] 📊 Comparison data:');
-  //console.log('[usePerformanceComparison] - SPY loading:', spyData.isLoading);
-  //console.log('[usePerformanceComparison] - QQQ loading:', qqqData.isLoading);
   
   return {
     spy: spyData,
     qqq: qqqData,
     // Add helper function to switch active benchmark
     switchBenchmark: (benchmark: BenchmarkTicker) => {
-      console.log('[usePerformanceComparison] 🔄 Switching to benchmark:', benchmark);
+  
       // This would trigger re-fetch with new benchmark
       // Implementation depends on how we want to handle benchmark switching
     }
@@ -451,11 +408,6 @@ export function usePerformanceComparison(
  */
 export function usePerformanceMetrics(range: RangeKey = 'MAX', benchmark: BenchmarkTicker = 'SPY') {
   const { metrics, isLoading, isError } = usePerformance(range, benchmark);
-  
-  //console.log('[usePerformanceMetrics] 📊 Metrics-only hook result:');
-  //console.log('[usePerformanceMetrics] - Has metrics:', !!metrics);
-  //console.log('[usePerformanceMetrics] - Loading:', isLoading);
-  //console.log('[usePerformanceMetrics] - Error:', isError);
   
   return { metrics, isLoading, isError };
 }

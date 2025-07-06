@@ -12,7 +12,7 @@ const FxTicker = () => {
         queryFn: () => {
             // Note: FX rates API needs to be implemented in backend
             // For now, return empty FX data
-            console.log('[FxTicker] FX rates API not yet implemented, showing empty state');
+          
             return Promise.resolve({ data: { rates: [] } });
         },
         staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes

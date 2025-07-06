@@ -332,10 +332,14 @@ const TransactionsPage = () => {
         currency: form.currency,
         commission: parseFloat(form.commission || '0'),
         notes: form.notes || '',
+        amount_invested: amountInvested, // Add the calculated amount_invested field
     };
 
+    // Debug logging for amount_invested submission
+
+
+    const isEditing = !!editingTransaction;
     try {
-      const isEditing = !!editingTransaction;
       addToast({ type: 'info', title: 'Submitting', message: `${isEditing ? 'Updating' : 'Adding'} transaction...` });
       
       let response;
@@ -435,6 +439,15 @@ const TransactionsPage = () => {
       (transaction.company_name && transaction.company_name.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchesSearch;
   }), [transactions, searchQuery]);
+
+  // Calculate amount invested for the form
+  const amountInvested = useMemo(() => {
+    const shares = parseFloat(form.shares || '0');
+    const price = parseFloat(form.purchase_price || '0');
+    const amount = shares * price;
+
+    return isNaN(amount) ? 0 : amount;
+  }, [form.shares, form.purchase_price]);
 
   /* ------------------------------------------------------------------
    * JSX
@@ -563,9 +576,9 @@ const TransactionsPage = () => {
                       currency: symbol.currency || 'USD',
                       exchange: symbol.region || '',
                     }));
-                    const hasValidDate = symbol.purchase_date && symbol.purchase_date.trim() !== '';
+                    const hasValidDate = form.purchase_date && form.purchase_date.trim() !== '';
                     if (hasValidDate) {
-                      fetchClosingPriceForDate(symbol.symbol, symbol.purchase_date);
+                      fetchClosingPriceForDate(symbol.symbol, form.purchase_date);
                     }
                   }}
                   placeholder="e.g., AAPL"
@@ -605,6 +618,19 @@ const TransactionsPage = () => {
                   </div>
                   {formErrors.purchase_price && <p className="text-red-500 text-xs mt-1">{formErrors.purchase_price}</p>}
                 </div>
+              </div>
+              {/* Amount Invested (read-only) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Amount Invested</label>
+                <input
+                  type="text"
+                  value={formatCurrency(amountInvested, form.currency || 'USD')}
+                  readOnly
+                  tabIndex={-1}
+                  className="w-full p-2 bg-gray-800 border border-gray-600 rounded-lg text-gray-300 opacity-80 cursor-not-allowed"
+                  aria-readonly="true"
+                />
+                <p className="text-xs text-gray-500 mt-1">Calculated as shares × price per share. This value is sent to the backend for accurate record-keeping.</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-400 mb-1">Transaction Date</label>

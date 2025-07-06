@@ -3,19 +3,9 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 
-// Debug helper function
+// Debug helper function (disabled for production)
 const debugLog = (context: string, data: any) => {
-  const timestamp = new Date().toISOString()
-  const logEntry = `[AUTH-DEBUG] [${timestamp}] [${context}] ${JSON.stringify(data, null, 2)}`
-  console.log(logEntry)
-  
-  // Also store in window for easy access
-  if (typeof window !== 'undefined') {
-    if (!window.authDebugLogs) {
-      window.authDebugLogs = []
-    }
-    window.authDebugLogs.push({ timestamp, context, data })
-  }
+  // Debug logging disabled for cleaner production code
 }
 
 export default function AuthPage() {
