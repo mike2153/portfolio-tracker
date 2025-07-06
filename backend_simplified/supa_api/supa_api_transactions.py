@@ -21,9 +21,7 @@ async def supa_api_get_user_transactions(
     symbol: Optional[str] = None,
     user_token: Optional[str] = None
 ) -> List[Dict[str, Any]]:
-    """Get user's transactions with optional filtering"""
     logger.info(f"[supa_api_transactions.py::supa_api_get_user_transactions] Fetching transactions for user: {user_id}")
-    
     try:
         if user_token:
             logger.info("🔐 [TRANSACTION_READ] Delegating to helper with JWT")
@@ -124,70 +122,42 @@ async def supa_api_add_transaction(transaction_data: Dict[str, Any], user_token:
                 raise Exception(f"Authentication failed: {auth_error}")
                 
         else:
-            logger.warning(f"⚠️ [TRANSACTION_DEBUG] No user token provided - using service client")
             # Use service role client (has bypass RLS privileges)
             client = get_supa_client()
         
-        logger.info(f"🔗 [TRANSACTION_DEBUG] Supabase client configured successfully")
-        
-        # 🔥 VALIDATE TRANSACTION DATA BEFORE INSERTION
+        # Validate transaction data before insertion
         required_fields = ['user_id', 'symbol', 'transaction_type', 'quantity', 'price', 'date']
         missing_fields = [field for field in required_fields if not transaction_data.get(field)]
         if missing_fields:
-            logger.error(f"❌ [TRANSACTION_DEBUG] MISSING REQUIRED FIELDS: {missing_fields}")
+            logger.error(f"❌ Missing required fields: {missing_fields}")
             raise ValueError(f"Missing required fields: {missing_fields}")
-        
-        # 🔥 LOG EXACT INSERTION ATTEMPT
-        logger.info(f"🚀 [TRANSACTION_DEBUG] Attempting database insertion...")
-        logger.info(f"🚀 [TRANSACTION_DEBUG] Table: transactions")
-        logger.info(f"🚀 [TRANSACTION_DEBUG] Data to insert: {transaction_data}")
-        logger.info(f"🚀 [TRANSACTION_DEBUG] Client type: {'user-authenticated-with-RLS' if user_token else 'anonymous'}")
         
         # Insert transaction with authenticated client
         result = client.table('transactions') \
             .insert(transaction_data) \
             .execute()
         
-        logger.info(f"🎉 [TRANSACTION_DEBUG] Insertion result: {result}")
-        logger.info(f"🎉 [TRANSACTION_DEBUG] Result data: {result.data}")
-        logger.info(f"🎉 [TRANSACTION_DEBUG] Result count: {result.count}")
-        
         if result.data:
-            # 🔒 DEFENSE IN DEPTH: Verify the inserted transaction has the correct user_id
+            # Verify the inserted transaction has the correct user_id
             inserted_user_id = result.data[0].get('user_id')
             expected_user_id = transaction_data.get('user_id')
             
             if str(inserted_user_id) != str(expected_user_id):
-                logger.error(f"🚨 [SECURITY_VIOLATION] User ID mismatch after insertion!")
-                logger.error(f"🚨 [SECURITY_VIOLATION] Expected: {expected_user_id}")
-                logger.error(f"🚨 [SECURITY_VIOLATION] Actually inserted: {inserted_user_id}")
+                logger.error(f"🚨 User ID mismatch after insertion: expected {expected_user_id}, got {inserted_user_id}")
                 raise Exception("CRITICAL SECURITY VIOLATION: User ID mismatch detected")
             
-            logger.info(f"✅ [SECURITY_VERIFICATION] User ID verification passed: {inserted_user_id}")
-            logger.info(f"✅ [supa_api_transactions.py::supa_api_add_transaction] Transaction added with ID: {result.data[0]['id']}")
-            logger.info(f"🔥🔥🔥 [supa_api_transactions.py::supa_api_add_transaction] === COMPREHENSIVE TRANSACTION DEBUG END (SUCCESS) ===")
+            logger.info(f"✅ Transaction added with ID: {result.data[0]['id']}")
             return result.data[0]
         else:
-            logger.error(f"❌ [TRANSACTION_DEBUG] No data returned from insertion!")
+            logger.error(f"❌ No data returned from insertion!")
             raise Exception("Failed to add transaction - no data returned")
             
     except Exception as e:
-        logger.error(f"💥 [TRANSACTION_DEBUG] EXCEPTION DURING INSERTION!")
-        logger.error(f"💥 [TRANSACTION_DEBUG] Exception type: {type(e).__name__}")
-        logger.error(f"💥 [TRANSACTION_DEBUG] Exception message: {str(e)}")
-        logger.error(f"💥 [TRANSACTION_DEBUG] Exception details: {e}")
+        logger.error(f"💥 Exception during transaction insertion: {type(e).__name__}: {str(e)}")
         
-        # 🔥 SPECIFIC RLS ERROR HANDLING
+        # Specific RLS error handling
         if "row-level security policy" in str(e).lower():
-            logger.error(f"🔒 [TRANSACTION_DEBUG] === RLS POLICY VIOLATION DETECTED ===")
-            logger.error(f"🔒 [TRANSACTION_DEBUG] This suggests the user_id doesn't match the authenticated user")
-            logger.error(f"🔒 [TRANSACTION_DEBUG] Expected user_id: {transaction_data.get('user_id')}")
-            logger.error(f"🔒 [TRANSACTION_DEBUG] User token provided: {bool(user_token)}")
-            logger.error(f"🔒 [TRANSACTION_DEBUG] Possible solutions:")
-            logger.error(f"🔒 [TRANSACTION_DEBUG] 1. Check Supabase RLS policies for transactions table")
-            logger.error(f"🔒 [TRANSACTION_DEBUG] 2. Ensure RLS policy allows INSERT for authenticated users")
-            logger.error(f"🔒 [TRANSACTION_DEBUG] 3. Verify user_id in transaction matches auth.uid()")
-            logger.error(f"🔒 [TRANSACTION_DEBUG] === RLS POLICY DEBUG END ===")
+            logger.error(f"🔒 RLS policy violation detected - user_id mismatch or policy issue")
         
         DebugLogger.log_error(
             file_name="supa_api_transactions.py",
@@ -195,7 +165,6 @@ async def supa_api_add_transaction(transaction_data: Dict[str, Any], user_token:
             error=e,
             transaction_data=transaction_data
         )
-        logger.info(f"🔥🔥🔥 [supa_api_transactions.py::supa_api_add_transaction] === COMPREHENSIVE TRANSACTION DEBUG END (ERROR) ===")
         raise
 
 @DebugLogger.log_api_call(api_name="SUPABASE", sender="BACKEND", receiver="SUPA_API", operation="UPDATE_TRANSACTION")

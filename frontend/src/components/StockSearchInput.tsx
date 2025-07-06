@@ -114,44 +114,31 @@ export function StockSearchInput({
 
   // 🔥 DEBUGGING - Log state changes
   useEffect(() => {
-    console.log(`🎨 [StockSearchInput] === DROPDOWN DISPLAY DEBUG ===`);
-    console.log(`🎨 [StockSearchInput] showSuggestions: ${showSuggestions}`);
-    console.log(`🎨 [StockSearchInput] searchQuery.length: ${searchQuery.length}`);
-    console.log(`🎨 [StockSearchInput] suggestions.length: ${suggestions.length}`);
-    console.log(`🎨 [StockSearchInput] isLoading: ${isLoading}`);
-    console.log(`🎨 [StockSearchInput] Display condition met: ${showSuggestions && (searchQuery.length > 0 || suggestions.length > 0)}`);
-    console.log(`🎨 [StockSearchInput] Dropdown should show: ${showSuggestions && (searchQuery.length > 0 || suggestions.length > 0)}`);
-    
+    //console.log(`🎨 [StockSearchInput] === DROPDOWN DISPLAY DEBUG ===`);
+    //console.log(`🎨 [StockSearchInput] showSuggestions: ${showSuggestions}`);
+    //console.log(`🎨 [StockSearchInput] searchQuery.length: ${searchQuery.length}`);
+    //console.log(`🎨 [StockSearchInput] suggestions.length: ${suggestions.length}`);
+    //console.log(`🎨 [StockSearchInput] isLoading: ${isLoading}`);
+    //console.log(`🎨 [StockSearchInput] Display condition met: ${showSuggestions && (searchQuery.length > 0 || suggestions.length > 0)}`);
+    //console.log(`🎨 [StockSearchInput] Dropdown should show: ${showSuggestions && (searchQuery.length > 0 || suggestions.length > 0)}`);
+
     if (suggestions.length > 0) {
-      console.log(`🎨 [StockSearchInput] Available suggestions:`, suggestions.map(s => ({
-        symbol: s.symbol,
-        name: s.name,
-        exchange: s.exchange
-      })));
+       
     }
   }, [showSuggestions, searchQuery, suggestions, isLoading]);
 
   // 🔥 DEBUG: Log when suggestions change
   useEffect(() => {
-    console.log(`📋 [StockSearchInput] === SUGGESTIONS CHANGED ===`);
-    console.log(`📋 [StockSearchInput] New suggestions count: ${suggestions.length}`);
-    console.log(`📋 [StockSearchInput] Suggestions:`, suggestions);
+    //console.log(`📋 [StockSearchInput] === SUGGESTIONS CHANGED ===`);
+    //console.log(`📋 [StockSearchInput] New suggestions count: ${suggestions.length}`);
+    //console.log(`📋 [StockSearchInput] Suggestions:`, suggestions);
   }, [suggestions]);
 
   // 🔥 CRITICAL DEBUGGING: Check dropdown render condition
   useEffect(() => {
     const shouldShow = showSuggestions && (searchQuery.length > 0 || suggestions.length > 0);
-    console.log(`🚨 [StockSearchInput] === DROPDOWN RENDER CHECK ===`);
-    console.log(`🚨 [StockSearchInput] showSuggestions: ${showSuggestions}`);
-    console.log(`🚨 [StockSearchInput] searchQuery.length: ${searchQuery.length}`);
-    console.log(`🚨 [StockSearchInput] suggestions.length: ${suggestions.length}`);
-    console.log(`🚨 [StockSearchInput] shouldShow: ${shouldShow}`);
-    console.log(`🚨 [StockSearchInput] Rendering dropdown: ${shouldShow}`);
     
     if (shouldShow) {
-      console.log(`🎯 [StockSearchInput] === DROPDOWN CONTENT RENDER ===`);
-      console.log(`🎯 [StockSearchInput] isLoading: ${isLoading}`);
-      console.log(`🎯 [StockSearchInput] suggestions.length: ${suggestions.length}`);
       
       if (isLoading) {
         console.log(`🔄 [StockSearchInput] Rendering loading state`);

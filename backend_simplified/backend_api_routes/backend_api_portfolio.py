@@ -118,56 +118,53 @@ async def backend_api_add_transaction(
     """Add a new transaction"""
     logger.info(f"🔥🔥🔥 [backend_api_portfolio.py::backend_api_add_transaction] === COMPREHENSIVE API DEBUG START ===")
     logger.info(f"🔥 [backend_api_portfolio.py::backend_api_add_transaction] Adding transaction for user: {user['email']}, symbol: {transaction.symbol}")
-    
-    # 🔥 EXTENSIVE USER AUTHENTICATION DEBUG
-    logger.info(f"👤 [USER_AUTH_DEBUG] Full user object: {user}")
-    logger.info(f"👤 [USER_AUTH_DEBUG] User keys: {list(user.keys())}")
-    logger.info(f"👤 [USER_AUTH_DEBUG] User ID: {user.get('id', 'MISSING!')}")
-    logger.info(f"👤 [USER_AUTH_DEBUG] User ID type: {type(user.get('id'))}")
-    logger.info(f"👤 [USER_AUTH_DEBUG] User email: {user.get('email', 'MISSING!')}")
-    logger.info(f"👤 [USER_AUTH_DEBUG] User aud: {user.get('aud', 'MISSING!')}")
-    logger.info(f"👤 [USER_AUTH_DEBUG] User role: {user.get('role', 'MISSING!')}")
-    
-    # 🔥 EXTENSIVE TRANSACTION INPUT DEBUG
-    logger.info(f"📝 [TRANSACTION_INPUT_DEBUG] Raw transaction input: {transaction}")
-    logger.info(f"📝 [TRANSACTION_INPUT_DEBUG] Transaction dict: {transaction.dict()}")
-    logger.info(f"📝 [TRANSACTION_INPUT_DEBUG] Transaction type: {transaction.transaction_type}")
-    logger.info(f"📝 [TRANSACTION_INPUT_DEBUG] Symbol: {transaction.symbol}")
-    logger.info(f"📝 [TRANSACTION_INPUT_DEBUG] Quantity: {transaction.quantity}")
-    logger.info(f"📝 [TRANSACTION_INPUT_DEBUG] Price: {transaction.price}")
-    logger.info(f"📝 [TRANSACTION_INPUT_DEBUG] Date: {transaction.date}")
-    logger.info(f"📝 [TRANSACTION_INPUT_DEBUG] Currency: {transaction.currency}")
-    logger.info(f"📝 [TRANSACTION_INPUT_DEBUG] Commission: {transaction.commission}")
-    logger.info(f"📝 [TRANSACTION_INPUT_DEBUG] Notes: {transaction.notes}")
 
     try:
         # 🔥 SECURITY: Additional input validation and sanitization
-        logger.info(f"🔒 [SECURITY_DEBUG] === ADDITIONAL SECURITY VALIDATION ===")
+
         
         # Validate transaction type
         if transaction.transaction_type not in ["Buy", "Sell"]:
             logger.error(f"❌ [VALIDATION_DEBUG] Invalid transaction type: {transaction.transaction_type}")
-            raise ValueError("Transaction type must be 'Buy' or 'Sell'")
-        logger.info(f"✅ [VALIDATION_DEBUG] Transaction type validation passed")
-        
-        # 🔒 SECURITY: Validate numeric fields to prevent overflow attacks
+            return {
+                "success": False,
+                "message": "Transaction type must be 'Buy' or 'Sell'.",
+                "error_type": "validation_error"
+            }
+        # Validate numeric fields
         if transaction.quantity <= 0 or transaction.quantity > 10000000:
             logger.error(f"❌ [SECURITY_DEBUG] Invalid quantity: {transaction.quantity}")
-            raise ValueError("Quantity must be between 0.01 and 10,000,000")
+            return {
+                "success": False,
+                "message": "Quantity must be between 0.01 and 10,000,000 shares.",
+                "error_type": "validation_error"
+            }
             
         if transaction.price <= 0 or transaction.price > 10000000:
             logger.error(f"❌ [SECURITY_DEBUG] Invalid price: {transaction.price}")
-            raise ValueError("Price must be between $0.01 and $10,000,000")
+            return {
+                "success": False,
+                "message": "Price must be between $0.01 and $10,000,000 per share.",
+                "error_type": "validation_error"
+            }
             
         if transaction.commission < 0 or transaction.commission > 10000:
             logger.error(f"❌ [SECURITY_DEBUG] Invalid commission: {transaction.commission}")
-            raise ValueError("Commission must be between $0 and $10,000")
+            return {
+                "success": False,
+                "message": "Commission must be between $0 and $10,000.",
+                "error_type": "validation_error"
+            }
         
         # 🔒 SECURITY: Validate symbol format (prevent injection via symbol)
         import re
-        if not re.match(r'^[A-Z]{1,8}$', transaction.symbol):
+        if not re.match(r'^[A-Z0-9.-]{1,8}$', transaction.symbol):
             logger.error(f"❌ [SECURITY_DEBUG] Invalid symbol format: {transaction.symbol}")
-            raise ValueError("Symbol must be 1-6 uppercase letters only")
+            return {
+                "success": False,
+                "message": "Invalid symbol format. Symbol must be 1-8 characters (uppercase letters, numbers, dots, or hyphens only).",
+                "error_type": "validation_error"
+            }
         
         # 🔒 SECURITY: Validate date is not too far in past/future
         from datetime import datetime, timedelta
@@ -176,11 +173,19 @@ async def backend_api_add_transaction(
         
         if transaction_date > today:
             logger.error(f"❌ [SECURITY_DEBUG] Future date not allowed: {transaction.date}")
-            raise ValueError("Transaction date cannot be in the future")
+            return {
+                "success": False,
+                "message": "Transaction date cannot be in the future. Please select a valid date.",
+                "error_type": "validation_error"
+            }
             
         if transaction_date < (today - timedelta(days=3650)):  # 10 years ago
             logger.error(f"❌ [SECURITY_DEBUG] Date too far in past: {transaction.date}")
-            raise ValueError("Transaction date cannot be more than 10 years ago")
+            return {
+                "success": False,
+                "message": "Transaction date cannot be more than 10 years ago. Please select a more recent date.",
+                "error_type": "validation_error"
+            }
         
         # 🔒 SECURITY: Sanitize notes field
         if transaction.notes:
@@ -190,16 +195,11 @@ async def backend_api_add_transaction(
                 logger.warning(f"⚠️ [SECURITY_DEBUG] Notes field sanitized")
             transaction.notes = sanitized_notes
         
-        logger.info(f"✅ [SECURITY_DEBUG] All additional security validations passed")
+
         
         # Add user_id to transaction data - CRITICAL: Use authenticated user's ID, never trust client
         transaction_data = transaction.dict()
         transaction_data["user_id"] = user["id"]  # 🔒 SECURITY: Force user_id from auth token
-        
-        logger.info(f"🔗 [TRANSACTION_MERGE_DEBUG] Transaction data BEFORE adding user_id: {transaction.dict()}")
-        logger.info(f"🔗 [TRANSACTION_MERGE_DEBUG] User ID being added: {user['id']}")
-        logger.info(f"🔗 [TRANSACTION_MERGE_DEBUG] Transaction data AFTER adding user_id: {transaction_data}")
-        logger.info(f"🔗 [TRANSACTION_MERGE_DEBUG] Final transaction_data keys: {list(transaction_data.keys())}")
         
         # 🔥 VALIDATE FINAL TRANSACTION DATA
         required_fields = ['user_id', 'symbol', 'transaction_type', 'quantity', 'price', 'date']
@@ -207,20 +207,12 @@ async def backend_api_add_transaction(
         if missing_fields:
             logger.error(f"❌ [FINAL_VALIDATION_DEBUG] MISSING REQUIRED FIELDS: {missing_fields}")
             raise ValueError(f"Missing required fields: {missing_fields}")
-        logger.info(f"✅ [FINAL_VALIDATION_DEBUG] All required fields present")
-        
-        logger.info(f"🚀 [API_DEBUG] Calling supa_api_add_transaction with data: {transaction_data}")
         
         # Add to database
         user_token = user.get("access_token")
-        logger.info(f"🔐 [API_DEBUG] Extracting user token for RLS: {bool(user_token)}")
-        if user_token:
-            logger.info(f"🔐 [API_DEBUG] Token preview: {user_token[:20]}...")
         
         new_transaction = await supa_api_add_transaction(transaction_data, user_token)
-        
-        logger.info(f"🎉 [API_DEBUG] supa_api_add_transaction returned: {new_transaction}")
-        logger.info(f"🔥🔥🔥 [backend_api_portfolio.py::backend_api_add_transaction] === COMPREHENSIVE API DEBUG END (SUCCESS) ===")
+
         
         return {
             "success": True,
@@ -266,6 +258,7 @@ async def backend_api_update_transaction(
             user_token=user_token
         )
         
+        
         return {
             "success": True,
             "transaction": updated,
@@ -303,6 +296,7 @@ async def backend_api_delete_transaction(
         )
         
         if success:
+            
             return {
                 "success": True,
                 "message": "Transaction deleted successfully"

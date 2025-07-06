@@ -1,0 +1,2144 @@
+TITLE: Install Lightweight Charts via npm
+DESCRIPTION: Instructions on how to install the Lightweight Charts library using npm, noting TypeScript declaration support and upcoming CommonJS deprecation.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/versioned_docs/version-4.2/intro.md#_snippet_0
+
+LANGUAGE: console
+CODE:
+```
+npm install --save lightweight-charts
+```
+
+----------------------------------------
+
+TITLE: Install Lightweight Charts NPM Package
+DESCRIPTION: Installs the `lightweight-charts` npm package, including TypeScript declarations, for use in client-side applications. This is the primary method for setting up the library.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/docs/intro.mdx#_snippet_0
+
+LANGUAGE: console
+CODE:
+```
+npm install --save lightweight-charts
+```
+
+----------------------------------------
+
+TITLE: Install Lightweight Charts via npm
+DESCRIPTION: This command installs the Lightweight Charts library using npm, the Node.js package manager, for ES6 module environments.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/README.md#_snippet_0
+
+LANGUAGE: bash
+CODE:
+```
+npm install lightweight-charts
+```
+
+----------------------------------------
+
+TITLE: Import createChart Function in JavaScript
+DESCRIPTION: Demonstrates how to import the `createChart` function from the 'lightweight-charts' library, which is the entry point for creating new chart instances.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/versioned_docs/version-5.0/intro.mdx#_snippet_1
+
+LANGUAGE: js
+CODE:
+```
+import { createChart } from 'lightweight-charts';
+```
+
+----------------------------------------
+
+TITLE: Simulating Real-time Candlestick Chart Updates with Lightweight Charts
+DESCRIPTION: This JavaScript example demonstrates how to simulate real-time data updates on a Lightweight Charts candlestick chart. It initializes the chart with historical data and then uses `setInterval` to continuously add new data points or update the latest one via `series.update(...)`. It also includes functionality to scroll back to the latest data using `chart.timeScale().scrollToRealtime()`.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/tutorials/demos/realtime-updates.mdx#_snippet_0
+
+LANGUAGE: JavaScript
+CODE:
+```
+// Assume 'chart' and 'series' are already initialized
+// e.g., import { createChart } from 'lightweight-charts';
+// const chart = createChart(document.getElementById('chart-container'));
+// const series = chart.addCandlestickSeries();
+
+// Initial historical data (example placeholder)
+// series.setData([
+//   { time: '2023-01-01', open: 10, high: 12, low: 9, close: 11 },
+//   { time: '2023-01-02', open: 11, high: 13, low: 10, close: 12 },
+//   // ... more historical data
+// ]);
+
+let lastBarTime = new Date(); // Start from current time for simulation
+let lastPrice = 100;
+
+function generateNewDataPoint() {
+  lastBarTime.setMinutes(lastBarTime.getMinutes() + 1); // Simulate new minute
+  const open = lastPrice;
+  const close = open + (Math.random() - 0.5) * 2; // Random price change
+  const high = Math.max(open, close) + Math.random();
+  const low = Math.min(open, close) - Math.random();
+  lastPrice = close;
+
+  return {
+    time: lastBarTime.toISOString().split('T')[0], // YYYY-MM-DD format
+    open: parseFloat(open.toFixed(2)),
+    high: parseFloat(high.toFixed(2)),
+    low: parseFloat(low.toFixed(2)),
+    close: parseFloat(close.toFixed(2))
+  };
+}
+
+// Simulate real-time updates
+const updateInterval = setInterval(() => {
+  const newData = generateNewDataPoint();
+  series.update(newData); // Update the latest bar or add a new one
+
+  // In a real application, you might have a button to scroll to realtime
+  // const goToRealtimeButton = document.getElementById('go-to-realtime-button');
+  // if (goToRealtimeButton) {
+  //   goToRealtimeButton.addEventListener('click', () => {
+  //     chart.timeScale().scrollToRealtime();
+  //   });
+  // }
+
+}, 1000); // Update every 1 second (simulated)
+
+// To stop updates after some time (optional)
+// setTimeout(() => {
+//   clearInterval(updateInterval);
+//   console.log('Real-time updates stopped.');
+// }, 60000); // Stop after 1 minute
+```
+
+----------------------------------------
+
+TITLE: Import createChart function in JavaScript
+DESCRIPTION: Demonstrates importing the `createChart` function, the primary entry point for creating chart instances, from the 'lightweight-charts' library in a JavaScript file.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/versioned_docs/version-4.2/intro.md#_snippet_1
+
+LANGUAGE: js
+CODE:
+```
+import { createChart } from 'lightweight-charts';
+```
+
+----------------------------------------
+
+TITLE: Create and display a Line Chart with Lightweight Charts
+DESCRIPTION: This JavaScript example demonstrates how to initialize a Lightweight Charts instance, add a line series, populate it with sample data, and automatically fit the chart content to the available space.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/versioned_docs/version-4.0/series-types.md#_snippet_13
+
+LANGUAGE: js
+CODE:
+```
+const chartOptions = { layout: { textColor: CHART_TEXT_COLOR, background: { type: 'solid', color: CHART_BACKGROUND_COLOR } } };
+const chart = createChart(document.getElementById('container'), chartOptions);
+const lineSeries = chart.addLineSeries({ color: LINE_LINE_COLOR });
+
+const data = [{ value: 0, time: 1642425322 }, { value: 8, time: 1642511722 }, { value: 10, time: 1642598122 }, { value: 20, time: 1642684522 }, { value: 3, time: 1642770922 }, { value: 43, time: 1642857322 }, { value: 41, time: 1642943722 }, { value: 43, time: 1643030122 }, { value: 56, time: 1643116522 }, { value: 46, time: 1643202922 }];
+
+lineSeries.setData(data);
+
+chart.timeScale().fitContent();
+```
+
+----------------------------------------
+
+TITLE: Create and Populate a Line Chart (ES6 Module)
+DESCRIPTION: This JavaScript snippet demonstrates how to create a basic line chart using the Lightweight Charts library with ES6 modules. It initializes a chart, adds a line series, and populates it with sample time-series data.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/README.md#_snippet_1
+
+LANGUAGE: js
+CODE:
+```
+import { createChart, LineSeries } from 'lightweight-charts';
+
+const chart = createChart(document.body, { width: 400, height: 300 });
+const lineSeries = chart.addSeries(LineSeries);
+lineSeries.setData([
+    { time: '2019-04-11', value: 80.01 },
+    { time: '2019-04-12', value: 96.63 },
+    { time: '2019-04-13', value: 76.64 },
+    { time: '2019-04-14', value: 81.89 },
+    { time: '2019-04-15', value: 74.43 },
+    { time: '2019-04-16', value: 80.01 },
+    { time: '2019-04-17', value: 96.63 },
+    { time: '2019-04-18', value: 76.64 },
+    { time: '2019-04-19', value: 81.89 },
+    { time: '2019-04-20', value: 74.43 }
+]);
+```
+
+----------------------------------------
+
+TITLE: Install Lightweight Charts NPM Package
+DESCRIPTION: Instructions to install the Lightweight Charts library using npm. The package includes TypeScript declarations for seamless integration.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/versioned_docs/version-5.0/intro.mdx#_snippet_0
+
+LANGUAGE: console
+CODE:
+```
+npm install --save lightweight-charts
+```
+
+----------------------------------------
+
+TITLE: Update Series Data in Lightweight Charts
+DESCRIPTION: Illustrates how to update existing data points or add new ones to Area and Candlestick series using `ISeriesApi.update`. This method is recommended for real-time updates to maintain chart performance, as it avoids re-rendering the entire series.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/docs/intro.mdx#_snippet_5
+
+LANGUAGE: javascript
+CODE:
+```
+import { AreaSeries, CandlestickSeries, createChart } from 'lightweight-charts';
+
+const chart = createChart(container);
+
+const areaSeries = chart.addSeries(AreaSeries);
+areaSeries.setData([
+    // Other data items
+    { time: '2018-12-31', value: 22.67 },
+]);
+
+const candlestickSeries = chart.addSeries(CandlestickSeries);
+candlestickSeries.setData([
+    // Other data items
+    { time: '2018-12-31', open: 109.87, high: 114.69, low: 85.66, close: 111.26 },
+]);
+
+// ...
+
+// Update the most recent bar
+areaSeries.update({ time: '2018-12-31', value: 25 });
+candlestickSeries.update({ time: '2018-12-31', open: 109.87, high: 114.69, low: 85.66, close: 112 });
+
+// Creating the new bar
+areaSeries.update({ time: '2019-01-01', value: 20 });
+candlestickSeries.update({ time: '2019-01-01', open: 112, high: 112, low: 100, close: 101 });
+```
+
+----------------------------------------
+
+TITLE: Create Standard Time-based Chart with Lightweight Charts
+DESCRIPTION: This snippet demonstrates how to create a standard time-based chart using `createChart` from Lightweight Charts. It initializes a chart in a specified container and sets sample area series data for visualization of time series data, suitable for general financial and time series applications.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/docs/chart-types.mdx#_snippet_0
+
+LANGUAGE: js
+CODE:
+```
+import { createChart } from 'lightweight-charts';
+
+const chart = createChart(document.getElementById('container'), options);
+```
+
+LANGUAGE: js
+CODE:
+```
+const chartOptions = { layout: { textColor: CHART_TEXT_COLOR, background: { type: 'solid', color: CHART_BACKGROUND_COLOR } } };
+const chart = createChart(document.getElementById('container'), chartOptions);
+const areaSeries = chart.addSeries(AreaSeries, { lineColor: LINE_LINE_COLOR, topColor: AREA_TOP_COLOR, bottomColor: AREA_BOTTOM_COLOR });
+
+const data = [{ value: 0, time: 1642425322 }, { value: 8, time: 1642511722 }, { value: 10, time: 1642598122 }, { value: 20, time: 1642684522 }, { value: 3, time: 1642770922 }, { value: 43, time: 1642857322 }, { value: 41, time: 1642943722 }, { value: 43, time: 1643030122 }, { value: 56, time: 1643116522 }, { value: 46, time: 1643202922 }];
+
+areaSeries.setData(data);
+
+chart.timeScale().fitContent();
+```
+
+----------------------------------------
+
+TITLE: Create and Display a Line Chart with Lightweight Charts
+DESCRIPTION: This JavaScript code demonstrates how to initialize a Lightweight Charts instance, add a line series, set its data, and fit the content to the time scale. It includes basic chart options for layout and colors.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/versioned_docs/version-4.1/series-types.md#_snippet_10
+
+LANGUAGE: js
+CODE:
+```
+const chartOptions = { layout: { textColor: CHART_TEXT_COLOR, background: { type: 'solid', color: CHART_BACKGROUND_COLOR } } };
+const chart = createChart(document.getElementById('container'), chartOptions);
+const lineSeries = chart.addLineSeries({ color: LINE_LINE_COLOR });
+
+const data = [{ value: 0, time: 1642425322 }, { value: 8, time: 1642511722 }, { value: 10, time: 1642598122 }, { value: 20, time: 1642684522 }, { value: 3, time: 1642770922 }, { value: 43, time: 1642857322 }, { value: 41, time: 1642943722 }, { value: 43, time: 1643030122 }, { value: 56, time: 1643116522 }, { value: 46, time: 1643202922 }];
+
+lineSeries.setData(data);
+
+chart.timeScale().fitContent();
+```
+
+----------------------------------------
+
+TITLE: Initialize Lightweight Chart in a Container
+DESCRIPTION: This snippet demonstrates how to create a new Lightweight Chart instance, attaching it to an HTML element with the ID 'container'. This is the foundational step for rendering any chart using the library.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/tutorials/customization/assets/step1.html#_snippet_2
+
+LANGUAGE: JavaScript
+CODE:
+```
+const chart = LightweightCharts.createChart(
+  document.getElementById('container')
+);
+```
+
+----------------------------------------
+
+TITLE: Install Lightweight Charts via npm
+DESCRIPTION: Instructions to install the Lightweight Charts library using npm, noting TypeScript declaration support and the package's ES2016 target.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/versioned_docs/version-4.0/intro.md#_snippet_0
+
+LANGUAGE: console
+CODE:
+```
+npm install --save lightweight-charts
+```
+
+----------------------------------------
+
+TITLE: Set Data to Series in Lightweight Charts
+DESCRIPTION: Demonstrates how to initialize and set historical data for Area and Candlestick series using `ISeriesApi.setData`. This method replaces all existing data items and is suitable for initial data loading.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/docs/intro.mdx#_snippet_4
+
+LANGUAGE: javascript
+CODE:
+```
+const chartOptions = { layout: { textColor: CHART_TEXT_COLOR, background: { type: 'solid', color: CHART_BACKGROUND_COLOR } } };
+const chart = createChart(document.getElementById('container'), chartOptions);
+const areaSeries = chart.addSeries(AreaSeries, {
+    lineColor: LINE_LINE_COLOR, topColor: AREA_TOP_COLOR,
+    bottomColor: AREA_BOTTOM_COLOR,
+});
+areaSeries.setData([
+    { time: '2018-12-22', value: 32.51 },
+    { time: '2018-12-23', value: 31.11 },
+    { time: '2018-12-24', value: 27.02 },
+    { time: '2018-12-25', value: 27.32 },
+    { time: '2018-12-26', value: 25.17 },
+    { time: '2018-12-27', value: 28.89 },
+    { time: '2018-12-28', value: 25.46 },
+    { time: '2018-12-29', value: 23.92 },
+    { time: '2018-12-30', value: 22.68 },
+    { time: '2018-12-31', value: 22.67 },
+]);
+
+const candlestickSeries = chart.addSeries(CandlestickSeries, {
+    upColor: BAR_UP_COLOR, downColor: BAR_DOWN_COLOR, borderVisible: false,
+    wickUpColor: BAR_UP_COLOR, wickDownColor: BAR_DOWN_COLOR,
+});
+candlestickSeries.setData([
+    { time: '2018-12-22', open: 75.16, high: 82.84, low: 36.16, close: 45.72 },
+    { time: '2018-12-23', open: 45.12, high: 53.90, low: 45.12, close: 48.09 },
+    { time: '2018-12-24', open: 60.71, high: 60.71, low: 53.39, close: 59.29 },
+    { time: '2018-12-25', open: 68.26, high: 68.26, low: 59.04, close: 60.50 },
+    { time: '2018-12-26', open: 67.71, high: 105.85, low: 66.67, close: 91.04 },
+    { time: '2018-12-27', open: 91.04, high: 121.40, low: 82.70, close: 111.40 },
+    { time: '2018-12-28', open: 111.51, high: 142.83, low: 103.34, close: 131.25 },
+    { time: '2018-12-29', open: 131.33, high: 151.17, low: 77.68, close: 96.43 },
+    { time: '2018-12-30', open: 106.33, high: 110.20, low: 90.39, close: 98.10 },
+    { time: '2018-12-31', open: 109.87, high: 114.69, low: 85.66, close: 111.26 },
+]);
+
+chart.timeScale().fitContent();
+```
+
+----------------------------------------
+
+TITLE: Create Standard Time-based Chart (JavaScript)
+DESCRIPTION: Demonstrates how to create a standard time-based chart using `createChart` for general-purpose financial and time series data visualization. This chart type uses time values for the horizontal scale and is ideal for most financial and time series data visualizations.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/versioned_docs/version-5.0/chart-types.mdx#_snippet_0
+
+LANGUAGE: js
+CODE:
+```
+import { createChart } from 'lightweight-charts';
+
+const chart = createChart(document.getElementById('container'), options);
+```
+
+LANGUAGE: js
+CODE:
+```
+const chartOptions = { layout: { textColor: CHART_TEXT_COLOR, background: { type: 'solid', color: CHART_BACKGROUND_COLOR } } };
+const chart = createChart(document.getElementById('container'), chartOptions);
+const areaSeries = chart.addSeries(AreaSeries, { lineColor: LINE_LINE_COLOR, topColor: AREA_TOP_COLOR, bottomColor: AREA_BOTTOM_COLOR });
+
+const data = [{ value: 0, time: 1642425322 }, { value: 8, time: 1642511722 }, { value: 10, time: 1642598122 }, { value: 20, time: 1642684522 }, { value: 3, time: 1642770922 }, { value: 43, time: 1642857322 }, { value: 41, time: 1642943722 }, { value: 43, time: 1643030122 }, { value: 56, time: 1643116522 }, { value: 46, time: 1643202922 }];
+
+areaSeries.setData(data);
+
+chart.timeScale().fitContent();
+```
+
+----------------------------------------
+
+TITLE: Syncing Crosshair Position Across Multiple Charts (JavaScript)
+DESCRIPTION: This example demonstrates how to synchronize the crosshair position between two separate Lightweight Charts™ instances programmatically. This is useful for maintaining a consistent view across linked charts by listening to crosshair move events on one chart and applying the position to another.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/tutorials/how_to/set-crosshair-position.mdx#_snippet_1
+
+LANGUAGE: js
+CODE:
+```
+// Assume chart1 and chart2 are initialized IChartApi instances
+// and series1 and series2 are ISeriesApi instances from chart1 and chart2 respectively.
+
+chart1.subscribeCrosshairMove(param => {
+  if (param.point) {
+    // Get price from the first series on chart1 at the crosshair position
+    const price = param.seriesPrices.get(series1);
+    if (price !== undefined) {
+      // Set crosshair position on chart2 using the point from chart1 and the price from series1
+      chart2.setCrosshairPosition(param.point.x, param.point.y, series2);
+    }
+  } else {
+    chart2.clearCrosshairPosition();
+  }
+});
+
+// Optional: Also sync from chart2 to chart1 if bidirectional sync is needed
+// chart2.subscribeCrosshairMove(param => { /* similar logic */ });
+```
+
+----------------------------------------
+
+TITLE: Import createChart Function from Lightweight Charts
+DESCRIPTION: Imports the `createChart` function from the `lightweight-charts` library. This function is essential for initializing a new chart instance in your JavaScript or TypeScript project.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/docs/intro.mdx#_snippet_1
+
+LANGUAGE: js
+CODE:
+```
+import { createChart } from 'lightweight-charts';
+```
+
+----------------------------------------
+
+TITLE: Update Real-time Data in Chart Series (JavaScript)
+DESCRIPTION: This snippet shows how to update or add new data points to existing Area and Candlestick series using the `ISeriesApi.update` method. This is suitable for real-time data changes and is more performant than `setData` for updates.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/versioned_docs/version-5.0/intro.mdx#_snippet_6
+
+LANGUAGE: js
+CODE:
+```
+import { AreaSeries, CandlestickSeries, createChart } from 'lightweight-charts';
+
+const chart = createChart(container);
+
+const areaSeries = chart.addSeries(AreaSeries);
+areaSeries.setData([
+    // Other data items
+    { time: '2018-12-31', value: 22.67 },
+]);
+
+const candlestickSeries = chart.addSeries(CandlestickSeries);
+candlestickSeries.setData([
+    // Other data items
+    { time: '2018-12-31', open: 109.87, high: 114.69, low: 85.66, close: 111.26 },
+]);
+
+// ...
+
+// Update the most recent bar
+areaSeries.update({ time: '2018-12-31', value: 25 });
+candlestickSeries.update({ time: '2018-12-31', open: 109.87, high: 114.69, low: 85.66, close: 112 });
+
+// Creating the new bar
+areaSeries.update({ time: '2019-01-01', value: 20 });
+candlestickSeries.update({ time: '2019-01-01', open: 112, high: 112, low: 100, close: 101 });
+```
+
+----------------------------------------
+
+TITLE: Importing Lightweight Charts Core Functionality
+DESCRIPTION: Illustrates how to obtain the `createChart` function from the Lightweight Charts library, showing both the ES module import method (for npm installations) and the global variable access method (for standalone script usage).
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/tutorials/webcomponents/01-custom-element.mdx#_snippet_13
+
+LANGUAGE: javascript
+CODE:
+```
+// if using esm version (installed via npm):
+// import { createChart } from 'lightweight-charts';
+
+// If using standalone version (loaded via a script tag):
+const { createChart } = LightweightCharts;
+```
+
+----------------------------------------
+
+TITLE: API Reference: createChart Function
+DESCRIPTION: Reference for the `createChart` function, used to instantiate a standard time-based chart. It typically takes a DOM element as the container and an optional configuration object.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/docs/chart-types.mdx#_snippet_2
+
+LANGUAGE: APIDOC
+CODE:
+```
+function createChart(container: HTMLElement, options?: ChartOptions): IChartApi
+```
+
+----------------------------------------
+
+TITLE: Create Lightweight Charts Instance
+DESCRIPTION: This JavaScript snippet initializes a Lightweight Charts instance by calling the createChart method on the global LightweightCharts variable. It requires an HTML div element as the first parameter to serve as the chart's container, returning an IChartApi instance for further interaction.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/tutorials/customization/creating-a-chart.mdx#_snippet_1
+
+LANGUAGE: js
+CODE:
+```
+// Create the Lightweight Chart within the container element
+const chart = LightweightCharts.createChart(
+    document.getElementById('container')
+);
+```
+
+----------------------------------------
+
+TITLE: APIDOC: createChart Function Reference
+DESCRIPTION: Documentation for the `createChart` function, the primary entry point for initializing new chart instances. It takes an HTML element as input and returns an `IChartApi` object.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/versioned_docs/version-4.1/intro.md#_snippet_4
+
+LANGUAGE: APIDOC
+CODE:
+```
+createChart(container: HTMLElement): IChartApi
+  container: The DOM element where the chart will be rendered.
+```
+
+----------------------------------------
+
+TITLE: Implement Chart Accessibility (JavaScript)
+DESCRIPTION: This comprehensive function enhances chart accessibility by making the chart container focusable, adding ARIA attributes, and implementing keyboard navigation (left/right for scrolling, up/down for zooming, 'h' for help, space for description). It uses a hidden template for helper content and provides dynamic alerts for screen readers.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/tutorials/a11y/assets/a11y-chart.html#_snippet_8
+
+LANGUAGE: JavaScript
+CODE:
+```
+function makeA11y(chart, series) {
+  const containerEl = chart.chartElement().parentElement;
+  if (!containerEl) return;
+
+  // make focusable
+  containerEl.tabIndex = 0;
+  containerEl.style.position = 'relative';
+  containerEl.ariaLabel = 'Line plot of Accessibility stock price. Press the H key to display the available interaction keys.';
+  chart.chartElement().ariaHidden = 'true';
+
+  const templateElement = document.getElementById('a11y-helpers');
+  const clone = templateElement.content.cloneNode(true);
+  containerEl.appendChild(clone);
+
+  const alerter = containerEl.querySelector('[role="alert"]');
+  const tooltip = containerEl.querySelector('.tooltip');
+  let tooltipDetailedVisible = false;
+
+  function shiftChart(diff) {
+    const currentPos = chart.timeScale().scrollPosition();
+    chart.timeScale().scrollToPosition(currentPos + diff, false);
+  }
+
+  function scaleChart(pct, zoomIn) {
+    const currentRange = chart.timeScale().getVisibleLogicalRange();
+    if (currentRange) {
+      const bars = currentRange.to - currentRange.from;
+      const direction = zoomIn ? -1 : 1;
+      const newRangeBars = bars * pct * direction + bars;
+      chart.timeScale().setVisibleLogicalRange({
+        to: currentRange.to,
+        from: currentRange.to - newRangeBars,
+      });
+    }
+  }
+
+  function setTooltipContentFromTemplate(id) {
+    const tooltipContent = document
+      .querySelector(id)
+      .content.cloneNode(true);
+    tooltip.innerHTML = '';
+    tooltip.appendChild(tooltipContent);
+  }
+
+  containerEl.addEventListener('focusin', () => {
+    tooltipDetailedVisible = false;
+    setTooltipContentFromTemplate('#status-tooltip-content');
+    tooltip.style.opacity = '1';
+  });
+
+  containerEl.addEventListener('focusout', () => {
+    tooltip.innerHTML = '';
+    tooltip.style.opacity = '0';
+  });
+
+  containerEl.addEventListener('keydown', e => {
+    const keys = [
+      'h',
+      'ArrowLeft',
+      'ArrowRight',
+      'ArrowUp',
+      'ArrowDown',
+      ' ',
+    ];
+    if (keys.includes(e.key)) {
+      e.preventDefault();
+    }
+
+    switch (e.key) {
+      case 'h':
+        alerter.innerText = `Press space to describe the chart. Press left arrow to move backwards. Press right arrow to move forwards. Press up arrow to zoom in. Press down arrow to zoom out. `;
+        tooltipDetailedVisible = !tooltipDetailedVisible;
+        if (tooltipDetailedVisible) {
+          setTooltipContentFromTemplate(
+            '#status-tooltip-expanded-content'
+          );
+        } else {
+          setTooltipContentFromTemplate('#status-tooltip-content');
+        }
+        break;
+      case 'ArrowLeft':
+        shiftChart(-10);
+        break;
+      case 'ArrowRight':
+        shiftChart(10);
+        break;
+      case 'ArrowUp':
+        scaleChart(1 / 8, true);
+        break;
+      case 'ArrowDown':
+        scaleChart(1 / 8, false);
+        break;
+      case ' ':
+        const data = getVisibleSeriesData(chart, mainSeries);
+        alerter.innerText = describeFinanceChart(data);
+        break;
+      default:
+        break;
+    }
+  });
+}
+
+makeA11y(chart, mainSeries);
+```
+
+----------------------------------------
+
+TITLE: Add Various Series Types to a Chart
+DESCRIPTION: Shows how to add different types of data series (e.g., Area, Bar, Baseline) to a chart using the `addSeries` method of the `IChartApi` object. Note that a series cannot be changed to a different type after creation.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/versioned_docs/version-5.0/intro.mdx#_snippet_3
+
+LANGUAGE: js
+CODE:
+```
+import { AreaSeries, BarSeries, BaselineSeries, createChart } from 'lightweight-charts';
+
+const chart = createChart(container);
+
+const areaSeries = chart.addSeries(AreaSeries);
+const barSeries = chart.addSeries(BarSeries);
+const baselineSeries = chart.addSeries(BaselineSeries);
+// ...
+```
+
+----------------------------------------
+
+TITLE: Initialize Lightweight Chart with Basic Layout
+DESCRIPTION: Initializes a new Lightweight Chart instance within a specified HTML container. Configures the chart's layout, including background and text colors, and grid line colors for both vertical and horizontal axes.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/tutorials/customization/assets/step7.html#_snippet_3
+
+LANGUAGE: JavaScript
+CODE:
+```
+const chart = LightweightCharts.createChart(
+    document.getElementById('container'),
+    {
+        layout: {
+            background: { color: "#222" },
+            textColor: "#C3BCDB"
+        },
+        grid: {
+            vertLines: { color: "#444" },
+            horzLines: { color: "#444" }
+        }
+    }
+);
+```
+
+----------------------------------------
+
+TITLE: Localize Price Formatting with Intl.NumberFormat
+DESCRIPTION: This snippet shows how to use the browser's `Intl.NumberFormat` API to create a custom price formatter. It detects the user's primary locale and formats prices as currency (EUR in this example), then applies this formatter to the chart's localization options.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/tutorials/customization/assets/step4.html#_snippet_5
+
+LANGUAGE: JavaScript
+CODE:
+```
+const currentLocale = window.navigator.languages[0];
+const myPriceFormatter = Intl.NumberFormat(currentLocale, {
+    style: "currency",
+    currency: "EUR"
+}).format;
+
+chart.applyOptions({
+    localization: {
+        priceFormatter: myPriceFormatter
+    }
+});
+```
+
+----------------------------------------
+
+TITLE: Add and Configure Line Series in Lightweight Charts
+DESCRIPTION: This snippet illustrates how to initialize a chart and add a LineSeries. It sets up the chart with layout options and then populates the line series with sample data points, finally adjusting the time scale to fit the displayed content.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/versioned_docs/version-5.0/series-types.mdx#_snippet_6
+
+LANGUAGE: js
+CODE:
+```
+const chartOptions = { layout: { textColor: CHART_TEXT_COLOR, background: { type: 'solid', color: CHART_BACKGROUND_COLOR } } };
+const chart = createChart(document.getElementById('container'), chartOptions);
+const lineSeries = chart.addSeries(LineSeries, { color: LINE_LINE_COLOR });
+
+const data = [{ value: 0, time: 1642425322 }, { value: 8, time: 1642511722 }, { value: 10, time: 1642598122 }, { value: 20, time: 1642684522 }, { value: 3, time: 1642770922 }, { value: 43, time: 1642857322 }, { value: 41, time: 1642943722 }, { value: 43, time: 1643030122 }, { value: 56, time: 1643116522 }, { value: 46, time: 1643202922 }];
+
+lineSeries.setData(data);
+
+chart.timeScale().fitContent();
+```
+
+----------------------------------------
+
+TITLE: React Component Skeleton for Advanced Chart Integration
+DESCRIPTION: This JavaScript code provides an initial skeleton for a React component designed for advanced integration with Lightweight Charts. It imports essential React Hooks like `useEffect`, `useImperativeHandle`, `useRef`, `createContext`, and `forwardRef`, and sets up a `Context` for prop propagation, laying the groundwork for a robust component hierarchy.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/tutorials/react/02-advanced.mdx#_snippet_1
+
+LANGUAGE: javascript
+CODE:
+```
+import React, { useEffect, useImperativeHandle, useRef, createContext, forwardRef } from 'react';
+
+const Context = createContext();
+
+export const MainComponent = props =>
+```
+
+----------------------------------------
+
+TITLE: Install Lightweight Charts via npm
+DESCRIPTION: Instructions to install the lightweight-charts library using npm. The package includes TypeScript declarations for easy integration with TypeScript projects.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/versioned_docs/version-4.1/intro.md#_snippet_0
+
+LANGUAGE: console
+CODE:
+```
+npm install --save lightweight-charts
+```
+
+----------------------------------------
+
+TITLE: ISeriesApi interface API reference
+DESCRIPTION: The `ISeriesApi` interface represents a data series on a chart. It is used to set and update data for a specific series type. Note that a series cannot be converted between different types.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/versioned_docs/version-4.0/intro.md#_snippet_6
+
+LANGUAGE: APIDOC
+CODE:
+```
+interface ISeriesApi {
+  // Methods for setting and updating data
+  setData(data: SeriesDataItemType[]): void;
+  update(data: SeriesDataItemType): void;
+  // ... other series-specific methods
+}
+```
+
+----------------------------------------
+
+TITLE: Generate Bar/Candlestick Chart Data in JavaScript
+DESCRIPTION: This function generates OHLC (Open, High, Low, Close) data points, suitable for bar or candlestick charts. It creates a specified number of data points, starting from a given day, with 'time' (Unix timestamp), 'open', 'high', 'low', and 'close' values. The values are calculated to simulate price fluctuations over time.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/tests/e2e/coverage/helpers/test-page-dummy.html#_snippet_2
+
+LANGUAGE: javascript
+CODE:
+```
+function generateBars(count = 500, startDay = 15) {
+  const res = [];
+  const time = new Date(Date.UTC(2018, 0, startDay, 0, 0, 0, 0));
+  for (let i = 0; i < count; ++i) {
+    const step = (i % 20) / 5000;
+    const base = i / 5;
+    res.push({
+      time: time.getTime() / 1000,
+      open: base * (1 - step),
+      high: base * (1 + 2 * step),
+      low: base * (1 - 2 * step),
+      close: base * (1 + step)
+    });
+    time.setUTCDate(time.getUTCDate() + 1);
+  }
+  return res;
+}
+```
+
+----------------------------------------
+
+TITLE: Update Real-time Data for Area and Candlestick Series in Lightweight Charts (JavaScript)
+DESCRIPTION: This snippet demonstrates how to efficiently update the latest data item or add a new one to an existing series using the `ISeriesApi.update` method. This approach is recommended for real-time updates to maintain performance, unlike `setData` which replaces all data. It shows examples of updating the last bar and creating a new one for both area and candlestick series.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/versioned_docs/version-4.2/intro.md#_snippet_5
+
+LANGUAGE: JavaScript
+CODE:
+```
+import { createChart } from 'lightweight-charts';
+
+const chart = createChart(container);
+
+const areaSeries = chart.addAreaSeries();
+areaSeries.setData([
+    // ... other data items
+    { time: '2018-12-31', value: 22.67 },
+]);
+
+const candlestickSeries = chart.addCandlestickSeries();
+candlestickSeries.setData([
+    // ... other data items
+    { time: '2018-12-31', open: 109.87, high: 114.69, low: 85.66, close: 111.26 },
+]);
+
+// sometime later
+
+// update the most recent bar
+areaSeries.update({ time: '2018-12-31', value: 25 });
+candlestickSeries.update({ time: '2018-12-31', open: 109.87, high: 114.69, low: 85.66, close: 112 });
+
+// creating the new bar
+areaSeries.update({ time: '2019-01-01', value: 20 });
+candlestickSeries.update({ time: '2019-01-01', open: 112, high: 112, low: 100, close: 101 });
+```
+
+----------------------------------------
+
+TITLE: Import createChart function
+DESCRIPTION: This JavaScript import statement brings the `createChart` function into scope, which is the primary entry point for initializing new chart instances from the `lightweight-charts` library.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/versioned_docs/version-3.8/intro.md#_snippet_1
+
+LANGUAGE: js
+CODE:
+```
+import { createChart } from 'lightweight-charts';
+```
+
+----------------------------------------
+
+TITLE: Set Initial Data for Area and Candlestick Series in Lightweight Charts (JavaScript)
+DESCRIPTION: This snippet demonstrates how to initialize or completely replace all data items for an area series and a candlestick series using the `ISeriesApi.setData` method. It sets up a chart with custom layout options and then populates two different series types with historical data.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/versioned_docs/version-4.2/intro.md#_snippet_4
+
+LANGUAGE: JavaScript
+CODE:
+```
+const chartOptions = { layout: { textColor: CHART_TEXT_COLOR, background: { type: 'solid', color: CHART_BACKGROUND_COLOR } } };
+const chart = createChart(document.getElementById('container'), chartOptions);
+const areaSeries = chart.addAreaSeries({
+    lineColor: LINE_LINE_COLOR, topColor: AREA_TOP_COLOR,
+    bottomColor: AREA_BOTTOM_COLOR,
+});
+areaSeries.setData([
+    { time: '2018-12-22', value: 32.51 },
+    { time: '2018-12-23', value: 31.11 },
+    { time: '2018-12-24', value: 27.02 },
+    { time: '2018-12-25', value: 27.32 },
+    { time: '2018-12-26', value: 25.17 },
+    { time: '2018-12-27', value: 28.89 },
+    { time: '2018-12-28', value: 25.46 },
+    { time: '2018-12-29', value: 23.92 },
+    { time: '2018-12-30', value: 22.68 },
+    { time: '2018-12-31', value: 22.67 },
+]);
+
+const candlestickSeries = chart.addCandlestickSeries({
+    upColor: BAR_UP_COLOR, downColor: BAR_DOWN_COLOR, borderVisible: false,
+    wickUpColor: BAR_UP_COLOR, wickDownColor: BAR_DOWN_COLOR,
+});
+candlestickSeries.setData([
+    { time: '2018-12-22', open: 75.16, high: 82.84, low: 36.16, close: 45.72 },
+    { time: '2018-12-23', open: 45.12, high: 53.90, low: 45.12, close: 48.09 },
+    { time: '2018-12-24', open: 60.71, high: 60.71, low: 53.39, close: 59.29 },
+    { time: '2018-12-25', open: 68.26, high: 68.26, low: 59.04, close: 60.50 },
+    { time: '2018-12-26', open: 67.71, high: 105.85, low: 66.67, close: 91.04 },
+    { time: '2018-12-27', open: 91.04, high: 121.40, low: 82.70, close: 111.40 },
+    { time: '2018-12-28', open: 111.51, high: 142.83, low: 103.34, close: 131.25 },
+    { time: '2018-12-29', open: 131.33, high: 151.17, low: 77.68, close: 96.43 },
+    { time: '2018-12-30', open: 106.33, high: 110.20, low: 90.39, close: 98.10 },
+    { time: '2018-12-31', open: 109.87, high: 114.69, low: 85.66, close: 111.26 },
+]);
+
+chart.timeScale().fitContent();
+```
+
+----------------------------------------
+
+TITLE: Create and Manage Lightweight Charts Instance in Vue.js
+DESCRIPTION: This snippet demonstrates how to initialize a Lightweight Charts instance within a Vue.js component using the `onMounted` lifecycle hook. It also shows how to properly clean up the chart instance using `onUnmounted` to prevent memory leaks, referencing a `div` element with `ref`.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/tutorials/vuejs/01-wrapper.mdx#_snippet_1
+
+LANGUAGE: html
+CODE:
+```
+<script setup>
+    import { onMounted, ref } from 'vue';
+    import { createChart } from 'lightweight-charts';
+
+    let chart;
+    const chartContainer = ref();
+
+    onMounted(() => {
+        // Create the Lightweight Charts Instance using the container ref.
+        chart = createChart(chartContainer.value);
+    });
+
+    onUnmounted(() => {
+        if (chart) {
+            chart.remove();
+            chart = null;
+        }
+    });
+</script>
+<template>
+    <div class="lw-chart" ref="chartContainer"></div>
+</template>
+<style scoped>
+    .lw-chart {
+        height: 100%;
+    }
+</style>
+```
+
+----------------------------------------
+
+TITLE: Lightweight Charts Core API Reference
+DESCRIPTION: API documentation for key functions and interfaces in Lightweight Charts, including chart creation and series management.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/versioned_docs/version-5.0/intro.mdx#_snippet_4
+
+LANGUAGE: APIDOC
+CODE:
+```
+function createChart(container: HTMLElement): IChartApi
+  container: HTMLElement - The DOM element where the chart will be rendered.
+  Returns: IChartApi - An object for interacting with the created chart.
+
+interface IChartApi
+  addSeries(seriesType: SeriesType): ISeriesApi
+    seriesType: SeriesType - The type of series to create.
+      Supported Series Types: Area, Bar, Baseline, Candlestick, Histogram, Line.
+    Returns: ISeriesApi - An object for managing the created series.
+```
+
+----------------------------------------
+
+TITLE: React Component Structure for Charting Integration
+DESCRIPTION: Illustrates a common React pattern for building reusable chart and series components. It utilizes `forwardRef` to allow parent components to access internal methods, `useRef` for mutable references to internal objects (like chart instances or series), `useEffect` for lifecycle management (creation and cleanup), and `useImperativeHandle` to expose specific internal methods to the ref object passed from the parent.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/tutorials/react/02-advanced.mdx#_snippet_2
+
+LANGUAGE: jsx
+CODE:
+```
+// Creates the first reference and instanciate a ParentComponent
+(
+    <div ref={chartReference}>
+        <ParentComponent {...props} container={container} />
+    </div>
+);
+
+export const ParentComponent = forwardRef((props, ref) => {
+    const internalRef = useRef({
+        method1() {
+            // This function would be responsible for creating the chart for instance
+        },
+        methodn() {
+            // This function would be responsible for cleaning up the chart
+        }
+    });
+
+    // this effect will be triggered in position 3
+    useEffect(() =>
+        () => {
+            // this clean up will be triggered in position 1
+        }
+    , []);
+
+    // this effect will be triggered in position 4
+    useEffect(() =>
+        () => {
+            // this clean up will be triggered in position 2
+        }
+    , []);
+
+    useImperativeHandle(ref, () => {
+        // That's the hook responsible for exposing part of/entirety of internalRef
+    }, []);
+
+    // Following bit is to propagate all props & internalRef object down to children
+    return (
+        <Context.Provider value={internalRef.current}>
+            {props.children}
+        </Context.Provider>
+    );
+});
+ParentComponent.displayName = 'ParentComponent';
+
+export const ChildComponent = forwardRef((props, ref) => {
+    const internalRef = useRef({
+        method1() {
+            // This function would be responsible for creating a series
+        },
+        methodn() {
+            // This function would be responsible for removing it
+        }
+    });
+
+    // this effect will be triggered in position 1
+    useEffect(() =>
+        () => {
+            // this clean up will be triggered in position 3
+        }
+    , []);
+
+    // this effect will be triggered in position 2
+    useEffect(() =>
+        () => {
+            // this clean up will be triggered in position 4
+        }
+    , []);
+
+    useImperativeHandle(ref, () => {
+        // That's the hook responsible for exposing part of/entirety of internalRef
+    }, []);
+
+    // Following bit is to propagate all props & internalRef object down to children
+    return (
+        <Context.Provider value={internalRef.current}>
+            {props.children}
+        </Context.Provider>
+    );
+});
+ChildComponent.displayName = 'ChildComponent';
+```
+
+----------------------------------------
+
+TITLE: Create and Display a Basic Line Chart in JavaScript
+DESCRIPTION: This JavaScript snippet demonstrates how to initialize a Lightweight Charts instance, add a line series, populate it with sample data, and fit the chart content to the view.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/versioned_docs/version-3.8/series-types.md#_snippet_10
+
+LANGUAGE: javascript
+CODE:
+```
+const chartOptions = { layout: { textColor: CHART_TEXT_COLOR, background: { type: 'solid', color: CHART_BACKGROUND_COLOR } } };
+const chart = createChart(document.getElementById('container'), chartOptions);
+const lineSeries = chart.addLineSeries({ color: LINE_LINE_COLOR });
+
+const data = [{ value: 0, time: 1642425322 }, { value: 8, time: 1642511722 }, { value: 10, time: 1642598122 }, { value: 20, time: 1642684522 }, { value: 3, time: 1642770922 }, { value: 43, time: 1642857322 }, { value: 41, time: 1642943722 }, { value: 43, time: 1643030122 }, { value: 56, time: 1643116522 }, { value: 46, time: 1643202922 }];
+
+lineSeries.setData(data);
+
+chart.timeScale().fitContent();
+```
+
+----------------------------------------
+
+TITLE: Create and Configure Candlestick Chart Series
+DESCRIPTION: A candlestick series in Lightweight Charts visualizes price movements using candlesticks, where open/close values form the body and high/low values form the wicks. This snippet illustrates how to add a candlestick series to a chart, customize its colors, and set sample OHLC data using JavaScript.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/versioned_docs/version-3.8/series-types.md#_snippet_7
+
+LANGUAGE: APIDOC
+CODE:
+```
+IChartApi.addCandlestickSeries
+Data Format: CandlestickData | WhitespaceData
+Style Options: SeriesOptionsCommon & CandlestickStyleOptions
+Description: A candlestick chart shows price movements in the form of candlesticks. On the candlestick chart, open & close values form a solid body of a candle while wicks show high & low values for a candlestick's time interval.
+```
+
+LANGUAGE: javascript
+CODE:
+```
+const chartOptions = { layout: { textColor: CHART_TEXT_COLOR, background: { type: 'solid', color: CHART_BACKGROUND_COLOR } } };
+const chart = createChart(document.getElementById('container'), chartOptions);
+const candlestickSeries = chart.addCandlestickSeries({ upColor: BAR_UP_COLOR, downColor: BAR_DOWN_COLOR, borderVisible: false, wickUpColor: BAR_UP_COLOR, wickDownColor: BAR_DOWN_COLOR });
+
+const data = [{ open: 10, high: 10.63, low: 9.49, close: 9.55, time: 1642427876 }, { open: 9.55, high: 10.30, low: 9.42, close: 9.94, time: 1642514276 }, { open: 9.94, high: 10.17, low: 9.92, close: 9.78, time: 1642600676 }, { open: 9.78, high: 10.59, low: 9.18, close: 9.51, time: 1642687076 }, { open: 9.51, high: 10.46, low: 9.10, close: 10.17, time: 1642773476 }, { open: 10.17, high: 10.96, low: 10.16, close: 10.47, time: 1642859876 }, { open: 10.47, high: 11.39, low: 10.40, close: 10.81, time: 1642946276 }, { open: 10.81, high: 11.60, low: 10.30, close: 10.75, time: 1643032676 }, { open: 10.75, high: 11.60, low: 10.49, close: 10.93, time: 1643119076 }, { open: 10.93, high: 11.53, low: 10.76, close: 10.96, time: 1643205476 }];
+
+candlestickSeries.setData(data);
+
+chart.timeScale().fitContent();
+```
+
+----------------------------------------
+
+TITLE: Import createChart function in JavaScript
+DESCRIPTION: Demonstrates how to import the `createChart` function from the `lightweight-charts` library. This function serves as the primary entry point for initializing new chart instances.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/versioned_docs/version-4.1/intro.md#_snippet_1
+
+LANGUAGE: js
+CODE:
+```
+import { createChart } from 'lightweight-charts';
+```
+
+----------------------------------------
+
+TITLE: Create and Configure a Candlestick Chart with Lightweight Charts
+DESCRIPTION: This snippet demonstrates the full process of initializing a Lightweight Chart, applying custom styling, generating sample candlestick data, adding a candlestick series, setting the data, and making the chart responsive to window resizing. It provides a complete, runnable example for displaying financial data.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/tutorials/customization/assets/step2.html#_snippet_2
+
+LANGUAGE: JavaScript
+CODE:
+```
+function generateCandlestickData() {
+    return [
+        { time: "2019-04-16", open: 205.25, high: 205.99, low: 204.29, close: 204.47 },
+        { time: "2019-04-17", open: 205.34, high: 206.84, low: 205.32, close: 206.55 },
+        { time: "2019-04-18", open: 206.02, high: 207.78, low: 205.1, close: 205.66 },
+        { time: "2019-04-22", open: 204.11, high: 206.25, low: 204.0, close: 204.78 },
+        { time: "2019-04-23", open: 205.14, high: 207.33, low: 203.43, close: 206.05 },
+        { time: "2019-04-24", open: 206.16, high: 208.29, low: 205.54, close: 206.72 },
+        { time: "2019-04-25", open: 206.01, high: 207.72, low: 205.06, close: 206.5 },
+        { time: "2019-04-26", open: 205.88, high: 206.14, low: 203.34, close: 203.61 },
+        { time: "2019-04-29", open: 203.31, high: 203.8, low: 200.34, close: 202.16 },
+        { time: "2019-04-30", open: 201.55, high: 203.75, low: 200.79, close: 203.7 },
+        { time: "2019-05-01", open: 203.2, high: 203.52, low: 198.66, close: 198.8 },
+        { time: "2019-05-02", open: 199.3, high: 201.06, low: 198.8, close: 201.01 },
+        { time: "2019-05-03", open: 202.0, high: 202.31, low: 200.32, close: 200.56 },
+        { time: "2019-05-06", open: 198.74, high: 199.93, low: 198.31, close: 199.63 },
+        { time: "2019-05-07", open: 196.75, high: 197.65, low: 192.96, close: 194.77 },
+        { time: "2019-05-08", open: 194.49, high: 196.61, low: 193.68, close: 195.17 },
+        { time: "2019-05-09", open: 193.31, high: 195.08, low: 191.59, close: 194.58 },
+        { time: "2019-05-10", open: 193.21, high: 195.49, low: 190.01, close: 194.58 },
+        { time: "2019-05-13", open: 191.0, high: 191.66, low: 189.14, close: 190.34 },
+        { time: "2019-05-14", open: 190.5, high: 192.76, low: 190.01, close: 191.62 },
+        { time: "2019-05-15", open: 190.81, high: 192.81, low: 190.27, close: 191.76 },
+        { time: "2019-05-16", open: 192.47, high: 194.96, low: 192.2, close: 192.38 },
+        { time: "2019-05-17", open: 190.86, high: 194.5, low: 190.75, close: 192.58 },
+        { time: "2019-05-20", open: 191.13, high: 192.86, low: 190.61, close: 190.95 },
+        { time: "2019-05-21", open: 187.13, high: 192.52, low: 186.34, close: 191.45 },
+        { time: "2019-05-22", open: 190.49, high: 192.22, low: 188.05, close: 188.91 },
+        { time: "2019-05-23", open: 188.45, high: 192.54, low: 186.27, close: 192.0 },
+        { time: "2019-05-24", open: 192.54, high: 193.86, low: 190.41, close: 193.59 }
+    ];
+}
+
+// Create the Lightweight Chart within the container element
+const chart = LightweightCharts.createChart(
+    document.getElementById('container'),
+    {
+        layout: {
+            background: { color: "#222" },
+            textColor: "#C3BCDB"
+        },
+        grid: {
+            vertLines: { color: "#444" },
+            horzLines: { color: "#444" }
+        }
+    }
+);
+
+// Setting the border color for the vertical axis
+chart.priceScale().applyOptions({ borderColor: "#71649C" });
+
+// Setting the border color for the horizontal axis
+chart.timeScale().applyOptions({ borderColor: "#71649C" });
+
+// Generate sample data to use within a candlestick series
+const candleStickData = generateCandlestickData();
+
+// Create the Main Series (Candlesticks)
+const mainSeries = chart.addSeries(LightweightCharts.CandlestickSeries);
+
+// Set the data for the Main Series
+mainSeries.setData(candleStickData);
+
+// Adding a window resize event handler to resize the chart when
+// the window size changes.
+// Note: for more advanced examples (when the chart doesn't fill the entire window)
+// you may need to use ResizeObserver -> https://developer.mozilla.org/en-US/docs/Web/API/ResizeObserver
+window.addEventListener("resize", () => {
+    chart.resize(window.innerWidth, window.innerHeight);
+});
+```
+
+----------------------------------------
+
+TITLE: ICustomSeriesPaneView.destroy Method
+DESCRIPTION: This method is part of the `ICustomSeriesPaneView` interface and is automatically invoked when the associated series is removed from the chart. Its primary purpose is to facilitate the cleanup of any allocated resources, such as event listeners, timers, object references, and modified properties, to prevent memory leaks and ensure proper deallocation of the object before it is removed from memory.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/versioned_docs/version-4.2/plugins/custom_series.md#_snippet_1
+
+LANGUAGE: APIDOC
+CODE:
+```
+ICustomSeriesPaneView:
+  destroy(): void
+    Description: This method is evoked when the series has been removed from the chart. It should be used to clean up any objects, references, and other items that could potentially cause memory leaks. This includes removing any event listeners or timers that are attached to the object, removing any references to other objects, and resetting any values or properties that were modified during the lifetime of the object.
+```
+
+----------------------------------------
+
+TITLE: Adding a Custom Series to a Chart in JavaScript
+DESCRIPTION: This snippet demonstrates how to add a custom series to a chart using the `addCustomSeries` method. It involves creating an instance of a class that implements the `ICustomSeriesPaneView` interface, then adding it to the chart and providing data using the `setData` method. Custom series are designed to have a uniform width for each data point and must extend the `WhitespaceData` interface.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/versioned_docs/version-5.0/plugins/intro.md#_snippet_0
+
+LANGUAGE: javascript
+CODE:
+```
+class MyCustomSeries {
+    /* Class implementing the ICustomSeriesPaneView interface */
+}
+
+// Create an instantiated custom series.
+const customSeriesInstance = new MyCustomSeries();
+
+const chart = createChart(document.getElementById('container'));
+const myCustomSeries = chart.addCustomSeries(customSeriesInstance, {
+    // options for the MyCustomSeries
+    customOption: 10,
+});
+
+const data = [
+    { time: 1642425322, value: 123, customValue: 456 },
+    /* ... more data */
+];
+
+myCustomSeries.setData(data);
+```
+
+----------------------------------------
+
+TITLE: Configure Lightweight Charts layout and localization options in Kotlin
+DESCRIPTION: Apply custom layout options such as background color and text color, and set localization preferences including locale, price formatter, and time formatter for the chart using the `applyOptions` method.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/versioned_docs/version-5.0/android.md#_snippet_3
+
+LANGUAGE: Kotlin
+CODE:
+```
+charts_view.api.applyOptions {
+    layout = layoutOptions {
+        background = SolidColor(Color.LTGRAY)
+        textColor = Color.BLACK.toIntColor()
+    }
+    localization = localizationOptions {
+        locale = "ru-RU"
+        priceFormatter = PriceFormatter(template = "{price:#2:#3}$")
+        timeFormatter = TimeFormatter(
+            locale = "ru-RU",
+            dateTimeFormat = DateTimeFormat.DATE_TIME
+        )
+    }
+}
+```
+
+----------------------------------------
+
+TITLE: Switching Chart Range with JavaScript
+DESCRIPTION: This snippet demonstrates how to implement a range switcher for Lightweight Charts. It allows users to dynamically change the displayed data series based on predefined time intervals (e.g., daily, weekly, monthly, yearly) by calling a `setChartInterval` function. The example includes chart initialization, data preparation for different intervals, and button creation to trigger data updates.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/tutorials/demos/range-switcher.mdx#_snippet_0
+
+LANGUAGE: javascript
+CODE:
+```
+// Assume 'chart' and 'series' are initialized Lightweight Charts objects
+// and 'dataSets' is an object containing data for different intervals.
+
+// Example data structure (simplified)
+const dataSets = {
+  '1D': [/* daily data */],
+  '1W': [/* weekly data */],
+  '1M': [/* monthly data */],
+  '1Y': [/* yearly data */]
+};
+
+// Initialize chart (placeholder - replace with actual chart creation)
+const chart = LightweightCharts.createChart(document.getElementById('chart-container'), {
+  width: 600,
+  height: 300
+});
+const series = chart.addCandlestickSeries();
+
+// Set initial data (e.g., daily)
+series.setData(dataSets['1D']);
+
+// Function to switch chart interval
+function setChartInterval(interval) {
+  if (dataSets[interval]) {
+    series.setData(dataSets[interval]);
+    chart.timeScale().fitContent(); // Adjust view to new data
+    console.log(`Switched to ${interval} data.`);
+  } else {
+    console.warn(`No data found for interval: ${interval}`);
+  }
+}
+
+// Create buttons (example - replace with actual button creation and event listeners)
+const intervals = ['1D', '1W', '1M', '1Y'];
+const buttonContainer = document.getElementById('interval-buttons'); // Assumes an HTML element exists
+
+intervals.forEach(interval => {
+  const button = document.createElement('button');
+  button.textContent = interval;
+  button.onclick = () => setChartInterval(interval);
+  buttonContainer.appendChild(button);
+});
+
+// Implied HTML structure:
+// <div id="chart-container"></div>
+// <div id="interval-buttons"></div>
+```
+
+----------------------------------------
+
+TITLE: IChartApi interface API reference
+DESCRIPTION: The `IChartApi` interface represents a chart instance, providing methods to add different types of data series. It is the primary object for chart manipulation.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/versioned_docs/version-4.0/intro.md#_snippet_5
+
+LANGUAGE: APIDOC
+CODE:
+```
+interface IChartApi {
+  addAreaSeries(options?: AreaSeriesOptions): ISeriesApi;
+  addBarSeries(options?: BarSeriesOptions): ISeriesApi;
+  addBaselineSeries(options?: BaselineSeriesOptions): ISeriesApi;
+  addCandlestickSeries(options?: CandlestickSeriesOptions): ISeriesApi;
+  addHistogramSeries(options?: HistogramSeriesOptions): ISeriesApi;
+  addLineSeries(options?: LineSeriesOptions): ISeriesApi;
+  // ... other chart interaction methods
+}
+```
+
+----------------------------------------
+
+TITLE: Complete HTML Example with Lightweight Charts Custom Element
+DESCRIPTION: A comprehensive HTML document demonstrating the integration of the Lightweight Charts standalone library and its custom element. This example includes meta tags, title, script loading, basic CSS for chart sizing, and the `lightweight-chart` custom element with attributes for autosizing, type, series options, and initial data.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/tutorials/webcomponents/01-custom-element.mdx#_snippet_15
+
+LANGUAGE: html
+CODE:
+```
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8" />
+        <meta
+            name="viewport"
+            content="width=device-width,initial-scale=1.0,maximum-scale=1.0,minimum-scale=1.0"
+        />
+        <title>Web component Example</title>
+        <script
+            type="text/javascript"
+            src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.development.js"
+        ></script>
+        <style>
+            #my-chart {
+                height: 100vh;
+                width: 100vw;
+            }
+        </style>
+    </head>
+
+    <body style="padding: 0; margin: 0">
+        <lightweight-chart
+            id="my-chart"
+            autosize
+            type="line"
+            series-options='{"color": "red"}'
+            data='[{ "time": "2018-10-19", "value": 52.89 },{ "time": "2018-10-22", "value": 51.65 }]'
+        ></lightweight-chart>
+
+        <script src="lw-chart.js" defer></script>
+    </body>
+</html>
+```
+
+----------------------------------------
+
+TITLE: Migrating Time Scale API in Lightweight Charts v3
+DESCRIPTION: In Lightweight Charts v3, methods for subscribing and unsubscribing from visible time range events have been moved from the chart object directly to the ITimeScaleApi interface. This change enhances API consistency. Users should update their code to call these methods via `chart.timeScale()`.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/versioned_docs/version-4.0/migrations/from-v2-to-v3.md#_snippet_0
+
+LANGUAGE: javascript
+CODE:
+```
+// Old API usage:
+chart.subscribeVisibleTimeRangeChange(func);
+chart.unsubscribeVisibleTimeRangeChange(func);
+
+// New API usage (v3.0):
+chart.timeScale().subscribeVisibleTimeRangeChange(func);
+chart.timeScale().unsubscribeVisibleTimeRangeChange(func);
+```
+
+LANGUAGE: APIDOC
+CODE:
+```
+ITimeScaleApi:
+  subscribeVisibleTimeRangeChange(handler: TimeRangeChangeEventHandler): void
+  unsubscribeVisibleTimeRangeChange(handler: TimeRangeChangeEventHandler): void
+  subscribeVisibleLogicalRangeChange(handler: LogicalRangeChangeEventHandler): void
+  unsubscribeVisibleLogicalRangeChange(handler: LogicalRangeChangeEventHandler): void
+```
+
+----------------------------------------
+
+TITLE: Set Initial Data for Area and Candlestick Series in JavaScript
+DESCRIPTION: This snippet demonstrates how to use the `ISeriesApi.setData` method to set or replace all data items for Area and Candlestick series. It initializes the chart with options and populates two different series types with historical data.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/versioned_docs/version-4.1/intro.md#_snippet_7
+
+LANGUAGE: js
+CODE:
+```
+const chartOptions = { layout: { textColor: CHART_TEXT_COLOR, background: { type: 'solid', color: CHART_BACKGROUND_COLOR } } };
+const chart = createChart(document.getElementById('container'), chartOptions);
+const areaSeries = chart.addAreaSeries({
+    lineColor: LINE_LINE_COLOR, topColor: AREA_TOP_COLOR,
+    bottomColor: AREA_BOTTOM_COLOR,
+});
+areaSeries.setData([
+    { time: '2018-12-22', value: 32.51 },
+    { time: '2018-12-23', value: 31.11 },
+    { time: '2018-12-24', value: 27.02 },
+    { time: '2018-12-25', value: 27.32 },
+    { time: '2018-12-26', value: 25.17 },
+    { time: '2018-12-27', value: 28.89 },
+    { time: '2018-12-28', value: 25.46 },
+    { time: '2018-12-29', value: 23.92 },
+    { time: '2018-12-30', value: 22.68 },
+    { time: '2018-12-31', value: 22.67 },
+]);
+
+const candlestickSeries = chart.addCandlestickSeries({
+    upColor: BAR_UP_COLOR, downColor: BAR_DOWN_COLOR, borderVisible: false,
+    wickUpColor: BAR_UP_COLOR, wickDownColor: BAR_DOWN_COLOR,
+});
+candlestickSeries.setData([
+    { time: '2018-12-22', open: 75.16, high: 82.84, low: 36.16, close: 45.72 },
+    { time: '2018-12-23', open: 45.12, high: 53.90, low: 45.12, close: 48.09 },
+    { time: '2018-12-24', open: 60.71, high: 60.71, low: 53.39, close: 59.29 },
+    { time: '2018-12-25', open: 68.26, high: 68.26, low: 59.04, close: 60.50 },
+    { time: '2018-12-26', open: 67.71, high: 105.85, low: 66.67, close: 91.04 },
+    { time: '2018-12-27', open: 91.04, high: 121.40, low: 82.70, close: 111.40 },
+    { time: '2018-12-28', open: 111.51, high: 142.83, low: 103.34, close: 131.25 },
+    { time: '2018-12-29', open: 131.33, high: 151.17, low: 77.68, close: 96.43 },
+    { time: '2018-12-30', open: 106.33, high: 110.20, low: 90.39, close: 98.10 },
+    { time: '2018-12-31', open: 109.87, high: 114.69, low: 85.66, close: 111.26 },
+]);
+
+chart.timeScale().fitContent();
+```
+
+----------------------------------------
+
+TITLE: Add and Display Histogram Series in Lightweight Charts
+DESCRIPTION: This snippet demonstrates how to create a chart, add a HistogramSeries, set its data, and fit the content to the time scale. It includes basic chart layout options and sample histogram data.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/docs/series-types.mdx#_snippet_7
+
+LANGUAGE: js
+CODE:
+```
+const chartOptions = { layout: { textColor: CHART_TEXT_COLOR, background: { type: 'solid', color: CHART_BACKGROUND_COLOR } } };
+const chart = createChart(document.getElementById('container'), chartOptions);
+const histogramSeries = chart.addSeries(HistogramSeries, { color: HISTOGRAM_COLOR });
+
+const data = [{ value: 1, time: 1642425322 }, { value: 8, time: 1642511722 }, { value: 10, time: 1642598122 }, { value: 20, time: 1642684522 }, { value: 3, time: 1642770922, color: 'red' }, { value: 43, time: 1642857322 }, { value: 41, time: 1642943722, color: 'red' }, { value: 43, time: 1643030122 }, { value: 56, time: 1643116522 }, { value: 46, time: 1643202922, color: 'red' }];
+
+histogramSeries.setData(data);
+
+chart.timeScale().fitContent();
+```
+
+----------------------------------------
+
+TITLE: Apply Custom Price Formatter with Localization
+DESCRIPTION: Retrieves the user's primary locale and creates a custom price formatter using `Intl.NumberFormat` to display currency values (e.g., EUR). This formatter is then applied to the chart for localized price display.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/tutorials/customization/assets/step7.html#_snippet_6
+
+LANGUAGE: JavaScript
+CODE:
+```
+const currentLocale = window.navigator.languages[0];
+const myPriceFormatter = Intl.NumberFormat(currentLocale, {
+    style: "currency",
+    currency: "EUR"
+}).format;
+chart.applyOptions({
+    localization: {
+        priceFormatter: myPriceFormatter
+    }
+});
+```
+
+----------------------------------------
+
+TITLE: Configure Crosshair Mode and Styling
+DESCRIPTION: Customizes the chart's crosshair, setting its mode to 'Normal' for free movement (not snapping to data points). It also defines the visual properties of both vertical and horizontal crosshair lines, including width, color, style, and label background colors.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/tutorials/customization/assets/step10.html#_snippet_8
+
+LANGUAGE: JavaScript
+CODE:
+```
+chart.applyOptions({
+  crosshair: {
+    mode: LightweightCharts.CrosshairMode.Normal,
+    vertLine: { width: 8, color: "#C3BCDB44", style: LightweightCharts.LineStyle.Solid, labelBackgroundColor: "#9B7DFF", },
+    horzLine: { color: "#9B7DFF", labelBackgroundColor: "#9B7DFF", },
+  },
+});
+```
+
+----------------------------------------
+
+TITLE: Create and Populate a Line Chart (CDN Standalone)
+DESCRIPTION: This JavaScript snippet shows how to use Lightweight Charts via a CDN, accessing the library through the global `window.LightweightCharts` object. It creates a chart, adds a line series, and sets sample data, similar to the ES6 module example.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/README.md#_snippet_2
+
+LANGUAGE: js
+CODE:
+```
+const chart = LightweightCharts.createChart(document.body, { width: 400, height: 300 });
+const lineSeries = chart.addSeries(LightweightCharts.LineSeries);
+lineSeries.setData([
+    { time: '2019-04-11', value: 80.01 },
+    { time: '2019-04-12', value: 96.63 },
+    { time: '2019-04-13', value: 76.64 },
+    { time: '2019-04-14', value: 81.89 },
+    { time: '2019-04-15', value: 74.43 },
+    { time: '2019-04-16', value: 80.01 },
+    { time: '2019-04-17', value: 96.63 },
+    { time: '2019-04-18', value: 76.64 },
+    { time: '2019-04-19', value: 81.89 },
+    { time: '2019-04-20', value: 74.43 }
+]);
+```
+
+----------------------------------------
+
+TITLE: JavaScript Functions for Financial Chart Description Generation
+DESCRIPTION: This comprehensive set of JavaScript functions provides a starting point for generating detailed textual descriptions of financial charts. It includes utilities for formatting dates and values, calculating key statistics like start/end prices, highest/lowest points, and percentage changes, and then composing these insights into a descriptive string. This helps users understand chart trends and anomalies without visual interpretation.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/tutorials/a11y/screenreader.mdx#_snippet_6
+
+LANGUAGE: javascript
+CODE:
+```
+function formatDate(time) {
+    return new Date(time * 1000).toDateString();
+}
+
+function formatValue(value) {
+    return `${value < 0 ? '-' : ''}$${Math.abs(value).toFixed(2)}`;
+}
+
+function getStats(data) {
+    const stats = {
+        start: data[0],
+        close: data[data.length - 1],
+        low: data[0],
+        high: data[0],
+    };
+
+    for (const point of data) {
+        if (point.value > stats.high.value) {
+            stats.high = point;
+        }
+        if (point.value < stats.low.value) {
+            stats.low = point;
+        }
+    }
+
+    return stats;
+}
+
+function getVisibleSeriesData(chart, series) {
+    const timeScale = chart.timeScale();
+    const visibleRange = timeScale.getVisibleLogicalRange();
+    const data = [];
+    for (let i = Math.round(visibleRange.from); i <= visibleRange.to; i++) {
+        const d = series.dataByIndex(i, 0);
+        if (d !== null) {
+            data.push(d);
+        }
+    }
+    return data;
+}
+
+function describeFinanceChart(data) {
+    if (!data || data.length === 0) {
+        return 'The data set is empty.';
+    }
+
+    const stats = getStats(data);
+
+    const firstPrice = `The first price is ${formatValue(
+        stats.start.value
+    )} at ${formatDate(stats.start.time)}.`;
+    const lastPrice = `The last price is ${formatValue(
+        stats.close.value
+    )} at ${formatDate(stats.close.time)}.`;
+
+    const actualChange = stats.close.value - stats.start.value;
+    const percentChange = (actualChange / stats.start.value) * 100;
+
+    const changeDescription = `The actual change in price was ${formatValue(
+        actualChange
+    )}, corresponding to a percentage change of ${percentChange.toFixed(2)}%.`;
+
+    let lowHigh = '';
+    if (
+        stats.low.time !== stats.start.time &&
+        stats.low.time !== stats.close.time
+    ) {
+        lowHigh += `The lowest price was ${formatValue(
+            stats.low.value
+        )} at ${formatDate(stats.low.time)}.`;
+    }
+    if (
+        stats.high.time !== stats.start.time &&
+        stats.high.time !== stats.close.time
+    ) {
+        lowHigh += ` The highest price was ${formatValue(
+            stats.high.value
+        )} at ${formatDate(stats.high.time)}.`;
+    }
+
+    return `${firstPrice} ${lastPrice} ${changeDescription} ${lowHigh}`.trim();
+}
+```
+
+----------------------------------------
+
+TITLE: Resize Lightweight Chart on Window Resize Event
+DESCRIPTION: This code adds an event listener to the browser's window object to detect resize events. When the window size changes, it calls the `resize` method of the chart instance, adjusting the chart's dimensions to match the new window width and height, ensuring the chart remains responsive.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/tutorials/customization/assets/step8.html#_snippet_4
+
+LANGUAGE: JavaScript
+CODE:
+```
+window.addEventListener("resize", () => {
+  chart.resize(window.innerWidth, window.innerHeight);
+});
+```
+
+----------------------------------------
+
+TITLE: Generate Sample Candlestick Data for Lightweight Charts
+DESCRIPTION: This JavaScript function `generateCandlestickData()` creates an array of objects, each representing a candlestick data point with `time`, `open`, `high`, `low`, and `close` properties. This data is suitable for populating a candlestick series in Lightweight Charts.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/tutorials/customization/assets/step6.html#_snippet_2
+
+LANGUAGE: javascript
+CODE:
+```
+function generateCandlestickData() {
+  return [
+    { time: "2019-04-16", open: 205.25, high: 205.99, low: 204.29, close: 204.47 },
+    { time: "2019-04-17", open: 205.34, high: 206.84, low: 205.32, close: 206.55 },
+    { time: "2019-04-18", open: 206.02, high: 207.78, low: 205.1, close: 205.66 },
+    { time: "2019-04-22", open: 204.11, high: 206.25, low: 204.0, close: 204.78 },
+    { time: "2019-04-23", open: 205.14, high: 207.33, low: 203.43, close: 206.05 },
+    { time: "2019-04-24", open: 206.16, high: 208.29, low: 205.54, close: 206.72 },
+    { time: "2019-04-25", open: 206.01, high: 207.72, low: 205.06, close: 206.5 },
+    { time: "2019-04-26", open: 205.88, high: 206.14, low: 203.34, close: 203.61 },
+    { time: "2019-04-29", open: 203.31, high: 203.8, low: 200.34, close: 202.16 },
+    { time: "2019-04-30", open: 201.55, high: 203.75, low: 200.79, close: 203.7 },
+    { time: "2019-05-01", open: 203.2, high: 203.52, low: 198.66, close: 198.8 },
+    { time: "2019-05-02", open: 199.3, high: 201.06, low: 198.8, close: 201.01 },
+    { time: "2019-05-03", open: 202.0, high: 202.31, low: 200.32, close: 200.56 },
+    { time: "2019-05-06", open: 198.74, high: 199.93, low: 198.31, close: 199.63 },
+    { time: "2019-05-07", open: 196.75, high: 197.65, low: 192.96, close: 194.77 },
+    { time: "2019-05-08", open: 194.49, high: 196.61, low: 193.68, close: 195.17 },
+    { time: "2019-05-09", open: 193.31, high: 195.08, low: 191.59, close: 194.58 },
+    { time: "2019-05-10", open: 193.21, high: 195.49, low: 190.01, close: 194.58 },
+    { time: "2019-05-13", open: 191.0, high: 191.66, low: 189.14, close: 190.34 },
+    { time: "2019-05-14", open: 190.5, high: 192.76, low: 190.01, close: 191.62 },
+    { time: "2019-05-15", open: 190.81, high: 192.81, low: 190.27, close: 191.76 },
+    { time: "2019-05-16", open: 192.47, high: 194.96, low: 192.2, close: 192.38 },
+    { time: "2019-05-17", open: 190.86, high: 194.5, low: 190.75, close: 192.58 },
+    { time: "2019-05-20", open: 191.13, high: 192.86, low: 190.61, close: 190.95 },
+    { time: "2019-05-21", open: 187.13, high: 192.52, low: 186.34, close: 191.45 },
+    { time: "2019-05-22", open: 190.49, high: 192.22, low: 188.05, close: 188.91 },
+    { time: "2019-05-23", open: 188.45, high: 192.54, low: 186.27, close: 192.0 },
+    { time: "2019-05-24", open: 192.54, high: 193.86, low: 190.41, close: 193.59 }
+  ];
+}
+```
+
+----------------------------------------
+
+TITLE: Add Bar Series to LightweightCharts in Swift
+DESCRIPTION: Add a new bar series to the initialized LightweightCharts instance and store a reference to it for further data manipulation and customization.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/versioned_docs/version-5.0/ios.md#_snippet_4
+
+LANGUAGE: swift
+CODE:
+```
+var series: BarSeries!
+
+// ...
+series = chart.addBarSeries(options: nil)
+```
+
+----------------------------------------
+
+TITLE: Add Candlestick Series and Set Data
+DESCRIPTION: This code demonstrates the process of adding a new Candlestick series to the initialized chart. It then populates this series with the previously generated sample candlestick data, making the chart visually represent the financial data.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/tutorials/customization/assets/step4.html#_snippet_6
+
+LANGUAGE: JavaScript
+CODE:
+```
+const candleStickData = generateCandlestickData();
+const mainSeries = chart.addSeries(LightweightCharts.CandlestickSeries);
+mainSeries.setData(candleStickData);
+```
+
+----------------------------------------
+
+TITLE: JavaScript: Create and Display Candlestick Chart Series
+DESCRIPTION: Demonstrates how to initialize a chart and add a candlestick series using JavaScript. This example configures the chart layout, sets colors for up/down candles and wicks, and then populates it with sample OHLC data.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/versioned_docs/version-4.0/series-types.md#_snippet_9
+
+LANGUAGE: javascript
+CODE:
+```
+const chartOptions = { layout: { textColor: CHART_TEXT_COLOR, background: { type: 'solid', color: CHART_BACKGROUND_COLOR } } };
+const chart = createChart(document.getElementById('container'), chartOptions);
+const candlestickSeries = chart.addCandlestickSeries({ upColor: BAR_UP_COLOR, downColor: BAR_DOWN_COLOR, borderVisible: false, wickUpColor: BAR_UP_COLOR, wickDownColor: BAR_DOWN_COLOR });
+
+const data = [{ open: 10, high: 10.63, low: 9.49, close: 9.55, time: 1642427876 }, { open: 9.55, high: 10.30, low: 9.42, close: 9.94, time: 1642514276 }, { open: 9.94, high: 10.17, low: 9.92, close: 9.78, time: 1642600676 }, { open: 9.78, high: 10.59, low: 9.18, close: 9.51, time: 1642687076 }, { open: 9.51, high: 10.46, low: 9.10, close: 10.17, time: 1642773476 }, { open: 10.17, high: 10.96, low: 10.16, close: 10.47, time: 1642859876 }, { open: 10.47, high: 11.39, low: 10.40, close: 10.81, time: 1642946276 }, { open: 10.81, high: 11.60, low: 10.30, close: 10.75, time: 1643032676 }, { open: 10.75, high: 11.60, low: 10.49, close: 10.93, time: 1643119076 }, { open: 10.93, high: 11.53, low: 10.76, close: 10.96, time: 1643205476 }];
+
+candlestickSeries.setData(data);
+
+chart.timeScale().fitContent();
+```
+
+----------------------------------------
+
+TITLE: Update Chart Legend on Crosshair Move (JavaScript)
+DESCRIPTION: This JavaScript snippet demonstrates how to dynamically update a custom HTML legend element in Lightweight Charts. It subscribes to the `crosshairMove` event, retrieves data for the active series at the crosshair's position, formats the price, and updates the legend's inner HTML with the symbol name and formatted price. This requires a pre-existing HTML element for the legend.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/tutorials/how_to/legends.mdx#_snippet_0
+
+LANGUAGE: javascript
+CODE:
+```
+chart.subscribeCrosshairMove(param => {
+    let priceFormatted = '';
+    if (param.time) {
+        const dataPoint = param.seriesData.get(areaSeries);
+        const price = data.value !== undefined ? data.value : data.close;
+        priceFormatted = price.toFixed(2);
+    }
+    // legend is a html element which has already been created
+    legend.innerHTML = `${symbolName} <strong>${priceFormatted}</strong>`;
+});
+```
+
+----------------------------------------
+
+TITLE: Creating Overlay Series in Lightweight Charts v3
+DESCRIPTION: In Lightweight Charts v3, create an overlay series by setting `priceScaleId` to an empty string (`''`) when adding the series. This replaces the deprecated `overlay: true` option, allowing multiple overlay series to share the same 'empty' price scale.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/versioned_docs/version-5.0/migrations/from-v2-to-v3.md#_snippet_3
+
+LANGUAGE: js
+CODE:
+```
+// Old API (v2)
+const histogramSeries = chart.addHistogramSeries({
+    overlay: true,
+});
+
+// New API (v3)
+const histogramSeries = chart.addHistogramSeries({
+    // or any other _the same_ id for all overlay series
+    priceScaleId: '',
+});
+```
+
+----------------------------------------
+
+TITLE: Lightweight Charts v4: `seriesPrices` Property Removal
+DESCRIPTION: Documents the removal of the `seriesPrices` property from `MouseEventParams` in Lightweight Charts v4. It has been replaced by `MouseEventParams.seriesData`, which provides more comprehensive series data items.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/versioned_docs/version-5.0/migrations/from-v3-to-v4.md#_snippet_7
+
+LANGUAGE: APIDOC
+CODE:
+```
+Affected API:
+- IChartApi.subscribeClick
+- IChartApi.subscribeCrosshairMove
+
+Change:
+The property `seriesPrices` of MouseEventParams has been removed.
+Use `MouseEventParams.seriesData` instead. `seriesData` is similar but contains series' data items instead of just prices.
+```
+
+----------------------------------------
+
+TITLE: Dynamically Update Lightweight Charts Options in Vue
+DESCRIPTION: This example demonstrates using Vue's `watch` function to react to changes in component properties like `chartOptions` and `priceScaleOptions`. When these properties change, the `applyOptions` method is called on the chart or price scale API instance, allowing for real-time chart customization without re-creating the chart.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/tutorials/vuejs/01-wrapper.mdx#_snippet_4
+
+LANGUAGE: js
+CODE:
+```
+watch(
+    () => props.chartOptions,
+    newOptions => {
+        if (!chart) {
+            return;
+        }
+        chart.applyOptions(newOptions);
+    }
+);
+
+watch(
+    () => props.priceScaleOptions,
+    newOptions => {
+        if (!chart) {
+            return;
+        }
+        chart.priceScale().applyOptions(newOptions);
+    }
+);
+```
+
+----------------------------------------
+
+TITLE: Generate Financial Chart Description (JavaScript)
+DESCRIPTION: This function creates a descriptive text summary of financial data, including the first price, last price, total change, percentage change, and extreme low/high prices. It leverages `getStats` for data analysis and assumes `formatValue` and `formatDate` helper functions are available.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/tutorials/a11y/assets/a11y-chart.html#_snippet_7
+
+LANGUAGE: JavaScript
+CODE:
+```
+function describeFinanceChart(data) {
+  if (!data || data.length === 0) {
+    return 'The data set is empty.';
+  }
+  const stats = getStats(data);
+  const firstPrice = `The first price is ${formatValue( stats.start.value )} at ${formatDate(stats.start.time)}.`;
+  const lastPrice = `The last price is ${formatValue( stats.close.value )} at ${formatDate(stats.close.time)}.`;
+  const actualChange = stats.close.value - stats.start.value;
+  const percentChange = (actualChange / stats.start.value) * 100;
+  const changeDescription = `The actual change in price was ${formatValue( actualChange )}, corresponding to a percentage change of ${percentChange.toFixed( 2 )}%.`;
+  let lowHigh = '';
+  if (
+    stats.low.time !== stats.start.time &&
+    stats.low.time !== stats.close.time
+  ) {
+    lowHigh += `The lowest price was ${formatValue( stats.low.value )} at ${formatDate(stats.low.time)}.`;
+  }
+  if (
+    stats.high.time !== stats.start.time &&
+    stats.high.time !== stats.close.time
+  ) {
+    lowHigh += ` The highest price was ${formatValue( stats.high.value )} at ${formatDate(stats.high.time)}.`;
+  }
+  return `${firstPrice} ${lastPrice} ${changeDescription} ${lowHigh}`.trim();
+}
+```
+
+----------------------------------------
+
+TITLE: Create Candlestick Series and Set Data
+DESCRIPTION: This snippet demonstrates how to add a Candlestick Series to a Lightweight Charts instance and populate it with `candleStickData`.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/tutorials/customization/assets/step10.html#_snippet_13
+
+LANGUAGE: javascript
+CODE:
+```
+const mainSeries = chart.addSeries(LightweightCharts.CandlestickSeries);
+// Set the data for the Main Series
+mainSeries.setData(candleStickData);
+```
+
+----------------------------------------
+
+TITLE: Add various series types to a chart
+DESCRIPTION: Shows how to add different types of data series, such as Area, Bar, and Baseline, to an existing chart instance using specific `add<type>Series` methods provided by the `IChartApi` object.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/versioned_docs/version-4.2/intro.md#_snippet_3
+
+LANGUAGE: js
+CODE:
+```
+import { createChart } from 'lightweight-charts';
+
+const chart = createChart(container);
+
+const areaSeries = chart.addAreaSeries();
+const barSeries = chart.addBarSeries();
+const baselineSeries = chart.addBaselineSeries();
+// ... and so on
+```
+
+----------------------------------------
+
+TITLE: Create multiple chart instances
+DESCRIPTION: Demonstrates how to create multiple chart instances using the `createChart` function. Each call requires a DOM element as a container and returns an `IChartApi` object for interaction.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/versioned_docs/version-4.0/intro.md#_snippet_2
+
+LANGUAGE: js
+CODE:
+```
+import { createChart } from 'lightweight-charts';
+
+// ...
+
+// somewhere in your code
+const firstChart = createChart(document.getElementById('firstContainer'));
+const secondChart = createChart(document.getElementById('secondContainer'));
+```
+
+----------------------------------------
+
+TITLE: Resize Chart on Window Resize Event
+DESCRIPTION: This code adds an event listener to the window object to detect resize events. When the window size changes, the chart's `resize` method is called to adjust its dimensions to fill the available window space, ensuring responsiveness.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/tutorials/customization/assets/step5.html#_snippet_9
+
+LANGUAGE: JavaScript
+CODE:
+```
+window.addEventListener("resize", () => {
+    chart.resize(window.innerWidth, window.innerHeight);
+});
+```
+
+----------------------------------------
+
+TITLE: Handle Window Resize to Make Lightweight Chart Responsive
+DESCRIPTION: This JavaScript code adds an event listener to the window's `resize` event. When the window size changes, it resizes the Lightweight Chart to fill the new `window.innerWidth` and `window.innerHeight`, ensuring the chart remains responsive.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/tutorials/customization/assets/step6.html#_snippet_9
+
+LANGUAGE: javascript
+CODE:
+```
+window.addEventListener("resize", () => {
+  chart.resize(window.innerWidth, window.innerHeight);
+});
+```
+
+----------------------------------------
+
+TITLE: Implement Responsive Chart Resizing on Window Resize
+DESCRIPTION: This snippet shows how to add an event listener to the browser's `resize` event to dynamically adjust the chart's dimensions to match the window's inner width and height, ensuring responsiveness.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/tutorials/customization/assets/step10.html#_snippet_16
+
+LANGUAGE: javascript
+CODE:
+```
+window.addEventListener("resize", () => {
+  chart.resize(window.innerWidth, window.innerHeight);
+});
+```
+
+----------------------------------------
+
+TITLE: Update Real-time Data in Lightweight Charts Series in JavaScript
+DESCRIPTION: This example shows how to use `ISeriesApi.update` for efficient real-time data updates. It allows modifying the last data item or adding a new one without performance issues, unlike frequent `setData` calls.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/versioned_docs/version-4.1/intro.md#_snippet_8
+
+LANGUAGE: js
+CODE:
+```
+import { createChart } from 'lightweight-charts';
+
+const chart = createChart(container);
+
+const areaSeries = chart.addAreaSeries();
+areaSeries.setData([
+    // ... other data items
+    { time: '2018-12-31', value: 22.67 },
+]);
+
+const candlestickSeries = chart.addCandlestickSeries();
+candlestickSeries.setData([
+    // ... other data items
+    { time: '2018-12-31', open: 109.87, high: 114.69, low: 85.66, close: 111.26 },
+]);
+
+// sometime later
+
+// update the most recent bar
+areaSeries.update({ time: '2018-12-31', value: 25 });
+candlestickSeries.update({ time: '2018-12-31', open: 109.87, high: 114.69, low: 85.66, close: 112 });
+
+// creating the new bar
+areaSeries.update({ time: '2019-01-01', value: 20 });
+candlestickSeries.update({ time: '2019-01-01', open: 112, high: 112, low: 100, close: 101 });
+```
+
+----------------------------------------
+
+TITLE: Apply Custom Price Formatter using Intl.NumberFormat
+DESCRIPTION: Explains how to create a custom price formatter using JavaScript's `Intl.NumberFormat` API to display currency values based on the user's locale, and then apply this formatter to the chart's localization options.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/tutorials/customization/assets/step9.html#_snippet_6
+
+LANGUAGE: JavaScript
+CODE:
+```
+const currentLocale = window.navigator.languages[0];
+
+const myPriceFormatter = Intl.NumberFormat(currentLocale, {
+  style: "currency",
+  currency: "EUR",
+}).format;
+
+chart.applyOptions({
+  localization: {
+    priceFormatter: myPriceFormatter,
+  },
+});
+```
+
+----------------------------------------
+
+TITLE: Set Custom Locale for Lightweight Charts
+DESCRIPTION: This JavaScript snippet provides a function to dynamically change the locale and corresponding date format of a Lightweight Charts instance. It utilizes the `chart.applyOptions` method to update the `localization` property, adapting the chart's display for different regional preferences.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/tutorials/demos/custom-locale.mdx#_snippet_0
+
+LANGUAGE: javascript
+CODE:
+```
+// Assume 'chart' is an initialized Lightweight Charts instance.
+
+/**
+ * Sets the locale and corresponding date format for the chart.
+ * @param {string} locale - The locale string (e.g., 'en-US', 'es-ES', 'ja-JP').
+ */
+function setLocale(locale) {
+    let dateFormat = '%d %b %y'; // Default format
+
+    // Determine date format based on locale
+    // This logic would typically be more robust or use a library
+    if (locale.startsWith('es')) {
+        dateFormat = '%d/%m/%y';
+    } else if (locale.startsWith('ja')) {
+        dateFormat = '%Y/%m/%d';
+    } else if (locale.startsWith('en')) {
+        dateFormat = '%m/%d/%y';
+    } else if (locale.startsWith('fr')) {
+        dateFormat = '%d/%m/%Y';
+    }
+
+    chart.applyOptions({
+        localization: {
+            locale: locale,
+            dateFormat: dateFormat
+        }
+    });
+    console.log(`Chart locale updated to: ${locale}`);
+}
+
+// Example of how to use it:
+// setLocale('es-ES');
+// setLocale('en-US');
+// setLocale('ja-JP');
+```
+
+----------------------------------------
+
+TITLE: Apply Custom Price Formatting using Intl.NumberFormat
+DESCRIPTION: This snippet illustrates how to create a custom price formatter using the browser's `Intl.NumberFormat` API for localized currency display. The formatter is then applied to the chart's localization options, affecting how price values are displayed.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/tutorials/customization/assets/step5.html#_snippet_5
+
+LANGUAGE: JavaScript
+CODE:
+```
+const currentLocale = window.navigator.languages[0];
+const myPriceFormatter = Intl.NumberFormat(currentLocale, {
+    style: "currency",
+    currency: "EUR"
+}).format;
+chart.applyOptions({
+    localization: {
+        priceFormatter: myPriceFormatter
+    }
+});
+```
+
+----------------------------------------
+
+TITLE: Conditionally Color Candlesticks in JavaScript
+DESCRIPTION: This JavaScript snippet demonstrates how to modify candlestick data points to apply individual colors based on a condition. It uses the `Array.prototype.map()` function to iterate over generated candlestick data. For data points where the `close` value is greater than `205`, the `color` and `wickColor` properties are added and set to 'orange', overriding the series' default colors. This allows for visual highlighting of specific data points.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/tutorials/customization/data-points.mdx#_snippet_0
+
+LANGUAGE: js
+CODE:
+```
+// Generate sample data to use within a candlestick series
+const candleStickData = generateCandlestickData().map(datapoint => {
+    // map function is changing the color for the individual
+    // candlestick points that close above 205
+    if (datapoint.close < 205) { return datapoint; }
+    // we are adding 'color' and 'wickColor' properties to the datapoint.
+    // Using spread syntax: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax#spread_in_object_literals
+    return { ...datapoint, color: 'orange', wickColor: 'orange' };
+});
+```
+
+----------------------------------------
+
+TITLE: Create Chart with Custom Background, Text, and Grid Colors
+DESCRIPTION: Initializes a Lightweight Charts instance using `createChart`. Configures the chart's `layout` to set the `background` color to `#222` and `textColor` to `#DDD`. Also sets `vertLines` and `horzLines` colors for the `grid` to `#444`.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/tutorials/customization/chart-colors.mdx#_snippet_1
+
+LANGUAGE: js
+CODE:
+```
+const chart = LightweightCharts.createChart(
+    document.getElementById('container'),
+    {
+        layout: {
+            background: { color: '#222' },
+            textColor: '#DDD',
+        },
+        grid: {
+            vertLines: { color: '#444' },
+            horzLines: { color: '#444' },
+        },
+    }
+);
+```
+
+----------------------------------------
+
+TITLE: Add Candlestick Series and Set Data
+DESCRIPTION: This snippet demonstrates the process of adding a CandlestickSeries to the initialized chart. After adding the series, it populates it with the previously generated sample candlestick data.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/tutorials/customization/assets/step5.html#_snippet_6
+
+LANGUAGE: JavaScript
+CODE:
+```
+const candleStickData = generateCandlestickData();
+const mainSeries = chart.addSeries(LightweightCharts.CandlestickSeries);
+mainSeries.setData(candleStickData);
+```
+
+----------------------------------------
+
+TITLE: Initialize Lightweight Chart with Custom Layout and Grid
+DESCRIPTION: This snippet demonstrates how to create a new Lightweight Chart instance within a specified HTML container. It applies initial layout options for background and text colors, and customizes the vertical and horizontal grid line colors.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/tutorials/customization/assets/step5.html#_snippet_3
+
+LANGUAGE: JavaScript
+CODE:
+```
+const chart = LightweightCharts.createChart(
+    document.getElementById('container'),
+    {
+        layout: {
+            background: { color: "#222" },
+            textColor: "#C3BCDB"
+        },
+        grid: {
+            vertLines: { color: "#444" },
+            horzLines: { color: "#444" }
+        }
+    }
+);
+```
+
+----------------------------------------
+
+TITLE: Configure and Display Chart Series with Lightweight Charts
+DESCRIPTION: This snippet demonstrates the initialization of Area and Candlestick series, setting their respective data, customizing candlestick colors, and adjusting price scale options. It also includes a window resize event listener to ensure the chart resizes dynamically with the browser window.
+SOURCE: https://github.com/tradingview/lightweight-charts/blob/master/website/tutorials/customization/assets/step9.html#_snippet_11
+
+LANGUAGE: JavaScript
+CODE:
+```
+: "rgba(56, 33, 110, 0.1)", }); // Set the data for the Area Series areaSeries.setData(lineData); // Create the Main Series (Candlesticks) const mainSeries = chart.addSeries(LightweightCharts.CandlestickSeries); // Set the data for the Main Series mainSeries.setData(candleStickData); // Changing the Candlestick colors mainSeries.applyOptions({ wickUpColor: "rgb(54, 116, 217)", upColor: "rgb(54, 116, 217)", wickDownColor: "rgb(225, 50, 85)", downColor: "rgb(225, 50, 85)", borderVisible: false, }); // Adjust the options for the priceScale of the mainSeries mainSeries.priceScale().applyOptions({ autoScale: false, // disables auto scaling based on visible content scaleMargins: { top: 0.1, bottom: 0.2, }, }); // Adding a window resize event handler to resize the chart when // the window size changes. // Note: for more advanced examples (when the chart doesn't fill the entire window) // you may need to use ResizeObserver -> https://developer.mozilla.org/en-US/docs/Web/API/ResizeObserver window.addEventListener("resize", () => { chart.resize(window.innerWidth, window.innerHeight); });
+```

@@ -4,23 +4,6 @@ import { useQuery } from '@tanstack/react-query';
 import { DashboardOverview } from '@/types/api';
 import KPICard from './KPICard';
 import { KPIGridSkeleton } from './Skeletons';
-import debug from '../../../lib/debug';
-
-// === IMPORT VERIFICATION ===
-console.log('[KPI_GRID] 🔍 Import verification at:', new Date().toISOString());
-console.log('[KPI_GRID] 📦 debug import type:', typeof debug);
-console.log('[KPI_GRID] 🧪 debug function test:');
-if (typeof debug === 'function') {
-  console.log('[KPI_GRID] ✅ debug is a function, testing call...');
-  try {
-    debug('[KPI_GRID] 🎉 Debug function import successful!');
-    console.log('[KPI_GRID] ✅ Debug function call successful!');
-  } catch (error) {
-    console.error('[KPI_GRID] ❌ Debug function call failed:', error);
-  }
-} else {
-  console.error('[KPI_GRID] ❌ debug is not a function! Type:', typeof debug, 'Value:', debug);
-}
 import { useDashboard } from '../contexts/DashboardContext';
 import { useAuth } from '@/components/AuthProvider';
 import { front_api_get_dashboard } from '@/lib/front_api_client';
@@ -41,37 +24,18 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
   } = useDashboard();
   const { user } = useAuth();
 
-  console.log(`🔥 [KPIGrid] === COMPREHENSIVE DEBUG START ===`);
-  console.log(`🔥 [KPIGrid] Component rendering. UserID: ${userId}, User present: ${!!user}`);
-  console.log(`🔥 [KPIGrid] User email: ${user?.email}`);
-  console.log(`🔥 [KPIGrid] Initial data:`, initialData);
-
   const { data: apiData, isLoading, isError, error } = useQuery<any, Error>({
-    queryKey: ['dashboard', 'overview', userId],
+    queryKey: ['dashboard'],
     queryFn: async (): Promise<any> => {
-      console.log(`🚀 [KPIGrid Query] ================== QUERY FUNCTION START ==================`);
-      console.log(`🚀 [KPIGrid Query] UserID: ${userId}, Timestamp: ${new Date().toISOString()}`);
-      
-      debug('📡 Making API call for dashboard overview using front_api_get_dashboard...');
-      debug(`📡 User ID for API call: ${userId}`);
-      
       try {
         const result: any = await front_api_get_dashboard();
-        console.log(`✅ [KPIGrid Query] API call successful, result:`, result);
-        console.log(`✅ [KPIGrid Query] Result type: ${typeof result}`);
-        console.log(`✅ [KPIGrid Query] Result keys: ${Object.keys(result || {})}`);
         
         if (!result.success) {
-          console.error(`❌ [KPIGrid Query] API returned success=false:`, result);
           throw new Error(result.error || 'API returned an error');
         }
         
-        console.log(`🎉 [KPIGrid Query] Backend returned success=true! Full result:`, result);
-        console.log(`🎉 [KPIGrid Query] ================== QUERY FUNCTION END ==================`);
         return result;
       } catch (apiError) {
-        console.error(`❌ [KPIGrid] front_api_get_dashboard exception:`, apiError);
-        console.error(`❌ [KPIGrid] Error details:`, apiError);
         throw apiError;
       }
     },
@@ -81,24 +45,13 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
     retry: 3,
     retryDelay: (attemptIndex) => {
       const delay = Math.min(1000 * 2 ** attemptIndex, 30000);
-      debug(`⏳ Retry delay: ${delay}ms for attempt ${attemptIndex}`);
-      debug(`🔄 Query retry attempt ${attemptIndex} for error: ${error}`);
       return delay;
     },
   });
 
-  console.log(`🔄 [KPIGrid] Query state: isLoading=${isLoading}, isError=${isError}, hasData=${!!apiData}`);
-  console.log(`🔄 [KPIGrid] Error:`, error);
-  console.log(`🔄 [KPIGrid] Raw API data:`, apiData);
-
   const data = apiData || initialData;
-  console.log(`📊 [KPIGrid] Final data (apiData || initialData):`, data);
 
   // Transform the dashboard API response to KPI format
-  console.log(`🔄 [KPIGrid] Starting data transformation...`);
-  console.log(`🔄 [KPIGrid] Raw data for transformation:`, data);
-  console.log(`🔄 [KPIGrid] Portfolio data:`, data?.portfolio);
-  
   const transformedData = data ? {
     marketValue: {
       value: data.portfolio?.total_value || 0,
@@ -107,7 +60,7 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
     },
     capitalGains: {
       value: data.portfolio?.total_gain_loss || 0,
-      sub_label: `${(data.portfolio?.total_gain_loss_percent || 0).toFixed(2)}% gain/loss`,
+      sub_label: `${(data.portfolio?.total_gain_loss_percent || 0).toFixed(2)}%`,
       is_positive: (data.portfolio?.total_gain_loss || 0) >= 0
     },
     irr: {
@@ -122,23 +75,11 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
     }
   } : null;
 
-  console.log(`🔄 [KPIGrid] Transformation result:`, transformedData);
-  
-  console.log('[KPIGrid] 🎯 Data validation check:', {
-    hasData: !!transformedData,
-    hasMarketValue: transformedData?.marketValue ? 'yes' : 'no',
-    hasCapitalGains: transformedData?.capitalGains ? 'yes' : 'no',
-    hasIRR: transformedData?.irr ? 'yes' : 'no',
-    hasPassiveIncome: transformedData?.passiveIncome ? 'yes' : 'no'
-  });
-
   if (isLoading) {
-    console.log(`⏳ [KPIGrid] Rendering loading skeleton`);
     return <KPIGridSkeleton />;
   }
 
   if (isError) {
-    console.error(`❌ [KPIGrid] Rendering error state. Error:`, error);
     return (
       <div className="rounded-xl bg-red-800/50 p-6 shadow-lg">
         <h3 className="text-lg font-semibold text-red-400">Error Loading KPI Data</h3>
@@ -149,18 +90,8 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
   }
 
   if (!transformedData) {
-    console.log(`⚠️ [KPIGrid] No transformed data, showing skeleton`);
     return <KPIGridSkeleton />;
   }
-  
-  console.log(`📈 [KPIGrid] Dashboard context performance data:`, {
-    portfolioDollarGain,
-    portfolioPercentGain,
-    selectedBenchmark,
-    benchmarkDollarGain,
-    benchmarkPercentGain,
-    performanceData
-  });
 
   const performanceKPIData = performanceData ? {
     value: portfolioDollarGain,
@@ -177,24 +108,15 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
     is_positive: totalReturnValue >= 0
   };
 
-  console.log(`🎨 [KPIGrid] Final KPI data for rendering:`, {
-    marketValue: transformedData.marketValue,
-    performance: performanceKPIData,
-    passiveIncome: transformedData.passiveIncome,
-    totalReturn: totalReturnData
-  });
-
-  console.log(`🔥 [KPIGrid] === COMPREHENSIVE DEBUG END ===`);
-
   return (
     <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
       <KPICard title="Portfolio Value" data={transformedData.marketValue} prefix="" />
       <KPICard 
         title="Capital Gains" 
-        data={performanceKPIData} 
+        data={transformedData.capitalGains} 
         prefix="" 
         showPercentage={true}
-        percentValue={performanceData ? portfolioPercentGain : (data?.portfolio?.total_gain_loss_percent || 0)}
+        percentValue={(data?.portfolio?.total_gain_loss_percent || 0)}
       />
       <KPICard title="Dividend Yield" data={transformedData.passiveIncome} prefix="" />
       <KPICard title="Total Return" data={totalReturnData} prefix="" />

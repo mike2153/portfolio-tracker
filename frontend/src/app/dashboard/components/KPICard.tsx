@@ -38,11 +38,7 @@ const KPICard = ({ title, data, prefix = "", suffix = "", showPercentage = false
   const { value, sub_label, deltaPercent, is_positive } = data;
   
   /*
-  console.log(`[KPICard] 🔍 Extracted fields for ${title}:`);
-  console.log(`[KPICard]   - value: "${value}" (type: ${typeof value})`);
-  console.log(`[KPICard]   - sub_label: "${sub_label}" (type: ${typeof sub_label})`);
-  console.log(`[KPICard]   - deltaPercent: "${deltaPercent}" (type: ${typeof deltaPercent})`);
-  console.log(`[KPICard]   - is_positive: ${is_positive} (type: ${typeof is_positive})`);
+
 */
   // Add defensive function to safely format value
   const safeFormatValue = (val: any): string => {
@@ -129,14 +125,7 @@ const KPICard = ({ title, data, prefix = "", suffix = "", showPercentage = false
   };
   
   /*
-  console.log(`[KPICard] 🎯 Final render data for ${title}:`);
-  console.log(`[KPICard]   - Raw value: "${value}" (${typeof value})`);
-  console.log(`[KPICard]   - Safe formatted value: "${finalSafeValue}"`);
-  console.log(`[KPICard]   - Final display value: "${finalDisplayValue}"`);
-  console.log(`[KPICard]   - Sub label: "${sub_label}"`);
-  console.log(`[KPICard]   - Delta percent: "${deltaPercent}" -> "${finalSafeDelta}"`);
-  console.log(`[KPICard]   - Is positive: ${is_positive}`);
-  console.log(`[KPICard]   - Trend color: ${is_positive ? 'green' : 'red'}`);
+
 */
   return (
     <div className="relative rounded-xl border border-gray-700 bg-gray-800/50 p-4 shadow-md backdrop-blur-sm">

@@ -200,7 +200,6 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
 
 You are an expert Node.js developer tasked with writing production-quality code.
 
-
    - No mock data, no fake users, no stubs, no mocks of any kind are allowed anywhere.
    - Your tests must authenticate properly and hit the real endpoints exactly as production would.
 3. All code you write, including tests, must include **extensive console logging** for debugging purposes.  

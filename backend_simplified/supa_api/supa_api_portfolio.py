@@ -2,7 +2,7 @@
 Supabase portfolio calculations
 Calculates holdings and performance from transactions
 """
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, TypedDict
 import logging
 from collections import defaultdict
 
@@ -12,6 +12,11 @@ from vantage_api.vantage_api_quotes import vantage_api_get_quote
 from debug_logger import DebugLogger
 
 logger = logging.getLogger(__name__)
+
+class Holding(TypedDict):
+    quantity: float
+    total_cost: float
+    transactions: List[dict]
 
 @DebugLogger.log_api_call(api_name="SUPABASE", sender="BACKEND", receiver="SUPA_API", operation="CALCULATE_PORTFOLIO")
 async def supa_api_calculate_portfolio(user_id: str, user_token: Optional[str] = None) -> Dict[str, Any]:
@@ -23,11 +28,9 @@ async def supa_api_calculate_portfolio(user_id: str, user_token: Optional[str] =
         transactions = await supa_api_get_user_transactions(user_id, limit=1000, user_token=user_token)
         
         # Calculate holdings by symbol
-        holdings_map = defaultdict(lambda: {
-            'quantity': 0.0,
-            'total_cost': 0.0,
-            'transactions': []
-        })
+        holdings_map: Dict[str, Holding] = defaultdict(  # type: ignore[arg-type]
+            lambda: Holding(quantity=0.0, total_cost=0.0, transactions=[])
+        )
         
         for transaction in transactions:
             symbol = transaction['symbol']

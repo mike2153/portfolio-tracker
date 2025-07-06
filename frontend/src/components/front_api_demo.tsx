@@ -18,15 +18,18 @@ export default function FrontApiDemo() {
   const [loading, setLoading] = useState<Record<string, boolean>>({});
 
   const runApiTest = async (testName: string, apiFunction: () => Promise<any>) => {
-    console.log(`[FrontApiDemo] Starting ${testName} test...`);
+    // Commenting out verbose logs
+    // console.log(`[FrontApiDemo] Starting ${testName} test...`);
     setLoading(prev => ({ ...prev, [testName]: true }));
     
     try {
       const result = await apiFunction();
       setResults(prev => ({ ...prev, [testName]: result }));
-      console.log(`[FrontApiDemo] ✅ ${testName} completed successfully:`, result);
+      // Commenting out verbose logs
+      // console.log(`[FrontApiDemo] ✅ ${testName} completed successfully:`, result);
     } catch (error) {
-      console.error(`[FrontApiDemo] ❌ ${testName} failed:`, error);
+      // Commenting out verbose logs
+      // console.error(`[FrontApiDemo] ❌ ${testName} failed:`, error);
       setResults(prev => ({ ...prev, [testName]: { error: error.message } }));
     } finally {
       setLoading(prev => ({ ...prev, [testName]: false }));

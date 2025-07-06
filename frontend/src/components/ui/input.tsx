@@ -75,7 +75,8 @@ const AutocompleteInput = React.forwardRef<HTMLInputElement, AutocompleteInputPr
               setSuggestions(results.slice(0, maxSuggestions));
               setIsOpen(true);
             } catch (error) {
-              console.error('Autocomplete search error:', error);
+              // Commenting out verbose error logs
+              // console.error('Autocomplete search error:', error);
               setSuggestions([]);
             } finally {
               setLoading(false);

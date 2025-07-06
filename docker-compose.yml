@@ -8,6 +8,9 @@ services:
     container_name: backend
     ports:
       - "8000:8000"
+    # 🔧 Enable hot reload by mounting source code as volume
+    volumes:
+      - ./backend_simplified:/app
     env_file:
       - env.test
     environment:
@@ -19,6 +22,7 @@ services:
       - BACKEND_API_HOST=0.0.0.0
       - BACKEND_API_DEBUG=true
       - LOG_LEVEL=INFO
+
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
   frontend:
@@ -28,12 +32,20 @@ services:
     container_name: frontend
     ports:
       - "3000:3000"
+    # 🔥 Enable hot reload by mounting source code as volume
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules  # Prevent overwriting node_modules
+      - /app/.next         # Prevent overwriting Next.js build cache
     env_file:
       - env.test
     environment:
       - NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
       - NEXT_PUBLIC_SUPABASE_URL=${SUPA_API_URL}
       - NEXT_PUBLIC_SUPABASE_ANON_KEY=${SUPA_API_ANON_KEY}
+      # 🔥 Next.js hot reload configuration for Docker
+      - WATCHPACK_POLLING=true  # Enable polling for file changes
+      - CHOKIDAR_USEPOLLING=true  # Enable polling for chokidar
     depends_on:
       - backend
     command: npm run dev 

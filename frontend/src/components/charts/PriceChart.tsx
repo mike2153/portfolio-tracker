@@ -57,7 +57,8 @@ export default function PriceChart({
     if (!chartContainerRef.current) return;
 
     try {
-      console.log('[PriceChart] Initializing chart for', ticker);
+      // Commenting out verbose debug logs
+      // console.log('[PriceChart] Initializing chart for', ticker);
       const chart = createChart(chartContainerRef.current, {
         width: chartContainerRef.current.clientWidth,
         height,

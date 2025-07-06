@@ -8,6 +8,8 @@ import traceback
 from functools import wraps
 from typing import Any, Dict, Optional
 import time
+from datetime import datetime
+from config import DEBUG_INFO_LOGGING
 
 # Configure logging
 logging.basicConfig(
@@ -17,6 +19,59 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+
+class LoggingConfig:
+    """Runtime configuration for logging levels"""
+    _info_logging_enabled = DEBUG_INFO_LOGGING  # Start with env var setting
+    
+    @classmethod
+    def enable_info_logging(cls):
+        """Enable info logging at runtime"""
+        cls._info_logging_enabled = True
+        logging.info("🔧 Info logging ENABLED")
+    
+    @classmethod
+    def disable_info_logging(cls):
+        """Disable info logging at runtime"""
+        logging.info("🔧 Info logging DISABLED")
+        cls._info_logging_enabled = False
+    
+    @classmethod
+    def is_info_enabled(cls) -> bool:
+        """Check if info logging is enabled"""
+        return cls._info_logging_enabled
+    
+    @classmethod
+    def toggle_info_logging(cls) -> bool:
+        """Toggle info logging on/off and return new state"""
+        if cls._info_logging_enabled:
+            cls.disable_info_logging()
+        else:
+            cls.enable_info_logging()
+        return cls._info_logging_enabled
+
+    @classmethod
+    def set_log_level_info(cls):
+        """Set logging level to INFO (shows info, warning, error)"""
+        logging.getLogger().setLevel(logging.INFO)
+        logging.info("🔧 Logging level set to INFO")
+    
+    @classmethod
+    def set_log_level_warning(cls):
+        """Set logging level to WARNING (shows only warning, error)"""
+        logging.info("🔧 Logging level set to WARNING")
+        logging.getLogger().setLevel(logging.WARNING)
+    
+    @classmethod
+    def toggle_log_level(cls) -> str:
+        """Toggle between INFO and WARNING levels"""
+        current_level = logging.getLogger().getEffectiveLevel()
+        if current_level <= logging.INFO:
+            cls.set_log_level_warning()
+            return "WARNING"
+        else:
+            cls.set_log_level_info()
+            return "INFO"
 
 class DebugLogger:
     """Comprehensive debug logging for all API operations"""
@@ -140,7 +195,7 @@ TRACEBACK:
                     raise
             
             # Return appropriate wrapper based on function type
-            if asyncio.iscoroutinefunction(func):
+            if asyncio is not None and asyncio.iscoroutinefunction(func):
                 return async_wrapper
             else:
                 return sync_wrapper
@@ -243,6 +298,21 @@ EXTRA_INFO: {extra_info}
 TRACEBACK:
 {traceback.format_exc()}
 ===========================""")
+
+    @staticmethod
+    def info_if_enabled(message: str, logger_instance: Optional[logging.Logger] = None):
+        """
+        Log info message only if info logging is enabled
+        
+        Args:
+            message: The message to log
+            logger_instance: Optional specific logger to use, defaults to root logger
+        """
+        if LoggingConfig.is_info_enabled():
+            if logger_instance:
+                logger_instance.info(message)
+            else:
+                logging.info(message)
 
 # Import asyncio only if needed
 try:

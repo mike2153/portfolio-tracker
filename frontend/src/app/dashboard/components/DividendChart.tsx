@@ -13,7 +13,7 @@ const DividendChart = () => {
             //console.log('[DividendChart] Making API call for dividend forecast...');
             // Note: Dividend forecast API needs to be implemented in backend
       // For now, return empty dividend data
-      console.log('[DividendChart] Dividend forecast API not yet implemented, showing empty state');
+      // console.log('[DividendChart] Dividend forecast API not yet implemented, showing empty state');
       const result = { 
         data: { 
           forecast: [],

@@ -45,7 +45,7 @@ async def vantage_api_symbol_search(query: str, limit: int = 20) -> List[Dict[st
     - Short ticker penalty: -10 points
     - Fuzzy match bonus: up to 30 points based on Levenshtein distance
     """
-    logger.info(f"[vantage_api_search.py::vantage_api_symbol_search] Searching for: {query}")
+
     
     if not query or len(query) < 1:
         return []
@@ -124,7 +124,7 @@ async def vantage_api_symbol_search(query: str, limit: int = 20) -> List[Dict[st
         # Cache the results (wrap in a dict so the stored JSON shape is self-describing)
         await client._save_to_cache(cache_key, {"results": final_results})
         
-        logger.info(f"[vantage_api_search.py::vantage_api_symbol_search] Found {len(final_results)} results for {query}")
+    
         
         return final_results[:limit]
         

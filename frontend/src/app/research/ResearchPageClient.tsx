@@ -17,7 +17,7 @@ import DividendsTab from './components/DividendsTab';
 import NewsTab from './components/NewsTab';
 import NotesTab from './components/NotesTab';
 import ComparisonTab from './components/ComparisonTab';
-import StockSearchInput from './components/StockSearchInput';
+import { StockSearchInput } from '@/components/StockSearchInput';
 
 const TABS: { id: StockResearchTab; label: string; icon: React.ReactNode }[] = [
   { id: 'overview', label: 'Overview', icon: <TrendingUp size={16} /> },
@@ -57,13 +57,12 @@ export default function StockResearchPage() {
 
   // Load watchlist on mount
   useEffect(() => {
-    console.log('[ResearchPage] Initializing: Fetching watchlist.');
+    // console.log('[ResearchPage] Initializing: Fetching watchlist.');
     loadWatchlist();
   }, []);
 
   const loadWatchlist = async () => {
-    console.log('[ResearchPage] loadWatchlist: Feature temporarily disabled during API migration.');
-    // TODO: Implement watchlist API in front_api_client
+    // console.log('[ResearchPage] loadWatchlist: Feature temporarily disabled during API migration.');
     __setWatchlist([]);
   };
 
@@ -84,39 +83,34 @@ export default function StockResearchPage() {
   }, [searchParams, router, stockData]);
 
   const loadStockData = async (ticker: string) => {
-    console.log(`[ResearchPage] loadStockData: Loading all data for ticker: ${ticker}`);
+    // console.log(`[ResearchPage] loadStockData: Loading all data for ticker: ${ticker}`);
     setIsLoading(true);
     setStockData(null);
 
     try {
-      // Use the new front_api_get_stock_research_data for efficient batch loading
-      const stockResearchData: any = await front_api_get_stock_research_data(ticker);
-      console.log('[ResearchPage] front_api_get_stock_research_data result:', stockResearchData);
-      
-      console.log('[ResearchPage] Raw API Responses from front_api_get_stock_research_data:', stockResearchData);
+      const stockResearchData = await front_api_get_stock_research_data(ticker);
+      // console.log('[ResearchPage] front_api_get_stock_research_data result:', stockResearchData);
 
-      if (stockResearchData.overview.ok && stockResearchData.overview.data) {
-        const overviewData = stockResearchData.overview.data;
-        const quoteData = stockResearchData.quote.ok ? stockResearchData.quote.data.data : null;
+      // console.log('[ResearchPage] Raw API Responses from front_api_get_stock_research_data:', stockResearchData);
 
-        const combinedData: StockResearchData = {
-          overview: overviewData.fundamentals || overviewData,
-          quote: quoteData || overviewData.price_data,
-          priceData: [], // TODO: Add historical price data to front_api_client
-          news: [], // TODO: Add news data to front_api_client  
-          notes: [], // TODO: Add notes data to front_api_client
-          isInWatchlist: false, // TODO: Add watchlist check to front_api_client
-        };
-        console.log(`[ResearchPage] loadStockData: Successfully processed data for ${ticker}.`, combinedData);
-        setStockData(combinedData);
-      } else {
-        console.error(`[ResearchPage] loadStockData: Failed to fetch critical overview data for ${ticker}.`, stockResearchData.overview.error);
-      }
-    } catch (error) {
-      console.error(`[ResearchPage] loadStockData: Unhandled exception for ${ticker}.`, error);
+      const combinedData: StockResearchData = {
+        overview: stockResearchData.overview || {},
+        financials: stockResearchData.financials || {},
+        news: stockResearchData.news || [],
+        notes: stockResearchData.notes || { content: '' },
+        dividends: stockResearchData.dividends || [],
+      };
+
+      // console.log(`[ResearchPage] loadStockData: Successfully processed data for ${ticker}.`, combinedData);
+      setStockData(combinedData);
+      setSelectedTicker(ticker);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+      setError(errorMessage);
+      console.error(`[ResearchPage] loadStockData: Error loading data for ${ticker}:`, err);
     } finally {
       setIsLoading(false);
-      console.log(`[ResearchPage] loadStockData: Finished loading for ${ticker}.`);
+      // console.log(`[ResearchPage] loadStockData: Finished loading for ${ticker}.`);
     }
   };
 
@@ -133,13 +127,15 @@ export default function StockResearchPage() {
   };
 
   const handleToggleWatchlist = async () => {
+    // console.log(`[ResearchPage] handleToggleWatchlist: (placeholder) would toggle ${selectedTicker}. Currently in watchlist: ${isInWatchlist}`);
+    // Watchlist functionality will be reimplemented after API migration
     if (!selectedTicker) {
       console.warn('[ResearchPage] handleToggleWatchlist: No ticker selected.');
       return;
     }
 
     const isInWatchlist = stockData ? stockData.isInWatchlist : false;
-    console.log(`[ResearchPage] handleToggleWatchlist: (placeholder) would toggle ${selectedTicker}. Currently in watchlist: ${isInWatchlist}`);
+
     // TODO: Integrate with watchlist API once available
     if (stockData) {
       setStockData({ ...stockData, isInWatchlist: !isInWatchlist });
@@ -148,7 +144,7 @@ export default function StockResearchPage() {
 
   const handleRefresh = async () => {
     if (selectedTicker) {
-      console.log(`[ResearchPage] handleRefresh: Refreshing data for ${selectedTicker}.`);
+      // console.log(`[ResearchPage] handleRefresh: Refreshing data for ${selectedTicker}.`);
       await loadStockData(selectedTicker);
     } else {
       console.warn('[ResearchPage] handleRefresh: Refresh called but no ticker is selected.');
@@ -213,7 +209,10 @@ export default function StockResearchPage() {
           {/* Search Bar */}
           <div className="max-w-md">
             <StockSearchInput
-              onStockSelect={handleStockSelect}
+              onSelectSymbol={(symbol) => {
+                console.debug('[ResearchPage] onSelectSymbol:', symbol);
+                handleStockSelect(symbol.symbol);
+              }}
               placeholder="Search stocks by ticker or company name..."
               className="w-full"
             />

@@ -4,6 +4,7 @@ All environment variables and settings in one place
 """
 import os
 from dotenv import load_dotenv
+from typing import Optional
 
 # Load environment variables
 load_dotenv()
@@ -33,11 +34,14 @@ ALLOWED_ORIGINS = [
 CACHE_TTL_SECONDS = int(os.getenv("CACHE_TTL_SECONDS", "3600"))  # 1 hour default
 
 # Logging
-LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+LOG_LEVEL = os.getenv("LOG_LEVEL", "WARNING")
 LOG_FORMAT = "[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s"
 
 # Rate Limiting
 RATE_LIMIT_PER_MINUTE = int(os.getenv("RATE_LIMIT_PER_MINUTE", "60"))
+
+# Debug logging control
+DEBUG_INFO_LOGGING = os.getenv('DEBUG_INFO_LOGGING', 'false').lower() == 'true'
 
 # Validate required environment variables
 required_vars = [
