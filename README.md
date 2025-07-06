@@ -17,6 +17,34 @@
 
 ---
 
+## Recent Updates *(6 July 2025)*
+
+### 🔄 Hybrid Index Simulation *(Major Feature)*
+- **Updated `get_index_sim_series()`** with new hybrid approach
+- **Fair Baseline:** Index and portfolio now start at same value for selected time period
+- **Real Cash Flows:** Still reflects user's actual investment timing after start date
+- **Perfect Alignment:** Eliminates baseline misalignment issues in charts
+- **Best of Both Worlds:** Combines fairness of rebalanced simulation with realism of cash flow timing
+
+### 🎛️ Production-Ready Logging Control *(New Feature)*
+- **`LoggingConfig`** class for runtime logging control
+- **Environment Variable:** `DEBUG_INFO_LOGGING=true/false`
+- **API Endpoints:** Toggle logging on/off via authenticated REST calls
+- **Conditional Logging:** `DebugLogger.info_if_enabled()` for zero-overhead disabled logging
+- **Production Ready:** Clean logs with only errors/warnings when disabled
+
+### 🛠️ Enhanced Error Handling
+- **Graceful Validation:** Symbol validation errors return user-friendly messages instead of exceptions
+- **Special Characters:** Support for complex stock symbols like `BRK.A`, `BRK.B`
+- **Regex Validation:** Updated to `^[A-Z0-9.-]{1,8}$` for broader symbol support
+
+### 📊 Performance Improvements
+- **Supabase Query Optimization:** Individual ticker queries to avoid 1000-row limit
+- **Smart Date Ranges:** Fetch data per stock from its first transaction date
+- **Efficient Price Lookup:** Optimized price data retrieval and caching
+
+---
+
 ## System Architecture Overview
 
 ### Technology Stack
@@ -188,43 +216,139 @@ app = FastAPI(title="Portfolio Tracker API")
 
 **`IndexSimulationService`**
 
-1. **`get_index_sim_series(user_id, benchmark, start_date, end_date, user_token)`**
-   - **Purpose:** Simulate what user's portfolio would be worth if invested in index
-   - **Algorithm:**
+1. **`get_index_sim_series(user_id, benchmark, start_date, end_date, user_token)`** *(UPDATED - Hybrid Simulation)*
+   - **Purpose:** Hybrid index simulation combining fair baseline with real cash flows
+   - **New Algorithm (v2.0):**
      ```python
-     # 1. Get user's actual transactions
-     # 2. Calculate cash flows (buys = positive, sells = negative)
-     # 3. Simulate buying/selling index shares on same dates
-     # 4. Calculate daily index portfolio values
+     # STEP 1: Seed index with portfolio value at chart start date
+     start_value = get_portfolio_value_at(start_date)
+     cash_flows = [(start_date, start_value)]
+     
+     # STEP 2: Add real cash flows after start date
+     for transaction in transactions_after_start_date:
+         cash_delta = calculate_cash_flow(transaction)
+         cash_flows.append((transaction.date, cash_delta))
+     
+     # STEP 3: Simulate index purchases with combined cash flows
+     # STEP 4: Calculate daily index portfolio values
      ```
-   - **Key Features:**
-     - Uses fractional shares
-     - Matches exact transaction timing
-     - Handles dividends as reinvestment
+   - **Key Improvements:**
+     - **Fair Baseline:** Index and portfolio start at same value for selected time period
+     - **Real Cash Flows:** Still reflects user's actual investment timing after start date
+     - **Perfect Alignment:** Eliminates baseline misalignment issues
+     - **Best of Both Worlds:** Combines fairness of rebalanced with realism of cash flow simulation
+   - **Use Cases:**
+     - Primary comparison tool for portfolio vs benchmark performance
+     - Answers: "What if I invested in the index with the same timeline and amounts?"
 
 2. **`get_rebalanced_index_series(user_id, benchmark, start_date, end_date, user_token)`**
-   - **Purpose:** Create index portfolio starting with user's actual portfolio value
+   - **Purpose:** Pure rebalanced index comparison (single lump sum investment)
    - **Algorithm:**
      ```python
      # 1. Get user's portfolio value at start_date
-     # 2. Buy equivalent dollar amount of index
-     # 3. Track performance from that baseline
+     # 2. Buy equivalent dollar amount of index on start_date
+     # 3. Track performance from that baseline (no additional cash flows)
      ```
-   - **Use Case:** Eliminates baseline alignment issues between portfolio and benchmark
+   - **Use Case:** Simple "what if I invested everything in the index at once" comparison
+   - **Note:** Now serves as alternative to hybrid simulation for pure rebalancing scenarios
 
 **Key Internal Methods:**
 
-1. **`_calculate_cash_flows(transactions, benchmark_prices)`**
+1. **`_calculate_cash_flows(transactions, benchmark_prices)`** *(Legacy method - still used by rebalanced)*
    - Converts user transactions to cash flows
    - Uses benchmark closing prices for consistency
+   - **Note:** Hybrid simulation builds cash flows inline for better control
 
 2. **`_simulate_index_transactions(cash_flows, benchmark, benchmark_prices)`**
    - Calculates fractional index shares purchased
    - Maintains running position
+   - **Enhanced:** Now handles both seed investments and incremental cash flows
 
 3. **`_calculate_daily_values(start_date, end_date, share_positions, benchmark_prices)`**
    - Computes daily portfolio values
    - Forward-fills missing price data
+   - **Improved:** Better handling of date alignment and missing data
+
+4. **`_get_price_for_transaction_date(transaction_date, prices)`**
+   - Finds appropriate price for transaction simulation
+   - Handles weekends and holidays with forward/backward lookup
+
+5. **`_get_price_for_valuation_date(valuation_date, prices)`**
+   - Finds appropriate price for portfolio valuation
+   - Optimized for daily value calculations
+
+6. **`_generate_zero_series(start_date, end_date)`**
+   - Generates zero-value series for edge cases
+   - Used when no portfolio data available
+
+**`IndexSimulationUtils`**
+
+1. **`validate_benchmark(benchmark)`**
+   - Validates supported benchmark tickers
+   - **Supported:** SPY, QQQ, A200, URTH, VTI, VXUS
+
+2. **`calculate_performance_metrics(portfolio_series, index_series)`**
+   - Calculates comparative performance metrics
+   - **Returns:** Returns, outperformance, absolute differences
+   - **Fixed:** Corrected double percentage calculation bug
+
+#### Integration Points
+
+- **Portfolio Service:** Fetches user's portfolio value for baseline seeding
+- **Dashboard API:** Primary consumer of index simulation data
+- **Vantage API:** Fallback for missing benchmark price data
+- **Authentication:** Full RLS compliance with JWT tokens
+
+---
+
+## Logging and Debugging System
+
+### Enhanced Debug Logger (`debug_logger.py`)
+
+#### New Features - Conditional Logging System
+
+**`LoggingConfig`** *(NEW)*
+- **Purpose:** Runtime control of logging levels
+- **Key Methods:**
+  ```python
+  LoggingConfig.enable_info_logging()    # Enable info logs
+  LoggingConfig.disable_info_logging()   # Disable info logs  
+  LoggingConfig.toggle_info_logging()    # Toggle on/off
+  LoggingConfig.is_info_enabled()        # Check current state
+  ```
+- **Environment Variable:** `DEBUG_INFO_LOGGING=true/false`
+- **Use Case:** Production-ready logging control without code changes
+
+**`DebugLogger.info_if_enabled(message, logger_instance)`** *(NEW)*
+- **Purpose:** Conditional info logging
+- **Behavior:** Only logs if `LoggingConfig.is_info_enabled()` returns True
+- **Performance:** Zero overhead when disabled
+- **Usage:**
+  ```python
+  # Instead of:
+  logger.info("Processing data...")
+  
+  # Use:
+  DebugLogger.info_if_enabled("Processing data...", logger)
+  ```
+
+#### API Endpoints for Logging Control *(NEW)*
+
+**`POST /api/dashboard/debug/toggle-info-logging`**
+- **Purpose:** Toggle info logging on/off at runtime
+- **Authentication:** Requires valid JWT token
+- **Returns:** Current logging state
+
+**`GET /api/dashboard/debug/logging-status`**
+- **Purpose:** Get current logging configuration
+- **Returns:** `{"info_logging_enabled": boolean}`
+
+#### Existing Debug Features
+
+**`DebugLogger.log_api_call()`** - Decorator for comprehensive API logging
+**`DebugLogger.log_database_query()`** - Database operation logging  
+**`DebugLogger.log_cache_operation()`** - Cache operation logging
+**`DebugLogger.log_error()`** - Structured error logging with context
 
 ### External API Services
 

@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 @DebugLogger.log_api_call(api_name="ALPHA_VANTAGE", sender="BACKEND", receiver="VANTAGE_API", operation="GLOBAL_QUOTE")
 async def vantage_api_get_quote(symbol: str) -> Dict[str, Any]:
     """Get real-time quote data for a stock symbol"""
-
+    
     client = get_vantage_client()
     
     # Check cache first
@@ -172,7 +172,7 @@ async def vantage_api_get_overview(symbol: str) -> Dict[str, Any]:
 
 @DebugLogger.log_api_call(api_name="ALPHA_VANTAGE", sender="BACKEND", receiver="VANTAGE_API", operation="FETCH_AND_STORE_HISTORICAL_DATA")
 async def vantage_api_fetch_and_store_historical_data(symbol: str, start_date: Optional[str] = None) -> Dict[str, Any]:
-
+    
     client = get_vantage_client()
     
     # Import here to avoid circular imports
@@ -200,7 +200,7 @@ async def vantage_api_fetch_and_store_historical_data(symbol: str, start_date: O
             'symbol': symbol,
             'outputsize': 'full'  # Get ALL available historical data
         }
-
+        
         response = await client._make_request(params)
         
         if 'Time Series (Daily)' not in response:
@@ -208,7 +208,7 @@ async def vantage_api_fetch_and_store_historical_data(symbol: str, start_date: O
             raise Exception(f"No historical data found for {symbol}")
         
         time_series = response['Time Series (Daily)']
-
+        
         # Convert to list format for database storage
         price_records = []
         for date_str, price_data in time_series.items():
@@ -259,7 +259,7 @@ async def vantage_api_fetch_and_store_historical_data(symbol: str, start_date: O
 
 @DebugLogger.log_api_call(api_name="ALPHA_VANTAGE", sender="BACKEND", receiver="VANTAGE_API", operation="GET_HISTORICAL_PRICE_FROM_DB")
 async def vantage_api_get_historical_price(symbol: str, date: str) -> Dict[str, Any]:
-
+    
     # Import here to avoid circular imports
     from supa_api.supa_api_historical_prices import supa_api_get_historical_price_for_date
     
