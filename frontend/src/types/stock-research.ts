@@ -106,7 +106,7 @@ export interface ComparisonStock {
   isSelected: boolean;
 }
 
-export type TimePeriod = '7d' | '1m' | '3m' | '6m' | 'ytd' | '1y' | '5y' | 'max';
+export type TimePeriod = '7d' | '1m' | '3m' | '6m' | 'ytd' | '1y' | '3y' | '5y' | 'max';
 
 export type StockResearchTab = 
   | 'overview' 
@@ -201,6 +201,61 @@ export interface FinancialChartProps {
   title: string;
   ticker: string;
   height?: number;
+}
+
+// Financial Data Caching
+export interface FinancialDataCache {
+  cache_status: 'hit' | 'miss' | 'force_refresh' | 'error';
+  last_updated: string;
+  freshness_hours: number;
+}
+
+export interface CompanyFinancialsResponse {
+  success: boolean;
+  data?: CompanyFinancials;
+  metadata?: {
+    symbol: string;
+    data_type: string;
+    cache_status: 'hit' | 'miss' | 'force_refresh' | 'error';
+    timestamp: string;
+  };
+  error?: string;
+}
+
+export interface CompanyFinancials {
+  // Overview data (extends existing StockOverview)
+  overview?: StockOverview & {
+    last_updated?: string;
+    cache_metadata?: FinancialDataCache;
+  };
+  
+  // Income statement data
+  income_statement?: {
+    annual: FinancialStatement[];
+    quarterly: FinancialStatement[];
+    metadata?: FinancialDataCache;
+  };
+  
+  // Balance sheet data
+  balance_sheet?: {
+    annual: FinancialStatement[];
+    quarterly: FinancialStatement[];
+    metadata?: FinancialDataCache;
+  };
+  
+  // Cash flow data
+  cash_flow?: {
+    annual: FinancialStatement[];
+    quarterly: FinancialStatement[];
+    metadata?: FinancialDataCache;
+  };
+}
+
+// Enhanced financial statement with cache-aware typing
+export interface CachedFinancialStatement extends FinancialStatement {
+  fiscal_date_ending?: string;
+  reported_currency?: string;
+  cache_metadata?: FinancialDataCache;
 }
 
 // State Management

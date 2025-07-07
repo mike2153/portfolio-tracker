@@ -27,9 +27,6 @@ async def require_authenticated_user(credentials: Optional[HTTPAuthorizationCred
         operation="REQUIRE_AUTH"
     )
     
-    logger.info(f"[supa_api_auth.py::require_authenticated_user] ========== AUTH VALIDATION START ==========")
-    logger.info(f"[supa_api_auth.py::require_authenticated_user] Credentials present: {bool(credentials)}")
-    
     if not credentials:
         logger.warning("[supa_api_auth.py::require_authenticated_user] No Authorization credentials provided.")
         raise HTTPException(status_code=401, detail="No credentials provided")
@@ -40,14 +37,11 @@ async def require_authenticated_user(credentials: Optional[HTTPAuthorizationCred
     try:
         
         # Validate the token with Supabase
-        logger.info(f"[supa_api_auth.py::require_authenticated_user] Validating token...")
         user_response = supa_api_client.client.auth.get_user(token)
         
         if user_response and user_response.user:
             user_data = user_response.user.dict()
             user_data["access_token"] = token
-            logger.info(f"[supa_api_auth.py::require_authenticated_user] ✅ Token validated for user: {user_data.get('email')}")
-            logger.info(f"[supa_api_auth.py::require_authenticated_user] 🔐 Access token included for RLS support")
             return user_data
         else:
             logger.warning("[supa_api_auth.py::require_authenticated_user] ❌ Token validation failed.")

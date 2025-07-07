@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { createChart, LineData, IChartApi, ISeriesApi, UTCTimestamp, LineSeries } from 'lightweight-charts';
+import { createChart, LineData, CandlestickData, HistogramData, IChartApi, ISeriesApi, UTCTimestamp, LineSeries, AreaSeries } from 'lightweight-charts';
 import type { PriceDataPoint, TimePeriod } from '@/types/stock-research';
 
 interface PriceChartProps {
@@ -11,6 +11,8 @@ interface PriceChartProps {
   onPeriodChange: (period: TimePeriod) => void;
   height?: number;
   isLoading?: boolean;
+  chartType?: 'line' | 'candlestick' | 'mountain';
+  showVolume?: boolean;
 }
 
 const TIME_PERIODS: { value: TimePeriod; label: string }[] = [
@@ -20,6 +22,7 @@ const TIME_PERIODS: { value: TimePeriod; label: string }[] = [
   { value: '6m', label: '6M' },
   { value: 'ytd', label: 'YTD' },
   { value: '1y', label: '1Y' },
+  { value: '3y', label: '3Y' },
   { value: '5y', label: '5Y' },
   { value: 'max', label: 'MAX' },
 ];
@@ -30,13 +33,17 @@ export default function PriceChart({
   period, 
   onPeriodChange, 
   height = 400,
-  isLoading = false 
+  isLoading = false,
+  chartType = 'candlestick',
+  showVolume = true
 }: PriceChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
-  const seriesRef = useRef<ISeriesApi<'Line'> | null>(null);
+  const priceSeriesRef = useRef<ISeriesApi<'Line' | 'Candlestick' | 'Area'> | null>(null);
+  const volumeSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null);
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
   const [priceChange, setPriceChange] = useState<{ amount: number; percentage: number } | null>(null);
+  const [currentChartType, setCurrentChartType] = useState<'line' | 'candlestick' | 'mountain'>(chartType);
 
   // Calculate price change
   useEffect(() => {
@@ -101,18 +108,69 @@ export default function PriceChart({
         return;
       }
       
-      const lineSeries = chart.addSeries(LineSeries, {
-        color: '#10b981',
-        lineWidth: 2,
-        priceFormat: {
-          type: 'price',
-          precision: 2,
-          minMove: 0.01,
-        },
-      });
+      // Add price series based on chart type
+      let priceSeries;
+      if (currentChartType === 'candlestick') {
+        priceSeries = chart.addCandlestickSeries({
+          upColor: '#10b981',
+          downColor: '#ef4444',
+          borderUpColor: '#10b981',
+          borderDownColor: '#ef4444',
+          wickUpColor: '#10b981',
+          wickDownColor: '#ef4444',
+          priceFormat: {
+            type: 'price',
+            precision: 2,
+            minMove: 0.01,
+          },
+        });
+      } else if (currentChartType === 'mountain') {
+        priceSeries = chart.addSeries(AreaSeries, {
+          topColor: 'rgba(16, 185, 129, 0.56)',
+          bottomColor: 'rgba(16, 185, 129, 0.04)',
+          lineColor: 'rgba(16, 185, 129, 1)',
+          lineWidth: 2,
+          priceFormat: {
+            type: 'price',
+            precision: 2,
+            minMove: 0.01,
+          },
+        });
+      } else {
+        priceSeries = chart.addSeries(LineSeries, {
+          color: '#10b981',
+          lineWidth: 2,
+          priceFormat: {
+            type: 'price',
+            precision: 2,
+            minMove: 0.01,
+          },
+        });
+      }
+
+      // Add volume series if enabled
+      let volumeSeries = null;
+      if (showVolume) {
+        volumeSeries = chart.addHistogramSeries({
+          color: '#6b7280',
+          priceFormat: {
+            type: 'volume',
+          },
+          priceScaleId: 'volume',
+        });
+
+        // Configure volume scale
+        chart.priceScale('volume').applyOptions({
+          scaleMargins: {
+            top: 0.7,
+            bottom: 0,
+          },
+        });
+      }
 
       chartRef.current = chart;
-      seriesRef.current = lineSeries;
+      priceSeriesRef.current = priceSeries;
+      volumeSeriesRef.current = volumeSeries;
 
       // Handle resize
       const handleResize = () => {
@@ -132,24 +190,50 @@ export default function PriceChart({
     } catch (error) {
       console.error('[PriceChart] Error initializing chart:', error);
     }
-  }, [height]);
+  }, [height, currentChartType, showVolume]);
 
   // Update chart data
   useEffect(() => {
-    if (!seriesRef.current || !data.length) return;
+    if (!priceSeriesRef.current || !data.length) return;
 
-    const chartData: LineData[] = data.map(point => ({
-      time: (new Date(point.time).getTime() / 1000) as UTCTimestamp,
-      value: point.close,
-    }));
+    try {
+      // Prepare price data based on chart type
+      if (currentChartType === 'candlestick') {
+        const candlestickData: CandlestickData[] = data.map(point => ({
+          time: (new Date(point.time).getTime() / 1000) as UTCTimestamp,
+          open: point.open,
+          high: point.high,
+          low: point.low,
+          close: point.close,
+        }));
+        priceSeriesRef.current.setData(candlestickData);
+      } else {
+        // Both line and mountain charts use the same data format (LineData)
+        const lineData: LineData[] = data.map(point => ({
+          time: (new Date(point.time).getTime() / 1000) as UTCTimestamp,
+          value: point.close,
+        }));
+        priceSeriesRef.current.setData(lineData);
+      }
 
-    seriesRef.current.setData(chartData);
+      // Update volume data if volume series exists
+      if (volumeSeriesRef.current && showVolume) {
+        const volumeData: HistogramData[] = data.map(point => ({
+          time: (new Date(point.time).getTime() / 1000) as UTCTimestamp,
+          value: point.volume,
+          color: point.close >= point.open ? '#10b98150' : '#ef444450', // Semi-transparent
+        }));
+        volumeSeriesRef.current.setData(volumeData);
+      }
 
-    // Auto-scale to fit data
-    if (chartRef.current) {
-      chartRef.current.timeScale().fitContent();
+      // Auto-scale to fit data
+      if (chartRef.current) {
+        chartRef.current.timeScale().fitContent();
+      }
+    } catch (error) {
+      console.error('[PriceChart] Error updating chart data:', error);
     }
-  }, [data]);
+  }, [data, currentChartType, showVolume]);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -189,21 +273,58 @@ export default function PriceChart({
           )}
         </div>
         
-        {/* Time Period Selector */}
-        <div className="flex flex-wrap gap-1 mt-2 sm:mt-0">
-          {TIME_PERIODS.map(({ value, label }) => (
+        {/* Chart Controls */}
+        <div className="flex flex-col sm:flex-row gap-2 mt-2 sm:mt-0">
+          {/* Chart Type Toggle */}
+          <div className="flex bg-gray-700 rounded p-1">
             <button
-              key={value}
-              onClick={() => onPeriodChange(value)}
-              className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
-                period === value
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+              onClick={() => setCurrentChartType('line')}
+              className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
+                currentChartType === 'line'
+                  ? 'bg-gray-600 text-white'
+                  : 'text-gray-300 hover:text-white'
               }`}
             >
-              {label}
+              Line
             </button>
-          ))}
+            <button
+              onClick={() => setCurrentChartType('mountain')}
+              className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
+                currentChartType === 'mountain'
+                  ? 'bg-gray-600 text-white'
+                  : 'text-gray-300 hover:text-white'
+              }`}
+            >
+              Mountain
+            </button>
+            <button
+              onClick={() => setCurrentChartType('candlestick')}
+              className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
+                currentChartType === 'candlestick'
+                  ? 'bg-gray-600 text-white'
+                  : 'text-gray-300 hover:text-white'
+              }`}
+            >
+              Candles
+            </button>
+          </div>
+          
+          {/* Time Period Selector */}
+          <div className="flex flex-wrap gap-1">
+            {TIME_PERIODS.map(({ value, label }) => (
+              <button
+                key={value}
+                onClick={() => onPeriodChange(value)}
+                className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                  period === value
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -232,8 +353,15 @@ export default function PriceChart({
       </div>
 
       {/* Chart Info */}
-      <div className="mt-2 text-xs text-gray-400 text-center">
-        Data provided by Alpha Vantage • {data.length} data points
+      <div className="mt-2 text-xs text-gray-400 flex justify-between items-center">
+        <span>Data provided by Alpha Vantage • {data.length} data points</span>
+        <div className="flex gap-4">
+          <span>Chart: {
+            currentChartType === 'candlestick' ? 'Candlesticks' : 
+            currentChartType === 'mountain' ? 'Mountain' : 'Line'
+          }</span>
+          {showVolume && <span>Volume: Enabled</span>}
+        </div>
       </div>
     </div>
   );

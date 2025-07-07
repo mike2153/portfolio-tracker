@@ -5,11 +5,13 @@ Handles symbol search and stock overview data
 from fastapi import APIRouter, Query, HTTPException, Depends
 from typing import List, Dict, Any, Optional
 import logging
+from datetime import datetime
 
 from debug_logger import DebugLogger
 from vantage_api.vantage_api_search import combined_symbol_search
 from vantage_api.vantage_api_quotes import vantage_api_get_overview, vantage_api_get_quote, vantage_api_get_historical_price
 from supa_api.supa_api_auth import require_authenticated_user
+from services.financials_service import FinancialsService
 
 logger = logging.getLogger(__name__)
 
@@ -212,4 +214,104 @@ async def backend_api_historical_price_handler(
             "requested_date": date,
             "error": str(e),
             "message": f"Could not fetch historical price for {symbol} on {date}"
-        } 
+        }
+
+@research_router.get("/financials/{symbol}")
+@DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="FINANCIALS")
+async def backend_api_financials_handler(
+    symbol: str,
+    data_type: str = Query('overview', description="Type of financial data: overview, income, balance, cashflow"),
+    force_refresh: bool = Query(False, description="Force refresh from API even if cached"),
+    user_data: Dict[str, Any] = Depends(require_authenticated_user)
+) -> Dict[str, Any]:
+    """
+    Get company financials with intelligent caching
+    
+    This endpoint implements the required caching pattern:
+    1. Check Supabase for fresh data (<24h old)
+    2. Return cached data if fresh
+    3. Fetch from external API if stale/missing
+    4. Store in Supabase for future requests
+    """
+    logger.info(f"[backend_api_research.py::backend_api_financials_handler] Financials request: {symbol}:{data_type}")
+    
+    if not symbol:
+        raise HTTPException(status_code=400, detail="Symbol is required")
+    
+    try:
+        # Extract JWT token from user data
+        user_token = user_data.get("access_token")
+        
+        result = await FinancialsService.get_company_financials(
+            symbol=symbol.upper().strip(),
+            data_type=data_type,
+            force_refresh=force_refresh,
+            user_token=user_token
+        )
+        
+        # Return success response with cache metadata
+        return {
+            "success": result["success"],
+            "data": result.get("data"),
+            "metadata": {
+                "symbol": result["symbol"],
+                "data_type": result["data_type"],
+                "cache_status": result["cache_status"],
+                "timestamp": datetime.utcnow().isoformat()
+            },
+            "error": result.get("error")
+        }
+        
+    except Exception as e:
+        DebugLogger.log_error(
+            file_name="backend_api_research.py",
+            function_name="backend_api_financials_handler",
+            error=e,
+            symbol=symbol,
+            data_type=data_type
+        )
+        raise HTTPException(status_code=500, detail=str(e))
+
+@research_router.post("/financials/force-refresh")
+async def backend_api_force_refresh_financials_handler(
+    symbol: str = Query(..., description="Stock symbol to refresh"),
+    data_type: str = Query('overview', description="Type of financial data to refresh"),
+    user_data: Dict[str, Any] = Depends(require_authenticated_user)
+) -> Dict[str, Any]:
+    """
+    Force refresh financial data from external API
+    Admin/dev endpoint for manual cache invalidation
+    """
+    logger.info(f"[backend_api_research.py] Force refresh request: {symbol}:{data_type}")
+    
+    try:
+        # Extract JWT token from user data
+        user_token = user_data.get("access_token")
+        
+        result = await FinancialsService.get_company_financials(
+            symbol=symbol,
+            data_type=data_type,
+            force_refresh=True,
+            user_token=user_token
+        )
+        
+        return {
+            "success": True,
+            "message": f"Successfully refreshed {symbol}:{data_type}",
+            "data": result.get("data"),
+            "metadata": {
+                "symbol": symbol,
+                "data_type": data_type,
+                "cache_status": "force_refresh",
+                "timestamp": datetime.utcnow().isoformat()
+            }
+        }
+        
+    except Exception as e:
+        DebugLogger.log_error(
+            file_name="backend_api_research.py",
+            function_name="backend_api_force_refresh_financials_handler",
+            error=e,
+            symbol=symbol
+        )
+        raise HTTPException(status_code=500, detail=str(e))

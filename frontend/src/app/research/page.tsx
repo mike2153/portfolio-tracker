@@ -55,6 +55,14 @@ function StockResearchPageContent() {
     }
   }, [searchParams]);
 
+  // Load stock data when selectedTicker changes
+  useEffect(() => {
+    if (selectedTicker && !stockData[selectedTicker]) {
+      console.log(`[ResearchPage] selectedTicker changed to: ${selectedTicker}, loading data...`);
+      loadStockData(selectedTicker);
+    }
+  }, [selectedTicker]);
+
   // Load watchlist on mount
   useEffect(() => {
     loadWatchlist();
@@ -99,34 +107,25 @@ function StockResearchPageContent() {
   const loadStockData = async (ticker: string) => {
     setIsLoading(true);
     try {
-      // console.log(`[ResearchPage] Loading stock data for: ${ticker}`);
-              const data = await front_api_client.front_api_get_stock_research_data(ticker);
-      // console.log(`[ResearchPage] Stock data received for ${ticker}:`, data);
+      console.log(`[ResearchPage] Loading stock data for: ${ticker}`);
+      const data = await front_api_client.front_api_get_stock_research_data(ticker);
+      console.log(`[ResearchPage] Stock data received for ${ticker}:`, data);
       
       if (data) {
-      setStockData(prev => ({
-        ...prev,
-        [ticker]: {
-          overview: data.overview?.ok ? data.overview.data?.data as any : undefined,
-          quote: data.overview?.ok ? data.overview.data?.data as any : undefined,
-          priceData: Array.isArray(data.priceData) 
-            ? data.priceData 
-            : data.priceData?.ok 
-              ? (data.priceData.data?.data || []) as any[]
-              : [],
-          news: Array.isArray(data.news) 
-            ? data.news 
-            : data.news?.ok 
-              ? (data.news.data?.articles || []) as any[]
-              : [],
-          notes: Array.isArray(data.notes) 
-            ? data.notes 
-            : data.notes?.ok 
-              ? (data.notes.data?.notes || []) as any[]
-              : [],
-          isInWatchlist: Boolean(data.isInWatchlist)
-        } as StockResearchData
-      }));
+        setStockData(prev => ({
+          ...prev,
+          [ticker]: {
+            overview: data.fundamentals || {},
+            quote: data.price_data || {},
+            priceData: data.priceData || [],
+            news: data.news || [],
+            notes: data.notes || [],
+            financials: data.financials || {},
+            dividends: data.dividends || [],
+            isInWatchlist: Boolean(data.isInWatchlist)
+          } as StockResearchData
+        }));
+        console.log(`[ResearchPage] Stock data set for ${ticker}, overview keys:`, Object.keys(data.fundamentals || {}));
       }
     } catch (error) {
       console.error('[ResearchPage] Error loading stock data:', error);

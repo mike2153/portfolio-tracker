@@ -55,6 +55,14 @@ export default function StockResearchPage() {
     }
   }, [searchParams]);
 
+  // Load stock data when selectedTicker changes
+  useEffect(() => {
+    if (selectedTicker) {
+      console.log(`[ResearchPage] selectedTicker changed to: ${selectedTicker}, loading data...`);
+      loadStockData(selectedTicker);
+    }
+  }, [selectedTicker]);
+
   // Load watchlist on mount
   useEffect(() => {
     // console.log('[ResearchPage] Initializing: Fetching watchlist.');
@@ -68,6 +76,7 @@ export default function StockResearchPage() {
 
   const handleStockSelect = useCallback(async (ticker: string) => {
     const upperTicker = ticker.toUpperCase();
+    console.log(`[ResearchPage] handleStockSelect called with ticker: ${upperTicker}`);
     setSelectedTicker(upperTicker);
     setError(null);
     
@@ -76,32 +85,37 @@ export default function StockResearchPage() {
     newParams.set('ticker', upperTicker);
     router.push(`/research?${newParams.toString()}`, { scroll: false });
     
-    // Load stock data if not already cached
-    if (!stockData) {
-      await loadStockData(upperTicker);
-    }
-  }, [searchParams, router, stockData]);
+    // Always load stock data when a new stock is selected
+    console.log(`[ResearchPage] About to call loadStockData for ${upperTicker}`);
+    await loadStockData(upperTicker);
+  }, [searchParams, router]);
 
   const loadStockData = async (ticker: string) => {
-    // console.log(`[ResearchPage] loadStockData: Loading all data for ticker: ${ticker}`);
+    console.log(`[ResearchPage] loadStockData: Loading all data for ticker: ${ticker}`);
     setIsLoading(true);
     setStockData(null);
 
     try {
       const stockResearchData = await front_api_get_stock_research_data(ticker);
-      // console.log('[ResearchPage] front_api_get_stock_research_data result:', stockResearchData);
+      console.log('[ResearchPage] front_api_get_stock_research_data result:', stockResearchData);
 
-      // console.log('[ResearchPage] Raw API Responses from front_api_get_stock_research_data:', stockResearchData);
+      console.log('[ResearchPage] Raw API Response:', JSON.stringify(stockResearchData, null, 2));
 
+      // Map the API response to the expected structure
       const combinedData: StockResearchData = {
-        overview: stockResearchData.overview || {},
+        overview: stockResearchData.fundamentals || {},  // Changed from stockResearchData.overview
+        quote: stockResearchData.price_data || {},      // Added quote mapping from price_data
         financials: stockResearchData.financials || {},
         news: stockResearchData.news || [],
         notes: stockResearchData.notes || { content: '' },
         dividends: stockResearchData.dividends || [],
+        priceData: stockResearchData.priceData || [],   // Added priceData if available
       };
 
-      // console.log(`[ResearchPage] loadStockData: Successfully processed data for ${ticker}.`, combinedData);
+      console.log(`[ResearchPage] Combined data structure:`, JSON.stringify(combinedData, null, 2));
+      console.log(`[ResearchPage] Overview data exists:`, !!combinedData.overview);
+      console.log(`[ResearchPage] Overview data keys:`, Object.keys(combinedData.overview));
+      
       setStockData(combinedData);
       setSelectedTicker(ticker);
     } catch (err) {
@@ -110,7 +124,7 @@ export default function StockResearchPage() {
       console.error(`[ResearchPage] loadStockData: Error loading data for ${ticker}:`, err);
     } finally {
       setIsLoading(false);
-      // console.log(`[ResearchPage] loadStockData: Finished loading for ${ticker}.`);
+      console.log(`[ResearchPage] loadStockData: Finished loading for ${ticker}.`);
     }
   };
 
