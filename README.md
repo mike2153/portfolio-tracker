@@ -16,7 +16,51 @@
 12. [Deployment & Configuration](#deployment--configuration)
 
 ---
-## Recent Updates *(6 July 2025)*
+## Recent Updates *(8 January 2025)*
+
+### 📈 **Complete Historical Price Data System** *(New Major Feature)*
+- **End-to-End Price Data Flow:** Frontend → Backend → Database → Alpha Vantage (if needed) → Database → Chart
+- **Intelligent Caching:** Database-first approach with API fallback for missing/stale data
+- **Flexible Time Periods:** Support for days, weeks, months, years, and YTD periods
+- **Real-time Integration:** Connected to PriceChartApex component in research overview page
+- **Permanent Price Database:** Builds lifetime database as requested, with gap detection and filling
+
+### 🎨 **ResearchEd-Style Research Page Redesign** *(New UI/UX Feature)*
+- **Complete UI Overhaul:** Redesigned research page to match modern financial platforms like ResearchEd
+- **Clean Header Layout:** Company name, ticker, current price with inline key metrics (no cards)
+- **Grouped Metrics Sidebar:** Organized metrics into logical categories (Estimate, Growth, Forecast, Dividends, Trading)
+- **Minimal Design:** Removed all cards, shadows, and borders for clean, scannable interface
+- **Responsive Layout:** Sidebar stacks below chart on mobile, maintains usability across devices
+
+#### New Backend Components:
+- **`GET /api/research/stock_prices/{symbol}`** - Flexible price data endpoint with `?days=7`, `?years=3`, `?ytd=true` support
+- **`PriceDataService`** - Complete service with intelligent caching, gap detection, and Alpha Vantage integration  
+- **Enhanced `supa_api_historical_prices.py`** - New batch storage and range-based retrieval functions
+- **Updated `vantage_api_quotes.py`** - Added `vantage_api_get_daily_adjusted()` for comprehensive historical data
+
+#### New Frontend Components:
+- **`usePriceData()` Hook** - Reactive price data fetching with loading states and error handling
+- **`StockHeader`** - ResearchEd-style header with inline metrics (no cards, clean layout)
+- **`MetricsSidebar`** - Grouped metrics panel with categories (Estimate, Growth, Forecast, Dividends, Trading)
+- **`OverviewTabNew`** - Complete redesign with modern layout and responsive sidebar
+- **Enhanced StockOverview Interface** - Added comprehensive metric properties for full data display
+- **Updated `front_api_get_stock_prices()`** - Handles flexible period parameters
+
+#### Key Features:
+✅ **Database-First Caching** - Checks database before API calls  
+✅ **Gap Detection** - Identifies missing/stale data automatically  
+✅ **Fallback Strategy** - Gets maximum available data if requested period not available  
+✅ **Permanent Storage** - Builds lifetime database for instant future responses  
+✅ **Flexible Periods** - Supports days (7d), months (1m, 3m, 6m), years (1y, 3y, 5y), YTD, and MAX  
+✅ **Real-time UI** - Loading states, error handling, cache status indicators  
+✅ **Performance Optimized** - Efficient queries, upsert logic, and intelligent caching  
+✅ **ResearchEd-Style Design** - Clean, minimal interface without cards or heavy shadows  
+✅ **Grouped Metrics** - Logical organization of financial data for easy scanning  
+✅ **Mobile Responsive** - Sidebar adapts to mobile with stacked layout  
+✅ **Comprehensive Data** - Full range of financial metrics and ratios displayed  
+
+---
+## Previous Updates *(6 July 2025)*
 
 ### 🔄 Hybrid Index Simulation *(Major Feature)*
 - **Updated `get_index_sim_series()`** with new hybrid approach
@@ -507,25 +551,437 @@ const handleSymbolSearch = useCallback(
 );
 ```
 
-#### Research (`app/research/`)
+#### Research (`app/research/`) *(COMPLETELY REDESIGNED)*
 
-**`page.tsx`** - Stock research interface
+## 🎨 Required Imports for Research Page Components
+
+### Core Dependencies
+```typescript
+// React & Next.js
+import React, { useState, useEffect, useCallback } from 'react';
+import dynamic from 'next/dynamic';
+import { useSearchParams, useRouter } from 'next/navigation';
+
+// Icons & UI
+import { CheckIcon, InformationCircleIcon, ChevronDown, RefreshCw } from '@heroicons/react/24/outline';
+import { DollarSign, TrendingUp, BarChart3, Search } from 'lucide-react';
+
+// Charts (ApexCharts - dynamically imported)
+const Chart = dynamic(() => import('react-apexcharts'), { ssr: false });
+
+// API & Types
+import { front_api_client } from '@/lib/front_api_client';
+import type { 
+  TabContentProps,
+  StockResearchTab, 
+  StockResearchData,
+  FinancialStatementType, 
+  FinancialPeriodType 
+} from '@/types/stock-research';
+
+// Components
+import { StockSearchInput } from '@/components/StockSearchInput';
+```
+
+### Package Dependencies (package.json)
+```json
+{
+  "dependencies": {
+    "react-apexcharts": "^1.4.1",
+    "apexcharts": "^3.45.0",
+    "@heroicons/react": "^2.0.18",
+    "lucide-react": "^0.294.0"
+  }
+}
+```
+
+---
+
+**`page.tsx`** - Main stock research interface *(REDESIGNED)*
+- **Purpose:** Orchestrates entire research experience with ResearchEd-style design
+- **Key Features:**
+  - URL-based state management (`?ticker=AAPL&tab=financials`)
+  - Tab navigation with icons and badges
+  - Stock search with auto-complete
+  - Watchlist integration (placeholder for future API)
+  - Error handling and loading states
+  - Responsive design
+
+**Core State Management:**
+```typescript
+const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
+const [activeTab, setActiveTab] = useState<StockResearchTab>('overview');
+const [stockData, setStockData] = useState<Record<string, StockResearchData>>({});
+const [watchlist, setWatchlist] = useState<string[]>([]);
+const [comparisonStocks, setComparisonStocks] = useState<string[]>([]);
+```
+
+**Key Functions:**
+```typescript
+// Handle stock selection with URL updates
+const handleStockSelect = useCallback(async (ticker: string) => {
+  const upperTicker = ticker.toUpperCase();
+  setSelectedTicker(upperTicker);
+  
+  // Update URL params
+  const newParams = new URLSearchParams(searchParams);
+  newParams.set('ticker', upperTicker);
+  router.push(`/research?${newParams.toString()}`, { scroll: false });
+  
+  // Load data if not cached
+  if (!stockData[upperTicker]) {
+    await loadStockData(upperTicker);
+  }
+}, [searchParams, router, stockData]);
+
+// Load comprehensive stock data
+const loadStockData = async (ticker: string) => {
+  const data = await front_api_client.front_api_get_stock_research_data(ticker);
+  setStockData(prev => ({
+    ...prev,
+    [ticker]: {
+      overview: data.fundamentals || {},
+      quote: data.price_data || {},
+      priceData: data.priceData || [],
+      financials: data.financials || {},
+      // ... other data types
+    }
+  }));
+};
+```
+
+---
+
+## 📊 ResearchEd-Style Components
+
+### **`StockHeader.tsx`** *(NEW - ResearchEd Design)*
+- **Purpose:** Clean header with inline key metrics (no cards)
+- **Design:** Company name, ticker, price with horizontal metrics layout
 - **Features:**
-  - Symbol search
-  - Company overview
-  - Financial data
-  - News feed
-  - Price charts
+  - Real-time price updates with change indicators
+  - Exchange and sector information
+  - Color-coded price changes (green/red)
+  - Mobile-responsive stacking
 
-**`ResearchPageClient.tsx`** - Client-side research logic
-- **Purpose:** Manage research data loading
-- **Data Sources:**
-  - Stock quotes
-  - Company financials
-  - News articles
-  - Historical prices
+**Key Metrics Display:**
+```typescript
+interface StockHeaderProps {
+  ticker: string;
+  data: {
+    overview?: StockOverview;
+    quote?: StockQuote;
+  };
+  isLoading: boolean;
+}
+
+// Clean horizontal layout without cards
+<div className="bg-gray-800 rounded-xl p-6 mb-6 flex flex-col md:flex-row md:items-end md:justify-between">
+  <div className="mb-4 md:mb-0">
+    <h1 className="text-2xl font-bold text-white">{data.overview?.name}</h1>
+    <div className="flex items-center gap-3 text-gray-400 text-sm mt-1">
+      <span className="font-medium">{ticker}</span>
+      <span>•</span>
+      <span>{data.overview?.exchange}</span>
+      <span>•</span>
+      <span>{data.overview?.sector}</span>
+    </div>
+  </div>
+  
+  {/* Inline Key Metrics */}
+  <div className="flex flex-wrap gap-6 text-sm">
+    <div className="text-center">
+      <div className="text-gray-400">Market Cap</div>
+      <div className="text-white font-semibold">{formatMarketCap(data.overview?.market_cap)}</div>
+    </div>
+    {/* ... more metrics */}
+  </div>
+</div>
+```
+
+### **`MetricsSidebar.tsx`** *(NEW - Grouped Metrics)*
+- **Purpose:** Grouped financial metrics in clean sidebar layout
+- **Design:** Organized into logical categories (Estimate, Growth, Forecast, Dividends, Trading)
+- **Features:**
+  - Label-value pairs with consistent spacing
+  - Responsive: stacks below chart on mobile
+  - Clean typography without borders or shadows
+
+**Metric Categories:**
+```typescript
+interface MetricsGroup {
+  title: string;
+  metrics: Array<{
+    label: string;
+    value: string;
+    description?: string;
+  }>;
+}
+
+const metricGroups: MetricsGroup[] = [
+  {
+    title: 'Estimate',
+    metrics: [
+      { label: 'P/E', value: overview.pe_ratio || 'N/A' },
+      { label: 'EPS', value: overview.eps ? `$${overview.eps}` : 'N/A' },
+      { label: 'Beta', value: overview.beta || 'N/A' }
+    ]
+  },
+  {
+    title: 'Growth',
+    metrics: [
+      { label: 'Revenue YoY', value: growth.revenue || 'N/A' },
+      { label: 'Earnings YoY', value: growth.earnings || 'N/A' }
+    ]
+  }
+  // ... more groups
+];
+```
+
+### **`OverviewTabNew.tsx`** *(NEW - Complete Redesign)*
+- **Purpose:** Main overview page with ResearchEd layout
+- **Layout:** Chart area + grouped metrics sidebar
+- **Features:**
+  - Uses new StockHeader and MetricsSidebar components
+  - Integrated price chart with flexible periods
+  - Mobile responsive (sidebar stacks below chart)
+  - Clean, minimal design without cards
+
+**Layout Structure:**
+```typescript
+<div className="space-y-6">
+  {/* ResearchEd-style header */}
+  <StockHeader ticker={ticker} data={data} isLoading={isLoading} />
+  
+  {/* Main content area */}
+  <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+    {/* Chart area (3/4 width on desktop) */}
+    <div className="lg:col-span-3">
+      <PriceChartApex ticker={ticker} />
+    </div>
+    
+    {/* Metrics sidebar (1/4 width on desktop, full width on mobile) */}
+    <div className="lg:col-span-1">
+      <MetricsSidebar overview={data.overview} isLoading={isLoading} />
+    </div>
+  </div>
+</div>
+```
+
+---
+
+## 💹 Interactive Financials Page *(NEW MAJOR FEATURE)*
+
+### **`FinancialsTabNew.tsx`** *(COMPLETE REDESIGN)*
+- **Purpose:** Comprehensive financials page with interactive chart and table
+- **Features:**
+  - Statement tabs (Income, Balance Sheet, Cash Flow)
+  - Period/Currency dropdowns (Annual/Quarterly, USD/EUR/GBP)
+  - Interactive ApexCharts bar chart
+  - Multi-select financial table with grouped sections
+  - Chart-table synchronization (click rows to add/remove from chart)
+
+**Core State & Controls:**
+```typescript
+const [activeStatement, setActiveStatement] = useState<FinancialStatementType>('income');
+const [activePeriod, setActivePeriod] = useState<FinancialPeriodType>('annual');
+const [activeCurrency, setActiveCurrency] = useState<'USD' | 'EUR' | 'GBP'>('USD');
+const [selectedMetrics, setSelectedMetrics] = useState<string[]>([]);
+
+// Auto-select first 3 metrics for better UX
+useEffect(() => {
+  const currentData = financialsData?.[activeStatement]?.[activePeriod];
+  if (currentData && currentData.length > 0) {
+    const firstThreeMetrics = currentData.slice(0, 3).map(metric => metric.key);
+    setSelectedMetrics(firstThreeMetrics);
+  }
+}, [financialsData, activeStatement, activePeriod]);
+```
+
+### **`FinancialsChart.tsx`** *(NEW - ApexCharts Integration)*
+- **Purpose:** Interactive bar chart for financial metrics visualization
+- **Features:**
+  - Dynamic series based on selected table rows
+  - Professional dark theme with proper formatting
+  - Large number formatting ($50.2B, $1.3M, etc.)
+  - Downloadable chart with toolbar
+  - Auto-scaling and responsive design
+
+**Chart Configuration:**
+```typescript
+const chartOptions = {
+  chart: {
+    type: 'bar',
+    background: 'transparent',
+    toolbar: { show: true, tools: { download: true } },
+    fontFamily: 'inherit'
+  },
+  plotOptions: {
+    bar: {
+      horizontal: false,
+      columnWidth: '70%',
+      dataLabels: { position: 'top' }
+    }
+  },
+  yaxis: {
+    labels: {
+      formatter: (value: number) => formatValue(value) // $50.2B format
+    }
+  },
+  theme: { mode: 'dark' }
+};
+
+// Generate dynamic series from selected metrics
+const chartSeries = selectedMetrics.map((metricKey, index) => ({
+  name: metricLabels[metricKey] || metricKey,
+  data: years.map(year => financialData[metricKey]?.[year] || 0),
+  color: getMetricColor(index)
+}));
+```
+
+### **`FinancialsTable.tsx`** *(NEW - Interactive Multi-Select)*
+- **Purpose:** Grouped financial table with click-to-chart functionality
+- **Features:**
+  - Grouped sections (Revenue, Operating, Assets, Liabilities, etc.)
+  - Multi-select rows with checkmark indicators
+  - Hover effects and selection highlighting
+  - Metric descriptions with tooltips
+  - Large number formatting consistent with chart
+
+**Interactive Row Selection:**
+```typescript
+interface FinancialMetric {
+  key: string;
+  label: string;
+  description: string;
+  values: Record<string, number>; // year -> value mapping
+  section: string;
+}
+
+// Handle row toggle for chart integration
+const handleRowClick = (metricKey: string) => {
+  setSelectedMetrics(prev => 
+    prev.includes(metricKey) 
+      ? prev.filter(key => key !== metricKey)  // Remove from chart
+      : [...prev, metricKey]                   // Add to chart
+  );
+};
+
+// Grouped table structure
+{Object.entries(groupedData).map(([sectionName, metrics]) => (
+  <React.Fragment key={sectionName}>
+    {/* Section Header */}
+    <tr className="bg-gray-700">
+      <td colSpan={years.length + 1} className="py-3 px-4 font-bold text-gray-300">
+        {sectionName}
+      </td>
+    </tr>
+    
+    {/* Interactive Metric Rows */}
+    {metrics.map((metric) => (
+      <tr
+        key={metric.key}
+        className={`cursor-pointer transition-colors ${
+          selectedRows.includes(metric.key) 
+            ? 'bg-blue-900/40 hover:bg-blue-900/50' 
+            : 'hover:bg-gray-700/50'
+        }`}
+        onClick={() => onRowToggle(metric.key)}
+      >
+        {/* Selection indicator + metric label + tooltip */}
+        {/* Financial values for each year */}
+      </tr>
+    ))}
+  </React.Fragment>
+))}
+```
+
+**Financial Data Structure:**
+```typescript
+// Sample data structure for Income Statement
+const incomeMetrics: FinancialMetric[] = [
+  {
+    key: 'total_revenue',
+    label: 'Total Revenue',
+    description: 'Total revenue from all business operations',
+    section: 'Revenue',
+    values: {
+      '2024': 50000000000,
+      '2023': 45000000000,
+      '2022': 40000000000,
+      // ... more years
+    }
+  },
+  // ... more metrics organized by section
+];
+```
+
+---
+
+## 🔄 Data Flow Integration
+
+### **Research Page → Backend API Flow**
+```
+1. User searches for stock → StockSearchInput
+2. Symbol selected → handleStockSelect()
+3. URL updated → /research?ticker=AAPL&tab=overview
+4. Data loading → front_api_client.front_api_get_stock_research_data()
+5. State updated → setStockData()
+6. Components re-render → StockHeader, OverviewTab, etc.
+```
+
+### **Financials Page → Chart Interaction Flow**
+```
+1. User clicks financial table row → handleMetricToggle()
+2. selectedMetrics state updated → setSelectedMetrics()
+3. Chart data recalculated → chartSeries array
+4. ApexCharts re-renders → new bars added/removed
+5. Selection indicator updated → checkmarks in table
+```
+
+### **Mobile Responsive Behavior**
+```
+Desktop (lg+): Chart (3/4) + Sidebar (1/4) side-by-side
+Tablet (md):   Chart full width, Sidebar below
+Mobile (sm):   All components stack vertically
+```
 
 ### Custom Hooks
+
+#### `hooks/usePriceData.ts` *(NEW)*
+
+**Purpose:** Fetch and manage historical stock price data with intelligent caching
+
+```typescript
+interface UsePriceDataResult {
+  priceData: PriceDataPoint[];
+  isLoading: boolean;
+  error: string | null;
+  yearsAvailable: number;
+  dataPoints: number;
+  cacheStatus: string;
+  dataSources: string[];
+  refetch: () => void;
+}
+
+function usePriceData(ticker: string | null, period: string = '?years=5'): UsePriceDataResult
+```
+
+**Key Features:**
+- **Flexible Periods:** Accepts query string format (`?days=7`, `?years=3`, `?ytd=true`)
+- **Real-time States:** Loading, error, and success states
+- **Cache Awareness:** Shows whether data came from cache or fresh API call
+- **Auto-refetch:** Automatically refetches when ticker or period changes
+- **Error Handling:** Graceful error recovery with user-friendly messages
+
+**Usage Example:**
+```typescript
+const { priceData, isLoading, error, dataPoints, cacheStatus } = usePriceData('AAPL', '?days=30');
+
+if (isLoading) return <LoadingSpinner />;
+if (error) return <ErrorMessage error={error} />;
+
+return <PriceChart data={priceData} />;
+```
 
 #### `hooks/usePerformance.ts`
 
@@ -834,6 +1290,52 @@ All API endpoints require JWT authentication via `Authorization: Bearer <token>`
 ```
 
 ### Research Endpoints
+
+#### GET `/api/research/stock_prices/{symbol}` *(NEW)*
+
+**Purpose:** Get historical price data with flexible time periods
+
+**Parameters:**
+- `symbol` (string): Stock ticker symbol
+- `days` (int, optional): Number of days of historical data (e.g., `?days=7`)
+- `years` (int, optional): Number of years of historical data (e.g., `?years=3`) 
+- `ytd` (bool, optional): Year-to-date data (e.g., `?ytd=true`)
+
+**Examples:**
+- `/api/research/stock_prices/AAPL?days=7` - Last 7 days
+- `/api/research/stock_prices/AAPL?years=3` - Last 3 years
+- `/api/research/stock_prices/AAPL?ytd=true` - Year to date
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "symbol": "AAPL",
+    "price_data": [
+      {
+        "time": "2023-01-01",
+        "open": 150.00,
+        "high": 155.00,
+        "low": 149.00,
+        "close": 154.00,
+        "volume": 50000000
+      }
+    ],
+    "years_available": 3.2,
+    "start_date": "2021-01-01",
+    "end_date": "2024-01-01", 
+    "data_points": 782
+  },
+  "metadata": {
+    "cache_status": "hit",
+    "data_sources": ["database"],
+    "last_updated": "2024-01-01T10:00:00Z",
+    "gaps_filled": 0,
+    "timestamp": "2024-01-01T10:00:00Z"
+  }
+}
+```
 
 #### GET `/api/research/search`
 
@@ -1702,7 +2204,12 @@ This documentation provides a comprehensive overview of the Portfolio Tracker sy
 
 For additional support or clarification on any aspect of the system, refer to the inline code documentation or contact the development team.
 
----
+------------
+
+UPDATED CHARTING AND LIST VIEW - APEX CHARTS
+Use Documentation in apex_charts.md for coding examples of line chart and list view to be used in this project.
+
+
 
 *Last Updated: January 2024*
 *Version: 1.0.0* 

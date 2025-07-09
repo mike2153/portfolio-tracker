@@ -28,6 +28,20 @@ export interface StockOverview {
   revenue_ttm: string;
   gross_profit_ttm: string;
   profit_margin: string;
+  // Additional properties for comprehensive metrics
+  earnings_date?: string;
+  forward_pe?: string;
+  peg_ratio?: string;
+  price_to_sales?: string;
+  price_to_book?: string;
+  operating_margin?: string;
+  quarterly_revenue_growth?: string;
+  quarterly_earnings_growth?: string;
+  dividend_per_share?: string;
+  ex_dividend_date?: string;
+  dividend_date?: string;
+  '50_day_ma'?: string;
+  '200_day_ma'?: string;
 }
 
 export interface StockQuote {

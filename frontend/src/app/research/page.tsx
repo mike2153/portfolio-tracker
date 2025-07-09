@@ -10,13 +10,15 @@ import type {
 } from '@/types/stock-research';
 
 // Import tab components
-import OverviewTab from './components/OverviewTab';
-import FinancialsTab from './components/FinancialsTab';
+import OverviewTabNew from './components/OverviewTabNew';
+import FinancialsTabNew from './components/FinancialsTabNew';
 import DividendsTab from './components/DividendsTab';
 import NewsTab from './components/NewsTab';
 import NotesTab from './components/NotesTab';
 import ComparisonTab from './components/ComparisonTab';
 import { StockSearchInput } from '@/components/StockSearchInput';
+import PriceChartApex from '@/components/charts/PriceChartApex'
+import FinancialSpreadsheetApex from '@/components/charts/FinancialSpreadsheetApex'
 
 
 const TABS: { id: StockResearchTab; label: string; icon: React.ReactNode }[] = [
@@ -209,9 +211,9 @@ function StockResearchPageContent() {
 
     switch (activeTab) {
       case 'overview':
-        return <OverviewTab {...tabProps} />;
+        return <OverviewTabNew {...tabProps} />;
       case 'financials':
-        return <FinancialsTab {...tabProps} />;
+        return <FinancialsTabNew {...tabProps} />;
       case 'dividends':
         return <DividendsTab {...tabProps} />;
       case 'news':
@@ -228,7 +230,7 @@ function StockResearchPageContent() {
           />
         );
       default:
-        return <OverviewTab {...tabProps} />;
+        return <OverviewTabNew {...tabProps} />;
     }
   };
 

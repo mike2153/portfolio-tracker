@@ -114,7 +114,7 @@ export default function StockResearchPage() {
 
       console.log(`[ResearchPage] Combined data structure:`, JSON.stringify(combinedData, null, 2));
       console.log(`[ResearchPage] Overview data exists:`, !!combinedData.overview);
-      console.log(`[ResearchPage] Overview data keys:`, Object.keys(combinedData.overview));
+      console.log(`[ResearchPage] Overview data keys:`, Object.keys(combinedData.overview ?? {}));
       
       setStockData(combinedData);
       setSelectedTicker(ticker);

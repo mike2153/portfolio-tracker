@@ -3,15 +3,16 @@ Backend API routes for stock research functionality
 Handles symbol search and stock overview data
 """
 from fastapi import APIRouter, Query, HTTPException, Depends
-from typing import List, Dict, Any, Optional
+from typing import Dict, Any
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from debug_logger import DebugLogger
 from vantage_api.vantage_api_search import combined_symbol_search
 from vantage_api.vantage_api_quotes import vantage_api_get_overview, vantage_api_get_quote, vantage_api_get_historical_price
 from supa_api.supa_api_auth import require_authenticated_user
 from services.financials_service import FinancialsService
+from services.price_data_service import PriceDataService
 
 logger = logging.getLogger(__name__)
 
@@ -140,20 +141,6 @@ async def backend_api_historical_price_handler(
     symbol: str,
     date: str = Query(..., description="Date in YYYY-MM-DD format for historical price lookup")
 ) -> Dict[str, Any]:
-    """
-    Get historical closing price for a stock on a specific date
-    
-    This endpoint is used by the transaction form to auto-populate the price field
-    when a user selects a stock ticker and transaction date.
-    
-    Args:
-        symbol: Stock ticker symbol (e.g., 'AAPL')
-        date: Transaction date in YYYY-MM-DD format
-    
-    Returns:
-        Historical price data including open, high, low, close, and volume
-        If exact date is not available (weekend/holiday), returns closest trading day
-    """
     logger.info(f"[backend_api_research.py::backend_api_historical_price_handler] Historical price request: {symbol} on {date}")
     
     if not symbol:
@@ -241,7 +228,8 @@ async def backend_api_financials_handler(
     try:
         # Extract JWT token from user data
         user_token = user_data.get("access_token")
-        
+        if not user_token:
+            raise HTTPException(status_code=401, detail="Unauthorized")
         result = await FinancialsService.get_company_financials(
             symbol=symbol.upper().strip(),
             data_type=data_type,
@@ -287,7 +275,8 @@ async def backend_api_force_refresh_financials_handler(
     try:
         # Extract JWT token from user data
         user_token = user_data.get("access_token")
-        
+        if not user_token:
+            raise HTTPException(status_code=401, detail="Unauthorized")
         result = await FinancialsService.get_company_financials(
             symbol=symbol,
             data_type=data_type,
@@ -315,3 +304,85 @@ async def backend_api_force_refresh_financials_handler(
             symbol=symbol
         )
         raise HTTPException(status_code=500, detail=str(e))
+
+
+
+@research_router.get("/stock_prices/{symbol}", dependencies=[Depends(require_authenticated_user)])
+@DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="STOCK_PRICES")
+async def backend_api_stock_prices_handler(
+    symbol: str,
+    days: int = Query(None, description="Number of days of historical data"),
+    years: int = Query(None, description="Number of years of historical data"),
+    ytd: bool = Query(False, description="Year-to-date data"),
+    user_data: Dict[str, Any] = Depends(require_authenticated_user)
+) -> Dict[str, Any]:
+    """
+    Get historical price data for a stock ticker with flexible period selection.
+    """
+    logger.info(f"[backend_api_research.py::backend_api_stock_prices_handler] Price data request: {symbol} with days={days}, years={years}, ytd={ytd}")
+
+    if not symbol:
+        raise HTTPException(status_code=400, detail="Symbol is required")
+
+    symbol = symbol.upper().strip()
+    today = datetime.now(timezone.utc).date()
+
+    # Determine start_date based on query params
+    if days is not None:
+        start_date = today - timedelta(days=days)
+    elif years is not None:
+        start_date = today - timedelta(days=years * 365)
+    elif ytd:
+        start_date = datetime(today.year, 1, 1).date()
+    else:
+        # Default: 5 years
+        start_date = today - timedelta(days=5 * 365)
+
+    try:
+        # Fetch price data from your service (update this call as needed)
+        user_token = user_data.get("access_token")
+        if not user_token:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+        price_service = PriceDataService()
+        result = await price_service.get_historical_prices(
+            symbol=symbol,
+            start_date=start_date,
+            end_date=today,
+            user_token=user_token
+        )
+
+        if not result["success"]:
+            raise HTTPException(
+                status_code=500,
+                detail=result.get("error", "Failed to fetch price data")
+            )
+    except Exception as e:
+        DebugLogger.log_error(
+            file_name="backend_api_research.py",
+            function_name="backend_api_stock_prices_handler",
+            error=e,
+            symbol=symbol,
+            days=days,
+            years=years,
+            ytd=ytd
+        )
+        raise HTTPException(status_code=500, detail=f"Failed to fetch price data: {str(e)}")
+
+    return {
+        "success": True,
+        "data": {
+            "symbol": symbol,
+            "price_data": result["data"]["price_data"],
+            "years_available": result["data"].get("years_available", 0),
+            "start_date": str(start_date),
+            "end_date": str(today),
+            "data_points": len(result["data"]["price_data"]) if result["data"]["price_data"] else 0
+        },
+        "metadata": {
+            "cache_status": result.get("metadata", {}).get("cache_status", "unknown"),
+            "data_sources": result.get("metadata", {}).get("data_sources", []),
+            "last_updated": result.get("metadata", {}).get("last_updated"),
+            "gaps_filled": result.get("metadata", {}).get("gaps_filled", 0),
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    }

@@ -6,12 +6,9 @@ WORKDIR /app
 # Install dependencies for better file watching in Docker
 RUN apk add --no-cache libc6-compat
 
-# Clean previous build artifacts and dependencies
-RUN rm -rf node_modules package-lock.json
-
 # Copy package files and install dependencies
 COPY package*.json ./
-RUN npm install --legacy-peer-deps
+RUN npm ci
 
 # Copy source code (this will be overridden by volume mount in development)
 COPY . .

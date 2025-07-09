@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { StockResearchData, CompanyFinancialsResponse } from '@/types/stock-research';
 import { front_api_client } from '@/lib/front_api_client';
 import { BarChart3, TrendingUp, RefreshCw, DollarSign, Percent, LineChart, Activity, FileSpreadsheet } from 'lucide-react';
-import FinancialBarChart from '@/components/charts/FinancialBarChart';
-import FinancialSpreadsheet from '@/components/charts/FinancialSpreadsheet';
-import PriceEpsChart from '@/components/charts/PriceEpsChart';
+import FinancialBarChartApexEnhanced from '@/components/charts/FinancialBarChartApexEnhanced';
+import FinancialSpreadsheetApex from '@/components/charts/FinancialSpreadsheetApex';
+import PriceEpsChartApex from '@/components/charts/PriceEpsChartApex';
 
 interface FinancialsTabProps {
   ticker: string;
@@ -20,7 +20,6 @@ const FinancialsTab: React.FC<FinancialsTabProps> = ({ ticker, data, isLoading, 
   const [selectedPeriod, setSelectedPeriod] = useState<FinancialPeriod>('annual');
   const [selectedStatement, setSelectedStatement] = useState<FinancialStatement>('income');
   const [selectedMetrics, setSelectedMetrics] = useState<string[]>(['totalRevenue', 'netIncome']);
-  const [viewMode, setViewMode] = useState<'charts' | 'tables' | 'spreadsheet'>('charts');
   const [financialsData, setFinancialsData] = useState<any>(null);
   const [detailedFinancialsData, setDetailedFinancialsData] = useState<any>(null);
   const [financialsLoading, setFinancialsLoading] = useState(false);
@@ -75,10 +74,10 @@ const FinancialsTab: React.FC<FinancialsTabProps> = ({ ticker, data, isLoading, 
     }
   }, [ticker, selectedStatement]);
 
-  // Load balance sheet and cash flow data when spreadsheet view is selected
+  // Load balance sheet and cash flow data automatically for 5-year analysis
   useEffect(() => {
-    if (ticker && viewMode === 'spreadsheet') {
-      // Load both balance sheet and cash flow data for spreadsheet view
+    if (ticker) {
+      // Always load both balance sheet and cash flow data for comprehensive 5-year analysis
       if (!detailedFinancialsData?.balance) {
         loadDetailedFinancialData('balance');
       }
@@ -86,7 +85,7 @@ const FinancialsTab: React.FC<FinancialsTabProps> = ({ ticker, data, isLoading, 
         loadDetailedFinancialData('cashflow');
       }
     }
-  }, [ticker, viewMode]);
+  }, [ticker]);
 
   const handleForceRefresh = () => {
     loadFinancialData(true);
@@ -238,380 +237,66 @@ const FinancialsTab: React.FC<FinancialsTabProps> = ({ ticker, data, isLoading, 
             )}
           </div>
           
-          {/* View Toggle */}
+        </div>
+
+        {/* Chart Controls */}
+        <div className="flex flex-col sm:flex-row gap-2">
+          {/* Statement Type Selector for Charts */}
           <div className="flex bg-gray-700 rounded-lg p-1">
-            <button
-              onClick={() => setViewMode('charts')}
-              className={`flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors ${
-                viewMode === 'charts'
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-300 hover:text-white hover:bg-gray-600'
-              }`}
-            >
-              <LineChart className="w-4 h-4" />
-              Charts
-            </button>
-            <button
-              onClick={() => setViewMode('tables')}
-              className={`flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors ${
-                viewMode === 'tables'
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-300 hover:text-white hover:bg-gray-600'
-              }`}
-            >
-              <BarChart3 className="w-4 h-4" />
-              Tables
-            </button>
-            <button
-              onClick={() => setViewMode('spreadsheet')}
-              className={`flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors ${
-                viewMode === 'spreadsheet'
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-300 hover:text-white hover:bg-gray-600'
-              }`}
-            >
-              <FileSpreadsheet className="w-4 h-4" />
-              5-Year View
-            </button>
+            {[
+              { key: 'income', label: 'Income', icon: DollarSign },
+              { key: 'balance', label: 'Balance', icon: BarChart3 },
+              { key: 'cashflow', label: 'Cash Flow', icon: TrendingUp }
+            ].map(({ key, label, icon: Icon }) => (
+              <button
+                key={key}
+                onClick={() => setSelectedStatement(key as FinancialStatement)}
+                className={`flex items-center gap-1 px-3 py-2 text-sm rounded-md transition-colors ${
+                  selectedStatement === key
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-300 hover:text-white hover:bg-gray-600'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                {label}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Chart Controls (shown when chart view is active) */}
-        {viewMode === 'charts' && (
-          <div className="flex flex-col sm:flex-row gap-2">
-            {/* Statement Type Selector for Charts */}
-            <div className="flex bg-gray-700 rounded-lg p-1">
-              {[
-                { key: 'income', label: 'Income', icon: DollarSign },
-                { key: 'balance', label: 'Balance', icon: BarChart3 },
-                { key: 'cashflow', label: 'Cash Flow', icon: TrendingUp }
-              ].map(({ key, label, icon: Icon }) => (
-                <button
-                  key={key}
-                  onClick={() => setSelectedStatement(key as FinancialStatement)}
-                  className={`flex items-center gap-1 px-3 py-2 text-sm rounded-md transition-colors ${
-                    selectedStatement === key
-                      ? 'bg-blue-600 text-white'
-                      : 'text-gray-300 hover:text-white hover:bg-gray-600'
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Table Controls (shown when table view is active) */}
-        {viewMode === 'tables' && (
-          <div className="flex flex-col sm:flex-row gap-2">
-            {/* Statement Type Selector */}
-            <div className="flex bg-gray-700 rounded-lg p-1">
-              {[
-                { key: 'income', label: 'Income', icon: DollarSign },
-                { key: 'balance', label: 'Balance', icon: BarChart3 },
-                { key: 'cashflow', label: 'Cash Flow', icon: TrendingUp }
-              ].map(({ key, label, icon: Icon }) => (
-                <button
-                  key={key}
-                  onClick={() => setSelectedStatement(key as FinancialStatement)}
-                  className={`flex items-center gap-1 px-3 py-2 text-sm rounded-md transition-colors ${
-                    selectedStatement === key
-                      ? 'bg-blue-600 text-white'
-                      : 'text-gray-300 hover:text-white hover:bg-gray-600'
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  {label}
-                </button>
-              ))}
-            </div>
-            
-            {/* Period Selector */}
-            <div className="flex bg-gray-700 rounded-lg p-1">
-              <button
-                onClick={() => setSelectedPeriod('annual')}
-                className={`px-3 py-2 text-sm rounded-md transition-colors ${
-                  selectedPeriod === 'annual'
-                    ? 'bg-gray-600 text-white'
-                    : 'text-gray-300 hover:text-white'
-                }`}
-              >
-                Annual
-              </button>
-              <button
-                onClick={() => setSelectedPeriod('quarterly')}
-                className={`px-3 py-2 text-sm rounded-md transition-colors ${
-                  selectedPeriod === 'quarterly'
-                    ? 'bg-gray-600 text-white'
-                    : 'text-gray-300 hover:text-white'
-                }`}
-              >
-                Quarterly
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Financial Data Display */}
       {financialsData ? (
         <div className="space-y-6">
-          {/* Interactive Bar Chart (shown when chart view is active) */}
-          {viewMode === 'charts' && (
-            <FinancialBarChart
-              data={detailedFinancialsData?.[selectedStatement]?.[selectedPeriod === 'annual' ? 'annual_reports' : 'quarterly_reports'] || []}
-              statementType={selectedStatement}
-              selectedMetrics={selectedMetrics}
-              onMetricToggle={handleMetricToggle}
-              height={450}
-              ticker={ticker}
-            />
-          )}
-
-          {/* Key Financial Metrics */}
-          <div className="bg-gray-800 rounded-lg p-6">
-            <h4 className="text-lg font-semibold text-white mb-4">Key Financial Metrics</h4>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-gray-700 rounded-lg p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <DollarSign className="w-4 h-4 text-green-400" />
-                  <span className="text-sm text-gray-400">Market Cap</span>
-                </div>
-                <div className="text-lg font-semibold text-white">
-                  {formatNumber(financialsData.market_cap || 0)}
-                </div>
-              </div>
-              
-              <div className="bg-gray-700 rounded-lg p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <BarChart3 className="w-4 h-4 text-blue-400" />
-                  <span className="text-sm text-gray-400">P/E Ratio</span>
-                </div>
-                <div className="text-lg font-semibold text-white">
-                  {financialsData.pe_ratio || 'N/A'}
-                </div>
-              </div>
-              
-              <div className="bg-gray-700 rounded-lg p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <TrendingUp className="w-4 h-4 text-purple-400" />
-                  <span className="text-sm text-gray-400">EPS</span>
-                </div>
-                <div className="text-lg font-semibold text-white">
-                  ${financialsData.eps || 'N/A'}
-                </div>
-              </div>
-              
-              <div className="bg-gray-700 rounded-lg p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Percent className="w-4 h-4 text-yellow-400" />
-                  <span className="text-sm text-gray-400">Div Yield</span>
-                </div>
-                <div className="text-lg font-semibold text-white">
-                  {formatPercent(financialsData.dividend_yield || 0)}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Price vs EPS Dual Chart */}
-          <PriceEpsChart
-            priceData={data?.priceData || []}
-            epsData={detailedFinancialsData?.income?.annual_reports || []}
-            ticker={ticker}
+          {/* Interactive Bar Chart */}
+          <FinancialBarChartApexEnhanced
+            data={detailedFinancialsData?.[selectedStatement]?.[selectedPeriod === 'annual' ? 'annual_reports' : 'quarterly_reports']?.slice(0, 5) || []}
+            statementType={selectedStatement}
+            selectedMetrics={selectedMetrics}
+            onMetricToggle={handleMetricToggle}
             height={450}
+            ticker={ticker}
+            selectedPeriod={selectedPeriod}
+            onPeriodChange={setSelectedPeriod}
             isLoading={detailedFinancialsLoading}
-            onRefresh={() => loadDetailedFinancialData('income', true)}
+            onRefresh={() => loadDetailedFinancialData(selectedStatement, true)}
           />
 
-          {/* 5-Year Financial Spreadsheet (shown when spreadsheet view is active) */}
-          {viewMode === 'spreadsheet' && (
-            <FinancialSpreadsheet
-              data={detailedFinancialsData}
-              ticker={ticker}
-              onRefresh={() => {
-                loadDetailedFinancialData('balance', true);
-                loadDetailedFinancialData('cashflow', true);
-              }}
-              isLoading={detailedFinancialsLoading}
-            />
-          )}
 
-          {/* Detailed Financial Statements (shown when table view is active) */}
-          {viewMode === 'tables' && (
-            <div className="bg-gray-800 rounded-lg p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="text-lg font-semibold text-white">
-                  {selectedStatement === 'income' && 'Income Statement'}
-                  {selectedStatement === 'balance' && 'Balance Sheet'}
-                  {selectedStatement === 'cashflow' && 'Cash Flow Statement'}
-                </h4>
-                
-                {detailedFinancialsLoading && (
-                  <div className="flex items-center gap-2 text-gray-400">
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    Loading...
-                  </div>
-                )}
-              </div>
-              
-              {/* Show statement data if available */}
-              {detailedFinancialsData?.[selectedStatement] ? (
-                <div className="space-y-4">
-                  {/* Annual/Quarterly Toggle and Data */}
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-gray-600">
-                          <th className="text-left text-gray-400 font-medium py-2">Item</th>
-                          {detailedFinancialsData[selectedStatement]?.[selectedPeriod === 'annual' ? 'annual_reports' : 'quarterly_reports']?.slice(0, 4).map((report: any, index: number) => (
-                            <th key={index} className="text-right text-gray-400 font-medium py-2">
-                              {report.fiscalDateEnding || `Period ${index + 1}`}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {/* Render rows based on statement type */}
-                        {(() => {
-                          const reports = detailedFinancialsData[selectedStatement]?.[selectedPeriod === 'annual' ? 'annual_reports' : 'quarterly_reports']?.slice(0, 4) || [];
-                          
-                          if (selectedStatement === 'income') {
-                            return [
-                              'totalRevenue',
-                              'costOfRevenue', 
-                              'grossProfit',
-                              'operatingIncome',
-                              'netIncome'
-                            ].map(field => (
-                              <tr key={field} className="border-b border-gray-700">
-                                <td className="py-2 text-gray-300">
-                                  {field === 'totalRevenue' && 'Total Revenue'}
-                                  {field === 'costOfRevenue' && 'Cost of Revenue'}
-                                  {field === 'grossProfit' && 'Gross Profit'}
-                                  {field === 'operatingIncome' && 'Operating Income'}
-                                  {field === 'netIncome' && 'Net Income'}
-                                </td>
-                                {reports.map((report: any, index: number) => (
-                                  <td key={index} className="text-right py-2 text-white">
-                                    {formatNumber(report[field] || 0)}
-                                  </td>
-                                ))}
-                              </tr>
-                            ));
-                          } else if (selectedStatement === 'balance') {
-                            return [
-                              'totalAssets',
-                              'totalCurrentAssets',
-                              'totalLiabilities',
-                              'totalCurrentLiabilities', 
-                              'totalShareholderEquity'
-                            ].map(field => (
-                              <tr key={field} className="border-b border-gray-700">
-                                <td className="py-2 text-gray-300">
-                                  {field === 'totalAssets' && 'Total Assets'}
-                                  {field === 'totalCurrentAssets' && 'Current Assets'}
-                                  {field === 'totalLiabilities' && 'Total Liabilities'}
-                                  {field === 'totalCurrentLiabilities' && 'Current Liabilities'}
-                                  {field === 'totalShareholderEquity' && 'Shareholder Equity'}
-                                </td>
-                                {reports.map((report: any, index: number) => (
-                                  <td key={index} className="text-right py-2 text-white">
-                                    {formatNumber(report[field] || 0)}
-                                  </td>
-                                ))}
-                              </tr>
-                            ));
-                          } else if (selectedStatement === 'cashflow') {
-                            return [
-                              'operatingCashflow',
-                              'capitalExpenditures',
-                              'cashflowFromInvestment',
-                              'cashflowFromFinancing',
-                              'netIncomeFromContinuingOps'
-                            ].map(field => (
-                              <tr key={field} className="border-b border-gray-700">
-                                <td className="py-2 text-gray-300">
-                                  {field === 'operatingCashflow' && 'Operating Cash Flow'}
-                                  {field === 'capitalExpenditures' && 'Capital Expenditures'}
-                                  {field === 'cashflowFromInvestment' && 'Cash Flow from Investing'}
-                                  {field === 'cashflowFromFinancing' && 'Cash Flow from Financing'}
-                                  {field === 'netIncomeFromContinuingOps' && 'Net Income (Continuing Ops)'}
-                                </td>
-                                {reports.map((report: any, index: number) => (
-                                  <td key={index} className="text-right py-2 text-white">
-                                    {formatNumber(report[field] || 0)}
-                                  </td>
-                                ))}
-                              </tr>
-                            ));
-                          }
-                          return null;
-                        })()}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              ) : (
-                /* Placeholder when no data available */
-                <div className="text-center text-gray-400 py-8">
-                  <BarChart3 className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p className="mb-2">Loading {selectedStatement} statement...</p>
-                  <p className="text-sm">
-                    Fetching {selectedPeriod} data from Alpha Vantage
-                  </p>
-                  <button
-                    onClick={() => loadDetailedFinancialData(selectedStatement, true)}
-                    className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-white text-sm transition-colors"
-                  >
-                    Load {selectedStatement} data
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
 
-          {/* Company Overview Financial Info */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-gray-800 rounded-lg p-6">
-              <h4 className="text-lg font-semibold text-white mb-4">Profitability</h4>
-              <div className="space-y-3">
-                {[
-                  { label: 'Revenue TTM', value: formatNumber(financialsData.revenue_ttm || 0) },
-                  { label: 'Operating Margin', value: formatPercent(financialsData.operating_margin || 0) },
-                  { label: 'Profit Margin', value: formatPercent(financialsData.profit_margin || 0) },
-                  { label: 'Return on Equity', value: formatPercent(financialsData.return_on_equity || 0) },
-                  { label: 'Return on Assets', value: formatPercent(financialsData.return_on_assets || 0) }
-                ].map(({ label, value }) => (
-                  <div key={label} className="flex justify-between">
-                    <span className="text-gray-400">{label}</span>
-                    <span className="text-white font-medium">{value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            
-            <div className="bg-gray-800 rounded-lg p-6">
-              <h4 className="text-lg font-semibold text-white mb-4">Valuation & Ratios</h4>
-              <div className="space-y-3">
-                {[
-                  { label: 'Book Value', value: `$${financialsData.book_value || 'N/A'}` },
-                  { label: 'Price to Book', value: financialsData.price_to_book || 'N/A' },
-                  { label: 'Price to Sales', value: financialsData.price_to_sales || 'N/A' },
-                  { label: 'Beta', value: financialsData.beta || 'N/A' },
-                  { label: '52 Week High', value: `$${financialsData['52_week_high'] || 'N/A'}` },
-                  { label: '52 Week Low', value: `$${financialsData['52_week_low'] || 'N/A'}` }
-                ].map(({ label, value }) => (
-                  <div key={label} className="flex justify-between">
-                    <span className="text-gray-400">{label}</span>
-                    <span className="text-white font-medium">{value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+          {/* 5-Year Financial Spreadsheet - Always Visible */}
+          <FinancialSpreadsheetApex
+            data={detailedFinancialsData}
+            ticker={ticker}
+            onRefresh={() => {
+              loadDetailedFinancialData('balance', true);
+              loadDetailedFinancialData('cashflow', true);
+            }}
+            isLoading={detailedFinancialsLoading}
+          />
+
+
         </div>
       ) : (
         <div className="bg-gray-800 rounded-lg p-6">

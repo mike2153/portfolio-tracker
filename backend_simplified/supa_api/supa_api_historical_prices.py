@@ -326,4 +326,125 @@ async def supa_api_get_price_history_for_portfolio(symbols: List[str], start_dat
             start_date=start_date,
             end_date=end_date
         )
-        raise 
+        raise
+
+@DebugLogger.log_api_call(api_name="SUPABASE", sender="BACKEND", receiver="SUPA_API", operation="GET_HISTORICAL_PRICES_RANGE")
+async def supa_api_get_historical_prices(
+    symbol: str,
+    start_date: str,
+    end_date: str,
+    user_token: str = None
+) -> List[Dict[str, Any]]:
+    """
+    Get historical price data from database for a symbol within date range
+    
+    Args:
+        symbol: Stock ticker symbol
+        start_date: Start date in YYYY-MM-DD format
+        end_date: End date in YYYY-MM-DD format
+        user_token: JWT token (not used for price data but kept for consistency)
+        
+    Returns:
+        List of price records sorted by date (newest first)
+    """
+    logger.info(f"[supa_api_historical_prices.py::supa_api_get_historical_prices] Querying price data for {symbol} from {start_date} to {end_date}")
+    
+    client = get_supa_service_client()
+    
+    try:
+        # Query historical prices table
+        response = client.table('historical_prices') \
+            .select('*') \
+            .eq('symbol', symbol.upper()) \
+            .gte('date', start_date) \
+            .lte('date', end_date) \
+            .order('date', desc=True) \
+            .execute()
+        
+        if hasattr(response, 'data') and response.data:
+            logger.info(f"[supa_api_historical_prices.py::supa_api_get_historical_prices] Found {len(response.data)} price records for {symbol}")
+            return response.data
+        else:
+            logger.info(f"[supa_api_historical_prices.py::supa_api_get_historical_prices] No price data found for {symbol} in date range")
+            return []
+            
+    except Exception as e:
+        DebugLogger.log_error(
+            file_name="supa_api_historical_prices.py",
+            function_name="supa_api_get_historical_prices",
+            error=e,
+            symbol=symbol,
+            start_date=start_date,
+            end_date=end_date
+        )
+        return []
+
+@DebugLogger.log_api_call(api_name="SUPABASE", sender="BACKEND", receiver="SUPA_API", operation="STORE_HISTORICAL_PRICES_BATCH")
+async def supa_api_store_historical_prices_batch(
+    price_data: List[Dict[str, Any]],
+    user_token: str = None
+) -> bool:
+    """
+    Store historical price data in database with upsert logic (batch version)
+    
+    Args:
+        price_data: List of price records with symbol, date, open, high, low, close, volume
+        user_token: JWT token (not used for price data but kept for consistency)
+        
+    Returns:
+        True if successful, False otherwise
+    """
+    try:
+        if not price_data:
+            logger.warning("[supa_api_historical_prices.py::supa_api_store_historical_prices_batch] No price data provided to store")
+            return True
+        
+        client = get_supa_service_client()
+        
+        # Prepare data for upsert
+        formatted_data = []
+        for record in price_data:
+            formatted_record = {
+                'symbol': record['symbol'].upper(),
+                'date': record['date'],
+                'open': float(record.get('open', 0)),
+                'high': float(record.get('high', 0)),
+                'low': float(record.get('low', 0)),
+                'close': float(record.get('close', 0)),
+                'volume': int(record.get('volume', 0)),
+                'created_at': datetime.utcnow().isoformat(),
+                'updated_at': datetime.utcnow().isoformat()
+            }
+            
+            # Add optional fields if present
+            if 'adjusted_close' in record:
+                formatted_record['adjusted_close'] = float(record['adjusted_close'])
+            if 'dividend_amount' in record:
+                formatted_record['dividend_amount'] = float(record['dividend_amount'])
+            if 'split_coefficient' in record:
+                formatted_record['split_coefficient'] = float(record['split_coefficient'])
+                
+            formatted_data.append(formatted_record)
+        
+        logger.info(f"[supa_api_historical_prices.py::supa_api_store_historical_prices_batch] Storing {len(formatted_data)} price records")
+        
+        # Use upsert to handle duplicates (on conflict with symbol+date, update the record)
+        response = client.table('historical_prices') \
+            .upsert(formatted_data, on_conflict='symbol,date') \
+            .execute()
+        
+        if hasattr(response, 'data') and response.data:
+            logger.info(f"[supa_api_historical_prices.py::supa_api_store_historical_prices_batch] Successfully stored {len(response.data)} price records")
+            return True
+        else:
+            logger.warning("[supa_api_historical_prices.py::supa_api_store_historical_prices_batch] Upsert returned no data")
+            return False
+            
+    except Exception as e:
+        DebugLogger.log_error(
+            file_name="supa_api_historical_prices.py",
+            function_name="supa_api_store_historical_prices_batch",
+            error=e,
+            records_count=len(price_data) if price_data else 0
+        )
+        return False 

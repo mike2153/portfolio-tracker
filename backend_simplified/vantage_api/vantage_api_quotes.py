@@ -329,6 +329,68 @@ async def vantage_api_get_historical_price(symbol: str, date: str) -> Dict[str, 
         )
         raise
 
+@DebugLogger.log_api_call(api_name="ALPHA_VANTAGE", sender="BACKEND", receiver="VANTAGE_API", operation="TIME_SERIES_DAILY_ADJUSTED")
+async def vantage_api_get_daily_adjusted(symbol: str) -> Dict[str, Any]:
+    """
+    Get daily adjusted time series data from Alpha Vantage
+    
+    This function fetches comprehensive daily price data including:
+    - Open, High, Low, Close prices
+    - Adjusted close prices (accounting for splits and dividends)
+    - Volume
+    - Dividend amount
+    - Split coefficient
+    
+    Args:
+        symbol: Stock ticker symbol
+        
+    Returns:
+        Dictionary with date keys and price data values
+    """
+    logger.info(f"[vantage_api_quotes.py::vantage_api_get_daily_adjusted] Fetching daily adjusted data for {symbol}")
+    
+    client = get_vantage_client()
+    
+    # Check cache first
+    cache_key = f"daily_adjusted:{symbol}"
+    cached_data = await client._get_from_cache(cache_key)
+    
+    if cached_data:
+        logger.info(f"[vantage_api_quotes.py::vantage_api_get_daily_adjusted] Cache hit for {symbol}")
+        return cached_data
+    
+    # Make API request
+    params = {
+        'function': 'TIME_SERIES_DAILY_ADJUSTED',
+        'symbol': symbol,
+        'outputsize': 'full'  # Get all available historical data
+    }
+    
+    try:
+        response = await client._make_request(params)
+        
+        if 'Time Series (Daily)' not in response:
+            logger.warning(f"[vantage_api_quotes.py::vantage_api_get_daily_adjusted] No time series data found for {symbol}")
+            return {}
+        
+        time_series = response['Time Series (Daily)']
+        
+        # Cache the result (expires in 4 hours for historical data)
+        await client._set_cache(cache_key, time_series, expire_seconds=4 * 3600)
+        
+        logger.info(f"[vantage_api_quotes.py::vantage_api_get_daily_adjusted] Successfully fetched {len(time_series)} days of data for {symbol}")
+        
+        return time_series
+        
+    except Exception as e:
+        DebugLogger.log_error(
+            file_name="vantage_api_quotes.py",
+            function_name="vantage_api_get_daily_adjusted",
+            error=e,
+            symbol=symbol
+        )
+        return {}
+
 def _safe_float(value: Any) -> float:
     """Safely convert value to float, return 0 if not possible"""
     if value is None or value == 'None' or value == '':
