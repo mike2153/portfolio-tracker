@@ -1,7 +1,7 @@
 """
 Portfolio Service - Time Series Portfolio Valuation
 Extends existing portfolio calculations to provide daily portfolio values over time ranges.
-Leverages existing supa_api infrastructure with extensive debugging.
+Now uses CurrentPriceManager for unified price data handling.
 """
 from typing import Dict, Any, List, Tuple, Optional
 from datetime import datetime, date, timedelta
@@ -15,6 +15,7 @@ from supa_api.supa_api_client import get_supa_client
 from supa_api.supa_api_jwt_helpers import create_authenticated_client, log_jwt_operation
 from supabase.client import create_client
 from config import SUPA_API_URL, SUPA_API_ANON_KEY
+from services.current_price_manager import current_price_manager
 
 logger = logging.getLogger(__name__)
 
@@ -121,65 +122,60 @@ class PortfolioTimeSeriesService:
            # logger.info(f"[portfolio_service] 📅 User transaction date range: {earliest_transaction_date} to {latest_transaction_date}")
            # logger.info(f"[portfolio_service] 📅 Requested trading date range: {trading_dates[0]} to {trading_dates[-1]}")
             
-            # Step 4: Fetch historical prices for all tickers on these dates
-            logger.info(f"[portfolio_service] 💰 Step 4: Fetching historical prices...")
+            # Step 4: Fetch historical prices using CurrentPriceManager
+            logger.info(f"[portfolio_service] 💰 Step 4: Fetching historical prices via CurrentPriceManager...")
             
             # Get the date range from our trading dates
             start_date = trading_dates[0]
             end_date = trading_dates[-1]
             
-            # Query each ticker separately, starting from its first transaction date
-            historical_prices = []
-            for ticker in tickers:
-                # Find the first transaction date for this specific ticker
-                ticker_transactions = [t for t in transactions if t['symbol'] == ticker]
-                ticker_first_date = min(datetime.strptime(t['date'], '%Y-%m-%d').date() for t in ticker_transactions)
-                
-                # Use the later of: ticker's first transaction date OR the overall start_date
-                ticker_start_date = max(ticker_first_date, start_date)
-                
-                logger.info(f"[portfolio_service] 🔍 GETTING DATA FOR {ticker} STOCK, FROM {ticker_start_date} (first transaction: {ticker_first_date}) to {end_date}")
-                
-                ticker_response = client.table('historical_prices') \
-                    .select('symbol, date, close') \
-                    .eq('symbol', ticker) \
-                    .gte('date', ticker_start_date.isoformat()) \
-                    .lte('date', end_date.isoformat()) \
-                    .execute()
-                
-                ticker_data = ticker_response.data
-                historical_prices.extend(ticker_data)
-                
-                # Calculate trading days (excluding weekends/holidays)
-                if ticker_data:
-                    dates = [datetime.strptime(record['date'], '%Y-%m-%d').date() for record in ticker_data]
-                    earliest_date = min(dates)
-                    latest_date = max(dates)
-                    logger.info(f"[portfolio_service] ✅ {ticker}: GOT {len(ticker_data)} TRADING DAYS from {earliest_date} to {latest_date}")
-                else:
-                    logger.warning(f"[portfolio_service] ⚠️ {ticker}: NO DATA FOUND for date range {ticker_start_date} to {end_date}")
-            logger.info(f"[portfolio_service] ✅ Found {len(historical_prices)} price records")
+            # Use CurrentPriceManager to get portfolio prices (ensures data freshness)
+            portfolio_prices_result = await current_price_manager.get_portfolio_prices(
+                symbols=tickers,
+                start_date=start_date,
+                end_date=end_date,
+                user_token=user_token
+            )
             
-            # === EDGE CASE HANDLING: MISSING PRICE DATA ===
-            if not historical_prices:
-                logger.warning(f"[portfolio_service] ⚠️ No historical price data found for tickers {tickers}")
+            if not portfolio_prices_result.get("success"):
+                logger.warning(f"[portfolio_service] ⚠️ CurrentPriceManager failed to get portfolio prices")
                 return [], {
                     "no_data": True, 
-                    "reason": "no_price_data", 
-                    "user_guidance": "Historical price data is not available for your stocks. Please contact support.",
+                    "reason": "price_service_error", 
+                    "user_guidance": "Data Not Available At This Time",
                     "missing_tickers": tickers
                 }
             
-            # Step 5: Build price lookup dictionary
+            portfolio_prices = portfolio_prices_result["data"]["portfolio_prices"]
+            failed_symbols = portfolio_prices_result["data"]["failed_symbols"]
+            
+            if failed_symbols:
+                logger.warning(f"[portfolio_service] ⚠️ Failed to get prices for: {failed_symbols}")
+            
+            # === EDGE CASE HANDLING: MISSING PRICE DATA ===
+            if not portfolio_prices:
+                logger.warning(f"[portfolio_service] ⚠️ No historical price data available for any ticker")
+                return [], {
+                    "no_data": True, 
+                    "reason": "no_price_data", 
+                    "user_guidance": "Data Not Available At This Time",
+                    "missing_tickers": tickers
+                }
+            
+            # Step 5: Build price lookup dictionary from CurrentPriceManager data
             price_lookup = defaultdict(dict)  # {symbol: {date: price}}
             
-            for price_record in historical_prices:
-                symbol = price_record['symbol']
-                price_date = datetime.strptime(price_record['date'], '%Y-%m-%d').date()
-                close_price = Decimal(str(price_record['close']))
-                price_lookup[symbol][price_date] = close_price
+            for symbol, price_data in portfolio_prices.items():
+                for price_record in price_data:
+                    try:
+                        price_date = datetime.strptime(price_record['time'], '%Y-%m-%d').date()
+                        close_price = Decimal(str(price_record['close']))
+                        price_lookup[symbol][price_date] = close_price
+                    except (ValueError, KeyError) as e:
+                        logger.warning(f"[portfolio_service] Skipping invalid price record for {symbol}: {e}")
+                        continue
             
-            logger.info(f"[portfolio_service] 🗂️ Built price lookup for {len(price_lookup)} tickers")
+            logger.info(f"[portfolio_service] 🗂️ Built price lookup for {len(price_lookup)} tickers via CurrentPriceManager")
             
             # Step 6: Calculate holdings evolution day by day
             #logger.info(f"[portfolio_service] 🧮 Step 6: Calculating daily portfolio values...")

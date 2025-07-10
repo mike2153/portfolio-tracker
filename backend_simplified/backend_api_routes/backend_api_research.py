@@ -9,10 +9,10 @@ from datetime import datetime, timedelta, timezone
 
 from debug_logger import DebugLogger
 from vantage_api.vantage_api_search import combined_symbol_search
-from vantage_api.vantage_api_quotes import vantage_api_get_overview, vantage_api_get_quote, vantage_api_get_historical_price
+from vantage_api.vantage_api_quotes import vantage_api_get_overview, vantage_api_get_historical_price
 from supa_api.supa_api_auth import require_authenticated_user
 from services.financials_service import FinancialsService
-from services.price_data_service import PriceDataService
+from services.current_price_manager import current_price_manager
 
 logger = logging.getLogger(__name__)
 
@@ -81,17 +81,30 @@ async def backend_api_stock_overview_handler(
     try:
         # Get both quote and overview data in parallel
         import asyncio
-        quote_task = asyncio.create_task(vantage_api_get_quote(symbol))
+        
+        # Extract user token for CurrentPriceManager
+        user_data = await require_authenticated_user()
+        user_token = user_data.get("access_token")
+        
+        quote_task = asyncio.create_task(current_price_manager.get_current_price(symbol, user_token))
         overview_task = asyncio.create_task(vantage_api_get_overview(symbol))
         
-        quote_data, overview_data = await asyncio.gather(quote_task, overview_task)
+        quote_result, overview_data = await asyncio.gather(quote_task, overview_task)
+        
+        # Extract quote data from CurrentPriceManager result
+        if quote_result.get("success"):
+            quote_data = quote_result["data"]
+        else:
+            quote_data = None
+            logger.warning(f"[backend_api_research.py] Failed to get current price for {symbol}: {quote_result.get('error')}")
         
         # Combine the data
         combined_data = {
             "symbol": symbol,
             "price_data": quote_data,
             "fundamentals": overview_data,
-            "success": True
+            "success": True,
+            "price_metadata": quote_result.get("metadata", {})
         }
         
         return combined_data
@@ -113,20 +126,32 @@ async def backend_api_stock_overview_handler(
             "error": str(e)
         }
 
-@research_router.get("/quote/{symbol}")
+@research_router.get("/quote/{symbol}", dependencies=[Depends(require_authenticated_user)])
 @DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="QUOTE")
 async def backend_api_quote_handler(
-    symbol: str
+    symbol: str,
+    user_data: Dict[str, Any] = Depends(require_authenticated_user)
 ) -> Dict[str, Any]:
-    """Get real-time quote data for a symbol"""
+    """Get real-time quote data for a symbol using CurrentPriceManager"""
     logger.info(f"[backend_api_research.py::backend_api_quote_handler] Quote request for: {symbol}")
     
     try:
-        quote_data = await vantage_api_get_quote(symbol.upper())
-        return {
-            "success": True,
-            "data": quote_data
-        }
+        user_token = user_data.get("access_token")
+        quote_result = await current_price_manager.get_current_price(symbol.upper(), user_token)
+        
+        if quote_result.get("success"):
+            return {
+                "success": True,
+                "data": quote_result["data"],
+                "metadata": quote_result.get("metadata", {})
+            }
+        else:
+            return {
+                "success": False,
+                "error": quote_result.get("error", "Data Not Available At This Time"),
+                "data": None,
+                "metadata": quote_result.get("metadata", {})
+            }
     except Exception as e:
         DebugLogger.log_error(
             file_name="backend_api_research.py",
@@ -134,7 +159,12 @@ async def backend_api_quote_handler(
             error=e,
             symbol=symbol
         )
-        raise HTTPException(status_code=500, detail=str(e))
+        return {
+            "success": False,
+            "error": "Data Not Available At This Time",
+            "data": None,
+            "metadata": {}
+        }
 
 @research_router.get("/historical_price/{symbol}", dependencies=[Depends(require_authenticated_user)])
 async def backend_api_historical_price_handler(
@@ -339,12 +369,12 @@ async def backend_api_stock_prices_handler(
         start_date = today - timedelta(days=5 * 365)
 
     try:
-        # Fetch price data from your service (update this call as needed)
+        # Fetch price data using CurrentPriceManager
         user_token = user_data.get("access_token")
         if not user_token:
             raise HTTPException(status_code=401, detail="Unauthorized")
-        price_service = PriceDataService()
-        result = await price_service.get_historical_prices(
+            
+        result = await current_price_manager.get_historical_prices(
             symbol=symbol,
             start_date=start_date,
             end_date=today,
@@ -352,10 +382,12 @@ async def backend_api_stock_prices_handler(
         )
 
         if not result["success"]:
-            raise HTTPException(
-                status_code=500,
-                detail=result.get("error", "Failed to fetch price data")
-            )
+            return {
+                "success": False,
+                "error": result.get("error", "Data Not Available At This Time"),
+                "data": None,
+                "metadata": result.get("metadata", {})
+            }
     except Exception as e:
         DebugLogger.log_error(
             file_name="backend_api_research.py",
@@ -366,23 +398,21 @@ async def backend_api_stock_prices_handler(
             years=years,
             ytd=ytd
         )
-        raise HTTPException(status_code=500, detail=f"Failed to fetch price data: {str(e)}")
+        return {
+            "success": False,
+            "error": "Data Not Available At This Time",
+            "data": None,
+            "metadata": {}
+        }
 
     return {
         "success": True,
         "data": {
             "symbol": symbol,
             "price_data": result["data"]["price_data"],
-            "years_available": result["data"].get("years_available", 0),
             "start_date": str(start_date),
             "end_date": str(today),
             "data_points": len(result["data"]["price_data"]) if result["data"]["price_data"] else 0
         },
-        "metadata": {
-            "cache_status": result.get("metadata", {}).get("cache_status", "unknown"),
-            "data_sources": result.get("metadata", {}).get("data_sources", []),
-            "last_updated": result.get("metadata", {}).get("last_updated"),
-            "gaps_filled": result.get("metadata", {}).get("gaps_filled", 0),
-            "timestamp": datetime.utcnow().isoformat()
-        }
+        "metadata": result.get("metadata", {})
     }

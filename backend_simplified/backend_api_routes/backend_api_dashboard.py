@@ -16,7 +16,7 @@ from debug_logger import DebugLogger, LoggingConfig
 from supa_api.supa_api_auth import require_authenticated_user
 from supa_api.supa_api_portfolio import supa_api_calculate_portfolio
 from supa_api.supa_api_transactions import supa_api_get_transaction_summary
-from vantage_api.vantage_api_quotes import vantage_api_get_quote
+from services.current_price_manager import current_price_manager
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP  # local import
 
 # Lazy‑imported heavy modules (they load Supabase clients, etc.)
@@ -80,9 +80,9 @@ async def backend_api_get_dashboard(
     # --- Launch parallel data fetches -------------------------------------
     portfolio_task = asyncio.create_task(supa_api_calculate_portfolio(uid, user_token=jwt))
     summary_task   = asyncio.create_task(supa_api_get_transaction_summary(uid, user_token=jwt))
-    spy_task       = asyncio.create_task(vantage_api_get_quote("SPY"))
+    spy_task       = asyncio.create_task(current_price_manager.get_current_price("SPY", jwt))
         
-    portfolio, summary, spy_quote = await asyncio.gather(
+    portfolio, summary, spy_result = await asyncio.gather(
             portfolio_task,
             summary_task,
             spy_task,
@@ -110,9 +110,16 @@ async def backend_api_get_dashboard(
             "total_transactions": 0,
         }
 
-    if isinstance(spy_quote, Exception):
-        logger.warning("Failed to fetch SPY quote: %s", spy_quote)
+    if isinstance(spy_result, Exception):
+        logger.warning("Failed to fetch SPY quote: %s", spy_result)
         spy_quote = None
+    else:
+        # Extract quote data from CurrentPriceManager result
+        if spy_result.get("success"):
+            spy_quote = spy_result["data"]
+        else:
+            logger.warning("SPY quote failed: %s", spy_result.get("error"))
+            spy_quote = None
 
     # Coerce to dictionaries for static typing
     portfolio_dict: Dict[str, Any] = cast(Dict[str, Any], portfolio)
