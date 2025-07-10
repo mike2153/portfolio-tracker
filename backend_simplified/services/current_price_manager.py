@@ -14,9 +14,8 @@ Key Features:
 
 import asyncio
 import logging
-from datetime import datetime, date, timedelta
-from typing import Dict, Any, List, Optional, Tuple
-from decimal import Decimal
+from datetime import datetime, date, timedelta, timezone
+from typing import Dict, Any, List, Optional
 import math
 
 from debug_logger import DebugLogger
@@ -39,44 +38,119 @@ class CurrentPriceManager:
     
     def __init__(self):
         self.vantage_client = get_vantage_client()
+        self._quote_cache = {}  # Simple in-memory cache
+        self._cache_timeout = 300  # 5 minutes
         logger.info("[CurrentPriceManager] Initialized with simplified price logic")
     
-    async def get_current_price(self, symbol: str, user_token: str = None) -> Dict[str, Any]:
+    async def get_current_price_fast(self, symbol: str) -> Dict[str, Any]:
         """
-        Get current price for a symbol with gap filling
+        Get current price quickly without database operations or data filling
+        Used for dashboard and quick quotes where speed is more important than data completeness
         
         Args:
             symbol: Stock ticker symbol
-            user_token: JWT token for database access
             
         Returns:
             Dict containing current price data and metadata
         """
         try:
             symbol = symbol.upper().strip()
-            logger.info(f"[CurrentPriceManager] Getting current price for {symbol}")
             
-            # Step 1: Check if we need to fill gaps in historical data
-            if user_token:
-                await self._ensure_data_current(symbol, user_token)
+            # Check cache first
+            cache_key = f"quote_{symbol}"
+            now = datetime.now(timezone.utc)
             
-            # Step 2: Try to get current/intraday price
+            if cache_key in self._quote_cache:
+                cached_data, cache_time = self._quote_cache[cache_key]
+                age_seconds = (now - cache_time).total_seconds()
+                
+                if age_seconds < self._cache_timeout:
+                    logger.info(f"[CurrentPriceManager] Using cached quote for {symbol} (age: {age_seconds:.1f}s)")
+                    return cached_data
+            
+            # Get fresh quote from Alpha Vantage
+            logger.info(f"[CurrentPriceManager] Getting fresh quote for {symbol}")
             current_price_data = await self._get_current_price_data(symbol)
             
             if current_price_data:
+                result = {
+                    "success": True,
+                    "data": current_price_data,
+                    "metadata": {
+                        "symbol": symbol,
+                        "data_source": "alpha_vantage_quote_fast",
+                        "timestamp": now.isoformat(),
+                        "message": "Current price retrieved successfully (fast mode)"
+                    }
+                }
+                
+                # Cache the result
+                self._quote_cache[cache_key] = (result, now)
+                return result
+            
+            else:
+                return {
+                    "success": False,
+                    "error": "Quote Not Available",
+                    "data": None,
+                    "metadata": {
+                        "symbol": symbol,
+                        "timestamp": now.isoformat(),
+                        "message": "No quote data available from Alpha Vantage"
+                    }
+                }
+                
+        except Exception as e:
+            logger.error(f"[CurrentPriceManager] Error getting fast quote for {symbol}: {e}")
+            return {
+                "success": False,
+                "error": "Service Temporarily Unavailable",
+                "data": None,
+                "metadata": {
+                    "symbol": symbol,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "message": f"Service error: {str(e)}"
+                }
+            }
+    
+    async def get_current_price(self, symbol: str, user_token: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Get current price for a symbol with gap filling
+        
+        Args:
+            symbol: Stock ticker symbol
+            user_token: JWT token for database access (optional for basic quotes)
+            
+        Returns:
+            Dict containing current price data and metadata
+        """
+        try:
+            symbol = symbol.upper().strip()
+            logger.info(f"[CurrentPriceManager] Getting current price for {symbol} (user_token: {'provided' if user_token else 'none'})")
+            
+            # Step 1: Try to get current/intraday price first (most efficient)
+            current_price_data = await self._get_current_price_data(symbol)
+            
+            if current_price_data:
+                # Step 2: If we have user_token, ensure historical data is current (background)
+                if user_token:
+                    # Don't await this - let it run in background to avoid blocking
+                    asyncio.create_task(self._ensure_data_current(symbol, user_token))
+                
                 return {
                     "success": True,
                     "data": current_price_data,
                     "metadata": {
                         "symbol": symbol,
                         "data_source": "alpha_vantage_quote",
-                        "timestamp": datetime.utcnow().isoformat(),
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
                         "message": "Current price retrieved successfully"
                     }
                 }
             
-            # Step 3: Fallback to last closing price from database
+            # Step 3: Fallback to last closing price from database if user_token provided
             if user_token:
+                await self._ensure_data_current(symbol, user_token)
                 last_close = await self._get_last_closing_price(symbol, user_token)
                 if last_close:
                     return {
@@ -85,7 +159,7 @@ class CurrentPriceManager:
                         "metadata": {
                             "symbol": symbol,
                             "data_source": "database_last_close",
-                            "timestamp": datetime.utcnow().isoformat(),
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
                             "message": "Using last closing price from database"
                         }
                     }
@@ -97,7 +171,7 @@ class CurrentPriceManager:
                 "data": None,
                 "metadata": {
                     "symbol": symbol,
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                     "message": "No current or historical price data available"
                 }
             }
@@ -118,10 +192,10 @@ class CurrentPriceManager:
     async def get_historical_prices(
         self, 
         symbol: str, 
-        start_date: date = None, 
-        end_date: date = None,
+        start_date: Optional[date] = None, 
+        end_date: Optional[date] = None,
         years: int = 5,
-        user_token: str = None
+        user_token: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Get historical prices with automatic gap filling
@@ -199,9 +273,9 @@ class CurrentPriceManager:
     async def get_portfolio_prices(
         self, 
         symbols: List[str], 
-        start_date: date = None, 
-        end_date: date = None,
-        user_token: str = None
+        start_date: Optional[date] = None, 
+        end_date: Optional[date] = None,
+        user_token: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Get historical prices for multiple symbols (portfolio use)
@@ -469,7 +543,7 @@ class CurrentPriceManager:
         symbol: str, 
         start_date: date, 
         end_date: date, 
-        user_token: str
+        user_token: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """Get historical data from database"""
         try:

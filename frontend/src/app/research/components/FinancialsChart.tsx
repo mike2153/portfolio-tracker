@@ -1,8 +1,7 @@
-import React from 'react';
-import dynamic from 'next/dynamic';
+'use client';
 
-// Dynamically import ApexCharts to avoid SSR issues
-const Chart = dynamic(() => import('react-apexcharts'), { ssr: false });
+import React, { useMemo } from 'react';
+import ApexChart from '@/components/charts/ApexChart';
 
 interface FinancialsChartProps {
   selectedMetrics: string[];
@@ -14,9 +13,8 @@ interface FinancialsChartProps {
 /**
  * FinancialsChart Component
  * 
- * Renders a stacked/clustered bar chart showing selected financial metrics
- * across multiple years using ApexCharts. Auto-scales and updates based
- * on user selections from the financial table.
+ * Interactive chart for displaying selected financial metrics over time.
+ * Uses ApexCharts for professional financial data visualization.
  */
 const FinancialsChart: React.FC<FinancialsChartProps> = ({
   selectedMetrics,
@@ -24,196 +22,205 @@ const FinancialsChart: React.FC<FinancialsChartProps> = ({
   metricLabels,
   years
 }) => {
-  // Format large numbers for better readability
-  const formatValue = (value: number): string => {
-    if (Math.abs(value) >= 1e9) {
-      return `$${(value / 1e9).toFixed(1)}B`;
-    } else if (Math.abs(value) >= 1e6) {
-      return `$${(value / 1e6).toFixed(1)}M`;
-    } else if (Math.abs(value) >= 1e3) {
-      return `$${(value / 1e3).toFixed(1)}K`;
+  
+  // Prepare chart data from financial metrics
+  const chartData = useMemo(() => {
+    if (!selectedMetrics.length || !years.length) {
+      return [];
     }
-    return `$${value.toFixed(0)}`;
-  };
 
-  // Prepare chart series data from selected metrics
-  const chartSeries = selectedMetrics.map((metricKey, index) => ({
-    name: metricLabels[metricKey] || metricKey,
-    data: years.map(year => financialData[metricKey]?.[year] || 0),
-    color: getMetricColor(index) // Assign consistent colors
-  }));
+    return selectedMetrics.map(metricKey => {
+      const metricValues = financialData[metricKey] || {};
+      const data = years.map(year => ({
+        x: year,
+        y: metricValues[year] || 0
+      }));
 
-  // Chart configuration optimized for financial data
-  const chartOptions = {
+      return {
+        name: metricLabels[metricKey] || metricKey,
+        data: data
+      };
+    });
+  }, [selectedMetrics, financialData, metricLabels, years]);
+
+  // Chart configuration
+  const chartOptions = useMemo(() => ({
     chart: {
-      type: 'bar',
-      background: 'transparent',
+      type: 'line' as const,
+      height: 400,
       toolbar: {
         show: true,
         tools: {
           download: true,
           selection: false,
-          zoom: false,
-          zoomin: false,
-          zoomout: false,
+          zoom: true,
+          zoomin: true,
+          zoomout: true,
           pan: false,
-          reset: false
+          reset: true
         }
       },
-      fontFamily: 'inherit'
+      background: 'transparent',
+      foreColor: '#9CA3AF'
     },
-    plotOptions: {
-      bar: {
-        horizontal: false,
-        columnWidth: '70%',
-        dataLabels: {
-          position: 'top'
-        }
-      }
-    },
-    dataLabels: {
-      enabled: false // Clean look without data labels on bars
+    theme: {
+      mode: 'dark' as const
     },
     stroke: {
-      show: true,
-      width: 1,
-      colors: ['transparent']
+      width: 3,
+      curve: 'smooth' as const
+    },
+    markers: {
+      size: 6,
+      strokeWidth: 2,
+      hover: {
+        size: 8
+      }
     },
     xaxis: {
       categories: years,
-      labels: {
-        style: {
-          colors: '#9CA3AF',
-          fontSize: '12px'
-        }
-      },
-      axisBorder: {
-        show: false
-      },
-      axisTicks: {
-        show: false
-      }
-    },
-    yaxis: {
-      labels: {
-        style: {
-          colors: '#9CA3AF',
-          fontSize: '12px'
-        },
-        formatter: (value: number) => formatValue(value)
-      },
       title: {
-        text: 'Value (USD)',
+        text: 'Year',
         style: {
           color: '#9CA3AF',
           fontSize: '12px'
         }
+      },
+      labels: {
+        style: {
+          colors: '#9CA3AF'
+        }
       }
     },
-    fill: {
-      opacity: 0.9
+    yaxis: {
+      title: {
+        text: 'Value',
+        style: {
+          color: '#9CA3AF',
+          fontSize: '12px'
+        }
+      },
+      labels: {
+        style: {
+          colors: '#9CA3AF'
+        },
+        formatter: (value: number) => {
+          if (Math.abs(value) >= 1e9) {
+            return `$${(value / 1e9).toFixed(1)}B`;
+          } else if (Math.abs(value) >= 1e6) {
+            return `$${(value / 1e6).toFixed(1)}M`;
+          } else if (Math.abs(value) >= 1e3) {
+            return `$${(value / 1e3).toFixed(1)}K`;
+          }
+          return `$${value.toFixed(0)}`;
+        }
+      }
     },
     tooltip: {
       theme: 'dark',
+      shared: true,
+      intersect: false,
       y: {
-        formatter: (value: number) => formatValue(value)
-      },
-      style: {
-        fontSize: '12px'
+        formatter: (value: number) => {
+          const absValue = Math.abs(value);
+          const sign = value < 0 ? '-' : '';
+          
+          if (absValue >= 1e12) {
+            return `${sign}$${(absValue / 1e12).toFixed(2)}T`;
+          } else if (absValue >= 1e9) {
+            return `${sign}$${(absValue / 1e9).toFixed(2)}B`;
+          } else if (absValue >= 1e6) {
+            return `${sign}$${(absValue / 1e6).toFixed(2)}M`;
+          } else if (absValue >= 1e3) {
+            return `${sign}$${(absValue / 1e3).toFixed(2)}K`;
+          }
+          return `${sign}$${absValue.toLocaleString()}`;
+        }
       }
     },
     legend: {
-      position: 'bottom' as const,
-      horizontalAlign: 'center' as const,
-      floating: false,
-      fontSize: '12px',
-      fontWeight: 400,
+      show: true,
+      position: 'top' as const,
+      horizontalAlign: 'left' as const,
       labels: {
-        colors: '#D1D5DB'
-      },
-      markers: {
-        width: 12,
-        height: 12,
-        radius: 2
-      },
-      itemMargin: {
-        horizontal: 10,
-        vertical: 5
+        colors: '#9CA3AF'
       }
     },
     grid: {
       borderColor: '#374151',
-      strokeDashArray: 1,
-      xaxis: {
-        lines: {
-          show: false
-        }
-      },
-      yaxis: {
-        lines: {
-          show: true
-        }
-      }
+      strokeDashArray: 3
     },
-    theme: {
-      mode: 'dark' as const
-    }
-  };
+    colors: [
+      '#3B82F6', // Blue
+      '#10B981', // Green  
+      '#F59E0B', // Amber
+      '#EF4444', // Red
+      '#8B5CF6', // Purple
+      '#06B6D4', // Cyan
+      '#84CC16', // Lime
+      '#F97316'  // Orange
+    ]
+  }), [years]);
 
-  // Display message when no metrics are selected
-  if (selectedMetrics.length === 0) {
+  // Empty state
+  if (!selectedMetrics.length) {
     return (
-      <div className="bg-gray-800 rounded-xl p-6 h-96 flex items-center justify-center">
+      <div className="rounded-xl bg-gray-800/80 p-8 shadow-lg">
         <div className="text-center text-gray-400">
-          <div className="text-lg font-medium mb-2">Select Financial Metrics</div>
-          <div className="text-sm">
-            Click on table rows below to add metrics to the chart
+          <div className="mb-4">
+            <svg className="mx-auto h-12 w-12 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
           </div>
+          <h3 className="text-lg font-medium text-gray-300 mb-2">Select Financial Metrics</h3>
+          <p className="text-sm">Choose metrics from the table below to display them on the chart</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-gray-800 rounded-xl p-6">
-      <div className="mb-4">
-        <h3 className="text-lg font-semibold text-white mb-2">Financial Metrics Comparison</h3>
-        <div className="text-sm text-gray-400">
-          Showing {selectedMetrics.length} selected metric{selectedMetrics.length !== 1 ? 's' : ''} across {years.length} periods
-        </div>
+    <div className="rounded-xl bg-gray-800/80 p-6 shadow-lg">
+      {/* Chart Header */}
+      <div className="mb-6">
+        <h3 className="text-lg font-semibold text-white mb-2">Financial Metrics Chart</h3>
+        <p className="text-sm text-gray-400">
+          {selectedMetrics.length} metric{selectedMetrics.length !== 1 ? 's' : ''} selected • {years.length} years of data
+        </p>
       </div>
-      
-      {/* ApexCharts Component */}
-      <div className="h-96">
-        <Chart
+
+      {/* Chart */}
+      <div className="w-full">
+        <ApexChart
+          type="line"
+          series={chartData}
           options={chartOptions}
-          series={chartSeries}
-          type="bar"
-          height="100%"
+          height={400}
         />
       </div>
+
+      {/* Footer */}
+      <div className="mt-4 pt-4 border-t border-gray-700">
+        <div className="flex flex-wrap gap-2">
+          {selectedMetrics.map((metricKey) => (
+            <span
+              key={metricKey}
+              className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-900/50 text-blue-300"
+            >
+              {metricLabels[metricKey] || metricKey}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Debug info in development */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="mt-2 text-xs text-gray-500">
+          Debug: {selectedMetrics.length} metrics, {years.length} years, {chartData.length} series
+        </div>
+      )}
     </div>
   );
 };
-
-/**
- * Generate consistent colors for chart series
- * Uses a predefined color palette for better visual distinction
- */
-function getMetricColor(index: number): string {
-  const colors = [
-    '#3B82F6', // Blue
-    '#10B981', // Green
-    '#F59E0B', // Amber
-    '#EF4444', // Red
-    '#8B5CF6', // Purple
-    '#06B6D4', // Cyan
-    '#F97316', // Orange
-    '#84CC16', // Lime
-    '#EC4899', // Pink
-    '#6B7280'  // Gray
-  ];
-  return colors[index % colors.length];
-}
 
 export default FinancialsChart;

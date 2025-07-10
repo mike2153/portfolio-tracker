@@ -75,7 +75,7 @@ export default function ApexChart({
 
   // Determine dynamic colors based on performance
   const dynamicColors = useMemo(() => {
-    if (data.length === 0) return colors;
+    if (!data || data.length === 0) return colors;
     const seriesData = data[0].data;
     if (!seriesData || seriesData.length === 0) return colors;
     // Helper to extract numeric value (handles tuples, point objects, and OHLC arrays)
@@ -194,13 +194,14 @@ export default function ApexChart({
     ...additionalOptions
   }), [type, height, darkMode, showToolbar, showLegend, xAxisType, yAxisFormatter, tooltipFormatter, dynamicColors, additionalOptions]);
 
-  const series = useMemo(() => 
-    data.map(item => ({
+  const series = useMemo(() => {
+    if (!data || data.length === 0) return [];
+    return data.map(item => ({
       name: item.name,
       data: item.data,
       color: item.color
-    }))
-  , [data]);
+    }));
+  }, [data]);
 
   // Loading state
   if (isLoading) {

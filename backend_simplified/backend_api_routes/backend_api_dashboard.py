@@ -80,12 +80,10 @@ async def backend_api_get_dashboard(
     # --- Launch parallel data fetches -------------------------------------
     portfolio_task = asyncio.create_task(supa_api_calculate_portfolio(uid, user_token=jwt))
     summary_task   = asyncio.create_task(supa_api_get_transaction_summary(uid, user_token=jwt))
-    spy_task       = asyncio.create_task(current_price_manager.get_current_price("SPY", jwt))
         
-    portfolio, summary, spy_result = await asyncio.gather(
+    portfolio, summary = await asyncio.gather(
             portfolio_task,
             summary_task,
-            spy_task,
         return_exceptions=True,
         )
         
@@ -110,16 +108,6 @@ async def backend_api_get_dashboard(
             "total_transactions": 0,
         }
 
-    if isinstance(spy_result, Exception):
-        logger.warning("Failed to fetch SPY quote: %s", spy_result)
-        spy_quote = None
-    else:
-        # Extract quote data from CurrentPriceManager result
-        if spy_result.get("success"):
-            spy_quote = spy_result["data"]
-        else:
-            logger.warning("SPY quote failed: %s", spy_result.get("error"))
-            spy_quote = None
 
     # Coerce to dictionaries for static typing
     portfolio_dict: Dict[str, Any] = cast(Dict[str, Any], portfolio)
@@ -141,9 +129,6 @@ async def backend_api_get_dashboard(
         },
         "top_holdings": portfolio_dict.get("holdings", [])[:5],
         "transaction_summary": summary_dict,
-        "market_data": {
-            "spy": spy_quote,
-        },
     }
 
     #logger.info("✅ Dashboard payload ready")

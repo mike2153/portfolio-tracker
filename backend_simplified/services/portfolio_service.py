@@ -8,13 +8,9 @@ from datetime import datetime, date, timedelta
 from decimal import Decimal
 from collections import defaultdict
 import logging
-import asyncio
 
 from debug_logger import DebugLogger
-from supa_api.supa_api_client import get_supa_client
 from supa_api.supa_api_jwt_helpers import create_authenticated_client, log_jwt_operation
-from supabase.client import create_client
-from config import SUPA_API_URL, SUPA_API_ANON_KEY
 from services.current_price_manager import current_price_manager
 
 logger = logging.getLogger(__name__)

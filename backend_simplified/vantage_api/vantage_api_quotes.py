@@ -90,10 +90,11 @@ async def vantage_api_get_overview(symbol: str) -> Dict[str, Any]:
     
     try:
         response = await client._make_request(params)
+        logger.info(f"[vantage_api_get_overview] Raw API response for {symbol}: {type(response)} with keys: {list(response.keys()) if isinstance(response, dict) else 'not dict'}")
         
         # Check if we got valid data
         if not response or 'Symbol' not in response:
-            logger.warning(f"[vantage_api_quotes.py::vantage_api_get_overview] No overview data for {symbol}")
+            logger.warning(f"[vantage_api_quotes.py::vantage_api_get_overview] No overview data for {symbol}. Response: {response}")
             return {}
         
         # Extract and format key metrics
@@ -376,7 +377,7 @@ async def vantage_api_get_daily_adjusted(symbol: str) -> Dict[str, Any]:
         time_series = response['Time Series (Daily)']
         
         # Cache the result (expires in 4 hours for historical data)
-        await client._set_cache(cache_key, time_series, expire_seconds=4 * 3600)
+        await client._save_to_cache(cache_key, time_series)
         
         logger.info(f"[vantage_api_quotes.py::vantage_api_get_daily_adjusted] Successfully fetched {len(time_series)} days of data for {symbol}")
         

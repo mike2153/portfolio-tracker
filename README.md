@@ -1,22 +1,114 @@
-# Portfolio Tracker - Comprehensive System Documentation
+# Portfolio Tracker - Comprehensive Investment Management System
 
-## Table of Contents
+A professional-grade portfolio tracking application with real-time performance analysis, comprehensive research tools, and intelligent data management.
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Docker & Docker Compose
+- Node.js 18+ (for local development)
+- Python 3.11+ (for local development)
+
+### Development Setup
+```bash
+# Clone the repository
+git clone <repository-url>
+cd portfolio-tracker
+
+# Start the complete development environment
+docker-compose up --build
+
+# Or on Windows
+./docker-dev.bat
+```
+
+**Access URLs:**
+- **Frontend**: http://localhost:3000
+- **Backend API**: http://localhost:8000
+- **API Documentation**: http://localhost:8000/docs
+
+## 📋 Table of Contents
 
 1. [System Architecture Overview](#system-architecture-overview)
-2. [Backend API Architecture](#backend-api-architecture)
-3. [Frontend Architecture](#frontend-architecture)
-4. [Data Flow Diagrams](#data-flow-diagrams)
-5. [API Reference](#api-reference)
-6. [Database Schema](#database-schema)
-7. [Service Layer Documentation](#service-layer-documentation)
-8. [Frontend Components](#frontend-components)
-9. [Authentication & Security](#authentication--security)
-10. [Error Handling](#error-handling)
-11. [Performance Optimization](#performance-optimization)
-12. [Deployment & Configuration](#deployment--configuration)
+2. [Performance Optimizations](#performance-optimizations-2025)
+3. [Backend API Architecture](#backend-api-architecture)
+4. [Frontend Architecture](#frontend-architecture)
+5. [Data Flow Diagrams](#data-flow-diagrams)
+6. [API Reference](#api-reference)
+7. [Database Schema](#database-schema)
+8. [Authentication & Security](#authentication--security)
+9. [Deployment & Configuration](#deployment--configuration)
+10. [Troubleshooting](#troubleshooting-guide)
 
 ---
-## Recent Updates *(8 January 2025)*
+
+## Recent Updates *(10 July 2025)*
+
+### 🔧 **Critical Performance & Bug Fixes** *(Today's Updates)*
+
+#### **Performance Optimization**
+- **Fixed "Failed to fetch" errors** - Optimized CurrentPriceManager to prevent blocking operations
+- **Added Fast Quote System** - 5-minute caching for dashboard and research quick quotes
+- **Removed Unnecessary API Calls** - Eliminated redundant SPY quote from dashboard endpoint
+- **Background Data Processing** - Data filling now happens asynchronously without blocking user experience
+
+#### **Dynamic Benchmark Selection**
+- **Fixed Hardcoded SPY Issue** - Portfolio chart now respects user's selected benchmark (SPY, QQQ, A200, etc.)
+- **Proper API Integration** - `usePerformance` hook now correctly passes benchmark parameter to backend
+- **Full Benchmark Support** - All supported benchmarks work dynamically in dashboard
+
+#### **Authentication & API Fixes**
+- **Fixed Research API Error** - Resolved `'Depends' object has no attribute 'credentials'` error
+- **Stock Overview Data** - Company fundamentals (EPS, PE ratio, market cap) now load correctly
+- **Improved Error Handling** - Better debugging and graceful error recovery
+
+#### **Chart Library Migration**
+- **Complete ApexCharts Migration** - Unified all charts from Plotly.js/LightweightCharts to ApexCharts
+- **Fixed Runtime Errors** - Resolved undefined data errors in chart components
+- **Enhanced Financial Analysis** - Interactive metric selection with real-time chart updates
+- **Consistent Styling** - Unified dark theme and responsive design across all charts
+
+#### **Codebase Cleanup**
+- **Removed Obsolete Files** - Cleaned up unused Plotly.js components and dependencies
+- **Fixed Tailwind CSS Issues** - Resolved PostCSS plugin errors by correcting version conflicts
+- **Removed Unused Imports** - Comprehensive cleanup of backend and frontend imports
+- **Created Missing Components** - Added missing `FinancialsChart.tsx` component
+
+### 🎨 **ApexCharts Integration** *(Major UI Overhaul)*
+
+#### **New Chart Components**
+- **`ApexChart.tsx`** - Universal chart component with dynamic colors and responsive design
+- **`ApexListView.tsx`** - Enhanced data list component with search, sort, and pagination
+- **`FinancialBarChartApexEnhanced.tsx`** - Interactive financial analysis with metric selection
+- **`FinancialSpreadsheetApex.tsx`** - 5-year historical financial data tables
+- **`PriceChartApex.tsx`** - Professional stock price visualization
+- **`PortfolioChartApex.tsx`** - Portfolio vs benchmark performance charts
+
+#### **Enhanced Financial Analysis**
+- **Interactive Metric Selection** - Checkbox-based selection with real-time updates
+- **Dual Y-Axis Charts** - Values and growth percentages on same chart
+- **CAGR Calculations** - Compound Annual Growth Rate analysis
+- **5-Year Historical Data** - Extended data processing and analysis
+- **Category Organization** - Metrics grouped by Income, Balance Sheet, Cash Flow
+
+### 🏗️ **Current Price Management System** *(New Service)*
+
+#### **CurrentPriceManager Features**
+- **Unified Price Data** - Single service for all price-related operations
+- **Smart Data Filling** - Automatic gap detection and Alpha Vantage integration
+- **Fast Quote Method** - Immediate quotes with caching for dashboard/research
+- **Background Processing** - Non-blocking data updates
+- **Graceful Fallbacks** - Multiple data sources with intelligent fallback
+
+#### **Service Integration**
+- **Portfolio Service** - Integrated with CurrentPriceManager for fresh data
+- **Dashboard API** - Fast quotes without blocking operations
+- **Research API** - Real-time quotes and company fundamentals
+- **Authentication Flow** - Proper JWT token handling across all services
+
+---
+
+## Previous Updates *(6-8 July 2025)*
 
 ### 📈 **Complete Historical Price Data System** *(New Major Feature)*
 - **End-to-End Price Data Flow:** Frontend → Backend → Database → Alpha Vantage (if needed) → Database → Chart
@@ -103,7 +195,7 @@
 - **Framework:** Next.js 14 (React)
 - **Styling:** Tailwind CSS
 - **State Management:** React Query (TanStack Query)
-- **Charts:** Plotly.js
+- **Charts:** ApexCharts (unified chart library)
 - **Authentication:** Supabase Auth client
 
 ### High-Level Architecture

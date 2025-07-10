@@ -141,11 +141,11 @@ export function StockSearchInput({
     if (shouldShow) {
       
       if (isLoading) {
-        console.log(`🔄 [StockSearchInput] Rendering loading state`);
+       // console.log(`🔄 [StockSearchInput] Rendering loading state`);
       } else if (suggestions.length > 0) {
-        console.log(`📋 [StockSearchInput] Rendering ${suggestions.length} suggestions`);
+        //console.log(`📋 [StockSearchInput] Rendering ${suggestions.length} suggestions`);
         suggestions.forEach((symbol, index) => {
-          console.log(`🎯 [StockSearchInput] Suggestion ${index}: ${symbol.symbol} - ${symbol.name}`);
+          //console.log(`🎯 [StockSearchInput] Suggestion ${index}: ${symbol.symbol} - ${symbol.name}`);
         });
       } else if (searchQuery.length > 0) {
         console.log(`❌ [StockSearchInput] Rendering no results message`);

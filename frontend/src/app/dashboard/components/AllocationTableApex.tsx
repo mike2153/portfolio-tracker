@@ -21,10 +21,10 @@ const AllocationTableApex = () => {
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['dashboardAllocation'],
     queryFn: async () => {
-      console.log('[AllocationTableApex] Making API call for allocation data...');
+      //console.log('[AllocationTableApex] Making API call for allocation data...');
       // Note: Allocation API needs to be implemented in backend
       // For now, return sample data for demonstration
-      console.log('[AllocationTableApex] Allocation API not yet implemented, showing sample data');
+      //console.log('[AllocationTableApex] Allocation API not yet implemented, showing sample data');
       
       // Sample data for demonstration
       const sampleData = {
@@ -84,12 +84,12 @@ const AllocationTableApex = () => {
     enabled: !!user,
   });
 
-  console.log('[AllocationTableApex] Query state:', { data, isLoading, isError, error });
+ // console.log('[AllocationTableApex] Query state:', { data, isLoading, isError, error });
 
   // Transform data for ApexListView
   const { listViewData, columns, actions } = useMemo(() => {
     const rows = data?.data?.rows || [];
-    console.log('[AllocationTableApex] Processing allocation rows:', rows.length);
+    //console.log('[AllocationTableApex] Processing allocation rows:', rows.length);
 
     // Transform rows to extended format
     const transformedData: AllocationRowExtended[] = rows.map((row: AllocationRow, index: number) => ({

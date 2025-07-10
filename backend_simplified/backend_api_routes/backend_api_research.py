@@ -23,7 +23,7 @@ research_router = APIRouter()
 @DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="SYMBOL_SEARCH")
 async def backend_api_symbol_search_handler(
     q: str = Query(..., description="Search query for stock symbols"),
-    limit: int = Query(20, description="Maximum number of results")
+    limit: int = Query(50, description="Maximum number of results")
 ) -> Dict[str, Any]:
     """
     Search for stock symbols with intelligent scoring
@@ -63,9 +63,10 @@ async def backend_api_symbol_search_handler(
         )
         raise HTTPException(status_code=500, detail=str(e))
 
-@research_router.get("/stock_overview", dependencies=[Depends(require_authenticated_user)])
+@research_router.get("/stock_overview")
 async def backend_api_stock_overview_handler(
-    symbol: str = Query(..., description="Stock symbol to get overview for")
+    symbol: str = Query(..., description="Stock symbol to get overview for"),
+    user_data: Dict[str, Any] = Depends(require_authenticated_user)
 ) -> Dict[str, Any]:
     """
     Get comprehensive stock overview data
@@ -83,10 +84,10 @@ async def backend_api_stock_overview_handler(
         import asyncio
         
         # Extract user token for CurrentPriceManager
-        user_data = await require_authenticated_user()
         user_token = user_data.get("access_token")
         
-        quote_task = asyncio.create_task(current_price_manager.get_current_price(symbol, user_token))
+        # Use fast quote for basic stock overview to improve performance
+        quote_task = asyncio.create_task(current_price_manager.get_current_price_fast(symbol))
         overview_task = asyncio.create_task(vantage_api_get_overview(symbol))
         
         quote_result, overview_data = await asyncio.gather(quote_task, overview_task)
@@ -97,6 +98,11 @@ async def backend_api_stock_overview_handler(
         else:
             quote_data = None
             logger.warning(f"[backend_api_research.py] Failed to get current price for {symbol}: {quote_result.get('error')}")
+        
+        # Log overview data for debugging
+        logger.info(f"[backend_api_research.py] Overview data for {symbol}: {type(overview_data)} with {len(overview_data) if isinstance(overview_data, dict) else 'non-dict'} keys")
+        if isinstance(overview_data, dict) and overview_data:
+            logger.info(f"[backend_api_research.py] Overview data keys: {list(overview_data.keys())}")
         
         # Combine the data
         combined_data = {

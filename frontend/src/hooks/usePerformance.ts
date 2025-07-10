@@ -197,7 +197,7 @@ export function usePerformance(
       
       try {
         // Use existing API client that already handles JWT authentication
-        const response = await front_api_client.front_api_get_performance(range);
+        const response = await front_api_client.front_api_get_performance(range, benchmark);
         
         // === COMPREHENSIVE ERROR HANDLING ===
         if (!response) {
