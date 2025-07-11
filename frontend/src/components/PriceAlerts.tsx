@@ -52,7 +52,7 @@ export default function PriceAlerts({ userId }: PriceAlertsProps) {
 
   const fetchAlerts = async () => {
     try {
-      const response = await fetch(`http://localhost:8000/api/price-alerts/${userId}`)
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/price-alerts/${userId}`)
       if (!response.ok) {
         throw new Error('Failed to fetch price alerts')
       }
@@ -65,7 +65,7 @@ export default function PriceAlerts({ userId }: PriceAlertsProps) {
 
   const fetchStatistics = async () => {
     try {
-      const response = await fetch(`http://localhost:8000/api/price-alerts/${userId}/statistics`)
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/price-alerts/${userId}/statistics`)
       if (!response.ok) {
         throw new Error('Failed to fetch alert statistics')
       }
@@ -83,7 +83,7 @@ export default function PriceAlerts({ userId }: PriceAlertsProps) {
     setSubmitting(true)
 
     try {
-      const response = await fetch(`http://localhost:8000/api/price-alerts/${userId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/price-alerts/${userId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -108,7 +108,7 @@ export default function PriceAlerts({ userId }: PriceAlertsProps) {
 
   const deleteAlert = async (alertId: number) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/price-alerts/${userId}/${alertId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/price-alerts/${userId}/${alertId}`, {
         method: 'DELETE',
       })
 
@@ -126,7 +126,7 @@ export default function PriceAlerts({ userId }: PriceAlertsProps) {
   const checkAlerts = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`http://localhost:8000/api/price-alerts/${userId}/check`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/price-alerts/${userId}/check`, {
         method: 'POST',
       })
 

@@ -4,7 +4,7 @@ Handles real-time price data and fundamental information
 """
 import asyncio
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta
 import json
 
@@ -391,6 +391,65 @@ async def vantage_api_get_daily_adjusted(symbol: str) -> Dict[str, Any]:
             symbol=symbol
         )
         return {}
+
+@DebugLogger.log_api_call(api_name="ALPHA_VANTAGE", sender="BACKEND", receiver="VANTAGE_API", operation="DIVIDENDS")
+async def vantage_api_get_dividends(symbol: str) -> List[Dict[str, Any]]:
+    """Get dividend data for a stock symbol from Alpha Vantage"""
+    client = get_vantage_client()
+    
+    # Check cache first (longer TTL for dividend data)
+    cache_key = f"dividends:{symbol}"
+    cached_data = await client._get_from_cache(cache_key)
+    
+    if cached_data and 'dividends' in cached_data:
+        return cached_data['dividends']
+    
+    # Make API request - Alpha Vantage doesn't have a direct DIVIDENDS function
+    # We'll use the TIME_SERIES_DAILY_ADJUSTED to extract dividend data
+    params = {
+        'function': 'TIME_SERIES_DAILY_ADJUSTED',
+        'symbol': symbol,
+        'outputsize': 'full'
+    }
+    
+    try:
+        response = await client._make_request(params)
+        
+        if 'Time Series (Daily)' not in response:
+            logger.warning(f"[vantage_api_quotes.py::vantage_api_get_dividends] No time series data for {symbol}")
+            return []
+        
+        time_series = response['Time Series (Daily)']
+        dividends = []
+        
+        # Extract dividends from daily time series
+        # Alpha Vantage includes dividend amounts in the daily data
+        for date_str, daily_data in time_series.items():
+            dividend_amount = daily_data.get('7. dividend amount', '0')
+            if dividend_amount and float(dividend_amount) > 0:
+                dividends.append({
+                    'ex_date': date_str,
+                    'pay_date': date_str,  # Approximate - real pay date would be later
+                    'amount': float(dividend_amount),
+                    'currency': 'USD'
+                })
+        
+        # Cache the result
+        if dividends:
+            await client._save_to_cache(cache_key, {'dividends': dividends})
+        
+        logger.info(f"[vantage_api_quotes.py::vantage_api_get_dividends] Found {len(dividends)} dividends for {symbol}")
+        
+        return dividends
+        
+    except Exception as e:
+        DebugLogger.log_error(
+            file_name="vantage_api_quotes.py",
+            function_name="vantage_api_get_dividends",
+            error=e,
+            symbol=symbol
+        )
+        return []
 
 def _safe_float(value: Any) -> float:
     """Safely convert value to float, return 0 if not possible"""

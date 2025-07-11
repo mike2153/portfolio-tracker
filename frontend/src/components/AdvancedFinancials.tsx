@@ -91,7 +91,7 @@ export default function AdvancedFinancialsComponent({ symbol }: AdvancedFinancia
       setLoading(true)
       setError('')
       
-      const response = await fetch(`http://localhost:8000/api/stocks/${symbol}/advanced_financials`)
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/stocks/${symbol}/advanced_financials`)
       if (!response.ok) {
         throw new Error('Failed to fetch advanced financials')
       }

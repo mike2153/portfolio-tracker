@@ -126,7 +126,7 @@ export default function DividendChartApex({
 
       {/* Chart */}
       <ApexChart
-        data={chartData}
+        data={chartData as any}
         type="area"
         height={height}
         title={title}

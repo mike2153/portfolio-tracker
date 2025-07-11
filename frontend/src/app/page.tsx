@@ -19,7 +19,7 @@ export default function Home() {
 
   useEffect(() => {
     // Test API connection with health endpoint
-    fetch('http://localhost:8000/')
+    fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/`)
       .then(res => res.json())
       .then((data: any) => {
         // Map the simple health response to the expected format

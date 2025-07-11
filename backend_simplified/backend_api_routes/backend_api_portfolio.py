@@ -17,6 +17,7 @@ from supa_api.supa_api_transactions import (
     supa_api_delete_transaction
 )
 from supa_api.supa_api_portfolio import supa_api_calculate_portfolio
+from services.dividend_service import dividend_service
 
 logger = logging.getLogger(__name__)
 
@@ -213,6 +214,24 @@ async def backend_api_add_transaction(
         
         new_transaction = await supa_api_add_transaction(transaction_data, user_token)
 
+        # Sync dividends for this symbol after adding a BUY transaction
+        if transaction.transaction_type == "Buy":
+            try:
+                # Get the transaction date for dividend sync
+                transaction_date = datetime.strptime(transaction.date, '%Y-%m-%d').date()
+                
+                # Sync dividends from the transaction date onward
+                dividend_sync_result = await dividend_service.sync_dividends_for_symbol(
+                    user_id=user["id"],
+                    symbol=transaction.symbol,
+                    from_date=transaction_date
+                )
+                
+                logger.info(f"[backend_api_portfolio.py] Dividend sync result for {transaction.symbol}: {dividend_sync_result}")
+                
+            except Exception as dividend_error:
+                # Don't fail the transaction if dividend sync fails
+                logger.warning(f"[backend_api_portfolio.py] Dividend sync failed for {transaction.symbol}: {dividend_error}")
         
         return {
             "success": True,

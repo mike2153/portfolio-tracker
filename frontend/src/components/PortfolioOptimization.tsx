@@ -92,7 +92,7 @@ export default function PortfolioOptimization({ userId }: PortfolioOptimizationP
       setLoading(true)
       setError('')
       
-      const response = await fetch(`http://localhost:8000/api/portfolios/${userId}/optimization`)
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/portfolios/${userId}/optimization`)
       if (!response.ok) {
         throw new Error('Failed to fetch portfolio optimization analysis')
       }

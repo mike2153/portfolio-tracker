@@ -26,6 +26,7 @@ from backend_api_routes.backend_api_auth import auth_router
 from backend_api_routes.backend_api_research import research_router
 from backend_api_routes.backend_api_portfolio import portfolio_router
 from backend_api_routes.backend_api_dashboard import dashboard_router
+from backend_api_routes.backend_api_analytics import analytics_router
 
 # Configure logging
 logging.basicConfig(level=getattr(logging, LOG_LEVEL))
@@ -118,6 +119,7 @@ app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(research_router, prefix="/api", tags=["Research"])
 app.include_router(portfolio_router, prefix="/api", tags=["Portfolio"])
 app.include_router(dashboard_router, tags=["Dashboard"])  # No prefix - router already has /api prefix
+app.include_router(analytics_router, prefix="/api/analytics", tags=["Analytics"])
 
 # Request logging middleware
 @app.middleware("http")

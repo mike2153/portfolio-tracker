@@ -90,7 +90,7 @@ export default function StockAnalysisPage({ params }: StockAnalysisPageProps) {
       setLoading(true)
       setError('')
 
-      const response = await fetch(`http://localhost:8000/api/stocks/${ticker}/overview`)
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/stocks/${ticker}/overview`)
       if (!response.ok) throw new Error('Failed to fetch stock data')
       
       const data = await response.json()
@@ -105,7 +105,7 @@ export default function StockAnalysisPage({ params }: StockAnalysisPageProps) {
 
   const fetchHistoricalData = useCallback(async () => {
     try {
-      const response = await fetch(`http://localhost:8000/api/stocks/${ticker}/historical?period=${selectedPeriod}`)
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/stocks/${ticker}/historical?period=${selectedPeriod}`)
       if (!response.ok) throw new Error('Failed to fetch historical data')
       
       const data = await response.json()
@@ -117,7 +117,7 @@ export default function StockAnalysisPage({ params }: StockAnalysisPageProps) {
 
   const fetchFinancials = useCallback(async () => {
     try {
-      const response = await fetch(`http://localhost:8000/api/stocks/${ticker}/financials/${selectedStatement}`)
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/stocks/${ticker}/financials/${selectedStatement}`)
       if (!response.ok) throw new Error('Failed to fetch financial data')
       
       const data = await response.json()
@@ -129,7 +129,7 @@ export default function StockAnalysisPage({ params }: StockAnalysisPageProps) {
 
   const fetchNews = useCallback(async () => {
     try {
-      const response = await fetch(`http://localhost:8000/api/stocks/${ticker}/news?limit=20`)
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/stocks/${ticker}/news?limit=20`)
       if (!response.ok) throw new Error('Failed to fetch news')
       
       const data = await response.json()
