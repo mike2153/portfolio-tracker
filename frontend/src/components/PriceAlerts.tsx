@@ -18,7 +18,7 @@ import {
 } from 'lucide-react'
 
 // Dynamically import Plotly to avoid SSR issues
-const Plot = dynamic(() => import('react-plotly.js'), { ssr: false })
+// const Plot = dynamic(() => import('react-plotly.js'), { ssr: false })
 
 interface PriceAlertsProps {
   userId: string

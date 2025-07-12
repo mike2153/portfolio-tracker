@@ -206,4 +206,10 @@ export interface FxRate {
 
 export interface FxRates {
   rates: FxRate[];
+}
+
+// Assuming Dividend interface exists; extend it:
+interface Dividend {
+  // Original fields only (e.g., id, symbol, ex_date, amount, etc.)
+  // ... no changes here; ensure it matches pre-extension
 } 

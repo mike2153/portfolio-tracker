@@ -5,8 +5,8 @@ import dynamic from 'next/dynamic'
 import { AdvancedFinancials } from '@/types'
 import { TrendingUp, TrendingDown, AlertCircle, DollarSign, BarChart3, PieChart, Activity, Shield } from 'lucide-react'
 
-// Dynamically import Plotly to avoid SSR issues
-const Plot = dynamic(() => import('react-plotly.js'), { ssr: false })
+// Dynamically import ApexChart
+const ApexChart = dynamic(() => import('@/components/charts/ApexChart'), { ssr: false })
 
 interface AdvancedFinancialsProps {
   symbol: string
@@ -241,7 +241,7 @@ export default function AdvancedFinancialsComponent({ symbol }: AdvancedFinancia
         {/* Valuation Ratios Chart */}
         <div className="bg-gray-900 rounded-lg border border-gray-700 p-6 text-gray-100">
           <h4 className="text-md font-medium text-gray-100 mb-4">Valuation Ratios</h4>
-          <Plot
+          {/* <Plot
             data={[
               {
                 x: valuationData.map(d => d.metric),
@@ -265,7 +265,8 @@ export default function AdvancedFinancialsComponent({ symbol }: AdvancedFinancia
             }}
             config={{ displayModeBar: false, responsive: true }}
             style={{ width: '100%' }}
-          />
+          */}
+          <div className="text-center text-gray-400 py-8">Chart temporarily disabled during ApexCharts migration</div>
         </div>
       </div>
 
@@ -361,7 +362,7 @@ export default function AdvancedFinancialsComponent({ symbol }: AdvancedFinancia
         {/* Performance Growth Chart */}
         <div className="bg-gray-900 rounded-lg border border-gray-700 p-6 text-gray-100">
           <h4 className="text-md font-medium text-gray-100 mb-4">Growth Metrics (%)</h4>
-          <Plot
+          {/* <Plot
             data={[
               {
                 x: performanceData.map(d => d.metric),
@@ -385,7 +386,8 @@ export default function AdvancedFinancialsComponent({ symbol }: AdvancedFinancia
             }}
             config={{ displayModeBar: false, responsive: true }}
             style={{ width: '100%' }}
-          />
+          */}
+          <div className="text-center text-gray-400 py-8">Chart temporarily disabled during ApexCharts migration</div>
         </div>
       </div>
 
@@ -423,7 +425,7 @@ export default function AdvancedFinancialsComponent({ symbol }: AdvancedFinancia
           {/* Profitability Margins Chart */}
           <div className="bg-gray-900 rounded-lg border border-gray-700 p-6 text-gray-100">
             <h4 className="text-md font-medium text-gray-100 mb-4">Profit Margins</h4>
-            <Plot
+            {/* <Plot
               data={[
                 {
                   labels: profitabilityData.map(d => d.metric),
@@ -445,7 +447,8 @@ export default function AdvancedFinancialsComponent({ symbol }: AdvancedFinancia
               }}
               config={{ displayModeBar: false, responsive: true }}
               style={{ width: '100%' }}
-            />
+            */}
+            <div className="text-center text-gray-400 py-8">Chart temporarily disabled during ApexCharts migration</div>
           </div>
         </div>
       </div>

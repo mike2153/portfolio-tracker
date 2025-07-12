@@ -8,6 +8,14 @@ from fastapi.responses import JSONResponse
 import uvicorn
 import logging
 from contextlib import asynccontextmanager
+import logging
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
+from fastapi import FastAPI
+from contextlib import asynccontextmanager
+from services.dividend_service import dividend_service
+from debug_logger import DebugLogger
+import asyncio
 
 # Import configuration
 from config import (
@@ -46,7 +54,24 @@ HOST: {BACKEND_API_HOST}
 DEBUG: {BACKEND_API_DEBUG}
 =========================================""")
     
+    DebugLogger.info_if_enabled("[main.py::lifespan] Startup: Initiating immediate dividend sync for all users", logger)
+    await dividend_service.background_dividend_sync_all_users()
+    DebugLogger.info_if_enabled("[main.py::lifespan] Startup sync completed", logger)
+    
+    loop = asyncio.get_event_loop()
+    scheduler = AsyncIOScheduler(event_loop=loop)
+    scheduler.add_job(
+        dividend_service.background_dividend_sync_all_users,
+        CronTrigger(hour=2, minute=0),
+        id='daily_dividend_sync'
+    )
+    scheduler.start()
+    DebugLogger.info_if_enabled("[main.py::lifespan] Scheduler started with event loop", logger)
+    
     yield
+    
+    scheduler.shutdown()
+    DebugLogger.info_if_enabled("[main.py::lifespan] Scheduler shutdown", logger)
     
     # Shutdown
     logger.info("""

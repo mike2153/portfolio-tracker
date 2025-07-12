@@ -402,44 +402,41 @@ async def vantage_api_get_dividends(symbol: str) -> List[Dict[str, Any]]:
     cached_data = await client._get_from_cache(cache_key)
     
     if cached_data and 'dividends' in cached_data:
+        DebugLogger.info_if_enabled(f"[vantage_api_quotes.py] Cache HIT for {symbol} dividends", logger)
         return cached_data['dividends']
     
-    # Make API request - Alpha Vantage doesn't have a direct DIVIDENDS function
-    # We'll use the TIME_SERIES_DAILY_ADJUSTED to extract dividend data
+    DebugLogger.info_if_enabled(f"[vantage_api_quotes.py] Cache MISS for {symbol}, fetching from API", logger)
     params = {
-        'function': 'TIME_SERIES_DAILY_ADJUSTED',
-        'symbol': symbol,
-        'outputsize': 'full'
+        'function': 'DIVIDENDS',
+        'symbol': symbol
     }
     
     try:
         response = await client._make_request(params)
+        DebugLogger.info_if_enabled(f"[vantage_api_quotes.py] API response received for {symbol}: {len(response.get('data', []))} items", logger)
         
-        if 'Time Series (Daily)' not in response:
-            logger.warning(f"[vantage_api_quotes.py::vantage_api_get_dividends] No time series data for {symbol}")
+        if 'data' not in response:
+            logger.warning(f"[vantage_api_quotes.py] No dividend data in response for {symbol}")
             return []
         
-        time_series = response['Time Series (Daily)']
         dividends = []
-        
-        # Extract dividends from daily time series
-        # Alpha Vantage includes dividend amounts in the daily data
-        for date_str, daily_data in time_series.items():
-            dividend_amount = daily_data.get('7. dividend amount', '0')
-            if dividend_amount and float(dividend_amount) > 0:
-                dividends.append({
-                    'ex_date': date_str,
-                    'pay_date': date_str,  # Approximate - real pay date would be later
-                    'amount': float(dividend_amount),
-                    'currency': 'USD'
-                })
+        for item in response['data']:
+            DebugLogger.info_if_enabled(f"[vantage_api_quotes.py] Parsing dividend: ex_date={item.get('ex_dividend_date')}, amount={item.get('amount')}", logger)
+            dividends.append({
+                'ex_date': item.get('ex_dividend_date'),
+                'declaration_date': item.get('declaration_date'),
+                'record_date': item.get('record_date'),
+                'payment_date': item.get('payment_date'),
+                'amount': float(item.get('amount', 0)),
+                'currency': 'USD'  # Assume USD or add from response if available
+            })
         
         # Cache the result
         if dividends:
             await client._save_to_cache(cache_key, {'dividends': dividends})
+            DebugLogger.info_if_enabled(f"[vantage_api_quotes.py] Cached {len(dividends)} dividends for {symbol}", logger)
         
         logger.info(f"[vantage_api_quotes.py::vantage_api_get_dividends] Found {len(dividends)} dividends for {symbol}")
-        
         return dividends
         
     except Exception as e:

@@ -7,8 +7,8 @@ import { FinancialStatements } from '@/types'
 import BalanceSheet from '@/components/BalanceSheet'
 import AdvancedFinancialsComponent from '@/components/AdvancedFinancials'
 
-// Dynamically import Plotly to avoid SSR issues
-const Plot = dynamic(() => import('react-plotly.js'), { ssr: false })
+// Dynamically import ApexChart
+const ApexChart = dynamic(() => import('@/components/charts/ApexChart'), { ssr: false })
 
 interface StockOverview {
   Symbol: string
@@ -309,24 +309,24 @@ export default function StockAnalysisPage({ params }: StockAnalysisPageProps) {
               ))}
             </div>
             {historicalData.length > 0 ? (
-              <Plot
-                data={[
+              <ApexChart
+                series={[
                   {
-                    x: historicalData.map(d => d.date),
-                    y: historicalData.map(d => d.adjusted_close),
-                    type: 'scatter',
-                    mode: 'lines',
                     name: ticker,
-                  },
+                    data: historicalData.map(d => ({
+                      x: d.date,
+                      y: d.adjusted_close
+                    }))
+                  }
                 ]}
-                layout={{
-                  title: `${ticker} Stock Price (${selectedPeriod})`,
-                  xaxis: { title: 'Date' },
-                  yaxis: { title: 'Price (USD)' },
-                  autosize: true,
+                options={{
+                  chart: { type: 'line', height: 400 },
+                  title: { text: `${ticker} Stock Price (${selectedPeriod})` },
+                  xaxis: { type: 'datetime', title: { text: 'Date' } },
+                  yaxis: { title: { text: 'Price (USD)' } },
+                  stroke: { width: 2 }
                 }}
-                className="w-full h-96"
-                useResizeHandler={true}
+                height={400}
               />
             ) : <p className="text-center py-10">Loading performance data...</p>}
           </div>

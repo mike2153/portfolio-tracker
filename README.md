@@ -2301,6 +2301,23 @@ For additional support or clarification on any aspect of the system, refer to th
 UPDATED CHARTING AND LIST VIEW - APEX CHARTS
 Use Documentation in apex_charts.md for coding examples of line chart and list view to be used in this project.
 
+## Dividend Sync Workflow
+
+### Scheduled Background Sync
+
+```mermaid
+graph TD
+    A[Scheduler Trigger (24h/Startup)] --> B[Fetch Unique Symbols from Transactions]
+    B --> C[For Each Symbol: Fetch DIVIDENDS from AV (Cached)]
+    C --> D[For Each User Holding Symbol: Compute Ownership Windows & Shares at Ex-Date]
+    D --> E[Filter Eligible Dividends & Calc Total Amount]
+    E --> F[Upsert to user_dividends (Only Unconfirmed; Idempotent via Unique Key)]
+    F --> G[Frontend: Query DB for Pending Dividends on Tab Load]
+    G --> H[User Confirms (Optional Edit) --> Set Confirmed=True & Create Transaction]
+```
+
+Explanation: The system uses a scheduled task to proactively fetch and assign dividends from Alpha Vantage, ensuring data is always up-to-date. Frontend loads directly from DB for performance.
+
 
 
 *Last Updated: January 2024*

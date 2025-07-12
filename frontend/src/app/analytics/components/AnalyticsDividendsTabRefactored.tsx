@@ -35,9 +35,7 @@ interface DividendConfirmRequest {
   edited_amount?: number;
 }
 
-// Utility functions moved to /types/dividend.ts for consistency
-
-export default function AnalyticsDividendsTab() {
+export default function AnalyticsDividendsTabRefactored() {
   const [showConfirmedOnly, setShowConfirmedOnly] = useState(false);
   const queryClient = useQueryClient();
 
@@ -139,15 +137,6 @@ export default function AnalyticsDividendsTab() {
     enabled: true,
   });
 
-  // DISABLED: Auto-sync on mount to improve page load performance
-  // Users can manually sync using the "Sync Dividends" button
-  // React.useEffect(() => {
-  //   if (!hasAutoSynced && !syncDividendsMutation.isPending) {
-  //     console.log('Auto-syncing dividends on first load...');
-  //     syncDividendsMutation.mutate();
-  //   }
-  // }, [hasAutoSynced, syncDividendsMutation]);
-
   // Fetch dividend summary
   const { data: summaryData } = useQuery<DividendSummary, Error>({
     queryKey: ['analytics', 'dividend-summary'],
@@ -164,7 +153,7 @@ export default function AnalyticsDividendsTab() {
       const result: DividendSummaryResponse = await response.json();
       return result.data.dividend_summary;
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 
   // FIXED: Confirm dividend with proper request/response handling
@@ -222,7 +211,6 @@ export default function AnalyticsDividendsTab() {
     
     return tableRows;
   }, [dividendsData]);
-
 
   // FIXED: Column definitions with proper field mapping
   const columns = useMemo(
@@ -294,10 +282,10 @@ export default function AnalyticsDividendsTab() {
         sortable: true,
         render: (item: DividendTableRow) => (
           <div className="text-right">
-            <div className="text-white">{(item.shares_held_at_ex_date || 0).toFixed(2)}</div>
+            <div className="text-white">{item.shares_held_at_ex_date.toFixed(2)}</div>
             <div className="text-sm text-gray-400">
-              {(item.shares_held_at_ex_date || 0) !== (item.current_holdings || 0) ? (
-                <>at ex-date<br />Now: {(item.current_holdings || 0).toFixed(2)}</>
+              {item.shares_held_at_ex_date !== item.current_holdings ? (
+                <>at ex-date<br />Now: {item.current_holdings.toFixed(2)}</>
               ) : (
                 'shares'
               )}
@@ -506,7 +494,7 @@ export default function AnalyticsDividendsTab() {
             data={listData}
             columns={columns as any}
             isLoading={dividendsLoading}
-            error={(dividendsError as Error | null)?.message ?? ''}
+            error={dividendsError?.message ?? ''}
             showSearch={true}
             showPagination={true}
             itemsPerPage={15}
