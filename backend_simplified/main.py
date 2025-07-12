@@ -154,11 +154,11 @@ async def log_requests(request: Request, call_next):
 ========== INCOMING REQUEST ==========
 FILE: main.py
 FUNCTION: log_requests
-METHOD: {request.method}
-PATH: {request.url.path}
-QUERY_PARAMS: {dict(request.query_params)}
-CLIENT: {request.client.host if request.client else 'Unknown'}
-=====================================""")
+#METHOD: {request.method}
+#PATH: {request.url.path}
+#QUERY_PARAMS: {dict(request.query_params)}
+#CLIENT: {request.client.host if request.client else 'Unknown'}
+#=====================================""")
     
     response = await call_next(request)
     

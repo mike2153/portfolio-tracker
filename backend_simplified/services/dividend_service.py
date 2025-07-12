@@ -383,7 +383,7 @@ class DividendService:
         logger.error(f"Failed to fetch dividends for {symbol} after {max_retries} attempts")
         return []
     
-    async def _upsert_global_dividend(self, symbol: str, dividend_data: Dict[str, Any] = None, user_id: str = None, dividend: Dict[str, Any] = None, shares_held: float = None, total_amount: float = None) -> bool:
+    async def _upsert_global_dividend(self, symbol: str, dividend_data: Optional[Dict[str, Any]] = None, user_id: Optional[str] = None, dividend: Optional[Dict[str, Any]] = None, shares_held: Optional[float] = None, total_amount: Optional[float] = None) -> bool:
         """Upsert dividend into global reference table with proper validation and duplicate checking"""
         try:
             # Handle both calling patterns
@@ -506,8 +506,8 @@ class DividendService:
                 .execute()
             
             logger.info(f"[DIVIDEND_DB_DEBUG] Insert result: success={bool(result.data)}, data_count={len(result.data) if result.data else 0}")
-            if hasattr(result, 'error') and result.error:
-                logger.error(f"[DIVIDEND_DB_DEBUG] Insert error: {result.error}")
+            if getattr(result, 'error', None):
+                logger.error(f"[DIVIDEND_DB_DEBUG] Insert error: {getattr(result, 'error', 'Unknown error')}")
             
             if result.data:
                 dividend_type = "user-specific" if is_user_specific else "global"
@@ -515,8 +515,8 @@ class DividendService:
                 return True
             else:
                 logger.error(f"[DIVIDEND_DB_DEBUG] ❌ FAILED: No data returned from insert for {symbol} on {data['ex_date']}")
-                if hasattr(result, 'error'):
-                    logger.error(f"[DIVIDEND_DB_DEBUG] Error details: {result.error}")
+                if getattr(result, 'error', None):
+                    logger.error(f"[DIVIDEND_DB_DEBUG] Error details: {getattr(result, 'error', 'Unknown error')}")
                 return False
             
         except Exception as e:
@@ -525,7 +525,7 @@ class DividendService:
             return False
     
     @DebugLogger.log_api_call(api_name="DIVIDEND_SERVICE", sender="BACKEND", receiver="DATABASE", operation="GET_USER_DIVIDENDS")
-    async def get_user_dividends(self, user_id: str, user_token: str = None, confirmed_only: bool = False) -> Dict[str, Any]:
+    async def get_user_dividends(self, user_id: str, user_token: Optional[str] = None, confirmed_only: bool = False) -> Dict[str, Any]:
         """Get dividends for user's portfolio with ownership calculations (OPTIMIZED + VERBOSE)"""
         try:
             logger.info(f"[DIVIDEND_DEBUG] ===== Starting get_user_dividends for user {user_id}, confirmed_only={confirmed_only} =====")
@@ -635,6 +635,27 @@ class DividendService:
             logger.info(f"[DIVIDEND_DEBUG] ===== Final result: {len(enriched_dividends)} dividends to return =====")
             if enriched_dividends:
                 logger.info(f"[DIVIDEND_DEBUG] Sample enriched dividends: {enriched_dividends[:2]}")
+                
+                # DETAILED DEBUG: Log the exact structure being returned
+                for i, div in enumerate(enriched_dividends[:3]):  # First 3 dividends
+                    logger.info(f"[DIVIDEND_DETAILED_DEBUG] Dividend {i+1}:")
+                    logger.info(f"[DIVIDEND_DETAILED_DEBUG]   id: {div.get('id', 'MISSING')}")
+                    logger.info(f"[DIVIDEND_DETAILED_DEBUG]   symbol: {div.get('symbol', 'MISSING')}")
+                    logger.info(f"[DIVIDEND_DETAILED_DEBUG]   amount_per_share: {div.get('amount_per_share', 'MISSING')}")
+                    logger.info(f"[DIVIDEND_DETAILED_DEBUG]   shares_held_at_ex_date: {div.get('shares_held_at_ex_date', 'MISSING')}")
+                    logger.info(f"[DIVIDEND_DETAILED_DEBUG]   current_holdings: {div.get('current_holdings', 'MISSING')}")
+                    logger.info(f"[DIVIDEND_DETAILED_DEBUG]   total_amount: {div.get('total_amount', 'MISSING')}")
+                    logger.info(f"[DIVIDEND_DETAILED_DEBUG]   confirmed: {div.get('confirmed', 'MISSING')}")
+                    logger.info(f"[DIVIDEND_DETAILED_DEBUG]   company: {div.get('company', 'MISSING')}")
+                    logger.info(f"[DIVIDEND_DETAILED_DEBUG]   ex_date: {div.get('ex_date', 'MISSING')}")
+                    logger.info(f"[DIVIDEND_DETAILED_DEBUG]   pay_date: {div.get('pay_date', 'MISSING')}")
+                    logger.info(f"[DIVIDEND_DETAILED_DEBUG]   currency: {div.get('currency', 'MISSING')}")
+                    logger.info(f"[DIVIDEND_DETAILED_DEBUG]   status: {div.get('status', 'MISSING')}")
+                    logger.info(f"[DIVIDEND_DETAILED_DEBUG]   is_future: {div.get('is_future', 'MISSING')}")
+                    logger.info(f"[DIVIDEND_DETAILED_DEBUG]   is_recent: {div.get('is_recent', 'MISSING')}")
+                    logger.info(f"[DIVIDEND_DETAILED_DEBUG]   Full object keys: {list(div.keys())}")
+            else:
+                logger.warning(f"[DIVIDEND_DEBUG] NO DIVIDENDS TO RETURN!")
             
             return {
                 "success": True,
@@ -1210,6 +1231,20 @@ class DividendService:
         result = self.supa_client.table('transactions').select('*').eq('user_id', user_id).eq('symbol', symbol).order('date').execute()
         DebugLogger.info_if_enabled(f"[dividend_service] Retrieved {len(result.data)} transactions", logger)
         return result.data
+    
+    def _analyze_transactions(self, transactions: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+        """Analyze transactions to get per-symbol info like first transaction date."""
+        holdings_info: Dict[str, Dict[str, Any]] = {}
+        for txn in transactions:
+            symbol = txn.get('symbol')
+            if not symbol:
+                continue
+            date_obj = datetime.strptime(txn['date'], '%Y-%m-%d').date()
+            if symbol not in holdings_info:
+                holdings_info[symbol] = {'first_date': date_obj}
+            elif date_obj < holdings_info[symbol]['first_date']:
+                holdings_info[symbol]['first_date'] = date_obj
+        return holdings_info
     
     def _compute_ownership_windows(self, transactions: List[Dict[str, Any]]) -> List[tuple[date, Optional[date]]]:
         DebugLogger.info_if_enabled(f"[dividend_service::_compute_ownership_windows] Computing windows for {len(transactions)} transactions.", logger)

@@ -98,11 +98,32 @@ export default function AnalyticsDividendsTab() {
       }
 
       const result: DividendListResponse = await response.json();
-      console.log('[REFACTORED_FRONTEND] API Response structure:', {
-        success: result.success,
-        dataCount: result.data?.length || 0,
-        metadata: result.metadata
-      });
+      console.log('[FRONTEND_DEBUG] ===== Raw API Response =====');
+      console.log('[FRONTEND_DEBUG] Response success:', result.success);
+      console.log('[FRONTEND_DEBUG] Response data type:', typeof result.data);
+      console.log('[FRONTEND_DEBUG] Response data length:', result.data?.length || 0);
+      console.log('[FRONTEND_DEBUG] Full response structure:', result);
+      
+      if (result.data && result.data.length > 0) {
+        console.log('[FRONTEND_DEBUG] ===== First 3 dividends from API =====');
+        result.data.slice(0, 3).forEach((div, i) => {
+          console.log(`[FRONTEND_DEBUG] Dividend ${i+1}:`);
+          console.log(`[FRONTEND_DEBUG]   id: ${div?.id || 'MISSING'}`);
+          console.log(`[FRONTEND_DEBUG]   symbol: ${div?.symbol || 'MISSING'}`);
+          console.log(`[FRONTEND_DEBUG]   amount_per_share: ${div?.amount_per_share || 'MISSING'}`);
+          console.log(`[FRONTEND_DEBUG]   shares_held_at_ex_date: ${div?.shares_held_at_ex_date || 'MISSING'}`);
+          console.log(`[FRONTEND_DEBUG]   current_holdings: ${div?.current_holdings || 'MISSING'}`);
+          console.log(`[FRONTEND_DEBUG]   total_amount: ${div?.total_amount || 'MISSING'}`);
+          console.log(`[FRONTEND_DEBUG]   confirmed: ${div?.confirmed}`);
+          console.log(`[FRONTEND_DEBUG]   company: ${div?.company || 'MISSING'}`);
+          console.log(`[FRONTEND_DEBUG]   ex_date: ${div?.ex_date || 'MISSING'}`);
+          console.log(`[FRONTEND_DEBUG]   pay_date: ${div?.pay_date || 'MISSING'}`);
+          console.log(`[FRONTEND_DEBUG]   Full object keys: ${Object.keys(div || {})}`);
+          console.log(`[FRONTEND_DEBUG]   Raw object:`, div);
+        });
+      } else {
+        console.warn('[FRONTEND_DEBUG] NO DIVIDENDS IN API RESPONSE!');
+      }
       
       if (!result.success) {
         console.log('[REFACTORED_FRONTEND] ERROR: API returned success=false:', result.error);
@@ -110,26 +131,32 @@ export default function AnalyticsDividendsTab() {
       }
 
       // FIXED: Backend now provides complete UserDividendData with all fields
-      const dividends: UserDividendData[] = result.data.map(item => ({
-        id: item.id,
-        symbol: item.symbol,
-        company: item.company || getCompanyDisplayName(item.symbol),
-        ex_date: item.ex_date,
-        pay_date: item.pay_date,
-        amount_per_share: item.amount_per_share,
-        shares_held_at_ex_date: item.shares_held_at_ex_date,
-        current_holdings: item.current_holdings,
-        total_amount: item.total_amount, // FIXED: Backend calculates this, no frontend math
-        currency: item.currency || 'USD',
-        confirmed: item.confirmed,
-        status: item.status || 'pending',
-        dividend_type: item.dividend_type || 'cash',
-        source: item.source || 'alpha_vantage',
-        is_future: item.is_future || false,
-        is_recent: item.is_recent || false,
-        created_at: item.created_at,
-        updated_at: item.updated_at
-      }));
+      console.log('[FRONTEND_DEBUG] ===== Mapping API data to UserDividendData =====');
+      const dividends: UserDividendData[] = result.data.map((item, index) => {
+        console.log(`[FRONTEND_DEBUG] Mapping dividend ${index + 1}:`, item);
+        const mappedDividend = {
+          id: item.id,
+          symbol: item.symbol,
+          company: item.company || getCompanyDisplayName(item.symbol),
+          ex_date: item.ex_date,
+          pay_date: item.pay_date,
+          amount_per_share: item.amount_per_share,
+          shares_held_at_ex_date: item.shares_held_at_ex_date,
+          current_holdings: item.current_holdings,
+          total_amount: item.total_amount, // FIXED: Backend calculates this, no frontend math
+          currency: item.currency || 'USD',
+          confirmed: item.confirmed,
+          status: item.status || 'pending',
+          dividend_type: item.dividend_type || 'cash',
+          source: item.source || 'alpha_vantage',
+          is_future: item.is_future || false,
+          is_recent: item.is_recent || false,
+          created_at: item.created_at,
+          updated_at: item.updated_at
+        };
+        console.log(`[FRONTEND_DEBUG] Mapped dividend ${index + 1} result:`, mappedDividend);
+        return mappedDividend;
+      });
 
       console.log(`[REFACTORED_FRONTEND] ✅ Successfully processed ${dividends.length} dividends with unified data model`);
       console.log('[REFACTORED_FRONTEND] Sample processed dividend:', dividends[0]);
@@ -212,13 +239,27 @@ export default function AnalyticsDividendsTab() {
   const listData = useMemo((): DividendTableRow[] => {
     if (!dividendsData) return [];
     
-    console.log('[REFACTORED_FRONTEND] ===== Transforming dividends to table format =====');
-    console.log('[REFACTORED_FRONTEND] Input dividends count:', dividendsData.length);
+    console.log('[FRONTEND_DEBUG] ===== Transforming dividends to table format =====');
+    console.log('[FRONTEND_DEBUG] Input dividends count:', dividendsData.length);
+    console.log('[FRONTEND_DEBUG] Input dividends sample:', dividendsData.slice(0, 2));
     
-    const tableRows = dividendsData.map(dividend => dividendToTableRow(dividend));
+    const tableRows = dividendsData.map((dividend, index) => {
+      console.log(`[FRONTEND_DEBUG] Transforming dividend ${index + 1}:`, dividend);
+      console.log(`[FRONTEND_DEBUG]   Has id: ${!!dividend.id} (${dividend.id})`);
+      console.log(`[FRONTEND_DEBUG]   Has amount_per_share: ${!!dividend.amount_per_share} (${dividend.amount_per_share})`);
+      console.log(`[FRONTEND_DEBUG]   Has shares_held_at_ex_date: ${!!dividend.shares_held_at_ex_date} (${dividend.shares_held_at_ex_date})`);
+      
+      const tableRow = dividendToTableRow(dividend);
+      console.log(`[FRONTEND_DEBUG] Transformed to table row:`, tableRow);
+      return tableRow;
+    });
     
-    console.log('[REFACTORED_FRONTEND] ✅ Transformed to table rows count:', tableRows.length);
-    console.log('[REFACTORED_FRONTEND] Sample table row:', tableRows[0]);
+    console.log('[FRONTEND_DEBUG] ✅ Transformed to table rows count:', tableRows.length);
+    console.log('[FRONTEND_DEBUG] Sample table row:', tableRows[0]);
+    
+    if (tableRows.length > 0 && !tableRows[0]?.id) {
+      console.error('[FRONTEND_DEBUG] ❌ CRITICAL: First table row missing id!', tableRows[0]);
+    }
     
     return tableRows;
   }, [dividendsData]);
@@ -341,9 +382,22 @@ export default function AnalyticsDividendsTab() {
       {
         key: 'actions',
         label: 'Actions',
-        render: (item: DividendTableRow) => {
-          // FIXED: Use proper eligibility check
+        render: (value: any, item: DividendTableRow) => {
+          // FIXED: Correct render function signature - receives (value, item)
+          console.log('[FRONTEND_DEBUG] ===== Render Action Column =====');
+          console.log('[FRONTEND_DEBUG] Value received:', value);
+          console.log('[FRONTEND_DEBUG] Item received:', item);
+          console.log('[FRONTEND_DEBUG] Item.id:', item?.id);
+          console.log('[FRONTEND_DEBUG] dividendsData length:', dividendsData?.length || 0);
+          console.log('[FRONTEND_DEBUG] dividendsData sample ids:', dividendsData?.slice(0, 3).map(d => d.id));
+          
+          if (!item?.id) {
+            console.error('[FRONTEND_DEBUG] ❌ CRITICAL ERROR: item.id is undefined!', item);
+            return <div className="text-red-500">Error: Missing ID</div>;
+          }
+          
           const dividend = dividendsData?.find(d => d.id === item.id);
+          console.log('[FRONTEND_DEBUG] Found matching dividend:', dividend);
           const canConfirm = dividend ? isDividendConfirmable(dividend) : false;
 
           return (
