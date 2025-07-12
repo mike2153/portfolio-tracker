@@ -20,24 +20,31 @@ class DividendService:
     def __init__(self):
         self.supa_client = get_supa_service_client()
         self.vantage_client = get_vantage_client()
+        logger.info(f"[DividendService] Initialized with service client: {type(self.supa_client)}")
     
     @DebugLogger.log_api_call(api_name="DIVIDEND_SERVICE", sender="BACKEND", receiver="DATABASE", operation="SYNC_DIVIDENDS")
-    async def sync_dividends_for_symbol(self, user_id: str, symbol: str, from_date: Optional[date] = None) -> Dict[str, Any]:
+    async def sync_dividends_for_symbol(self, user_id: str, symbol: str, user_token: str, from_date: Optional[date] = None) -> Dict[str, Any]:
         """
-        Sync dividends for a specific symbol from Alpha Vantage
+        Sync dividends for a specific symbol from Alpha Vantage and calculate user ownership
         
         Args:
             user_id: User UUID
             symbol: Stock ticker symbol
-            from_date: Start date for dividend sync (defaults to 5 years ago)
+            user_token: User's JWT token for authentication
+            from_date: Start date for dividend sync (defaults to user's first transaction)
             
         Returns:
             Dict with sync results
         """
-        if not from_date:
-            from_date = datetime.now().date() - timedelta(days=5*365)
-        
         try:
+            # Get user's first transaction date for this symbol if no from_date provided
+            if not from_date:
+                first_transaction_date = await self._get_first_transaction_date(user_id, symbol, user_token)
+                if first_transaction_date:
+                    from_date = first_transaction_date
+                else:
+                    from_date = datetime.now().date() - timedelta(days=5*365)
+            
             # Fetch dividend data from Alpha Vantage
             dividend_data = await self._fetch_dividends_from_alpha_vantage(symbol)
             
@@ -52,19 +59,27 @@ class DividendService:
             # Filter dividends from the specified date
             filtered_dividends = [
                 div for div in dividend_data 
-                if datetime.strptime(div['date'], '%Y-%m-%d').date() >= from_date
+                if datetime.strptime(div['ex_date'], '%Y-%m-%d').date() >= from_date
             ]
             
-            # Insert new dividends into database
+            # Calculate user's ownership at each dividend date and insert
             synced_count = 0
             for dividend in filtered_dividends:
-                inserted = await self._insert_dividend_if_not_exists(
-                    user_id=user_id,
-                    symbol=symbol,
-                    dividend_data=dividend
+                # Calculate how many shares user owned at ex-dividend date
+                shares_owned = await self._calculate_shares_owned_at_date(
+                    user_id, symbol, dividend['ex_date'], user_token
                 )
-                if inserted:
-                    synced_count += 1
+                
+                # Only insert if user owned shares at that date
+                if shares_owned > 0:
+                    inserted = await self._insert_dividend_with_ownership(
+                        user_id=user_id,
+                        symbol=symbol,
+                        dividend_data=dividend,
+                        shares_owned=shares_owned
+                    )
+                    if inserted:
+                        synced_count += 1
             
             logger.info(f"[DividendService] Synced {synced_count} dividends for {symbol}")
             
@@ -119,8 +134,8 @@ class DividendService:
             logger.error(f"Failed to fetch dividends for {symbol}: {e}")
             return []
     
-    async def _insert_dividend_if_not_exists(self, user_id: str, symbol: str, dividend_data: Dict[str, Any]) -> bool:
-        """Insert dividend into database if it doesn't already exist"""
+    async def _insert_dividend_with_ownership(self, user_id: str, symbol: str, dividend_data: Dict[str, Any], shares_owned: float) -> bool:
+        """Insert dividend into database with calculated ownership amount"""
         try:
             # Check if dividend already exists
             existing = self.supa_client.table('user_dividends') \
@@ -134,16 +149,21 @@ class DividendService:
             if existing.data:
                 return False  # Already exists
             
-            # Insert new dividend
+            # Calculate total dividend amount user should receive
+            per_share_amount = float(dividend_data['amount'])
+            total_dividend_amount = per_share_amount * shares_owned
+            
+            # Insert new dividend with ownership calculation
             insert_data = {
                 'user_id': user_id,
                 'symbol': symbol,
                 'ex_date': dividend_data['ex_date'],
                 'pay_date': dividend_data.get('pay_date', dividend_data['ex_date']),
-                'amount': dividend_data['amount'],
+                'amount': total_dividend_amount,  # Total amount user should receive
                 'currency': dividend_data.get('currency', 'USD'),
                 'confirmed': False,
-                'source': 'alpha_vantage'
+                'source': 'alpha_vantage',
+                'notes': f'Calculated: {shares_owned} shares × ${per_share_amount:.4f} per share'
             }
             
             result = self.supa_client.table('user_dividends') \
@@ -379,6 +399,285 @@ class DividendService:
                 "error": str(e),
                 "summary": {}
             }
+
+    async def _get_first_transaction_date(self, user_id: str, symbol: str, user_token: str) -> Optional[date]:
+        """Get the date of user's first transaction for a symbol"""
+        try:
+            # Import here to avoid circular imports
+            from supa_api.supa_api_transactions import supa_api_get_user_transactions
+            
+            # Get all transactions for this symbol
+            transactions = await supa_api_get_user_transactions(user_id, limit=1000, user_token=user_token)
+            
+            if not transactions:
+                return None
+            
+            # Filter by symbol and find the earliest date
+            symbol_transactions = [t for t in transactions if t['symbol'] == symbol]
+            if not symbol_transactions:
+                return None
+                
+            # Sort by date and get the first one
+            symbol_transactions.sort(key=lambda x: x['date'])
+            return datetime.strptime(symbol_transactions[0]['date'], '%Y-%m-%d').date()
+            
+        except Exception as e:
+            logger.error(f"Failed to get first transaction date: {e}")
+            return None
+    
+    async def _calculate_shares_owned_at_date(self, user_id: str, symbol: str, target_date: str, user_token: str) -> float:
+        """Calculate how many shares user owned at a specific date"""
+        try:
+            # Import here to avoid circular imports
+            from supa_api.supa_api_transactions import supa_api_get_user_transactions
+            
+            # Get all transactions for this symbol up to the target date
+            target_date_obj = datetime.strptime(target_date, '%Y-%m-%d').date()
+            
+            # Get all transactions using the authenticated API
+            all_transactions = await supa_api_get_user_transactions(user_id, limit=1000, user_token=user_token)
+            
+            if not all_transactions:
+                return 0.0
+            
+            # Filter transactions for this symbol up to the target date
+            relevant_transactions = [
+                t for t in all_transactions 
+                if t['symbol'] == symbol and 
+                datetime.strptime(t['date'], '%Y-%m-%d').date() <= target_date_obj
+            ]
+            
+            if not relevant_transactions:
+                return 0.0
+            
+            # Calculate running total of shares
+            total_shares = 0.0
+            for transaction in relevant_transactions:
+                if transaction['transaction_type'] in ['BUY', 'Buy']:
+                    total_shares += float(transaction['quantity'])
+                elif transaction['transaction_type'] in ['SELL', 'Sell']:
+                    total_shares -= float(transaction['quantity'])
+                # Note: DIVIDEND transactions don't affect share count
+            
+            return max(0.0, total_shares)  # Can't have negative shares
+            
+        except Exception as e:
+            logger.error(f"Failed to calculate shares owned at date: {e}")
+            return 0.0
+    
+    @DebugLogger.log_api_call(api_name="DIVIDEND_SERVICE", sender="BACKEND", receiver="DATABASE", operation="SYNC_ALL_HOLDINGS")
+    async def sync_dividends_for_all_holdings(self, user_id: str, user_token: str) -> Dict[str, Any]:
+        """Efficiently sync dividends for all user's current holdings"""
+        try:
+            logger.info(f"[DividendService] Starting efficient dividend sync for user {user_id}")
+            
+            # STEP 1: Get ALL user transactions ONCE
+            from supa_api.supa_api_transactions import supa_api_get_user_transactions
+            all_transactions = await supa_api_get_user_transactions(user_id, limit=1000, user_token=user_token)
+            
+            if not all_transactions:
+                return {
+                    "success": True,
+                    "total_symbols": 0,
+                    "dividends_synced": 0,
+                    "message": "No transactions found"
+                }
+            
+            logger.info(f"[DividendService] Found {len(all_transactions)} total transactions")
+            
+            # STEP 2: Build holdings and first transaction dates from the transaction data
+            holdings_info = self._analyze_transactions(all_transactions)
+            
+            if not holdings_info:
+                return {
+                    "success": True,
+                    "total_symbols": 0,
+                    "dividends_synced": 0,
+                    "message": "No current holdings found"
+                }
+            
+            logger.info(f"[DividendService] Found {len(holdings_info)} current holdings: {list(holdings_info.keys())}")
+            
+            # STEP 3: Batch process dividends for all holdings
+            total_synced = 0
+            sync_results = []
+            
+            for symbol, info in holdings_info.items():
+                logger.info(f"[DividendService] Processing dividends for {symbol} (owned since {info['first_date']})")
+                
+                # Fetch dividend data from Alpha Vantage
+                dividend_data = await self._fetch_dividends_from_alpha_vantage(symbol)
+                
+                if not dividend_data:
+                    logger.info(f"[DividendService] No dividends found for {symbol}")
+                    continue
+                
+                logger.info(f"[DividendService] Found {len(dividend_data)} raw dividends for {symbol}")
+                
+                # Filter dividends from first transaction date
+                relevant_dividends = [
+                    div for div in dividend_data 
+                    if datetime.strptime(div['ex_date'], '%Y-%m-%d').date() >= info['first_date']
+                ]
+                
+                logger.info(f"[DividendService] {len(relevant_dividends)} relevant dividends for {symbol} (after {info['first_date']})")
+                
+                # Process each dividend
+                symbol_synced = 0
+                for dividend in relevant_dividends:
+                    # Calculate shares owned at ex-dividend date using our pre-loaded transaction data
+                    shares_owned = self._calculate_shares_at_date(
+                        all_transactions, symbol, dividend['ex_date']
+                    )
+                    
+                    logger.info(f"[DividendService] {symbol} on {dividend['ex_date']}: owned {shares_owned} shares, amount ${dividend['amount']} per share")
+                    
+                    if shares_owned > 0:
+                        # Insert dividend record
+                        inserted = await self._insert_dividend_with_ownership_batch(
+                            user_id, symbol, dividend, shares_owned, user_token
+                        )
+                        if inserted:
+                            symbol_synced += 1
+                            logger.info(f"[DividendService] ✓ Inserted dividend for {symbol} on {dividend['ex_date']}")
+                        else:
+                            logger.info(f"[DividendService] ⚠ Dividend already exists for {symbol} on {dividend['ex_date']}")
+                    else:
+                        logger.info(f"[DividendService] ⚠ No shares owned for {symbol} on {dividend['ex_date']}")
+                
+                total_synced += symbol_synced
+                sync_results.append({
+                    "symbol": symbol,
+                    "dividends_synced": symbol_synced,
+                    "total_found": len(relevant_dividends)
+                })
+                
+                logger.info(f"[DividendService] Synced {symbol_synced} dividends for {symbol}")
+            
+            return {
+                "success": True,
+                "total_symbols": len(holdings_info),
+                "dividends_synced": total_synced,
+                "sync_results": sync_results,
+                "message": f"Synced dividends for {len(holdings_info)} holdings, found {total_synced} dividend payments"
+            }
+            
+        except Exception as e:
+            DebugLogger.log_error(
+                file_name="dividend_service.py",
+                function_name="sync_dividends_for_all_holdings",
+                error=e,
+                user_id=user_id
+            )
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    def _analyze_transactions(self, transactions: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+        """Analyze transactions to find current holdings and first transaction dates"""
+        try:
+            holdings = {}
+            
+            for transaction in transactions:
+                symbol = transaction['symbol']
+                transaction_date = datetime.strptime(transaction['date'], '%Y-%m-%d').date()
+                
+                if symbol not in holdings:
+                    holdings[symbol] = {
+                        'quantity': 0,
+                        'first_date': transaction_date
+                    }
+                
+                # Track earliest transaction date
+                if transaction_date < holdings[symbol]['first_date']:
+                    holdings[symbol]['first_date'] = transaction_date
+                
+                # Calculate current quantity
+                if transaction['transaction_type'] in ['BUY', 'Buy']:
+                    holdings[symbol]['quantity'] += float(transaction['quantity'])
+                elif transaction['transaction_type'] in ['SELL', 'Sell']:
+                    holdings[symbol]['quantity'] -= float(transaction['quantity'])
+            
+            # Return only symbols with positive holdings
+            return {
+                symbol: info for symbol, info in holdings.items() 
+                if info['quantity'] > 0
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to analyze transactions: {e}")
+            return {}
+    
+    def _calculate_shares_at_date(self, transactions: List[Dict[str, Any]], symbol: str, target_date: str) -> float:
+        """Calculate shares owned at a specific date using pre-loaded transaction data"""
+        try:
+            target_date_obj = datetime.strptime(target_date, '%Y-%m-%d').date()
+            
+            # Filter transactions for this symbol up to the target date
+            relevant_transactions = [
+                t for t in transactions 
+                if t['symbol'] == symbol and 
+                datetime.strptime(t['date'], '%Y-%m-%d').date() <= target_date_obj
+            ]
+            
+            # Calculate running total
+            total_shares = 0.0
+            for transaction in relevant_transactions:
+                if transaction['transaction_type'] in ['BUY', 'Buy']:
+                    total_shares += float(transaction['quantity'])
+                elif transaction['transaction_type'] in ['SELL', 'Sell']:
+                    total_shares -= float(transaction['quantity'])
+            
+            return max(0.0, total_shares)
+            
+        except Exception as e:
+            logger.error(f"Failed to calculate shares at date: {e}")
+            return 0.0
+    
+    async def _insert_dividend_with_ownership_batch(self, user_id: str, symbol: str, dividend_data: Dict[str, Any], shares_owned: float, user_token: str) -> bool:
+        """Insert dividend record efficiently using service client for admin operations"""
+        try:
+            # Use service client which has full permissions for admin operations like dividend insertion
+            # The user_id in the insert data ensures the record is associated with the correct user
+            
+            # Check if dividend already exists to avoid duplicates
+            existing = self.supa_client.table('user_dividends') \
+                .select('id') \
+                .eq('user_id', user_id) \
+                .eq('symbol', symbol) \
+                .eq('ex_date', dividend_data['ex_date']) \
+                .execute()
+            
+            if existing.data:
+                return False  # Already exists
+            
+            # Calculate total dividend amount
+            per_share_amount = float(dividend_data['amount'])
+            total_dividend_amount = per_share_amount * shares_owned
+            
+            # Insert new dividend record
+            insert_data = {
+                'user_id': user_id,
+                'symbol': symbol,
+                'ex_date': dividend_data['ex_date'],
+                'pay_date': dividend_data.get('pay_date', dividend_data['ex_date']),
+                'amount': total_dividend_amount,  # Total amount user should receive
+                'currency': dividend_data.get('currency', 'USD'),
+                'confirmed': False,
+                'source': 'alpha_vantage',
+                'notes': f'Calculated: {shares_owned} shares × ${per_share_amount:.4f} per share'
+            }
+            
+            result = self.supa_client.table('user_dividends') \
+                .insert(insert_data) \
+                .execute()
+            
+            return bool(result.data)
+            
+        except Exception as e:
+            logger.error(f"Failed to insert dividend batch: {e}")
+            return False
 
 # Create singleton instance
 dividend_service = DividendService()

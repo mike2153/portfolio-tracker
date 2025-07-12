@@ -219,15 +219,18 @@ async def backend_api_sync_dividends(
     Manually sync dividends for a specific symbol
     """
     user_id = user_data.get("id")  # Supabase user ID is under 'id' key
+    user_token = user_data.get("access_token")
     
     # Validate required authentication data
     if not user_id:
         raise HTTPException(status_code=401, detail="User ID not found in authentication data")
+    if not user_token:
+        raise HTTPException(status_code=401, detail="Access token not found in authentication data")
     
     logger.info(f"[backend_api_analytics.py::backend_api_sync_dividends] Syncing dividends for {symbol}, user: {user_id}")
     
     try:
-        result = await dividend_service.sync_dividends_for_symbol(user_id, symbol.upper())
+        result = await dividend_service.sync_dividends_for_symbol(user_id, symbol.upper(), user_token)
         
         return {
             "success": True,
@@ -242,6 +245,44 @@ async def backend_api_sync_dividends(
             error=e,
             user_id=user_id,
             symbol=symbol
+        )
+        raise HTTPException(status_code=500, detail=str(e))
+
+@analytics_router.post("/dividends/sync-all")
+@DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="SYNC_ALL_DIVIDENDS")
+async def backend_api_sync_all_dividends(
+    user_data: Dict[str, Any] = Depends(require_authenticated_user)
+) -> Dict[str, Any]:
+    """
+    Automatically sync dividends for all user's holdings
+    This endpoint is called when user visits analytics page
+    """
+    user_id = user_data.get("id")  # Supabase user ID is under 'id' key
+    user_token = user_data.get("access_token")
+    
+    # Validate required authentication data
+    if not user_id:
+        raise HTTPException(status_code=401, detail="User ID not found in authentication data")
+    if not user_token:
+        raise HTTPException(status_code=401, detail="Access token not found in authentication data")
+    
+    logger.info(f"[backend_api_analytics.py::backend_api_sync_all_dividends] Auto-syncing dividends for all holdings, user: {user_id}")
+    
+    try:
+        result = await dividend_service.sync_dividends_for_all_holdings(user_id, user_token)
+        
+        return {
+            "success": True,
+            "data": result,
+            "message": result.get("message", "Dividend sync completed for all holdings")
+        }
+        
+    except Exception as e:
+        DebugLogger.log_error(
+            file_name="backend_api_analytics.py",
+            function_name="backend_api_sync_all_dividends",
+            error=e,
+            user_id=user_id
         )
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -266,11 +307,11 @@ async def _get_portfolio_summary(user_id: str, user_token: str) -> Dict[str, Any
         if symbol not in current_holdings:
             current_holdings[symbol] = {"quantity": 0, "cost_basis": 0}
         
-        if transaction['transaction_type'] == 'Buy':
+        if transaction['transaction_type'] in ['Buy', 'BUY']:
             current_holdings[symbol]["quantity"] += transaction['quantity']
             current_holdings[symbol]["cost_basis"] += transaction['quantity'] * transaction['price']
             total_invested += transaction['quantity'] * transaction['price']
-        elif transaction['transaction_type'] == 'Sell':
+        elif transaction['transaction_type'] in ['Sell', 'SELL']:
             current_holdings[symbol]["quantity"] -= transaction['quantity']
             # Proportional cost basis reduction
             if current_holdings[symbol]["quantity"] > 0:
@@ -303,6 +344,12 @@ async def _get_detailed_holdings(user_id: str, user_token: str, include_sold: bo
     # Get all transactions using user's JWT token (respects RLS)
     transactions = await supa_api_get_user_transactions(user_id, limit=1000, user_token=user_token)
     
+    logger.info(f"[backend_api_analytics.py::_get_detailed_holdings] Found {len(transactions) if transactions else 0} transactions for user {user_id}")
+    
+    if not transactions:
+        logger.warning(f"[backend_api_analytics.py::_get_detailed_holdings] No transactions found for user {user_id}")
+        return []
+    
     # Group by symbol and calculate metrics
     holdings = {}
     
@@ -319,11 +366,11 @@ async def _get_detailed_holdings(user_id: str, user_token: str, include_sold: bo
                 "total_sold": 0
             }
         
-        if transaction['transaction_type'] == 'Buy':
+        if transaction['transaction_type'] in ['Buy', 'BUY']:
             holdings[symbol]["quantity"] += transaction['quantity']
             holdings[symbol]["cost_basis"] += transaction['quantity'] * transaction['price']
             holdings[symbol]["total_bought"] += transaction['quantity'] * transaction['price']
-        elif transaction['transaction_type'] == 'Sell':
+        elif transaction['transaction_type'] in ['Sell', 'SELL']:
             # Calculate realized P&L
             avg_cost = holdings[symbol]["cost_basis"] / holdings[symbol]["quantity"] if holdings[symbol]["quantity"] > 0 else 0
             realized_gain = (transaction['price'] - avg_cost) * transaction['quantity']
@@ -332,7 +379,7 @@ async def _get_detailed_holdings(user_id: str, user_token: str, include_sold: bo
             holdings[symbol]["quantity"] -= transaction['quantity']
             holdings[symbol]["cost_basis"] -= avg_cost * transaction['quantity']
             holdings[symbol]["total_sold"] += transaction['quantity'] * transaction['price']
-        elif transaction['transaction_type'] == 'Dividend':
+        elif transaction['transaction_type'] in ['Dividend', 'DIVIDEND']:
             holdings[symbol]["dividends_received"] += transaction.get('total_value', transaction['quantity'] * transaction['price'])
     
     # Get current prices and calculate current values

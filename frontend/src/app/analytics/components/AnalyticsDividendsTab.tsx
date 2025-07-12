@@ -61,7 +61,36 @@ const getCompanyName = (symbol: string): string => {
 
 export default function AnalyticsDividendsTab() {
   const [showConfirmedOnly, setShowConfirmedOnly] = useState(false);
+  const [hasAutoSynced, setHasAutoSynced] = useState(false);
   const queryClient = useQueryClient();
+
+  // Auto-sync dividends when component loads
+  const syncDividendsMutation = useMutation({
+    mutationFn: async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error('Not authenticated');
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/analytics/dividends/sync-all`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
+      if (!response.ok) throw new Error('Failed to sync dividends');
+      return response.json();
+    },
+    onSuccess: (data) => {
+      // Invalidate and refetch dividends data after sync
+      queryClient.invalidateQueries({ queryKey: ['analytics', 'dividends'] });
+      queryClient.invalidateQueries({ queryKey: ['analytics', 'dividend-summary'] });
+      setHasAutoSynced(true);
+      console.log('Dividend sync completed:', data);
+    },
+    onError: (error) => {
+      console.error('Dividend sync failed:', error);
+      setHasAutoSynced(true); // Don't retry automatically on error
+    }
+  });
 
   // Fetch dividends data
   const { data: dividendsData, isLoading: dividendsLoading, error: dividendsError } = useQuery<Dividend[], Error>({
@@ -81,6 +110,14 @@ export default function AnalyticsDividendsTab() {
     },
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
+
+  // Auto-sync dividends on component mount (only once)
+  React.useEffect(() => {
+    if (!hasAutoSynced && !syncDividendsMutation.isPending) {
+      console.log('Auto-syncing dividends on first load...');
+      syncDividendsMutation.mutate();
+    }
+  }, [hasAutoSynced, syncDividendsMutation]);
 
   // Fetch dividend summary
   const { data: summaryData } = useQuery<DividendSummary, Error>({
@@ -127,19 +164,20 @@ export default function AnalyticsDividendsTab() {
 
   // Transform dividends data for ApexListView
   const listData = dividendsData?.map(dividend => ({
-    id: dividend.id,
-    symbol: dividend.symbol,
-    company: getCompanyName(dividend.symbol),
-    ex_date: dividend.ex_date,
-    pay_date: dividend.pay_date,
-    amount_per_share: dividend.amount,
-    current_holdings: dividend.current_holdings,
-    projected_amount: dividend.projected_amount || (dividend.amount * dividend.current_holdings),
-    confirmed: dividend.confirmed,
-    currency: dividend.currency,
-    created_at: dividend.created_at,
-    is_future: new Date(dividend.pay_date) > new Date(),
-    is_recent: new Date(dividend.created_at) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+    id: dividend.id || '',
+    symbol: dividend.symbol || '',
+    company: getCompanyName(dividend.symbol || ''),
+    ex_date: dividend.ex_date || '',
+    pay_date: dividend.pay_date || '',
+    amount_per_share: (dividend.amount || 0) / (dividend.current_holdings || 1), // Calculate per share from total
+    total_amount: dividend.amount || 0, // This is the total calculated amount
+    current_holdings: dividend.current_holdings || 0,
+    projected_amount: dividend.projected_amount || dividend.amount || 0,
+    confirmed: dividend.confirmed || false,
+    currency: dividend.currency || 'USD',
+    created_at: dividend.created_at || '',
+    is_future: dividend.pay_date ? new Date(dividend.pay_date) > new Date() : false,
+    is_recent: dividend.created_at ? new Date(dividend.created_at) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) : false
   })) || [];
 
   const columns = [
@@ -151,12 +189,12 @@ export default function AnalyticsDividendsTab() {
       render: (item: any) => (
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
-            {item.symbol.slice(0, 2)}
+            {item?.symbol?.slice(0, 2) || '??'}
           </div>
           <div>
-            <div className="font-semibold text-white">{item.company}</div>
-            <div className="text-sm text-gray-400">{item.symbol}</div>
-            {item.is_recent && (
+            <div className="font-semibold text-white">{item?.company || 'Unknown Company'}</div>
+            <div className="text-sm text-gray-400">{item?.symbol || 'N/A'}</div>
+            {item?.is_recent && (
               <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-900/50 text-blue-300 border border-blue-700/50">
                 New
               </span>
@@ -171,7 +209,7 @@ export default function AnalyticsDividendsTab() {
       sortable: true,
       render: (item: any) => (
         <div className="text-sm text-gray-300">
-          {formatDate(item.ex_date)}
+          {item?.ex_date ? formatDate(item.ex_date) : 'N/A'}
         </div>
       )
     },
@@ -181,8 +219,8 @@ export default function AnalyticsDividendsTab() {
       sortable: true,
       render: (item: any) => (
         <div>
-          <div className="text-sm text-white">{formatDate(item.pay_date)}</div>
-          {item.is_future && (
+          <div className="text-sm text-white">{item?.pay_date ? formatDate(item.pay_date) : 'N/A'}</div>
+          {item?.is_future && (
             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-900/50 text-orange-300 border border-orange-700/50">
               Upcoming
             </span>
@@ -196,7 +234,7 @@ export default function AnalyticsDividendsTab() {
       sortable: true,
       render: (item: any) => (
         <div className="text-right">
-          <div className="font-medium text-green-400">{formatCurrency(item.amount_per_share)}</div>
+          <div className="font-medium text-green-400">{formatCurrency(item?.amount_per_share || 0)}</div>
         </div>
       )
     },
@@ -206,48 +244,73 @@ export default function AnalyticsDividendsTab() {
       sortable: true,
       render: (item: any) => (
         <div className="text-right">
-          <div className="text-white">{(item.current_holdings || 0).toFixed(2)}</div>
+          <div className="text-white">{(item?.current_holdings || 0).toFixed(2)}</div>
           <div className="text-sm text-gray-400">shares</div>
         </div>
       )
     },
     {
-      key: 'projected_amount',
+      key: 'total_amount',
       label: 'Total Amount',
       sortable: true,
       render: (item: any) => (
         <div className="text-right">
-          <div className="font-medium text-green-400">{formatCurrency(item.projected_amount)}</div>
-          {!item.confirmed && item.current_holdings > 0 && (
-            <div className="text-sm text-gray-400">Projected</div>
+          <div className="font-medium text-green-400">{formatCurrency(item?.total_amount || 0)}</div>
+          {!item?.confirmed && (item?.current_holdings || 0) > 0 && (
+            <div className="text-sm text-gray-400">Calculated</div>
+          )}
+          {item?.confirmed && (
+            <div className="text-sm text-gray-400">Confirmed</div>
           )}
         </div>
       )
     },
     {
       key: 'status',
-      label: 'Status',
+      label: 'Actions',
       render: (item: any) => (
-        <div className="text-center">
-          {item.confirmed ? (
-            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-900/50 text-green-300 border border-green-700/50">
-              ✓ Confirmed
-            </span>
-          ) : item.current_holdings > 0 ? (
-            <button
-              onClick={() => confirmDividendMutation.mutate(item.id)}
-              disabled={confirmDividendMutation.isPending}
-              className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {confirmDividendMutation.isPending ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Confirming...
-                </>
-              ) : (
-                'Received'
-              )}
-            </button>
+        <div className="text-center space-y-2">
+          {item?.confirmed ? (
+            <div className="flex flex-col space-y-1">
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-900/50 text-green-300 border border-green-700/50">
+                ✓ Confirmed
+              </span>
+              <button
+                onClick={() => {
+                  // TODO: Add edit functionality
+                  console.log('Edit dividend:', item?.id);
+                }}
+                className="text-xs text-gray-400 hover:text-blue-400 transition-colors"
+              >
+                Edit
+              </button>
+            </div>
+          ) : (item?.current_holdings || 0) > 0 ? (
+            <div className="flex flex-col space-y-1">
+              <button
+                onClick={() => confirmDividendMutation.mutate(item?.id)}
+                disabled={confirmDividendMutation.isPending}
+                className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {confirmDividendMutation.isPending ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Confirming...
+                  </>
+                ) : (
+                  'Received'
+                )}
+              </button>
+              <button
+                onClick={() => {
+                  // TODO: Add edit functionality
+                  console.log('Edit dividend:', item?.id);
+                }}
+                className="text-xs text-gray-400 hover:text-blue-400 transition-colors"
+              >
+                Edit Amount
+              </button>
+            </div>
           ) : (
             <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-700/50 text-gray-400 border border-gray-600/50">
               No Holdings
@@ -312,8 +375,26 @@ export default function AnalyticsDividendsTab() {
       <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 overflow-hidden">
         <div className="p-6 border-b border-gray-700/50">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-white">Dividend Tracking</h2>
+            <div className="flex items-center space-x-3">
+              <h2 className="text-xl font-semibold text-white">Dividend Tracking</h2>
+              {syncDividendsMutation.isPending && (
+                <div className="flex items-center space-x-2 text-sm text-blue-400">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-400"></div>
+                  <span>Syncing dividends...</span>
+                </div>
+              )}
+            </div>
             <div className="flex items-center space-x-4">
+              <button
+                onClick={() => {
+                  console.log('Manual dividend sync triggered');
+                  syncDividendsMutation.mutate();
+                }}
+                disabled={syncDividendsMutation.isPending}
+                className="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {syncDividendsMutation.isPending ? 'Syncing...' : 'Sync Dividends'}
+              </button>
               <label className="flex items-center space-x-2 text-sm text-gray-400">
                 <input
                   type="checkbox"
