@@ -454,3 +454,117 @@ async def get_logging_status(current_user: dict = Depends(require_authenticated_
     return {
         "info_logging_enabled": LoggingConfig.is_info_enabled()
     }
+
+@dashboard_router.get("/dashboard/gainers")
+@DebugLogger.log_api_call(
+    api_name="BACKEND_API",
+    sender="FRONTEND",
+    receiver="BACKEND",
+    operation="GET_GAINERS",
+)
+async def backend_api_get_gainers(
+    user: Dict[str, Any] = Depends(require_authenticated_user),
+) -> Dict[str, Any]:
+    """Get top gaining holdings for the dashboard."""
+    try:
+        uid, jwt = _assert_jwt(user)
+        
+        # Get portfolio holdings
+        portfolio = await supa_api_calculate_portfolio(uid, jwt)
+        
+        if not portfolio or not portfolio.get("holdings"):
+            return {
+                "success": True,
+                "data": {"items": []},
+                "message": "No holdings found"
+            }
+        
+        holdings = portfolio["holdings"]
+        
+        # Filter for positive gains and sort by gain percentage
+        gainers = [
+            h for h in holdings 
+            if h.get("total_gain_loss_percent", 0) > 0 and h.get("quantity", 0) > 0
+        ]
+        gainers.sort(key=lambda x: x.get("total_gain_loss_percent", 0), reverse=True)
+        
+        # Format top 5 gainers
+        top_gainers = []
+        for holding in gainers[:5]:
+            top_gainers.append({
+                "ticker": holding["symbol"],
+                "name": holding.get("name", holding["symbol"]),
+                "value": holding.get("current_value", 0),
+                "changePercent": holding.get("total_gain_loss_percent", 0),
+                "changeValue": holding.get("total_gain_loss", 0)
+            })
+        
+        return {
+            "success": True,
+            "data": {"items": top_gainers}
+        }
+        
+    except Exception as e:
+        DebugLogger.log_error(__file__, "backend_api_get_gainers", e, user_id=uid)
+        return {
+            "success": False,
+            "error": str(e),
+            "data": {"items": []}
+        }
+
+@dashboard_router.get("/dashboard/losers")
+@DebugLogger.log_api_call(
+    api_name="BACKEND_API",
+    sender="FRONTEND",
+    receiver="BACKEND",
+    operation="GET_LOSERS",
+)
+async def backend_api_get_losers(
+    user: Dict[str, Any] = Depends(require_authenticated_user),
+) -> Dict[str, Any]:
+    """Get top losing holdings for the dashboard."""
+    try:
+        uid, jwt = _assert_jwt(user)
+        
+        # Get portfolio holdings
+        portfolio = await supa_api_calculate_portfolio(uid, jwt)
+        
+        if not portfolio or not portfolio.get("holdings"):
+            return {
+                "success": True,
+                "data": {"items": []},
+                "message": "No holdings found"
+            }
+        
+        holdings = portfolio["holdings"]
+        
+        # Filter for negative gains and sort by gain percentage (ascending for biggest losses)
+        losers = [
+            h for h in holdings 
+            if h.get("total_gain_loss_percent", 0) < 0 and h.get("quantity", 0) > 0
+        ]
+        losers.sort(key=lambda x: x.get("total_gain_loss_percent", 0))
+        
+        # Format top 5 losers
+        top_losers = []
+        for holding in losers[:5]:
+            top_losers.append({
+                "ticker": holding["symbol"],
+                "name": holding.get("name", holding["symbol"]),
+                "value": holding.get("current_value", 0),
+                "changePercent": abs(holding.get("total_gain_loss_percent", 0)),  # Show as positive for display
+                "changeValue": abs(holding.get("total_gain_loss", 0))  # Show as positive for display
+            })
+        
+        return {
+            "success": True,
+            "data": {"items": top_losers}
+        }
+        
+    except Exception as e:
+        DebugLogger.log_error(__file__, "backend_api_get_losers", e, user_id=uid)
+        return {
+            "success": False,
+            "error": str(e),
+            "data": {"items": []}
+        }

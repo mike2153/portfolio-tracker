@@ -198,20 +198,28 @@ async def backend_api_confirm_dividend(
     user_data: Dict[str, Any] = Depends(require_authenticated_user)
 ) -> Dict[str, Any]:
     """
-    REFACTORED: Confirm dividend with proper validation and transaction creation
+    OPTIMIZED: Confirm dividend with proper validation and transaction creation
+    NO PORTFOLIO RECALCULATION - Only dividend operations (uses Alpha Vantage dividend APIs)
     """
     user_id = user_data.get("id")
     user_token = user_data.get("access_token")
     
     body = await request.json()
     edited_amount = body.get('edited_amount')  # Optional float
-    DebugLogger.info_if_enabled(f"[backend_api_analytics.py] REFACTORED confirm request for dividend {dividend_id}, user {user_id}, edited_amount: {edited_amount}", logger)
+    DebugLogger.info_if_enabled(f"[backend_api_analytics.py] OPTIMIZED confirm request for dividend {dividend_id}, user {user_id}, edited_amount: {edited_amount}", logger)
     
     try:
-        # Use original service with corrected parameter order
+        # PERFORMANCE: This uses Alpha Vantage dividend APIs, NOT historical price data
+        # No get_historical_prices calls should be triggered from this operation
         result = await dividend_service.confirm_dividend(user_id, dividend_id, user_token, edited_amount)
         
-        DebugLogger.info_if_enabled(f"[backend_api_analytics.py] Confirmation result: success={result['success']}, total_amount={result.get('total_amount')}", logger)
+        DebugLogger.info_if_enabled(f"[backend_api_analytics.py] OPTIMIZED confirmation result: success={result['success']}, total_amount={result.get('total_amount')}", logger)
+        DebugLogger.info_if_enabled(f"[backend_api_analytics.py] 🚀 PERFORMANCE: Dividend confirmation completed without portfolio recalculation", logger)
+        
+        # Add performance metadata to help frontend understand this was optimized
+        result["performance_optimized"] = True
+        result["portfolio_recalculation_skipped"] = True
+        
         return result
         
     except Exception as e:
@@ -355,6 +363,43 @@ async def backend_api_sync_all_dividends(
         )
         raise HTTPException(status_code=500, detail=str(e))
 
+@analytics_router.get("/dividends/summary")
+@DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="DIVIDEND_SUMMARY")
+async def backend_api_dividend_summary(
+    user_data: Dict[str, Any] = Depends(require_authenticated_user)
+) -> Dict[str, Any]:
+    """
+    Get lightweight dividend summary for dividend page cards only
+    This is much faster than the full analytics summary
+    """
+    user_id = user_data.get("id")
+    
+    if not user_id:
+        raise HTTPException(status_code=401, detail="User ID not found in authentication data")
+    
+    logger.info(f"[backend_api_analytics.py::backend_api_dividend_summary] Fast dividend summary for user: {user_id}")
+    
+    try:
+        # Use the lightweight dividend summary from service
+        summary = await dividend_service.get_dividend_summary(user_id)
+        
+        if not summary["success"]:
+            raise HTTPException(status_code=500, detail=summary.get("error", "Failed to get dividend summary"))
+        
+        return {
+            "success": True,
+            "data": summary["summary"]
+        }
+        
+    except Exception as e:
+        DebugLogger.log_error(
+            file_name="backend_api_analytics.py",
+            function_name="backend_api_dividend_summary",
+            error=e,
+            user_id=user_id
+        )
+        raise HTTPException(status_code=500, detail=str(e))
+
 @analytics_router.post("/dividends/assign-simple")
 @DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="ASSIGN_DIVIDENDS_SIMPLE")
 async def backend_api_assign_dividends_simple(
@@ -388,6 +433,113 @@ async def backend_api_assign_dividends_simple(
             function_name="backend_api_assign_dividends_simple",
             error=e,
             user_id=user_id
+        )
+        raise HTTPException(status_code=500, detail=str(e))
+
+@analytics_router.post("/dividends/reject")
+@DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="REJECT_DIVIDEND")
+async def backend_api_reject_dividend(
+    dividend_id: str = Query(..., description="Dividend ID to reject"),
+    user_data: Dict[str, Any] = Depends(require_authenticated_user)
+) -> Dict[str, Any]:
+    """
+    Reject a dividend - sets rejected=true, hiding it permanently from the user
+    """
+    user_id = user_data.get("id")
+    user_token = user_data.get("access_token")
+    
+    if not user_id:
+        raise HTTPException(status_code=401, detail="User ID not found in authentication data")
+    if not user_token:
+        raise HTTPException(status_code=401, detail="Access token not found in authentication data")
+    
+    logger.info(f"[backend_api_analytics.py::backend_api_reject_dividend] Rejecting dividend {dividend_id} for user {user_id}")
+    
+    try:
+        result = await dividend_service.reject_dividend(user_id, dividend_id, user_token)
+        
+        if not result["success"]:
+            raise HTTPException(status_code=400, detail=result.get("error", "Failed to reject dividend"))
+        
+        return result
+        
+    except Exception as e:
+        DebugLogger.log_error(
+            file_name="backend_api_analytics.py",
+            function_name="backend_api_reject_dividend",
+            error=e,
+            user_id=user_id,
+            dividend_id=dividend_id
+        )
+        raise HTTPException(status_code=500, detail=str(e))
+
+@analytics_router.post("/dividends/edit")
+@DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="EDIT_DIVIDEND")
+async def backend_api_edit_dividend(
+    request: Request,
+    original_dividend_id: str = Query(..., description="Original dividend ID to edit"),
+    user_data: Dict[str, Any] = Depends(require_authenticated_user)
+) -> Dict[str, Any]:
+    """
+    Edit a dividend by creating a new one and rejecting the original
+    Handles both pending and confirmed dividends
+    """
+    user_id = user_data.get("id")
+    user_token = user_data.get("access_token")
+    
+    if not user_id:
+        raise HTTPException(status_code=401, detail="User ID not found in authentication data")
+    if not user_token:
+        raise HTTPException(status_code=401, detail="Access token not found in authentication data")
+    
+    # Parse request body
+    body = await request.json()
+    edited_data = {
+        'ex_date': body.get('ex_date'),
+        'pay_date': body.get('pay_date'),
+        'amount_per_share': body.get('amount_per_share'),
+        'total_amount': body.get('total_amount')
+    }
+    
+    # Validate required fields
+    if not edited_data['ex_date']:
+        raise HTTPException(status_code=400, detail="Ex-date is required")
+    if edited_data['amount_per_share'] is None and edited_data['total_amount'] is None:
+        raise HTTPException(status_code=400, detail="Either amount_per_share or total_amount is required")
+    
+    # Validate dates
+    if edited_data['pay_date'] and edited_data['ex_date']:
+        if edited_data['pay_date'] < edited_data['ex_date']:
+            raise HTTPException(status_code=400, detail="Pay date must be on or after ex-date")
+    
+    # Validate amounts
+    if edited_data['amount_per_share'] is not None and edited_data['amount_per_share'] < 0:
+        raise HTTPException(status_code=400, detail="Amount per share cannot be negative")
+    if edited_data['total_amount'] is not None and edited_data['total_amount'] < 0:
+        raise HTTPException(status_code=400, detail="Total amount cannot be negative")
+    
+    logger.info(f"[backend_api_analytics.py::backend_api_edit_dividend] Editing dividend {original_dividend_id} for user {user_id}")
+    
+    try:
+        result = await dividend_service.edit_dividend(
+            user_id=user_id,
+            original_dividend_id=original_dividend_id,
+            edited_data=edited_data,
+            user_token=user_token
+        )
+        
+        if not result["success"]:
+            raise HTTPException(status_code=400, detail=result.get("error", "Failed to edit dividend"))
+        
+        return result
+        
+    except Exception as e:
+        DebugLogger.log_error(
+            file_name="backend_api_analytics.py",
+            function_name="backend_api_edit_dividend",
+            error=e,
+            user_id=user_id,
+            dividend_id=original_dividend_id
         )
         raise HTTPException(status_code=500, detail=str(e))
 

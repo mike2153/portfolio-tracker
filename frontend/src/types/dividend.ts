@@ -141,34 +141,63 @@ export interface DividendFormErrors {
  * Convert UserDividendData to DividendTableRow for ApexListView
  */
 export function dividendToTableRow(dividend: UserDividendData): DividendTableRow {
-  return {
+  // Robust null/undefined handling for numeric fields
+  const safeNumber = (value: any): number => {
+    if (value === null || value === undefined || isNaN(Number(value))) {
+      return 0;
+    }
+    return Number(value);
+  };
+
+  // DEBUG: Log the input dividend
+  console.log('[dividendToTableRow] Input dividend:', {
     id: dividend.id,
+    id_type: typeof dividend.id,
     symbol: dividend.symbol,
-    company: dividend.company || getCompanyDisplayName(dividend.symbol),
-    ex_date: dividend.ex_date,
-    pay_date: dividend.pay_date,
-    amount_per_share: dividend.amount_per_share || 0,
-    total_amount: dividend.total_amount || 0,
-    current_holdings: dividend.current_holdings || 0,
-    shares_held_at_ex_date: dividend.shares_held_at_ex_date || 0,
+    total_amount: dividend.total_amount
+  });
+
+  const tableRow = {
+    id: dividend.id || '',
+    symbol: dividend.symbol || '',
+    company: dividend.company || getCompanyDisplayName(dividend.symbol || ''),
+    ex_date: dividend.ex_date || '',
+    pay_date: dividend.pay_date || '',
+    amount_per_share: safeNumber(dividend.amount_per_share),
+    total_amount: safeNumber(dividend.total_amount),
+    current_holdings: safeNumber(dividend.current_holdings),
+    shares_held_at_ex_date: safeNumber(dividend.shares_held_at_ex_date),
     confirmed: dividend.confirmed ? 'Yes' : 'No',
     currency: dividend.currency || 'USD',
-    created_at: dividend.created_at,
+    created_at: dividend.created_at || '',
     is_future: dividend.is_future || false,
     is_recent: dividend.is_recent || false
   };
+
+  // DEBUG: Log the output table row
+  console.log('[dividendToTableRow] Output tableRow:', {
+    id: tableRow.id,
+    id_type: typeof tableRow.id,
+    symbol: tableRow.symbol,
+    total_amount: tableRow.total_amount
+  });
+
+  return tableRow;
 }
 
 /**
  * Format currency with proper symbol and precision
  */
-export function formatDividendCurrency(amount: number, currency: string = 'USD'): string {
+export function formatDividendCurrency(amount: number | null | undefined, currency: string = 'USD'): string {
+  // Handle null/undefined/NaN values safely
+  const safeAmount = (amount === null || amount === undefined || isNaN(Number(amount))) ? 0 : Number(amount);
+  
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: currency,
     minimumFractionDigits: 2,
     maximumFractionDigits: 4
-  }).format(amount);
+  }).format(safeAmount);
 }
 
 /**

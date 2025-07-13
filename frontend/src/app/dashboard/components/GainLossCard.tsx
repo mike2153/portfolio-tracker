@@ -18,17 +18,25 @@ const GainLossCard = ({ type, title }: GainLossCardProps) => {
     const { userId } = useDashboard();
     const { user } = useAuth();
 
-    // Note: Gainers/Losers API needs to be implemented in backend
-    const queryFn = () => {
-        return Promise.resolve({ data: { items: [] } });
+    // Use real API endpoint
+    const queryFn = async () => {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/dashboard/${type}`, {
+            headers: {
+                'Authorization': `Bearer ${user?.access_token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch ${type}`);
+        }
+        
+        return response.json();
     };
     
     const { data, isLoading, isError, error } = useQuery({
         queryKey: ['dashboard', type, userId],
-        queryFn: async () => {
-            const result = await queryFn();
-            return result;
-        },
+        queryFn,
         enabled: !!user,
         staleTime: 5 * 60 * 1000,
         refetchOnWindowFocus: false,

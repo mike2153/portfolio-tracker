@@ -7,7 +7,7 @@ import { front_api_client } from '@/lib/front_api_client';
 // Components
 import AnalyticsKPIGrid from './components/AnalyticsKPIGrid';
 import AnalyticsHoldingsTable from './components/AnalyticsHoldingsTable';
-import AnalyticsDividendsTab from './components/AnalyticsDividendsTab';
+import AnalyticsDividendsTabRefactored from './components/AnalyticsDividendsTabRefactored';
 
 // Types
 interface AnalyticsSummary {
@@ -49,7 +49,8 @@ export default function AnalyticsPage() {
   const [activeTab, setActiveTab] = useState<TabType>('holdings');
   const [includeSoldHoldings, setIncludeSoldHoldings] = useState(false);
 
-  // Fetch analytics summary
+  // OPTIMIZED: Fetch analytics summary only when NOT on dividends tab
+  // Dividend tab has its own lightweight data fetching
   const { data: summaryData, isLoading: summaryLoading, error: summaryError } = useQuery({
     queryKey: ['analytics', 'summary'],
     queryFn: async () => {
@@ -67,9 +68,10 @@ export default function AnalyticsPage() {
       return data.data as AnalyticsSummary;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
+    enabled: activeTab !== 'dividends', // PERFORMANCE: Disable for dividends tab
   });
 
-  // Fetch holdings data
+  // OPTIMIZED: Fetch holdings data only when needed (not for dividends tab)
   const { data: holdingsData, isLoading: holdingsLoading, error: holdingsError } = useQuery({
     queryKey: ['analytics', 'holdings', includeSoldHoldings],
     queryFn: async () => {
@@ -87,6 +89,7 @@ export default function AnalyticsPage() {
       return data.data as Holding[];
     },
     staleTime: 2 * 60 * 1000, // 2 minutes
+    enabled: activeTab === 'holdings' || activeTab === 'returns', // PERFORMANCE: Only for holdings/returns tabs
   });
 
   const renderTabContent = () => {
@@ -104,7 +107,7 @@ export default function AnalyticsPage() {
         );
       
       case 'dividends':
-        return <AnalyticsDividendsTab />;
+        return <AnalyticsDividendsTabRefactored />;
       
       case 'general':
         return (
@@ -128,14 +131,16 @@ export default function AnalyticsPage() {
           <p className="text-gray-400">Comprehensive portfolio analysis and dividend tracking</p>
         </div>
 
-        {/* KPI Cards */}
-        <div className="mb-8">
-          <AnalyticsKPIGrid
-            summary={summaryData}
-            isLoading={summaryLoading}
-            error={summaryError}
-          />
-        </div>
+        {/* KPI Cards - Only show for non-dividend tabs */}
+        {activeTab !== 'dividends' && (
+          <div className="mb-8">
+            <AnalyticsKPIGrid
+              summary={summaryData}
+              isLoading={summaryLoading}
+              error={summaryError}
+            />
+          </div>
+        )}
 
         {/* Tab Navigation */}
         <div className="mb-6">
