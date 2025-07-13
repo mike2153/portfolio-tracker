@@ -55,8 +55,24 @@ DEBUG: {BACKEND_API_DEBUG}
 =========================================""")
     
     DebugLogger.info_if_enabled("[main.py::lifespan] Startup: Initiating immediate dividend sync for all users", logger)
-    await dividend_service.background_dividend_sync_all_users()
-    DebugLogger.info_if_enabled("[main.py::lifespan] Startup sync completed", logger)
+    
+    # Step 1: Sync global dividends from Alpha Vantage
+    sync_result = await dividend_service.background_dividend_sync_all_users()
+    if sync_result.get("success"):
+        logger.info(f"[main.py::lifespan] Successfully synced {sync_result.get('total_assigned', 0)} global dividends")
+    else:
+        logger.warning(f"[main.py::lifespan] Dividend sync had issues: {sync_result.get('error', 'Unknown error')}")
+    
+    # Step 2: Assign dividends to all users based on their holdings
+    # This ensures users get dividends even if they were already in the global table
+    logger.info("[main.py::lifespan] Starting dividend assignment to users...")
+    assignment_result = await dividend_service.assign_dividends_to_users_simple()
+    if assignment_result.get("success"):
+        logger.info(f"[main.py::lifespan] Successfully assigned {assignment_result.get('total_assigned', 0)} dividends to users")
+    else:
+        logger.warning(f"[main.py::lifespan] Dividend assignment had issues: {assignment_result.get('error', 'Unknown error')}")
+    
+    DebugLogger.info_if_enabled("[main.py::lifespan] Startup sync and assignment completed", logger)
     
     loop = asyncio.get_event_loop()
     scheduler = AsyncIOScheduler(event_loop=loop)

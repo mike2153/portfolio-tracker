@@ -1846,14 +1846,6 @@ test('complete portfolio workflow', async ({ page }) => {
 
 ### Component Migration Map
 
-| **Legacy Component** | **ApexCharts Component** | **Enhancement** |
-|---------------------|-------------------------|-----------------|
-| `PriceChart.tsx` (LightweightCharts) | `PriceChartApex.tsx` | Multiple chart types, volume overlay |
-| `FinancialBarChart.tsx` (Plotly) | `FinancialBarChartApexEnhanced.tsx` | Interactive metrics, dual-axis, growth rates |
-| `FinancialSpreadsheet.tsx` (HTML) | `FinancialSpreadsheetApex.tsx` | Search, categories, 5-year data |
-| `PriceEpsChart.tsx` (Plotly) | `PriceEpsChartApex.tsx` | Dual-axis price/earnings analysis |
-| `DividendChart.tsx` (Plotly) | `DividendChartApex.tsx` | Consistent styling, better performance |
-| `AllocationTable.tsx` (HTML) | `AllocationTableApex.tsx` | Interactive list with actions |
 
 ### Research Page Transformation
 
@@ -2055,18 +2047,5 @@ For additional support or clarification on any aspect of the system, refer to th
 
 # End of claude.md
 
-### Updated Dividend Workflow (Scheduled Background Sync)
 
-```mermaid
-graph TD
-    A[Scheduler Trigger (24h/Startup)] --> B[Fetch Unique Symbols from Transactions]
-    B --> C[For Each Symbol: Fetch DIVIDENDS from AV (Cached)]
-    C --> D[For Each User Holding Symbol: Compute Ownership Windows & Shares at Ex-Date]
-    D --> E[Filter Eligible Dividends & Calc Total Amount]
-    E --> F[Upsert to user_dividends (Only Unconfirmed; Idempotent via Unique Key)]
-    F --> G[Frontend: Query DB for Pending Dividends on Tab Load]
-    G --> H[User Confirms (Optional Edit) --> Set Confirmed=True & Create Transaction]
-```
-
-Explanation: Background task runs daily/startup, fetching/assigning dividends proactively. Frontend queries DB directly for instant load. Idempotent upserts preserve data.
 

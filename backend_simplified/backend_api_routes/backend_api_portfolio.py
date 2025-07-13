@@ -220,18 +220,27 @@ async def backend_api_add_transaction(
                 # Get the transaction date for dividend sync
                 transaction_date = datetime.strptime(transaction.date, '%Y-%m-%d').date()
                 
+                # For historical transactions, we might want to sync all past dividends
+                # Setting from_date to None will sync all available dividends for the symbol
+                # and the service will automatically determine which ones the user is eligible for
+                logger.info(f"[backend_api_portfolio.py] Syncing dividends for {transaction.symbol} from {transaction_date}")
+                
                 # Sync dividends from the transaction date onward
                 dividend_sync_result = await dividend_service.sync_dividends_for_symbol(
                     user_id=user["id"],
                     symbol=transaction.symbol,
-                    from_date=transaction_date
+                    user_token=user_token,
+                    from_date=transaction_date  # This ensures we only check dividends after purchase date
                 )
                 
-                logger.info(f"[backend_api_portfolio.py] Dividend sync result for {transaction.symbol}: {dividend_sync_result}")
+                if dividend_sync_result.get("success"):
+                    logger.info(f"[backend_api_portfolio.py] Successfully synced {dividend_sync_result.get('dividends_synced', 0)} new dividends and assigned {dividend_sync_result.get('dividends_assigned', 0)} dividends to user for {transaction.symbol}")
+                else:
+                    logger.warning(f"[backend_api_portfolio.py] Dividend sync completed with issues for {transaction.symbol}: {dividend_sync_result.get('error', 'Unknown error')}")
                 
             except Exception as dividend_error:
                 # Don't fail the transaction if dividend sync fails
-                logger.warning(f"[backend_api_portfolio.py] Dividend sync failed for {transaction.symbol}: {dividend_error}")
+                logger.error(f"[backend_api_portfolio.py] Dividend sync failed for {transaction.symbol}: {str(dividend_error)}", exc_info=True)
         
         return {
             "success": True,

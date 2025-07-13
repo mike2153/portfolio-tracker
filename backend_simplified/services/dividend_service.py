@@ -261,14 +261,45 @@ class DividendService:
                 if inserted:
                     synced_count += 1
             
-            logger.info(f"[DividendService] Synced {synced_count} dividends for {symbol}")
+            logger.info(f"[DividendService] Synced {synced_count} new global dividends for {symbol}")
+            
+            # Step 2: Assign ALL applicable dividends to the user (including existing ones)
+            # This ensures users get dividends even if they were already in the global table
+            assigned_count = 0
+            logger.info(f"[DividendService] Assigning {len(filtered_dividends)} dividends to user {user_id}")
+            
+            for dividend in filtered_dividends:
+                # Calculate shares held at ex-date
+                shares_at_ex_date = await self._calculate_shares_owned_at_date(
+                    user_id, symbol, dividend['ex_date'], user_token
+                )
+                
+                if shares_at_ex_date > 0:
+                    # Create user-specific dividend record
+                    total_amount = float(dividend['amount']) * shares_at_ex_date
+                    success = await self._create_user_dividend_record(
+                        user_id=user_id,
+                        dividend=dividend,
+                        shares_held=shares_at_ex_date,
+                        total_amount=total_amount
+                    )
+                    if success:
+                        assigned_count += 1
+                        logger.info(f"[DividendService] Assigned dividend to user: {symbol} on {dividend['ex_date']} - {shares_at_ex_date} shares @ ${dividend['amount']}/share = ${total_amount}")
+                    else:
+                        logger.info(f"[DividendService] User already has dividend record for {symbol} on {dividend['ex_date']}")
+                else:
+                    logger.info(f"[DividendService] User had 0 shares of {symbol} on {dividend['ex_date']}, skipping")
+            
+            logger.info(f"[DividendService] Assigned {assigned_count} dividends to user {user_id} for {symbol}")
             
             return {
                 "success": True,
                 "symbol": symbol,
                 "dividends_synced": synced_count,
+                "dividends_assigned": assigned_count,
                 "total_found": len(filtered_dividends),
-                "message": f"Successfully synced {synced_count} dividends for {symbol}"
+                "message": f"Successfully synced {synced_count} new dividends and assigned {assigned_count} dividends to user for {symbol}"
             }
             
         except Exception as e:
@@ -569,68 +600,53 @@ class DividendService:
             logger.info(f"[DIVIDEND_DEBUG] Found {len(dividend_transactions)} confirmed dividend transactions")
             logger.info(f"[DIVIDEND_DEBUG] Confirmed dividends set: {confirmed_dividends_set}")
             
-            # Get all dividends for symbols user owns from global table
+            # NEW SIMPLE APPROACH: Get user-specific dividends only (where user_id = actual user_id)
             query = self.supa_client.table('user_dividends') \
                 .select('*') \
-                .in_('symbol', user_symbols) \
+                .eq('user_id', user_id) \
                 .order('pay_date', desc=True)
             
+            # Apply confirmed_only filter at database level for efficiency
+            if confirmed_only:
+                query = query.eq('confirmed', True)
+            
             result = query.execute()
-            logger.info(f"[DIVIDEND_DEBUG] Found {len(result.data) if result.data else 0} dividends in global table for user symbols")
+            logger.info(f"[DIVIDEND_DEBUG] Found {len(result.data) if result.data else 0} user-specific dividends for user {user_id}")
             
             if result.data:
-                logger.info(f"[DIVIDEND_DEBUG] Sample global dividends: {result.data[:2]}")
+                logger.info(f"[DIVIDEND_DEBUG] Sample user dividends: {result.data[:2]}")
             
-            # Enrich each dividend with user-specific ownership data (using cached transactions)
+            # Simple processing - data is already user-specific with correct amounts
             enriched_dividends = []
-            processed_count = 0
             for dividend in result.data:
-                processed_count += 1
-                logger.info(f"[DIVIDEND_DEBUG] ---- Processing dividend {processed_count}/{len(result.data)}: {dividend['symbol']} ex_date={dividend['ex_date']} amount={dividend['amount']} ----")
+                logger.info(f"[DIVIDEND_DEBUG] Processing user dividend: {dividend['symbol']} ex_date={dividend['ex_date']} amount={dividend['amount']} shares={dividend.get('shares_held_at_ex_date', 0)} total={dividend.get('total_amount', 0)}")
                 
-                # Calculate shares owned at ex-date using cached transactions
-                shares_owned = self._calculate_shares_at_date(
-                    all_transactions, dividend['symbol'], dividend['ex_date']
-                )
+                # Check if confirmed using cached transaction data
+                is_confirmed = (dividend['symbol'], dividend['pay_date']) in confirmed_dividends_set
                 
-                # Calculate current holdings using cached transactions
+                # Calculate current holdings for display
                 current_holdings = self._calculate_current_holdings_from_transactions(
                     all_transactions, dividend['symbol']
                 )
                 
-                logger.info(f"[DIVIDEND_DEBUG] {dividend['symbol']}: shares_owned={shares_owned}, current_holdings={current_holdings}")
+                enriched_dividend = {
+                    **dividend,
+                    'amount_per_share': float(dividend['amount']) if dividend.get('amount') else 0.0,  # Frontend expects 'amount_per_share'
+                    'shares_held_at_ex_date': float(dividend.get('shares_held_at_ex_date', 0)),
+                    'current_holdings': float(current_holdings) if current_holdings is not None else 0.0,
+                    'total_amount': float(dividend.get('total_amount', 0)),  # Use pre-calculated amount
+                    'confirmed': bool(is_confirmed),
+                    'company': self._get_company_name(dividend['symbol']) or f"{dividend['symbol']} Corporation",
+                    'status': 'confirmed' if is_confirmed else 'pending',
+                    'dividend_type': dividend.get('dividend_type', 'cash'),
+                    'source': dividend.get('source', 'alpha_vantage'),
+                    'currency': dividend.get('currency', 'USD'),
+                    'is_future': datetime.strptime(dividend['ex_date'], '%Y-%m-%d').date() > date.today(),
+                    'is_recent': (date.today() - datetime.strptime(dividend['ex_date'], '%Y-%m-%d').date()).days <= 30
+                }
                 
-                # Only include if user owned shares at ex-date or currently owns shares
-                if shares_owned > 0 or current_holdings > 0:
-                    # Check if confirmed using cached transaction data
-                    is_confirmed = (dividend['symbol'], dividend['pay_date']) in confirmed_dividends_set
-                    
-                    enriched_dividend = {
-                        **dividend,
-                        'amount_per_share': float(dividend['amount']) if dividend.get('amount') else 0.0,  # Frontend expects 'amount_per_share'
-                        'shares_held_at_ex_date': float(shares_owned) if shares_owned is not None else 0.0,
-                        'current_holdings': float(current_holdings) if current_holdings is not None else 0.0,
-                        'total_amount': float(dividend['amount']) * float(shares_owned) if shares_owned and dividend.get('amount') else 0.0,
-                        'confirmed': bool(is_confirmed),
-                        'company': self._get_company_name(dividend['symbol']) or f"{dividend['symbol']} Corporation",  # Add company name with fallback
-                        'status': 'confirmed' if is_confirmed else 'pending',
-                        'dividend_type': 'cash',  # Default type
-                        'source': dividend.get('source', 'alpha_vantage'),
-                        'currency': dividend.get('currency', 'USD'),  # Ensure currency is set
-                        'is_future': datetime.strptime(dividend['ex_date'], '%Y-%m-%d').date() > date.today(),
-                        'is_recent': (date.today() - datetime.strptime(dividend['ex_date'], '%Y-%m-%d').date()).days <= 30
-                    }
-                    
-                    logger.info(f"[DIVIDEND_DEBUG] Including dividend: {dividend['symbol']} confirmed={is_confirmed}, total_amount={enriched_dividend['total_amount']}")
-                    
-                    # Apply confirmed_only filter
-                    if not confirmed_only or is_confirmed:
-                        enriched_dividends.append(enriched_dividend)
-                        logger.info(f"[DIVIDEND_DEBUG] ✓ Added to final list (confirmed_only={confirmed_only})")
-                    else:
-                        logger.info(f"[DIVIDEND_DEBUG] ✗ Filtered out due to confirmed_only filter")
-                else:
-                    logger.info(f"[DIVIDEND_DEBUG] ✗ Skipping dividend {dividend['symbol']} - no ownership (shares_owned={shares_owned}, current_holdings={current_holdings})")
+                enriched_dividends.append(enriched_dividend)
+                logger.info(f"[DIVIDEND_DEBUG] ✓ Added user dividend: {dividend['symbol']} confirmed={is_confirmed}, total_amount={enriched_dividend['total_amount']}")
             
             logger.info(f"[DIVIDEND_DEBUG] ===== Final result: {len(enriched_dividends)} dividends to return =====")
             if enriched_dividends:
@@ -1065,7 +1081,7 @@ class DividendService:
                     logger.info(f"[DIVIDEND_INSERT_DEBUG] Full dividend data: {dividend}")
                     
                     inserted = await self._upsert_global_dividend(
-                        symbol, dividend_data=dividend
+                        symbol=symbol, dividend_data=dividend
                     )
                     
                     if inserted:
@@ -1185,7 +1201,7 @@ class DividendService:
                         
                         # Insert dividend into global table (for ALL dividends, not user-specific)
                         inserted = await self._upsert_global_dividend(
-                            symbol, dividend_data=dividend
+                            symbol=symbol, dividend_data=dividend
                         )
                         
                         if inserted:
@@ -1479,6 +1495,296 @@ class DividendService:
             'VTI': 'Vanguard Total Stock Market ETF', 'VXUS': 'Vanguard Total International Stock ETF'
         }
         return companies.get(symbol, f"{symbol} Corporation")
+
+    # =============================================================================
+    # NEW SIMPLE LOOP-BASED DIVIDEND ASSIGNMENT METHODS
+    # =============================================================================
+    
+    async def assign_dividends_to_users_simple(self) -> Dict[str, Any]:
+        """
+        Simple loop-based dividend assignment:
+        For each user holding -> For each date range -> Get dividends in range -> Assign to user
+        """
+        try:
+            logger.info("[SIMPLE_DIVIDEND_ASSIGNMENT] ===== Starting simple dividend assignment =====")
+            
+            # Get all users who have transactions
+            users = await self._get_users_with_transactions()
+            logger.info(f"[SIMPLE_DIVIDEND_ASSIGNMENT] Found {len(users)} users with transactions")
+            
+            total_assigned = 0
+            assignment_results = []
+            
+            for user_id in users:
+                try:
+                    # Get user's holdings with date ranges
+                    holdings = await self._get_user_holdings_with_date_ranges(user_id)
+                    logger.info(f"[SIMPLE_DIVIDEND_ASSIGNMENT] User {user_id}: {len(holdings)} holdings")
+                    
+                    user_assigned = 0
+                    
+                    for holding in holdings:
+                        symbol = holding['symbol']
+                        start_date = holding['start_date']
+                        end_date = holding['end_date']
+                        
+                        logger.info(f"[SIMPLE_DIVIDEND_ASSIGNMENT] Processing {symbol} for user {user_id}: {start_date} to {end_date}")
+                        
+                        # Get all global dividends for this symbol in this date range
+                        dividends = await self._get_global_dividends_in_range(symbol, start_date, end_date)
+                        logger.info(f"[SIMPLE_DIVIDEND_ASSIGNMENT] Found {len(dividends)} dividends for {symbol} in range")
+                        
+                        for dividend in dividends:
+                            # Calculate shares owned at ex_date
+                            shares_at_ex_date = await self._calculate_shares_at_date_simple(user_id, symbol, dividend['ex_date'])
+                            
+                            if shares_at_ex_date > 0:
+                                # Create user-specific dividend record
+                                success = await self._create_user_dividend_record(
+                                    user_id=user_id,
+                                    dividend=dividend,
+                                    shares_held=shares_at_ex_date,
+                                    total_amount=float(dividend['amount']) * shares_at_ex_date
+                                )
+                                
+                                if success:
+                                    user_assigned += 1
+                                    total_assigned += 1
+                                    logger.info(f"[SIMPLE_DIVIDEND_ASSIGNMENT] ✓ Assigned {symbol} dividend ({dividend['ex_date']}) to user {user_id}: {shares_at_ex_date} shares * ${dividend['amount']} = ${float(dividend['amount']) * shares_at_ex_date}")
+                    
+                    assignment_results.append({
+                        "user_id": user_id,
+                        "dividends_assigned": user_assigned
+                    })
+                    
+                except Exception as e:
+                    logger.error(f"[SIMPLE_DIVIDEND_ASSIGNMENT] Error processing user {user_id}: {e}")
+                    assignment_results.append({
+                        "user_id": user_id,
+                        "error": str(e)
+                    })
+            
+            logger.info(f"[SIMPLE_DIVIDEND_ASSIGNMENT] ✅ COMPLETED: {total_assigned} dividends assigned to {len(users)} users")
+            
+            return {
+                "success": True,
+                "total_users": len(users),
+                "total_assigned": total_assigned,
+                "assignment_results": assignment_results,
+                "message": f"Simple dividend assignment completed: {total_assigned} dividends assigned"
+            }
+            
+        except Exception as e:
+            logger.error(f"[SIMPLE_DIVIDEND_ASSIGNMENT] Error: {e}")
+            DebugLogger.log_error(file_name="dividend_service.py", function_name="assign_dividends_to_users_simple", error=e)
+            return {"success": False, "error": str(e)}
+    
+    async def _get_users_with_transactions(self) -> List[str]:
+        """Get all user IDs who have transactions"""
+        try:
+            result = self.supa_client.table('transactions') \
+                .select('user_id') \
+                .execute()
+            
+            # Get unique user IDs, filtering out None/invalid values
+            user_ids = list(set([
+                str(row['user_id']) for row in result.data 
+                if row.get('user_id') and str(row['user_id']).lower() not in ['none', 'null', 'nan', '']
+            ]))
+            
+            logger.info(f"[SIMPLE_DIVIDEND_ASSIGNMENT] Found {len(user_ids)} unique users with valid transactions")
+            return user_ids
+            
+        except Exception as e:
+            logger.error(f"Error getting users with transactions: {e}")
+            return []
+    
+    async def _get_user_holdings_with_date_ranges(self, user_id: str) -> List[Dict[str, Any]]:
+        """Get user's holdings with the date ranges they owned each symbol"""
+        try:
+            # Get all transactions for user
+            result = self.supa_client.table('transactions') \
+                .select('*') \
+                .eq('user_id', user_id) \
+                .order('date') \
+                .execute()
+            
+            transactions = result.data
+            if not transactions:
+                return []
+            
+            # Group by symbol and find ownership date ranges
+            holdings = {}
+            
+            for txn in transactions:
+                symbol = txn['symbol']
+                txn_date = datetime.strptime(txn['date'], '%Y-%m-%d').date()
+                
+                if symbol not in holdings:
+                    holdings[symbol] = {
+                        'symbol': symbol,
+                        'first_date': txn_date,
+                        'last_date': txn_date,
+                        'total_shares': 0
+                    }
+                
+                # Update date range
+                if txn_date < holdings[symbol]['first_date']:
+                    holdings[symbol]['first_date'] = txn_date
+                if txn_date > holdings[symbol]['last_date']:
+                    holdings[symbol]['last_date'] = txn_date
+                
+                # Track total shares (to filter out symbols they never actually owned)
+                if txn['transaction_type'].upper() in ['BUY', 'PURCHASE']:
+                    holdings[symbol]['total_shares'] += txn['quantity']
+                elif txn['transaction_type'].upper() in ['SELL', 'SALE']:
+                    holdings[symbol]['total_shares'] -= txn['quantity']
+            
+            # Convert to list format and filter out symbols with no net ownership
+            result_holdings = []
+            for symbol_data in holdings.values():
+                if symbol_data['total_shares'] > 0 or symbol_data['total_shares'] == 0:  # Include even if sold all shares
+                    result_holdings.append({
+                        'symbol': symbol_data['symbol'],
+                        'start_date': symbol_data['first_date'],
+                        'end_date': date.today(),  # Use today as end date for ongoing holdings
+                    })
+            
+            logger.info(f"[SIMPLE_DIVIDEND_ASSIGNMENT] User {user_id} holdings: {len(result_holdings)} symbols")
+            return result_holdings
+            
+        except Exception as e:
+            logger.error(f"Error getting holdings for user {user_id}: {e}")
+            return []
+    
+    async def _get_global_dividends_in_range(self, symbol: str, start_date: date, end_date: date) -> List[Dict[str, Any]]:
+        """Get all global dividends for a symbol within a date range"""
+        try:
+            result = self.supa_client.table('user_dividends') \
+                .select('*') \
+                .eq('symbol', symbol) \
+                .is_('user_id', None) \
+                .gte('ex_date', start_date.isoformat()) \
+                .lte('ex_date', end_date.isoformat()) \
+                .execute()
+            
+            logger.info(f"[SIMPLE_DIVIDEND_ASSIGNMENT] Found {len(result.data)} global dividends for {symbol} between {start_date} and {end_date}")
+            return result.data
+            
+        except Exception as e:
+            logger.error(f"Error getting global dividends for {symbol}: {e}")
+            return []
+    
+    async def _calculate_shares_at_date_simple(self, user_id: str, symbol: str, target_date: str) -> float:
+        """Calculate shares owned by user at a specific date (simplified version)"""
+        try:
+            target_date_obj = datetime.strptime(target_date, '%Y-%m-%d').date()
+            
+            # Get all transactions for this user and symbol up to the target date
+            result = self.supa_client.table('transactions') \
+                .select('*') \
+                .eq('user_id', user_id) \
+                .eq('symbol', symbol) \
+                .lte('date', target_date) \
+                .order('date') \
+                .execute()
+            
+            transactions = result.data
+            if not transactions:
+                return 0.0
+            
+            total_shares = 0.0
+            for txn in transactions:
+                if txn['transaction_type'].upper() in ['BUY', 'PURCHASE']:
+                    total_shares += float(txn['quantity'])
+                elif txn['transaction_type'].upper() in ['SELL', 'SALE']:
+                    total_shares -= float(txn['quantity'])
+            
+            logger.info(f"[SIMPLE_DIVIDEND_ASSIGNMENT] User {user_id} owned {total_shares} shares of {symbol} on {target_date}")
+            return max(0.0, total_shares)
+            
+        except Exception as e:
+            logger.error(f"Error calculating shares for {user_id} {symbol} at {target_date}: {e}")
+            return 0.0
+    
+    async def _create_user_dividend_record(self, user_id: str, dividend: Dict[str, Any], shares_held: float, total_amount: float) -> bool:
+        """Create a user-specific dividend record"""
+        try:
+            # Check if record already exists
+            existing = self.supa_client.table('user_dividends') \
+                .select('id') \
+                .eq('user_id', user_id) \
+                .eq('symbol', dividend['symbol']) \
+                .eq('ex_date', dividend['ex_date']) \
+                .execute()
+            
+            if existing.data:
+                logger.info(f"[SIMPLE_DIVIDEND_ASSIGNMENT] User dividend already exists for {user_id} {dividend['symbol']} {dividend['ex_date']}")
+                return False
+            
+            # Create new user-specific dividend record
+            insert_data = {
+                'user_id': user_id,
+                'symbol': dividend['symbol'],
+                'ex_date': dividend['ex_date'],
+                'pay_date': dividend['pay_date'],
+                'amount': float(dividend['amount']),  # Per-share amount
+                'shares_held_at_ex_date': shares_held,
+                'total_amount': total_amount,
+                'currency': dividend.get('currency', 'USD'),
+                'confirmed': False,
+                'status': 'pending',
+                'dividend_type': 'cash',
+                'source': 'alpha_vantage',
+                'declaration_date': dividend.get('declaration_date'),
+                'record_date': dividend.get('record_date')
+            }
+            
+            result = self.supa_client.table('user_dividends') \
+                .insert(insert_data) \
+                .execute()
+            
+            if result.data:
+                logger.info(f"[SIMPLE_DIVIDEND_ASSIGNMENT] ✓ Created user dividend record for {user_id} {dividend['symbol']} {dividend['ex_date']}")
+                return True
+            else:
+                logger.error(f"[SIMPLE_DIVIDEND_ASSIGNMENT] Failed to create user dividend record")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error creating user dividend record: {e}")
+            return False
+
+    async def full_dividend_sync_and_assignment(self) -> Dict[str, Any]:
+        """
+        Combined function for scheduled jobs: 
+        1. Sync global dividends from Alpha Vantage
+        2. Assign dividends to users based on holdings
+        """
+        try:
+            logger.info("[FULL_DIVIDEND_SYNC] ===== Starting full dividend sync and assignment =====")
+            
+            # Step 1: Sync global dividends
+            logger.info("[FULL_DIVIDEND_SYNC] Step 1: Syncing global dividends from Alpha Vantage")
+            global_sync_result = await self.background_dividend_sync_all_users()
+            
+            # Step 2: Assign dividends to users
+            logger.info("[FULL_DIVIDEND_SYNC] Step 2: Assigning dividends to users")
+            assignment_result = await self.assign_dividends_to_users_simple()
+            
+            logger.info("[FULL_DIVIDEND_SYNC] ✅ COMPLETED: Full dividend sync and assignment")
+            
+            return {
+                "success": True,
+                "global_sync": global_sync_result,
+                "assignment": assignment_result,
+                "message": "Full dividend sync and assignment completed successfully"
+            }
+            
+        except Exception as e:
+            logger.error(f"[FULL_DIVIDEND_SYNC] Error: {e}")
+            DebugLogger.log_error(file_name="dividend_service.py", function_name="full_dividend_sync_and_assignment", error=e)
+            return {"success": False, "error": str(e)}
 
 # Create singleton instance
 dividend_service = DividendService()

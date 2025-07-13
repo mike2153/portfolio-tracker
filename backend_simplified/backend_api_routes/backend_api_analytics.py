@@ -319,6 +319,42 @@ async def backend_api_sync_all_dividends(
         )
         raise HTTPException(status_code=500, detail=str(e))
 
+@analytics_router.post("/dividends/assign-simple")
+@DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="ASSIGN_DIVIDENDS_SIMPLE")
+async def backend_api_assign_dividends_simple(
+    user_data: Dict[str, Any] = Depends(require_authenticated_user)
+) -> Dict[str, Any]:
+    """
+    NEW SIMPLE DIVIDEND ASSIGNMENT: Use loop-based approach to assign dividends to users
+    """
+    user_id = user_data.get("id")
+    user_token = user_data.get("access_token")
+    
+    if not user_id:
+        raise HTTPException(status_code=401, detail="User ID not found in authentication data")
+    if not user_token:
+        raise HTTPException(status_code=401, detail="Access token not found in authentication data")
+    
+    logger.info(f"[backend_api_analytics.py::backend_api_assign_dividends_simple] Starting simple dividend assignment")
+    
+    try:
+        result = await dividend_service.assign_dividends_to_users_simple()
+        
+        return {
+            "success": True,
+            "data": result,
+            "message": result.get("message", "Simple dividend assignment completed")
+        }
+        
+    except Exception as e:
+        DebugLogger.log_error(
+            file_name="backend_api_analytics.py",
+            function_name="backend_api_assign_dividends_simple",
+            error=e,
+            user_id=user_id
+        )
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Helper functions
 
 async def _get_portfolio_summary(user_id: str, user_token: str) -> Dict[str, Any]:

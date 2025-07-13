@@ -273,7 +273,7 @@ export default function AnalyticsDividendsTab() {
         label: 'Company',
         searchable: true,
         sortable: true,
-        render: (item: DividendTableRow) => (
+        render: (value: any, item: DividendTableRow) => (
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
               {item.symbol?.slice(0, 2) || '??'}
@@ -294,7 +294,7 @@ export default function AnalyticsDividendsTab() {
         key: 'ex_date',
         label: 'Ex-Date',
         sortable: true,
-        render: (item: DividendTableRow) => (
+        render: (value: any, item: DividendTableRow) => (
           <div className="text-sm text-gray-300">
             {item.ex_date ? formatDividendDate(item.ex_date) : 'N/A'}
           </div>
@@ -304,7 +304,7 @@ export default function AnalyticsDividendsTab() {
         key: 'pay_date',
         label: 'Pay Date',
         sortable: true,
-        render: (item: DividendTableRow) => (
+        render: (value: any, item: DividendTableRow) => (
           <div>
             <div className="text-sm text-white">
               {item.pay_date ? formatDividendDate(item.pay_date) : 'N/A'}
@@ -321,10 +321,10 @@ export default function AnalyticsDividendsTab() {
         key: 'amount_per_share',
         label: 'Amount/Share',
         sortable: true,
-        render: (item: DividendTableRow) => (
+        render: (value: any, item: DividendTableRow) => (
           <div className="text-right">
             <div className="font-medium text-green-400">
-              {formatDividendCurrency(item.amount_per_share, item.currency)}
+              {formatDividendCurrency(item.amount_per_share || 0, item.currency || 'USD')}
             </div>
           </div>
         )
@@ -333,7 +333,7 @@ export default function AnalyticsDividendsTab() {
         key: 'shares_held_at_ex_date',
         label: 'Holdings',
         sortable: true,
-        render: (item: DividendTableRow) => (
+        render: (value: any, item: DividendTableRow) => (
           <div className="text-right">
             <div className="text-white">{(item.shares_held_at_ex_date || 0).toFixed(2)}</div>
             <div className="text-sm text-gray-400">
@@ -350,10 +350,10 @@ export default function AnalyticsDividendsTab() {
         key: 'total_amount',
         label: 'Total Amount',
         sortable: true,
-        render: (item: DividendTableRow) => (
+        render: (value: any, item: DividendTableRow) => (
           <div className="text-right">
             <div className="font-medium text-green-400">
-              {formatDividendCurrency(item.total_amount, item.currency)}
+              {formatDividendCurrency(item.total_amount || 0, item.currency || 'USD')}
             </div>
             {item.confirmed === 'Yes' ? (
               <div className="text-sm text-green-400">Confirmed</div>
@@ -367,7 +367,7 @@ export default function AnalyticsDividendsTab() {
         key: 'confirmed',
         label: 'Status',
         sortable: true,
-        render: (item: DividendTableRow) => (
+        render: (value: any, item: DividendTableRow) => (
           <div className="text-center">
             <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
               item.confirmed === 'Yes' 
@@ -383,22 +383,21 @@ export default function AnalyticsDividendsTab() {
         key: 'actions',
         label: 'Actions',
         render: (value: any, item: DividendTableRow) => {
-          // FIXED: Correct render function signature - receives (value, item)
+          // FIXED: Use correct render function signature - receives (value, item)
           console.log('[FRONTEND_DEBUG] ===== Render Action Column =====');
           console.log('[FRONTEND_DEBUG] Value received:', value);
           console.log('[FRONTEND_DEBUG] Item received:', item);
           console.log('[FRONTEND_DEBUG] Item.id:', item?.id);
-          console.log('[FRONTEND_DEBUG] dividendsData length:', dividendsData?.length || 0);
-          console.log('[FRONTEND_DEBUG] dividendsData sample ids:', dividendsData?.slice(0, 3).map(d => d.id));
           
           if (!item?.id) {
             console.error('[FRONTEND_DEBUG] ❌ CRITICAL ERROR: item.id is undefined!', item);
             return <div className="text-red-500">Error: Missing ID</div>;
           }
           
-          const dividend = dividendsData?.find(d => d.id === item.id);
-          console.log('[FRONTEND_DEBUG] Found matching dividend:', dividend);
-          const canConfirm = dividend ? isDividendConfirmable(dividend) : false;
+          // FIXED: Use item data directly instead of looking up in dividendsData
+          // The item already has all the data we need from the transformed table row
+          const canConfirm = item.is_future ? false : item.confirmed !== 'Yes';
+          console.log('[FRONTEND_DEBUG] Can confirm dividend:', canConfirm, 'is_future:', item.is_future, 'confirmed:', item.confirmed);
 
           return (
             <div className="text-center space-y-2">

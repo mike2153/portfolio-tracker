@@ -101,6 +101,8 @@ export default function AnalyticsDividendsTabRefactored() {
         dataCount: result.data?.length || 0,
         metadata: result.metadata
       });
+      console.log('[REFACTORED_FRONTEND] Raw API data first item:', result.data?.[0]);
+      console.log('[REFACTORED_FRONTEND] Raw API data structure:', result.data?.slice(0, 2));
       
       if (!result.success) {
         console.log('[REFACTORED_FRONTEND] ERROR: API returned success=false:', result.error);
@@ -131,6 +133,15 @@ export default function AnalyticsDividendsTabRefactored() {
 
       console.log(`[REFACTORED_FRONTEND] ✅ Successfully processed ${dividends.length} dividends with unified data model`);
       console.log('[REFACTORED_FRONTEND] Sample processed dividend:', dividends[0]);
+      console.log('[REFACTORED_FRONTEND] First 3 dividends:', dividends.slice(0, 3).map(d => ({
+        id: d.id,
+        symbol: d.symbol,
+        company: d.company,
+        amount_per_share: d.amount_per_share,
+        shares_held_at_ex_date: d.shares_held_at_ex_date,
+        total_amount: d.total_amount,
+        confirmed: d.confirmed
+      })));
       return dividends;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -208,6 +219,15 @@ export default function AnalyticsDividendsTabRefactored() {
     
     console.log('[REFACTORED_FRONTEND] ✅ Transformed to table rows count:', tableRows.length);
     console.log('[REFACTORED_FRONTEND] Sample table row:', tableRows[0]);
+    console.log('[REFACTORED_FRONTEND] First 3 table rows:', tableRows.slice(0, 3).map(row => ({
+      id: row.id,
+      symbol: row.symbol,
+      company: row.company,
+      amount_per_share: row.amount_per_share,
+      shares_held_at_ex_date: row.shares_held_at_ex_date,
+      total_amount: row.total_amount,
+      confirmed: row.confirmed
+    })));
     
     return tableRows;
   }, [dividendsData]);
@@ -490,6 +510,12 @@ export default function AnalyticsDividendsTabRefactored() {
         </div>
 
         <div className="p-6">
+          {console.log('[REFACTORED_FRONTEND] Data being passed to ApexListView:', {
+            listDataLength: listData.length,
+            firstItem: listData[0],
+            columnsCount: columns.length,
+            isLoading: dividendsLoading
+          })}
           <ApexListView
             data={listData}
             columns={columns as any}
