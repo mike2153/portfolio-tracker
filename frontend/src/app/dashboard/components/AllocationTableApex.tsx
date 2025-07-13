@@ -173,7 +173,7 @@ const AllocationTableApex = () => {
       {
         label: 'View Details',
         onClick: (item) => {
-          console.log('[AllocationTableApex] View details for:', item.groupKey);
+          //console.log('[AllocationTableApex] View details for:', item.groupKey);
           // TODO: Navigate to stock details page
         },
         className: 'text-blue-400 hover:text-blue-300'
@@ -181,7 +181,7 @@ const AllocationTableApex = () => {
       {
         label: 'Add Transaction',
         onClick: (item) => {
-          console.log('[AllocationTableApex] Add transaction for:', item.groupKey);
+          //console.log('[AllocationTableApex] Add transaction for:', item.groupKey);
           // TODO: Open add transaction modal with pre-filled symbol
         },
         className: 'text-green-400 hover:text-green-300'
@@ -197,29 +197,29 @@ const AllocationTableApex = () => {
 
   // Add defensive function to safely format allocation
   const safeFormatAllocation = (allocation: any): string => {
-    console.log('[AllocationTableApex] safeFormatAllocation called with:', allocation, 'type:', typeof allocation);
+    //console.log('[AllocationTableApex] safeFormatAllocation called with:', allocation, 'type:', typeof allocation);
     
     // Handle null/undefined
     if (allocation == null) {
-      console.log('[AllocationTableApex] safeFormatAllocation: allocation is null/undefined, returning 0.00%');
+      //console.log('[AllocationTableApex] safeFormatAllocation: allocation is null/undefined, returning 0.00%');
       return '0.00%';
     }
     
     // If it's already a number
     if (typeof allocation === 'number') {
-      console.log('[AllocationTableApex] safeFormatAllocation: allocation is number, using toFixed');
+      //console.log('[AllocationTableApex] safeFormatAllocation: allocation is number, using toFixed');
       return `${allocation.toFixed(2)}%`;
     }
     
     // If it's a string, try to parse it
     if (typeof allocation === 'string') {
-      console.log('[AllocationTableApex] safeFormatAllocation: allocation is string, attempting to parse');
+      //console.log('[AllocationTableApex] safeFormatAllocation: allocation is string, attempting to parse');
       const parsed = parseFloat(allocation);
       if (!isNaN(parsed)) {
-        console.log('[AllocationTableApex] safeFormatAllocation: successfully parsed string to number:', parsed);
+        //console.log('[AllocationTableApex] safeFormatAllocation: successfully parsed string to number:', parsed);
         return `${parsed.toFixed(2)}%`;
       } else {
-        console.log('[AllocationTableApex] safeFormatAllocation: failed to parse string, returning raw value');
+        //console.log('[AllocationTableApex] safeFormatAllocation: failed to parse string, returning raw value');
         return `${allocation}%`;
       }
     }

@@ -67,7 +67,7 @@ class IndexSimulationService:
             )  # type: ignore[arg-type]
 
             # Step 1: Get user's portfolio value at start_date
-            logger.info(f"[index_sim_service] 📊 Step 1: Fetching portfolio value at {start_date}")
+            #logger.info(f"[index_sim_service] 📊 Step 1: Fetching portfolio value at {start_date}")
             start_series, start_meta = await PortfolioTimeSeriesService.get_portfolio_series(
                 user_id=user_id,
                 range_key="MAX",
@@ -311,9 +311,11 @@ class IndexSimulationService:
                     f"[index_sim_service] 📈 DEBUG: Seeding shares from {most_recent}: {current_shares:.6f}"
                 )
             else:
-                logger.info(f"[index_sim_service] 📈 DEBUG: No prior positions found before {start_date}, starting with 0 shares")
+                #logger.info(f"[index_sim_service] 📈 DEBUG: No prior positions found before {start_date}, starting with 0 shares")
+                pass
         else:
-            logger.info(f"[index_sim_service] 📈 DEBUG: No share positions available, starting with 0 shares")
+            #logger.info(f"[index_sim_service] 📈 DEBUG: No share positions available, starting with 0 shares")
+            pass
 
         # Seed last known price using nearest available price on or before the
         # start date.  If no prior price exists, fall back to the next
@@ -334,7 +336,7 @@ class IndexSimulationService:
             # Update shares position if there was a transaction on this date
             if current_date in share_positions:
                 current_shares = share_positions[current_date]
-                logger.info(f"[index_sim_service] 📈 DEBUG: {current_date}: Updated position to {current_shares:.6f} shares")
+                #logger.info(f"[index_sim_service] 📈 DEBUG: {current_date}: Updated position to {current_shares:.6f} shares")
 
             # Get price for this date with forward-fill
             if current_date in benchmark_prices:
@@ -346,7 +348,7 @@ class IndexSimulationService:
 
             else:
                 # Skip until we get first price data (no double increment)
-                logger.info(f"[index_sim_service] 📅 DEBUG: {current_date}: No price data available, skipping")
+                #logger.info(f"[index_sim_service] 📅 DEBUG: {current_date}: No price data available, skipping")
                 current_date += timedelta(days=1)
                 continue
 
@@ -362,7 +364,8 @@ class IndexSimulationService:
         if daily_values and daily_values[0][1] == 0:
             logger.warning(f"[index_sim_service] ⚠️ First index value is $0 on {daily_values[0][0]}")
         elif daily_values:
-            logger.info(f"[index_sim_service] ✅ First index value: ${daily_values[0][1]} on {daily_values[0][0]}")
+            #logger.info(f"[index_sim_service] ✅ First index value: ${daily_values[0][1]} on {daily_values[0][0]}")
+            pass
 
         return daily_values
 
@@ -405,7 +408,7 @@ class IndexSimulationService:
     @staticmethod
     async def _generate_zero_series(start_date: date, end_date: date) -> List[Tuple[date, Decimal]]:
         """Generate a time series of zero values for the given date range"""
-        logger.info(f"[index_sim_service] 🔢 Generating zero value series from {start_date} to {end_date}")
+        #logger.info(f"[index_sim_service] 🔢 Generating zero value series from {start_date} to {end_date}")
 
         series = []
         current_date = start_date
@@ -453,7 +456,7 @@ class IndexSimulationService:
             client = create_authenticated_client(user_token)
             
             # Step 1: Get the user's actual portfolio value at the start_date
-            logger.info(f"[index_sim_service] 📊 Step 1: Getting user's portfolio value at {start_date}")
+            #logger.info(f"[index_sim_service] 📊 Step 1: Getting user's portfolio value at {start_date}")
             
             # Get portfolio data for the exact timeframe we need
             portfolio_series, portfolio_meta = await PortfolioTimeSeriesService.get_portfolio_series(
@@ -469,7 +472,8 @@ class IndexSimulationService:
             # DEBUG: Log all portfolio data points around the start date
             for i, (portfolio_date, portfolio_value) in enumerate(portfolio_series):
                 if abs((portfolio_date - start_date).days) <= 3:  # Show dates within 3 days of start_date
-                    logger.info(f"[index_sim_service] 🔍 DEBUG: Portfolio[{i}] {portfolio_date} = ${portfolio_value}")
+                    #logger.info(f"[index_sim_service] 🔍 DEBUG: Portfolio[{i}] {portfolio_date} = ${portfolio_value}")
+                    pass
             
             # Find the portfolio value closest to our start_date
             start_portfolio_value = None
@@ -480,7 +484,8 @@ class IndexSimulationService:
                 if portfolio_date == start_date:
                     start_portfolio_value = portfolio_value
                     actual_start_date = portfolio_date
-                    logger.info(f"[index_sim_service] ✅ Found EXACT match for {start_date}: ${start_portfolio_value}")
+                    #logger.info(f"[index_sim_service] ✅ Found EXACT match for {start_date}: ${start_portfolio_value}")
+                    pass
                     break
             
             # If no exact match, find the closest date on or after start_date
@@ -489,7 +494,8 @@ class IndexSimulationService:
                     if portfolio_date >= start_date:
                         start_portfolio_value = portfolio_value
                         actual_start_date = portfolio_date
-                        logger.info(f"[index_sim_service] ⚠️ No exact match, using closest date {actual_start_date} (${start_portfolio_value})")
+                        #logger.info(f"[index_sim_service] ⚠️ No exact match, using closest date {actual_start_date} (${start_portfolio_value})")
+                        pass
                         break
             
             # If still no match, use the last available value
@@ -520,10 +526,10 @@ class IndexSimulationService:
                 .execute()
             
             price_data = prices_response.data
-            logger.info(f"[index_sim_service] ✅ Found {len(price_data)} {benchmark} price records")
+            #logger.info(f"[index_sim_service] ✅ Found {len(price_data)} {benchmark} price records")
             
             if not price_data:
-                logger.info(f"[index_sim_service] 📊 Returning zero series")
+                #logger.info(f"[index_sim_service] 📊 Returning zero series")
                 return await IndexSimulationService._generate_zero_series(start_date, end_date)
             
             # Build price lookup
@@ -538,7 +544,8 @@ class IndexSimulationService:
             # DEBUG: Log benchmark prices around the actual start date
             for price_date in sorted(benchmark_prices.keys()):
                 if abs((price_date - actual_start_date).days) <= 5:  # Show dates within 3 days of actual_start_date
-                    logger.info(f"[index_sim_service] 🔍 DEBUG: {benchmark}[{price_date}] = ${benchmark_prices[price_date]}")
+                    #logger.info(f"[index_sim_service] 🔍 DEBUG: {benchmark}[{price_date}] = ${benchmark_prices[price_date]}")
+                    pass
             
             start_benchmark_price = None
             index_start_date = None
@@ -559,7 +566,7 @@ class IndexSimulationService:
                 logger.error(f"[index_sim_service] ❌ No {benchmark} price found on or after {actual_start_date}")
                 return await IndexSimulationService._generate_zero_series(start_date, end_date)
             
-            logger.info(f"[index_sim_service] 💱 FINAL: {benchmark} price at {index_start_date}: ${start_benchmark_price}")
+            #logger.info(f"[index_sim_service] 💱 FINAL: {benchmark} price at {index_start_date}: ${start_benchmark_price}")
             
             # Step 4: Calculate fractional shares to buy
             

@@ -296,18 +296,19 @@ class RefactoredDividendService:
                 # Use standard calculation
                 total_amount = per_share_amount * Decimal(str(shares_held))
             
-            # Create DIVIDEND transaction
+            # CRITICAL FIX #1: Create DIVIDEND transaction with 'price' and 'quantity'
+            # The transactions table expects these fields for portfolio calculations
             transaction_data = {
                 'user_id': user_id,
                 'symbol': dividend_row['symbol'],
                 'transaction_type': 'DIVIDEND',
-                'quantity': shares_held,
-                'price': float(per_share_amount),
-                'total_value': float(total_amount),
+                'quantity': float(shares_held),  # Number of shares
+                'price': float(per_share_amount),  # Per-share dividend amount
                 'date': dividend_row['pay_date'],
-                'notes': f"Dividend payment - ${per_share_amount:.4f} per share × {shares_held} shares" + 
-                        (f" (edited total from ${dividend_row['amount'] * shares_held:.2f})" if edited_amount is not None else "")
+                'notes': f"Dividend payment - ${per_share_amount:.4f} per share × {shares_held} shares = ${total_amount:.2f}" + 
+                        (f" (edited from ${dividend_row['amount'] * shares_held:.2f})" if edited_amount is not None else "")
             }
+            # Note: Removed 'total_value' field - it will be calculated by the backend as quantity * price
             
             transaction_result = self.supa_client.table('transactions') \
                 .insert(transaction_data) \
@@ -601,6 +602,251 @@ class RefactoredDividendService:
         logger.error(f"Failed to fetch dividends for {symbol} after {max_retries} attempts")
         return []
     
+    async def edit_dividend(
+        self, 
+        user_id: str, 
+        original_dividend_id: str, 
+        edited_data: Dict[str, Any], 
+        user_token: str
+    ) -> DividendResponse:
+        """
+        FIXED: Edit dividend with proper handling of ex_date changes
+        
+        Critical Fix #2: Handle updates differently based on whether ex_date is changing
+        - If ex_date is NOT changing: Update in place
+        - If ex_date IS changing: Reject original and create new (to recalculate shares)
+        """
+        try:
+            logger.info(f"[RefactoredDividendService] Editing dividend {original_dividend_id} for user {user_id}")
+            
+            # Get the original dividend
+            original_result = self.supa_client.table('user_dividends') \
+                .select('*') \
+                .eq('id', original_dividend_id) \
+                .single() \
+                .execute()
+            
+            if not original_result.data:
+                return DividendResponse(
+                    success=False,
+                    error="Original dividend not found or access denied"
+                )
+            
+            original_dividend = original_result.data
+            was_confirmed = original_dividend.get('confirmed', False)
+            
+            # CRITICAL FIX #2: Check if ex_date is changing
+            original_ex_date = original_dividend['ex_date']
+            new_ex_date = edited_data.get('ex_date', original_ex_date)
+            ex_date_changing = (original_ex_date != new_ex_date)
+            
+            # Calculate shares based on the appropriate ex_date
+            if ex_date_changing:
+                # If ex_date is changing, we need to recalculate shares for the new date
+                shares_held = await self._calculate_shares_owned_at_date(
+                    user_id, 
+                    original_dividend['symbol'], 
+                    new_ex_date, 
+                    user_token
+                )
+                
+                if shares_held <= 0:
+                    return DividendResponse(
+                        success=False,
+                        error=f"No shares were held on new ex-dividend date {new_ex_date}"
+                    )
+            else:
+                # If ex_date is NOT changing, use existing shares calculation
+                shares_held = original_dividend.get('shares_held_at_ex_date', 0)
+                if not shares_held or shares_held <= 0:
+                    # Fallback calculation if missing
+                    shares_held = await self._calculate_shares_owned_at_date(
+                        user_id, 
+                        original_dividend['symbol'], 
+                        original_ex_date, 
+                        user_token
+                    )
+            
+            # Handle amount calculations
+            if edited_data.get('amount_per_share') is not None:
+                amount_per_share = float(edited_data['amount_per_share'])
+                total_amount = round(amount_per_share * shares_held, 2)
+            elif edited_data.get('total_amount') is not None:
+                total_amount = float(edited_data['total_amount'])
+                amount_per_share = round(total_amount / shares_held, 4) if shares_held > 0 else 0
+            else:
+                # Keep original amounts if not edited
+                amount_per_share = float(original_dividend['amount'])
+                total_amount = round(amount_per_share * shares_held, 2)
+            
+            if ex_date_changing:
+                # CASE 1: Ex-date is changing - reject and create new
+                logger.info(f"[RefactoredDividendService] Ex-date changing from {original_ex_date} to {new_ex_date}, using reject-then-create approach")
+                
+                # Create new dividend with edited data
+                new_dividend_data = {
+                    'user_id': user_id,
+                    'symbol': original_dividend['symbol'],
+                    'ex_date': new_ex_date,
+                    'pay_date': edited_data.get('pay_date', original_dividend['pay_date']),
+                    'declaration_date': original_dividend.get('declaration_date'),
+                    'record_date': original_dividend.get('record_date'),
+                    'amount': amount_per_share,
+                    'currency': original_dividend.get('currency', 'USD'),
+                    'shares_held_at_ex_date': shares_held,
+                    'current_holdings': original_dividend.get('current_holdings'),
+                    'total_amount': total_amount,
+                    'confirmed': False,  # New dividend starts unconfirmed
+                    'status': 'edited',
+                    'dividend_type': original_dividend.get('dividend_type', 'cash'),
+                    'source': 'manual',
+                    'notes': f"Edited from dividend {original_dividend_id} (ex-date changed)",
+                    'rejected': False
+                }
+                
+                # Insert new dividend
+                new_dividend_result = self.supa_client.table('user_dividends') \
+                    .insert(new_dividend_data) \
+                    .execute()
+                
+                if not new_dividend_result.data:
+                    return DividendResponse(
+                        success=False,
+                        error="Failed to create edited dividend"
+                    )
+                
+                new_dividend_id = new_dividend_result.data[0]['id']
+                
+                # Reject the original dividend
+                reject_result = await self._reject_dividend_internal(user_id, original_dividend_id, user_token)
+                if not reject_result['success']:
+                    # Rollback - delete the new dividend
+                    self.supa_client.table('user_dividends') \
+                        .delete() \
+                        .eq('id', new_dividend_id) \
+                        .execute()
+                    return DividendResponse(
+                        success=False,
+                        error=f"Failed to reject original dividend: {reject_result['error']}"
+                    )
+                
+                # Handle confirmed dividend transaction updates
+                if was_confirmed:
+                    # Delete the original transaction
+                    self.supa_client.table('transactions') \
+                        .delete() \
+                        .eq('user_id', user_id) \
+                        .eq('symbol', original_dividend['symbol']) \
+                        .eq('transaction_type', 'DIVIDEND') \
+                        .eq('date', original_dividend['pay_date']) \
+                        .execute()
+                
+                message = f"Dividend edited with new ex-date. New total: ${total_amount:.2f} for {shares_held} shares"
+                return_dividend_id = new_dividend_id
+                
+            else:
+                # CASE 2: Ex-date NOT changing - update in place
+                logger.info(f"[RefactoredDividendService] Ex-date not changing, updating dividend in place")
+                
+                update_data = {
+                    'pay_date': edited_data.get('pay_date', original_dividend['pay_date']),
+                    'amount': amount_per_share,
+                    'total_amount': total_amount,
+                    'updated_at': datetime.now().isoformat(),
+                    'notes': edited_data.get('notes', f"Edited on {datetime.now().strftime('%Y-%m-%d')}")
+                }
+                
+                # Update the existing dividend
+                update_result = self.supa_client.table('user_dividends') \
+                    .update(update_data) \
+                    .eq('id', original_dividend_id) \
+                    .execute()
+                
+                if not update_result.data:
+                    return DividendResponse(
+                        success=False,
+                        error="Failed to update dividend"
+                    )
+                
+                # If confirmed, update the associated transaction
+                if was_confirmed:
+                    # Update the transaction with new amounts
+                    transaction_update = {
+                        'price': amount_per_share,
+                        'quantity': shares_held,
+                        'date': edited_data.get('pay_date', original_dividend['pay_date']),
+                        'notes': f"Dividend payment (edited) - ${amount_per_share:.4f} per share × {shares_held} shares = ${total_amount:.2f}"
+                    }
+                    
+                    self.supa_client.table('transactions') \
+                        .update(transaction_update) \
+                        .eq('user_id', user_id) \
+                        .eq('symbol', original_dividend['symbol']) \
+                        .eq('transaction_type', 'DIVIDEND') \
+                        .eq('date', original_dividend['pay_date']) \
+                        .execute()
+                
+                message = f"Dividend updated in place. Total: ${total_amount:.2f} for {shares_held} shares"
+                return_dividend_id = original_dividend_id
+            
+            # Return success with appropriate dividend data
+            return DividendResponse(
+                success=True,
+                message=message,
+                data=UserDividendData(
+                    id=return_dividend_id,
+                    user_id=user_id,
+                    symbol=original_dividend['symbol'],
+                    ex_date=datetime.strptime(new_ex_date, '%Y-%m-%d').date(),
+                    pay_date=datetime.strptime(edited_data.get('pay_date', original_dividend['pay_date']), '%Y-%m-%d').date(),
+                    amount_per_share=Decimal(str(amount_per_share)),
+                    currency=original_dividend.get('currency', 'USD'),
+                    dividend_type=DividendType(original_dividend.get('dividend_type', 'cash')),
+                    source=DividendSource('manual'),
+                    shares_held_at_ex_date=Decimal(str(shares_held)),
+                    current_holdings=Decimal(str(original_dividend.get('current_holdings', shares_held))),
+                    total_amount=Decimal(str(total_amount)),
+                    confirmed=was_confirmed and not ex_date_changing,
+                    status=DividendStatus.CONFIRMED if (was_confirmed and not ex_date_changing) else DividendStatus.PENDING,
+                    company=self._get_company_name(original_dividend['symbol']),
+                    is_future=datetime.strptime(edited_data.get('pay_date', original_dividend['pay_date']), '%Y-%m-%d').date() > date.today(),
+                    is_recent=True,
+                    created_at=datetime.fromisoformat(original_dividend['created_at'].replace('Z', '+00:00')),
+                    updated_at=datetime.now()
+                )
+            )
+            
+        except Exception as e:
+            DebugLogger.log_error(
+                file_name="dividend_service_refactored.py",
+                function_name="edit_dividend",
+                error=e,
+                user_id=user_id,
+                dividend_id=original_dividend_id
+            )
+            return DividendResponse(
+                success=False,
+                error=str(e)
+            )
+    
+    async def _reject_dividend_internal(self, user_id: str, dividend_id: str, user_token: str) -> Dict[str, Any]:
+        """Internal method to reject a dividend"""
+        try:
+            # Mark dividend as rejected
+            update_result = self.supa_client.table('user_dividends') \
+                .update({'rejected': True, 'status': 'rejected'}) \
+                .eq('id', dividend_id) \
+                .eq('user_id', user_id) \
+                .execute()
+            
+            if update_result.data:
+                return {"success": True}
+            else:
+                return {"success": False, "error": "Failed to reject dividend"}
+                
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
     # UTILITY METHODS (Reused from original with minor fixes)
     
     def _calculate_shares_at_date(self, transactions: List[Dict[str, Any]], symbol: str, target_date: str) -> float:
@@ -608,10 +854,12 @@ class RefactoredDividendService:
         try:
             target_date_obj = datetime.strptime(target_date, '%Y-%m-%d').date()
             
+            # CRITICAL FIX #3: Exclude dividend transactions from share calculations
             relevant_transactions = [
                 t for t in transactions 
                 if t['symbol'] == symbol and 
-                datetime.strptime(t['date'], '%Y-%m-%d').date() <= target_date_obj
+                datetime.strptime(t['date'], '%Y-%m-%d').date() <= target_date_obj and
+                t['transaction_type'] in ['BUY', 'SELL', 'Buy', 'Sell']  # Only BUY/SELL affect share count
             ]
             
             total_shares = 0.0
@@ -630,7 +878,12 @@ class RefactoredDividendService:
     def _calculate_current_holdings_from_transactions(self, transactions: List[Dict[str, Any]], symbol: str) -> float:
         """Calculate current holdings from transaction list"""
         try:
-            symbol_transactions = [txn for txn in transactions if txn['symbol'] == symbol]
+            # CRITICAL FIX #3: Exclude dividend transactions from share calculations
+            symbol_transactions = [
+                txn for txn in transactions 
+                if txn['symbol'] == symbol and 
+                txn['transaction_type'] in ['BUY', 'SELL', 'Buy', 'Sell']  # Only BUY/SELL affect share count
+            ]
             
             total_shares = 0.0
             for txn in symbol_transactions:
@@ -677,6 +930,7 @@ class RefactoredDividendService:
             if not all_transactions:
                 return 0.0
             
+            # Use the updated _calculate_shares_at_date which excludes dividend transactions
             return self._calculate_shares_at_date(all_transactions, symbol, target_date)
             
         except Exception as e:

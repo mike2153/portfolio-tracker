@@ -69,14 +69,14 @@ export default function ApexListView<T extends Record<string, any>>({
     direction: 'asc' | 'desc';
   }>({ key: null, direction: 'asc' });
   const [currentPage, setCurrentPage] = useState(1);
-
+/*
   console.log('[ApexListView] Rendering with data:', {
     dataLength: data?.length,
     columnsCount: columns?.length,
     isLoading,
     error: error?.substring(0, 100)
   });
-
+*/
   // Filter and search data
   const filteredData = useMemo(() => {
     if (!searchTerm.trim()) return data;

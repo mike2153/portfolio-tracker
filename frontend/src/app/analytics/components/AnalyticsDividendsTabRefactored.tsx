@@ -42,7 +42,12 @@ interface EditDividendModalProps {
 }
 
 const EditDividendModal: React.FC<EditDividendModalProps> = ({ dividend, onClose, onSave }) => {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    ex_date: string;
+    pay_date: string;
+    amount_per_share: string | number;
+    total_amount: string | number;
+  }>({
     ex_date: dividend.ex_date || '',
     pay_date: dividend.pay_date || '',
     amount_per_share: dividend.amount_per_share || 0,
@@ -52,21 +57,45 @@ const EditDividendModal: React.FC<EditDividendModalProps> = ({ dividend, onClose
   const shares = dividend.shares_held_at_ex_date || 0;
 
   const handleAmountPerShareChange = (value: string) => {
-    const numValue = parseFloat(value) || 0;
-    setFormData({
-      ...formData,
-      amount_per_share: numValue,
-      total_amount: Math.round(numValue * shares * 100) / 100
-    });
+    // Allow empty string for better UX
+    if (value === '') {
+      setFormData({
+        ...formData,
+        amount_per_share: '',
+        total_amount: ''
+      });
+      return;
+    }
+    
+    const numValue = parseFloat(value);
+    if (!isNaN(numValue)) {
+      setFormData({
+        ...formData,
+        amount_per_share: value, // Keep the raw string value
+        total_amount: Math.round(numValue * shares * 100) / 100
+      });
+    }
   };
 
   const handleTotalAmountChange = (value: string) => {
-    const numValue = parseFloat(value) || 0;
-    setFormData({
-      ...formData,
-      total_amount: numValue,
-      amount_per_share: Math.round((numValue / shares) * 1000) / 1000
-    });
+    // Allow empty string for better UX
+    if (value === '') {
+      setFormData({
+        ...formData,
+        total_amount: '',
+        amount_per_share: ''
+      });
+      return;
+    }
+    
+    const numValue = parseFloat(value);
+    if (!isNaN(numValue) && shares > 0) {
+      setFormData({
+        ...formData,
+        total_amount: value, // Keep the raw string value
+        amount_per_share: Math.round((numValue / shares) * 1000) / 1000
+      });
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -83,12 +112,30 @@ const EditDividendModal: React.FC<EditDividendModalProps> = ({ dividend, onClose
       return;
     }
     
-    if (formData.amount_per_share < 0 || formData.total_amount < 0) {
+    // Convert to numbers for validation
+    const amountPerShare = typeof formData.amount_per_share === 'string' 
+      ? parseFloat(formData.amount_per_share) 
+      : formData.amount_per_share;
+    const totalAmount = typeof formData.total_amount === 'string' 
+      ? parseFloat(formData.total_amount) 
+      : formData.total_amount;
+    
+    if (isNaN(amountPerShare) || isNaN(totalAmount)) {
+      alert('Please enter valid amounts');
+      return;
+    }
+    
+    if (amountPerShare < 0 || totalAmount < 0) {
       alert('Amounts cannot be negative');
       return;
     }
     
-    onSave(formData);
+    // Pass numeric values to save
+    onSave({
+      ...formData,
+      amount_per_share: amountPerShare,
+      total_amount: totalAmount
+    });
   };
 
   return (

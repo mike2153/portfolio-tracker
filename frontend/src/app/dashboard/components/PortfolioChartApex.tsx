@@ -134,16 +134,18 @@ export default function PortfolioChartApex({
   const portfolioPercentReturns = calculatePercentageReturns(alignedPortfolio as any);
   const benchmarkPercentReturns = calculatePercentageReturns(alignedBenchmark as any);
   
+  
   // Prepare data for ApexChart
   const chartData = useMemo<{ name: string; data: [number, number][]; color: string }[]>(() => {
-    console.log('[PortfolioChartApex] Preparing chart data:', {
+    console.log('[PortfolioChartApex] Preparing chart data:', 
+      {
       portfolioCount: alignedPortfolio?.length || 0,
       benchmarkCount: alignedBenchmark?.length || 0,
       displayMode,
       selectedRange,
       selectedBenchmark
     });
-
+  
     const getValue = (point: any) => {
       if (!point || typeof point !== 'object') return 0;
       let result = point.value;
@@ -187,11 +189,11 @@ export default function PortfolioChartApex({
       });
     }
     
-    console.log('[PortfolioChartApex] Chart data prepared:', {
-      seriesCount: result.length,
-      portfolioPoints: result[0]?.data?.length || 0,
-      benchmarkPoints: result[1]?.data?.length || 0
-    });
+    //console.log('[PortfolioChartApex] Chart data prepared:', {
+    //  seriesCount: result.length,
+    //  portfolioPoints: result[0]?.data?.length || 0,
+    //  benchmarkPoints: result[1]?.data?.length || 0
+    //});
     
     return result;
   }, [alignedPortfolio, alignedBenchmark, displayMode, portfolioPercentReturns, benchmarkPercentReturns, selectedBenchmark, selectedRange]);

@@ -47,8 +47,8 @@ def _assert_jwt(user: Dict[str, Any]) -> _AuthContext:  # pragma: no cover
     token: Optional[str] = user.get("access_token")
     uid: str = user["id"]
 
-    logger.info("🔐 JWT token present: %s", bool(token))
-    logger.info("🔐 User ID        : %s", uid)
+    #logger.info("🔐 JWT token present: %s", bool(token))
+    #logger.info("🔐 User ID        : %s", uid)
 
     if not token:
         raise HTTPException(status_code=401, detail="Authentication token required")
@@ -153,8 +153,8 @@ async def backend_api_get_performance(
 ) -> Dict[str, Any]:
     """Return portfolio vs index performance for the requested period."""
 
-    logger.info("📥 Performance period=%s benchmark=%s", period, benchmark)
-    logger.info("🔐 User authenticated: %s", user.get("email", "<unknown>"))
+    #logger.info("📥 Performance period=%s benchmark=%s", period, benchmark)
+    #logger.info("🔐 User authenticated: %s", user.get("email", "<unknown>"))
     
     # The require_authenticated_user dependency already validates auth
     # If we reach here, auth is valid - extract JWT
@@ -177,7 +177,7 @@ async def backend_api_get_performance(
         
     # --- Resolve date range ----------------------------------------------
     start_date, end_date = PSU.compute_date_range(period)
-    logger.info("📅 Range: %s → %s", start_date, end_date)
+    #logger.info("📅 Range: %s → %s", start_date, end_date)
         
     # --- Portfolio calculation in background -----------------------------
     portfolio_task = asyncio.create_task(
@@ -185,7 +185,7 @@ async def backend_api_get_performance(
     )
         
     # --- Build rebalanced index series for this timeframe --------------
-    logger.info(f"[backend_api_get_performance] 🎯 Using REBALANCED index simulation for accurate comparison")
+    #logger.info(f"[backend_api_get_performance] 🎯 Using REBALANCED index simulation for accurate comparison")
     index_series: List[Tuple[date, Decimal]] = await ISS.get_index_sim_series(  # type: ignore[arg-type]
         user_id=uid,
         benchmark=benchmark,
@@ -208,8 +208,8 @@ async def backend_api_get_performance(
     # If no portfolio data, show index-only performance instead of empty response
     if portfolio_meta.get("no_data"):
         logger.warning("[backend_api_get_performance] No portfolio data for this period")
-        logger.info("[backend_api_get_performance] 🎯 Activating INDEX-ONLY FALLBACK MODE")
-        logger.info("[backend_api_get_performance] 📊 User will see benchmark performance instead of empty charts")
+        #logger.info("[backend_api_get_performance] 🎯 Activating INDEX-ONLY FALLBACK MODE")
+        #logger.info("[backend_api_get_performance] 📊 User will see benchmark performance instead of empty charts")
         
         # Get index-only series using the new method
         try:
@@ -242,7 +242,7 @@ async def backend_api_get_performance(
                 }
             
             # Format index-only data for chart display
-            logger.info("[backend_api_get_performance] ✅ Index-only data retrieved: %d points", len(index_only_series))
+            #logger.info("[backend_api_get_performance] ✅ Index-only data retrieved: %d points", len(index_only_series))
             
             # Convert to chart format
             index_only_chart_data = []
@@ -251,7 +251,7 @@ async def backend_api_get_performance(
                 index_only_chart_data.append(chart_point)
     
             
-            logger.info("[backend_api_get_performance] 🎯 INDEX-ONLY MODE: Returning %d benchmark data points", len(index_only_chart_data))
+            #logger.info("[backend_api_get_performance] 🎯 INDEX-ONLY MODE: Returning %d benchmark data points", len(index_only_chart_data))
             
             return {
                 "success": True,
@@ -310,7 +310,7 @@ async def backend_api_get_performance(
             return Decimal("0").quantize(Decimal("1.00"), ROUND_HALF_UP)
 
     # 🔍 FILTER: Remove zero values and ensure only trading days with actual data
-    logger.info("🔄 Filtering portfolio series - received %d data points", len(portfolio_series))
+   # logger.info("🔄 Filtering portfolio series - received %d data points", len(portfolio_series))
     
     
     # Filter out zero values (non-trading days) and convert to Decimal
@@ -323,14 +323,14 @@ async def backend_api_get_performance(
         else:
             zero_count += 1
     
-    logger.info("✅ Portfolio series filtered - %d trading days with actual values, %d zero values removed", 
-                len(portfolio_series_filtered), zero_count)
-    logger.info("📊 Filtered series sample: %s", portfolio_series_filtered[:3] if len(portfolio_series_filtered) >= 3 else portfolio_series_filtered)
+    #logger.info("✅ Portfolio series filtered - %d trading days with actual values, %d zero values removed", 
+    #            len(portfolio_series_filtered), zero_count)
+    #logger.info("📊 Filtered series sample: %s", portfolio_series_filtered[:3] if len(portfolio_series_filtered) >= 3 else portfolio_series_filtered)
     
     # Log all filtered dates for debugging
     if portfolio_series_filtered:
         logger.info("📅 First trading day: %s = $%s", portfolio_series_filtered[0][0], portfolio_series_filtered[0][1])
-        logger.info("📅 Last trading day: %s = $%s", portfolio_series_filtered[-1][0], portfolio_series_filtered[-1][1])
+        #logger.info("📅 Last trading day: %s = $%s", portfolio_series_filtered[-1][0], portfolio_series_filtered[-1][1])
     else:
         logger.warning("⚠️ No trading days with portfolio values found!")
     
@@ -338,21 +338,21 @@ async def backend_api_get_performance(
     portfolio_series_dec = portfolio_series_filtered
     
     # 🔍 DEBUG: Convert index series to Decimal type for precise calculations
-    logger.info("🔄 Converting index series to Decimal - received %d data points", len(index_series))
+    #logger.info("🔄 Converting index series to Decimal - received %d data points", len(index_series))
 
     
     index_series_dec: List[Tuple[date, Decimal]] = [
         (d, _safe_decimal(v)) for d, v in index_series
     ]
-    logger.info("✅ Index series converted to Decimal - %d points processed", len(index_series_dec))
+    #logger.info("✅ Index series converted to Decimal - %d points processed", len(index_series_dec))
 
-    logger.info("🎯 REBALANCED INDEX: No normalization needed - index already starts at portfolio value")
-    logger.info(f"📊 Portfolio start value: ${portfolio_series_dec[0][1] if portfolio_series_dec else 'N/A'}")
-    logger.info(f"📊 Index start value: ${index_series_dec[0][1] if index_series_dec else 'N/A'}")
+    #logger.info("🎯 REBALANCED INDEX: No normalization needed - index already starts at portfolio value")
+    #logger.info(f"📊 Portfolio start value: ${portfolio_series_dec[0][1] if portfolio_series_dec else 'N/A'}")
+    #logger.info(f"📊 Index start value: ${index_series_dec[0][1] if index_series_dec else 'N/A'}")
     
     if portfolio_series_dec and index_series_dec:
         value_difference = abs(float(portfolio_series_dec[0][1]) - float(index_series_dec[0][1]))
-        logger.info(f"📊 Start value difference: ${value_difference:.2f} (should be minimal)")
+        #logger.info(f"📊 Start value difference: ${value_difference:.2f} (should be minimal)")
         
         if value_difference > 1.0:  # More than $1 difference suggests an issue
             logger.warning(f"⚠️ Large start value difference detected: ${value_difference:.2f}")
@@ -362,24 +362,24 @@ async def backend_api_get_performance(
     final_index_series_dec = index_series_dec
 
     # --- Format & compute metrics ----------------------------------------
-    logger.info("🔧 Formatting series for response...")
+    #logger.info("🔧 Formatting series for response...")
 
     
     formatted = PSU.format_series_for_response(portfolio_series_dec, final_index_series_dec)
-    logger.info("✅ Series formatted successfully")
+    #logger.info("✅ Series formatted successfully")
 
     
-    logger.info("🧮 Calculating performance metrics...")
+    #logger.info("🧮 Calculating performance metrics...")
     metrics = ISU.calculate_performance_metrics(portfolio_series_dec, final_index_series_dec)
-    logger.info("✅ Performance metrics calculated")
+    #logger.info("✅ Performance metrics calculated")
 
 
-    logger.info("✅ Perf ready – %s portfolio pts | %s index pts", len(portfolio_series), len(final_index_series_dec))
+    #logger.info("✅ Perf ready – %s portfolio pts | %s index pts", len(portfolio_series), len(final_index_series_dec))
 
     # 🔍 CHART FORMAT: Create discrete data points for chart plotting (no time-series gaps)
-    logger.info("🔧 Formatting data for discrete chart plotting...")
-    logger.info("📊 Input portfolio series: %d points", len(portfolio_series_dec))
-    logger.info("📊 Input index series: %d points", len(final_index_series_dec))
+    #logger.info("🔧 Formatting data for discrete chart plotting...")
+    #logger.info("📊 Input portfolio series: %d points", len(portfolio_series_dec))
+    #logger.info("📊 Input index series: %d points", len(final_index_series_dec))
     
     # Create arrays of actual trading days only (no zero-value gaps)
     portfolio_chart_data = []
@@ -390,7 +390,7 @@ async def backend_api_get_performance(
     
     # Match index series to portfolio dates for consistent chart data
     portfolio_dates = {d for d, v in portfolio_series_dec}
-    logger.info("📅 Portfolio dates available: %d unique dates", len(portfolio_dates))
+    #logger.info("📅 Portfolio dates available: %d unique dates", len(portfolio_dates))
     
     index_chart_data = []
     for d, v in final_index_series_dec:
@@ -398,15 +398,15 @@ async def backend_api_get_performance(
             chart_point = {"date": d.isoformat(), "value": float(v)}
             index_chart_data.append(chart_point)
     
-    logger.info("✅ Chart data formatted - %d portfolio points, %d index points", 
-                len(portfolio_chart_data), len(index_chart_data))
+    #logger.info("✅ Chart data formatted - %d portfolio points, %d index points", 
+    #            len(portfolio_chart_data), len(index_chart_data))
     
     # Log sample of final chart data
     if portfolio_chart_data:
-        logger.info("📊 First portfolio chart point: %s", portfolio_chart_data[0])
+        #logger.info("📊 First portfolio chart point: %s", portfolio_chart_data[0])
         logger.info("📊 Last portfolio chart point: %s", portfolio_chart_data[-1])
     if index_chart_data:
-        logger.info("📊 First index chart point: %s", index_chart_data[0])
+        #logger.info("📊 First index chart point: %s", index_chart_data[0])
         logger.info("📊 Last index chart point: %s", index_chart_data[-1])
     
     return {
