@@ -277,9 +277,11 @@ class DividendService:
                 if shares_at_ex_date > 0:
                     # Create user-specific dividend record
                     total_amount = float(dividend['amount']) * shares_at_ex_date
+                    # Add symbol to dividend data since it's not included from Alpha Vantage
+                    dividend_with_symbol = {**dividend, 'symbol': symbol}
                     success = await self._create_user_dividend_record(
                         user_id=user_id,
-                        dividend=dividend,
+                        dividend=dividend_with_symbol,
                         shares_held=shares_at_ex_date,
                         total_amount=total_amount
                     )

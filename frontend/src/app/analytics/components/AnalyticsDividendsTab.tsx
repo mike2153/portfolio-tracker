@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabaseClient';
 import ApexListView from '@/components/charts/ApexListView';
@@ -40,6 +40,7 @@ interface DividendConfirmRequest {
 export default function AnalyticsDividendsTab() {
   const [showConfirmedOnly, setShowConfirmedOnly] = useState(false);
   const queryClient = useQueryClient();
+  const hasAutoSynced = useRef(false);
 
   // Sync dividends mutation (manual trigger only for performance)
   const syncDividendsMutation = useMutation({
@@ -234,6 +235,15 @@ export default function AnalyticsDividendsTab() {
       console.error('❌ REFACTORED dividend confirmation failed:', error);
     }
   });
+
+  // Auto-sync dividends on component mount (only once)
+  useEffect(() => {
+    if (!hasAutoSynced.current && !syncDividendsMutation.isPending) {
+      hasAutoSynced.current = true;
+      console.log('[FRONTEND] Auto-syncing dividends on page load...');
+      syncDividendsMutation.mutate();
+    }
+  }, []);
 
   // FIXED: Transform to table format using utility function
   const listData = useMemo((): DividendTableRow[] => {

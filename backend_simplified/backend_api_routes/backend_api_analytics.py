@@ -301,12 +301,48 @@ async def backend_api_sync_all_dividends(
         # Update sync time before processing
         backend_api_sync_all_dividends._sync_cache[last_sync_key] = current_time
         
-        result = await dividend_service.sync_dividends_for_all_holdings(user_id, user_token)
+        # Get all unique symbols the user has owned
+        from supa_api.supa_api_transactions import supa_api_get_user_transactions
+        user_transactions = await supa_api_get_user_transactions(user_id, limit=1000, user_token=user_token)
+        
+        if not user_transactions:
+            return {
+                "success": True,
+                "data": {"total_symbols": 0, "dividends_synced": 0, "dividends_assigned": 0},
+                "message": "No transactions found for user",
+                "rate_limited": False
+            }
+        
+        unique_symbols = list(set(txn['symbol'] for txn in user_transactions))
+        logger.info(f"[backend_api_analytics.py] Syncing dividends for {len(unique_symbols)} symbols: {unique_symbols}")
+        
+        # Sync and assign dividends for each symbol
+        total_synced = 0
+        total_assigned = 0
+        
+        for symbol in unique_symbols:
+            try:
+                # This will sync global dividends and assign applicable ones to the user
+                sync_result = await dividend_service.sync_dividends_for_symbol(
+                    user_id=user_id,
+                    symbol=symbol,
+                    user_token=user_token,
+                    from_date=None  # Check all dividends
+                )
+                if sync_result.get("success"):
+                    total_synced += sync_result.get("dividends_synced", 0)
+                    total_assigned += sync_result.get("dividends_assigned", 0)
+            except Exception as e:
+                logger.warning(f"[backend_api_analytics.py] Failed to sync {symbol}: {e}")
         
         return {
             "success": True,
-            "data": result,
-            "message": result.get("message", "Dividend sync completed for all holdings"),
+            "data": {
+                "total_symbols": len(unique_symbols),
+                "dividends_synced": total_synced,
+                "dividends_assigned": total_assigned
+            },
+            "message": f"Synced {total_synced} global dividends and assigned {total_assigned} to user",
             "rate_limited": False
         }
         
