@@ -254,7 +254,8 @@ class DividendService:
             synced_count = 0
             for dividend in filtered_dividends:
                 # Insert into global table (regardless of user ownership)
-                inserted = await self._upsert_global_dividend(
+                # Using the improved fixed version for better validation and consistency
+                inserted = await self._upsert_global_dividend_fixed(
                     symbol=symbol,
                     dividend_data=dividend
                 )
@@ -556,6 +557,97 @@ class DividendService:
         except Exception as e:
             logger.error(f"Failed to upsert global dividend for {symbol}: {e}")
             logger.error(f"Dividend data that caused error: {data if 'data' in locals() else dividend_data}")
+            return False
+    
+    async def _upsert_global_dividend_fixed(self, symbol: str, dividend_data: Dict[str, Any]) -> bool:
+        """
+        FIXED: Idempotent upsert with proper validation and duplicate prevention
+        
+        This is an improved version that:
+        1. Has comprehensive validation before insertion
+        2. Proper duplicate checking with unique constraints
+        3. Consistent data format
+        4. Cleaner code structure
+        """
+        try:
+            # Validate required fields
+            if not dividend_data.get('ex_date') or dividend_data['ex_date'] in [None, 'None', '']:
+                logger.warning(f"Skipping dividend for {symbol}: invalid ex_date '{dividend_data.get('ex_date')}'")
+                return False
+            
+            if not dividend_data.get('amount') or dividend_data['amount'] in [None, 'None', '']:
+                logger.warning(f"Skipping dividend for {symbol}: invalid amount '{dividend_data.get('amount')}'")
+                return False
+            
+            # Validate and convert amount
+            try:
+                per_share_amount = float(dividend_data['amount'])
+                if per_share_amount <= 0:
+                    logger.warning(f"Skipping dividend for {symbol}: non-positive amount {per_share_amount}")
+                    return False
+            except (ValueError, TypeError):
+                logger.warning(f"Skipping dividend for {symbol}: invalid amount format '{dividend_data['amount']}'")
+                return False
+            
+            # Validate date formats
+            try:
+                ex_date = datetime.strptime(str(dividend_data['ex_date']), '%Y-%m-%d')
+                pay_date_str = dividend_data.get('pay_date') or dividend_data.get('payment_date') or dividend_data['ex_date']
+                pay_date = datetime.strptime(str(pay_date_str), '%Y-%m-%d')
+            except ValueError as e:
+                logger.warning(f"Skipping dividend for {symbol}: invalid date format {e}")
+                return False
+            
+            # IDEMPOTENT CHECK: Prevent duplicates using unique constraint
+            existing = self.supa_client.table('user_dividends') \
+                .select('id') \
+                .eq('symbol', symbol) \
+                .eq('ex_date', dividend_data['ex_date']) \
+                .eq('amount', per_share_amount) \
+                .is_('user_id', None) \
+                .execute()
+            
+            if existing.data:
+                #logger.debug(f"Global dividend already exists for {symbol} on {dividend_data['ex_date']}")
+                return False  # Already exists, no need to insert
+            
+            # Prepare clean insert data
+            insert_data = {
+                'symbol': symbol,
+                'ex_date': dividend_data['ex_date'],
+                'pay_date': pay_date_str,
+                'amount': per_share_amount,
+                'currency': dividend_data.get('currency', 'USD'),
+                'confirmed': False,  # Global dividends start unconfirmed
+                'user_id': None,    # Global dividend marker
+                'shares_held_at_ex_date': None,
+                'source': 'alpha_vantage'
+            }
+            
+            # Add optional validated dates
+            for date_field in ['declaration_date', 'record_date']:
+                date_value = dividend_data.get(date_field)
+                if date_value and date_value not in [None, 'None', '']:
+                    try:
+                        datetime.strptime(str(date_value), '%Y-%m-%d')
+                        insert_data[date_field] = date_value
+                    except ValueError:
+                        logger.warning(f"Invalid {date_field} format for {symbol}: '{date_value}', skipping field")
+            
+            # Insert with error handling
+            result = self.supa_client.table('user_dividends') \
+                .insert(insert_data) \
+                .execute()
+            
+            if result.data:
+                #logger.info(f"✓ Inserted global dividend for {symbol} on {dividend_data['ex_date']}: ${per_share_amount}")
+                return True
+            else:
+                logger.error(f"Failed to insert dividend for {symbol}: no data returned")
+                return False
+            
+        except Exception as e:
+            logger.error(f"Failed to upsert global dividend for {symbol}: {e}")
             return False
     
     @DebugLogger.log_api_call(api_name="DIVIDEND_SERVICE", sender="BACKEND", receiver="DATABASE", operation="GET_USER_DIVIDENDS")
@@ -1397,7 +1489,8 @@ class DividendService:
                     logger.info(f"[DIVIDEND_INSERT_DEBUG] About to insert dividend: symbol={symbol}, ex_date={dividend['ex_date']}, amount={dividend['amount']}")
                     logger.info(f"[DIVIDEND_INSERT_DEBUG] Full dividend data: {dividend}")
                     
-                    inserted = await self._upsert_global_dividend(
+                    # Using the improved fixed version for better validation and consistency
+                    inserted = await self._upsert_global_dividend_fixed(
                         symbol=symbol, dividend_data=dividend
                     )
                     
@@ -1517,7 +1610,8 @@ class DividendService:
                         #logger.info(f"[GLOBAL_DIVIDEND_SYNC] Processing {symbol} dividend on {dividend['ex_date']}: amount ${dividend['amount']} per share")
                         
                         # Insert dividend into global table (for ALL dividends, not user-specific)
-                        inserted = await self._upsert_global_dividend(
+                        # Using the improved fixed version for better validation and consistency
+                        inserted = await self._upsert_global_dividend_fixed(
                             symbol=symbol, dividend_data=dividend
                         )
                         

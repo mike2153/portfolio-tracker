@@ -41,36 +41,31 @@ async def backend_api_analytics_summary(
     logger.info(f"[backend_api_analytics.py::backend_api_analytics_summary] OPTIMIZED Summary request for user: {user_id}")
     
     try:
-        # OPTIMIZATION: Use existing portfolio calculation from portfolio service
-        portfolio_service = PortfolioTimeSeriesService()
-        portfolio_result = await portfolio_service.get_portfolio_series(user_id, "1D", user_token)  # Just get current value
+        # Get detailed portfolio calculation with proper gain/loss
+        from supa_api.supa_api_portfolio import supa_api_calculate_portfolio
+        portfolio_data = await supa_api_calculate_portfolio(user_id, user_token)
         
-        # Extract current portfolio value from series
-        portfolio_value = 0
-        total_gain_loss = 0
-        total_gain_loss_percent = 0
-        
-        if portfolio_result[0] and len(portfolio_result[0]) > 0:
-            # Get the latest value from the series
-            latest_value = portfolio_result[0][-1][1]  # Last [date, value] pair
-            portfolio_value = float(latest_value)
-            
-            # Quick calculation of gain/loss (simplified)
-            if len(portfolio_result[0]) > 1:
-                first_value = portfolio_result[0][0][1]
-                if first_value > 0:
-                    total_gain_loss = portfolio_value - float(first_value)
-                    total_gain_loss_percent = (total_gain_loss / float(first_value)) * 100
+        # Extract portfolio metrics
+        portfolio_value = portfolio_data.get("total_value", 0)
+        total_cost = portfolio_data.get("total_cost", 0)
+        total_gain_loss = portfolio_data.get("total_gain_loss", 0)
+        total_gain_loss_percent = portfolio_data.get("total_gain_loss_percent", 0)
         
         # OPTIMIZATION: Get lightweight dividend summary (no complex calculations)
         dividend_summary = await _get_lightweight_dividend_summary(user_id)
         
-        # Skip IRR calculation for summary (too expensive for summary view)
+        # Calculate IRR (simple calculation for now)
+        irr_data = await _calculate_simple_irr(user_id, user_token)
+        
+        # Calculate total profit including dividends
+        total_dividends = dividend_summary.get("ytd_received", 0)  # This year's dividends
+        total_profit_with_dividends = total_gain_loss + total_dividends
+        
         summary = {
             "portfolio_value": portfolio_value,
-            "total_profit": total_gain_loss,
-            "total_profit_percent": total_gain_loss_percent,
-            "irr_percent": "0",  # Simplified - compute on demand
+            "total_profit": total_profit_with_dividends,  # Include dividends in total profit
+            "total_profit_percent": total_gain_loss_percent,  # Keep original percentage for now
+            "irr_percent": float(irr_data.get("irr_percent", 0)),
             "passive_income_ytd": dividend_summary.get("ytd_received", 0),
             "cash_balance": 0,  # TODO: Implement cash tracking
             "dividend_summary": dividend_summary
@@ -625,9 +620,12 @@ async def _get_detailed_holdings(user_id: str, user_token: str, include_sold: bo
     for symbol in symbols_to_price:
         price_result = await current_price_manager.get_current_price_fast(symbol)
         if price_result.get("success"):
-            symbol_prices[symbol] = price_result["data"].get("price", 0)
+            price = price_result["data"].get("price", 0)
+            symbol_prices[symbol] = price
+            logger.info(f"[backend_api_analytics.py] Price for {symbol}: ${price}")
         else:
             symbol_prices[symbol] = 0
+            logger.warning(f"[backend_api_analytics.py] Failed to get price for {symbol}: {price_result.get('error', 'Unknown error')}")
     
     logger.info(f"[backend_api_analytics.py::_get_detailed_holdings] Fetched prices for {len(symbol_prices)} symbols")
     
@@ -650,7 +648,7 @@ async def _get_detailed_holdings(user_id: str, user_token: str, include_sold: bo
         unrealized_gain_percent = (unrealized_gain / holding["cost_basis"] * 100) if holding["cost_basis"] > 0 else 0
         total_profit_percent = (total_profit / total_invested * 100) if total_invested > 0 else 0
         
-        result_holdings.append({
+        holding_data = {
             "symbol": symbol,
             "quantity": holding["quantity"],
             "current_price": current_price,
@@ -665,7 +663,12 @@ async def _get_detailed_holdings(user_id: str, user_token: str, include_sold: bo
             "daily_change": 0,  # TODO: Calculate daily change
             "daily_change_percent": 0,  # TODO: Calculate daily change percent
             "irr_percent": 0  # TODO: Calculate IRR per holding
-        })
+        }
+        
+        # Log the holding data for debugging
+        logger.info(f"[backend_api_analytics.py] Holding {symbol}: qty={holding['quantity']}, price=${current_price}, value=${current_value}, cost=${holding['cost_basis']}")
+        
+        result_holdings.append(holding_data)
     
     return result_holdings
 
@@ -700,14 +703,22 @@ async def _get_lightweight_dividend_summary(user_id: str) -> Dict[str, Any]:
         current_year = datetime.now().year
         year_start = f"{current_year}-01-01"
         
+        # Get confirmed dividends for the year - need total_amount, not just amount per share
         ytd_result = supa_client.table('user_dividends') \
-            .select('amount') \
+            .select('total_amount, amount, shares_held_at_ex_date') \
             .eq('user_id', user_id) \
             .eq('confirmed', True) \
             .gte('pay_date', year_start) \
             .execute()
         
-        ytd_received = sum(float(div['amount']) for div in ytd_result.data) if ytd_result.data else 0
+        # Calculate YTD received - use total_amount if available, otherwise calculate from amount * shares
+        ytd_received = 0
+        for div in ytd_result.data if ytd_result.data else []:
+            if div.get('total_amount'):
+                ytd_received += float(div['total_amount'])
+            elif div.get('amount') and div.get('shares_held_at_ex_date'):
+                # Fallback calculation if total_amount not set
+                ytd_received += float(div['amount']) * float(div['shares_held_at_ex_date'])
         
         return {
             "ytd_received": ytd_received,
@@ -751,9 +762,15 @@ async def _calculate_simple_irr(user_id: str, user_token: str) -> Dict[str, Any]
         if start_value <= 0:
             return {"irr_percent": 0}
         
-        total_return = (end_value - start_value) / start_value
+        # Convert to float for calculation
+        start_val_float = float(start_value)
+        end_val_float = float(end_value)
+        
+        total_return = (end_val_float - start_val_float) / start_val_float
         days = len(series_data)
-        annualized_return = (Decimal(1) + total_return) ** (Decimal('365') / Decimal(days)) - Decimal(1)
+        
+        # Simple annualized return calculation
+        annualized_return = ((1 + total_return) ** (365 / days)) - 1
         
         return {"irr_percent": annualized_return * 100}
         

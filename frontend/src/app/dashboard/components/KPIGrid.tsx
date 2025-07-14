@@ -6,7 +6,7 @@ import KPICard from './KPICard';
 import { KPIGridSkeleton } from './Skeletons';
 import { useDashboard } from '../contexts/DashboardContext';
 import { useAuth } from '@/components/AuthProvider';
-import { front_api_get_dashboard } from '@/lib/front_api_client';
+import { front_api_get_dashboard, front_api_get_analytics_summary } from '@/lib/front_api_client';
 
 interface KPIGridProps {
   initialData?: DashboardOverview;
@@ -49,6 +49,28 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
     },
   });
 
+  // Fetch analytics summary for dividend and IRR data
+  const { data: analyticsData } = useQuery<any, Error>({
+    queryKey: ['analytics-summary'],
+    queryFn: async (): Promise<any> => {
+      try {
+        const result: any = await front_api_get_analytics_summary();
+        
+        if (!result.success) {
+          throw new Error(result.error || 'Analytics API returned an error');
+        }
+        
+        return result;
+      } catch (apiError) {
+        throw apiError;
+      }
+    },
+    enabled: !!user && !!userId,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    retry: 3,
+  });
+
   const data = apiData || initialData;
 
   // Transform the dashboard API response to KPI format
@@ -64,13 +86,13 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
       is_positive: (data.portfolio?.total_gain_loss || 0) >= 0
     },
     irr: {
-      value: 0, // IRR calculation would need historical data
+      value: analyticsData?.data?.irr_percent || 0,
       sub_label: 'Internal Rate of Return',
-      is_positive: true
+      is_positive: (analyticsData?.data?.irr_percent || 0) >= 0
     },
     passiveIncome: {
-      value: 0, // Dividend data would come from transaction analysis
-      sub_label: 'Annual Dividend Yield',
+      value: analyticsData?.data?.passive_income_ytd || 0,
+      sub_label: `${analyticsData?.data?.dividend_summary?.confirmed_count || 0} dividends YTD`,
       is_positive: true
     }
   } : null;
@@ -100,8 +122,9 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
     is_positive: portfolioDollarGain >= 0
   } : transformedData.capitalGains;
 
-  const dividendValue = transformedData.passiveIncome?.value || 0;
-  const totalReturnValue = performanceData ? portfolioDollarGain + Number(dividendValue) : Number(transformedData.capitalGains?.value || 0) + Number(dividendValue);
+  const dividendValue = analyticsData?.data?.passive_income_ytd || 0;
+  const capitalGains = performanceData ? portfolioDollarGain : (data?.portfolio?.total_gain_loss || 0);
+  const totalReturnValue = capitalGains + dividendValue;
   const totalReturnData = {
     value: totalReturnValue,
     sub_label: `Capital Gains + Dividends`,
@@ -118,7 +141,13 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
         showPercentage={true}
         percentValue={(data?.portfolio?.total_gain_loss_percent || 0)}
       />
-      <KPICard title="Dividend Yield" data={transformedData.passiveIncome} prefix="" />
+      <KPICard 
+        title="IRR" 
+        data={transformedData.irr} 
+        prefix="" 
+        suffix="%" 
+        showValueAsPercent={true}
+      />
       <KPICard title="Total Return" data={totalReturnData} prefix="" />
     </div>
   );

@@ -11,9 +11,10 @@ interface KPICardProps {
   suffix?: string;
   showPercentage?: boolean;
   percentValue?: number;
+  showValueAsPercent?: boolean;
 }
 
-const KPICard = ({ title, data, prefix = "", suffix = "", showPercentage = false, percentValue }: KPICardProps) => {
+const KPICard = ({ title, data, prefix = "", suffix = "", showPercentage = false, percentValue, showValueAsPercent = false }: KPICardProps) => {
 //  console.log(`[KPICard] 🚀 Enhanced KPI card rendering for: ${title}`);
  // console.log(`[KPICard] 📊 Raw data received:`, data);
   //console.log(`[KPICard] 📊 Data type:`, typeof data);
@@ -56,6 +57,10 @@ const KPICard = ({ title, data, prefix = "", suffix = "", showPercentage = false
       if (isNaN(val)) {
         return '—';
       }
+      // For percentage values, don't use thousands separator
+      if (showValueAsPercent) {
+        return val.toFixed(2);
+      }
       return val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
     
@@ -65,6 +70,9 @@ const KPICard = ({ title, data, prefix = "", suffix = "", showPercentage = false
       const parsed = parseFloat(val);
       if (!isNaN(parsed)) {
         //console.log(`[KPICard] safeFormatValue: successfully parsed string to number:`, parsed);
+        if (showValueAsPercent) {
+          return parsed.toFixed(2);
+        }
         return parsed.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       } else {
         //console.log(`[KPICard] safeFormatValue: failed to parse string, returning raw value`);
