@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 
 interface AuthContextValue {
   user: User | null
+  session: any | null  // Full session with access_token
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -20,6 +21,7 @@ export const useAuth = () => {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
+  const [session, setSession] = useState<any | null>(null)
   const router = useRouter()
   const pathname = usePathname()
 
@@ -28,6 +30,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { data: { session } } = await supabase.auth.getSession()
       if (session?.user) {
         setUser(session.user)
+        setSession(session)
       } else if (pathname !== '/auth') {
         router.replace('/auth')
       }
@@ -37,8 +40,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         setUser(session.user)
+        setSession(session)
       } else {
         setUser(null)
+        setSession(null)
         if (pathname !== '/auth') {
           router.replace('/auth')
         }
@@ -50,7 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [router, pathname])
 
   return (
-    <AuthContext.Provider value={{ user }}>
+    <AuthContext.Provider value={{ user, session }}>
       {children}
     </AuthContext.Provider>
   )

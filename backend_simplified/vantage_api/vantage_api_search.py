@@ -88,6 +88,9 @@ async def vantage_api_symbol_search(query: str, limit: int = 20) -> List[Dict[st
             name = match.get('2. name', '')
             match_type = match.get('3. type', 'Equity')
             region = match.get('4. region', 'United States')
+            market_open = match.get('5. marketOpen', '09:30')
+            market_close = match.get('6. marketClose', '16:00')
+            timezone = match.get('7. timezone', 'UTC-05')
             currency = match.get('8. currency', 'USD')
             
             # 🔥 FIX: Don't skip short tickers - they might be valid matches
@@ -105,6 +108,9 @@ async def vantage_api_symbol_search(query: str, limit: int = 20) -> List[Dict[st
                     'name': name,
                     'type': match_type,
                     'region': region,
+                    'marketOpen': market_open,
+                    'marketClose': market_close,
+                    'timezone': timezone,
                     'currency': currency,
                     'score': score,
                     'source': 'alpha_vantage'

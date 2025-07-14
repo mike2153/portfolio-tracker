@@ -16,13 +16,17 @@ interface GainLossCardProps {
 const GainLossCard = ({ type, title }: GainLossCardProps) => {
     const isGainers = type === 'gainers';
     const { userId } = useDashboard();
-    const { user } = useAuth();
+    const { user, session } = useAuth();
 
     // Use real API endpoint
     const queryFn = async () => {
+        if (!session?.access_token) {
+            throw new Error('No authentication token available');
+        }
+        
         const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/dashboard/${type}`, {
             headers: {
-                'Authorization': `Bearer ${user?.access_token}`,
+                'Authorization': `Bearer ${session.access_token}`,
                 'Content-Type': 'application/json'
             }
         });
@@ -37,7 +41,7 @@ const GainLossCard = ({ type, title }: GainLossCardProps) => {
     const { data, isLoading, isError, error } = useQuery({
         queryKey: ['dashboard', type, userId],
         queryFn,
-        enabled: !!user,
+        enabled: !!session?.access_token,
         staleTime: 5 * 60 * 1000,
         refetchOnWindowFocus: false,
     });

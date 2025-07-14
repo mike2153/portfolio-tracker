@@ -261,12 +261,12 @@ class DividendService:
                 if inserted:
                     synced_count += 1
             
-            logger.info(f"[DividendService] Synced {synced_count} new global dividends for {symbol}")
+          #  logger.info(f"[DividendService] Synced {synced_count} new global dividends for {symbol}")
             
             # Step 2: Assign ALL applicable dividends to the user (including existing ones)
             # This ensures users get dividends even if they were already in the global table
             assigned_count = 0
-            logger.info(f"[DividendService] Assigning {len(filtered_dividends)} dividends to user {user_id}")
+            #logger.info(f"[DividendService] Assigning {len(filtered_dividends)} dividends to user {user_id}")
             
             for dividend in filtered_dividends:
                 # Calculate shares held at ex-date
@@ -287,13 +287,14 @@ class DividendService:
                     )
                     if success:
                         assigned_count += 1
-                        logger.info(f"[DividendService] Assigned dividend to user: {symbol} on {dividend['ex_date']} - {shares_at_ex_date} shares @ ${dividend['amount']}/share = ${total_amount}")
+                        #logger.info(f"[DividendService] Assigned dividend to user: {symbol} on {dividend['ex_date']} - {shares_at_ex_date} shares @ ${dividend['amount']}/share = ${total_amount}")
                     else:
-                        logger.info(f"[DividendService] User already has dividend record for {symbol} on {dividend['ex_date']}")
-                else:
-                    logger.info(f"[DividendService] User had 0 shares of {symbol} on {dividend['ex_date']}, skipping")
+                        #logger.info(f"[DividendService] User already has dividend record for {symbol} on {dividend['ex_date']}")
+                        pass
+                    #else:
+                    #    logger.info(f"[DividendService] User had 0 shares of {symbol} on {dividend['ex_date']}, skipping")
             
-            logger.info(f"[DividendService] Assigned {assigned_count} dividends to user {user_id} for {symbol}")
+           # logger.info(f"[DividendService] Assigned {assigned_count} dividends to user {user_id} for {symbol}")
             
             return {
                 "success": True,
@@ -326,10 +327,10 @@ class DividendService:
                 # Import here to avoid circular imports
                 from vantage_api.vantage_api_quotes import vantage_api_get_dividends
                 
-                DebugLogger.info_if_enabled(f"[DividendService] Fetching dividends for {symbol} (attempt {attempt + 1}/{max_retries})", logger)
+                #DebugLogger.info_if_enabled(f"[DividendService] Fetching dividends for {symbol} (attempt {attempt + 1}/{max_retries})", logger)
                 
                 dividends_data_raw = await vantage_api_get_dividends(symbol)
-                DebugLogger.info_if_enabled(f"[DividendService] Raw Alpha Vantage response for {symbol}: {dividends_data_raw}", logger)
+                #DebugLogger.info_if_enabled(f"[DividendService] Raw Alpha Vantage response for {symbol}: {dividends_data_raw}", logger)
                 
                 if not dividends_data_raw:
                     logger.info(f"[DividendService] Alpha Vantage reported no dividend history for {symbol}. This is normal for some stocks. Skipping.")
@@ -372,7 +373,7 @@ class DividendService:
                         logger.warning(f"Skipping invalid dividend data for {symbol}: {e}")
                         continue
                 
-                DebugLogger.info_if_enabled(f"[DividendService] Successfully fetched {len(dividends)} valid dividends for {symbol}", logger)
+                #DebugLogger.info_if_enabled(f"[DividendService] Successfully fetched {len(dividends)} valid dividends for {symbol}", logger)
                 return dividends
             
             except Exception as e:
@@ -476,7 +477,7 @@ class DividendService:
                             .execute())
             
             if existing.data:
-                logger.info(f"Dividend already exists for {symbol} on {data['ex_date']}, skipping")
+               # logger.info(f"Dividend already exists for {symbol} on {data['ex_date']}, skipping")
                 return False  # Already exists, no need to insert
             
             # Prepare insert data
@@ -769,10 +770,10 @@ class DividendService:
                         "error": "Dividend amount cannot be negative"
                     }
                 final_amount = Decimal(str(edited_amount))
-                DebugLogger.info_if_enabled(f"[DividendService] Using edited amount: ${edited_amount}", logger)
+                #DebugLogger.info_if_enabled(f"[DividendService] Using edited amount: ${edited_amount}", logger)
             else:
                 final_amount = Decimal(str(dividend['amount']))
-                DebugLogger.info_if_enabled(f"[DividendService] Using calculated amount: ${dividend['amount']}", logger)
+                #DebugLogger.info_if_enabled(f"[DividendService] Using calculated amount: ${dividend['amount']}", logger)
             
             # Get shares held at ex-date from the notes field or recalculate
             shares_held = self._extract_shares_from_notes(dividend.get('notes', ''))
@@ -1458,7 +1459,7 @@ class DividendService:
             self._global_sync_in_progress = True
             self._last_global_sync = time.time()
         
-        DebugLogger.info_if_enabled("[dividend_service::background_dividend_sync_all_users] Starting protected global sync", logger)
+        #DebugLogger.info_if_enabled("[dividend_service::background_dividend_sync_all_users] Starting protected global sync", logger)
         
         try:
             return await self._background_dividend_sync_all_users_impl()
@@ -1480,7 +1481,7 @@ class DividendService:
                                 .execute())
             
             if recent_dividends.data:
-                DebugLogger.info_if_enabled(f"[dividend_service] Recent dividend sync detected, limiting processing", logger)
+               # DebugLogger.info_if_enabled(f"[dividend_service] Recent dividend sync detected, limiting processing", logger)
                 # Skip processing if we've synced recently
                 return {
                     "success": True,
@@ -1492,19 +1493,19 @@ class DividendService:
             
             unique_symbols_result = self.supa_client.table('transactions').select('symbol').execute()
             unique_symbols = list(set(row['symbol'] for row in unique_symbols_result.data if row['symbol']))
-            DebugLogger.info_if_enabled(f"[dividend_service] Found {len(unique_symbols)} unique symbols across all users", logger)
+            #DebugLogger.info_if_enabled(f"[dividend_service] Found {len(unique_symbols)} unique symbols across all users", logger)
             
-            DebugLogger.info_if_enabled(f"[dividend_service] Starting full background sync. Found {len(unique_symbols)} unique symbols: {unique_symbols}", logger)
+            #DebugLogger.info_if_enabled(f"[dividend_service] Starting full background sync. Found {len(unique_symbols)} unique symbols: {unique_symbols}", logger)
 
             total_assigned = 0
             sync_results = []
             
             for symbol in unique_symbols:
                 try:
-                    DebugLogger.info_if_enabled(f"[dividend_service] <<< SYNCING SYMBOL: {symbol} >>>", logger)
+                    #DebugLogger.info_if_enabled(f"[dividend_service] <<< SYNCING SYMBOL: {symbol} >>>", logger)
                     
                     dividends = await self._fetch_dividends_from_alpha_vantage(symbol)
-                    DebugLogger.info_if_enabled(f"[dividend_service] Fetched {len(dividends)} dividends for {symbol}", logger)
+                    #DebugLogger.info_if_enabled(f"[dividend_service] Fetched {len(dividends)} dividends for {symbol}", logger)
                     
                     if not dividends:
                         DebugLogger.info_if_enabled(f"[dividend_service] No dividends found for {symbol}, skipping", logger)
@@ -1513,7 +1514,7 @@ class DividendService:
                     # INSERT ALL DIVIDENDS FOR THIS SYMBOL (global approach)
                     symbol_inserted = 0
                     for dividend in dividends:
-                        logger.info(f"[GLOBAL_DIVIDEND_SYNC] Processing {symbol} dividend on {dividend['ex_date']}: amount ${dividend['amount']} per share")
+                        #logger.info(f"[GLOBAL_DIVIDEND_SYNC] Processing {symbol} dividend on {dividend['ex_date']}: amount ${dividend['amount']} per share")
                         
                         # Insert dividend into global table (for ALL dividends, not user-specific)
                         inserted = await self._upsert_global_dividend(
@@ -1523,11 +1524,11 @@ class DividendService:
                         if inserted:
                             symbol_inserted += 1
                             total_assigned += 1
-                            logger.info(f"[GLOBAL_DIVIDEND_SYNC] ✅ SUCCESS: Inserted global dividend for {symbol} on {dividend['ex_date']}")
-                        else:
-                            logger.info(f"[GLOBAL_DIVIDEND_SYNC] ⚠ SKIP: Dividend already exists for {symbol} on {dividend['ex_date']}")
+                            #logger.info(f"[GLOBAL_DIVIDEND_SYNC] ✅ SUCCESS: Inserted global dividend for {symbol} on {dividend['ex_date']}")
+                        #else:
+                            #logger.info(f"[GLOBAL_DIVIDEND_SYNC] ⚠ SKIP: Dividend already exists for {symbol} on {dividend['ex_date']}")
                     
-                    DebugLogger.info_if_enabled(f"[dividend_service] Inserted {symbol_inserted} new dividends for {symbol}", logger)
+                    #DebugLogger.info_if_enabled(f"[dividend_service] Inserted {symbol_inserted} new dividends for {symbol}", logger)
                     
                     sync_results.append({
                         "symbol": symbol,
@@ -1536,7 +1537,7 @@ class DividendService:
                     })
                     
                 except Exception as e:
-                    DebugLogger.log_error(file_name="dividend_service.py", function_name="background_dividend_sync_all_users", error=e, symbol=symbol, additional_info=f"Failed to sync symbol {symbol}")
+                   # DebugLogger.log_error(file_name="dividend_service.py", function_name="background_dividend_sync_all_users", error=e, symbol=symbol, additional_info=f"Failed to sync symbol {symbol}")
                     sync_results.append({
                         "symbol": symbol,
                         "error": str(e)
@@ -1544,7 +1545,7 @@ class DividendService:
                     continue
             
             # Skip the old user-by-user processing
-            logger.info(f"[GLOBAL_DIVIDEND_SYNC] ✅ COMPLETED: Total {total_assigned} dividends inserted across {len(unique_symbols)} symbols")
+            #logger.info(f"[GLOBAL_DIVIDEND_SYNC] ✅ COMPLETED: Total {total_assigned} dividends inserted across {len(unique_symbols)} symbols")
             
             return {
                 "success": True,
@@ -1555,13 +1556,13 @@ class DividendService:
             }
         
         except Exception as e:
-            DebugLogger.log_error(file_name="dividend_service.py", function_name="background_dividend_sync_all_users", error=e)
+            #DebugLogger.log_error(file_name="dividend_service.py", function_name="background_dividend_sync_all_users", error=e)
             return {"success": False, "error": str(e)}
     
     async def _get_user_transactions_for_symbol(self, user_id: str, symbol: str) -> List[Dict[str, Any]]:
-        DebugLogger.info_if_enabled(f"[dividend_service::_get_user_transactions_for_symbol] Fetching transactions for user {user_id} symbol {symbol}", logger)
+        #DebugLogger.info_if_enabled(f"[dividend_service::_get_user_transactions_for_symbol] Fetching transactions for user {user_id} symbol {symbol}", logger)
         result = self.supa_client.table('transactions').select('*').eq('user_id', user_id).eq('symbol', symbol).order('date').execute()
-        DebugLogger.info_if_enabled(f"[dividend_service] Retrieved {len(result.data)} transactions", logger)
+        #DebugLogger.info_if_enabled(f"[dividend_service] Retrieved {len(result.data)} transactions", logger)
         return result.data
     
     def _analyze_transactions(self, transactions: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
@@ -1579,14 +1580,14 @@ class DividendService:
         return holdings_info
     
     def _compute_ownership_windows(self, transactions: List[Dict[str, Any]]) -> List[tuple[date, Optional[date]]]:
-        DebugLogger.info_if_enabled(f"[dividend_service::_compute_ownership_windows] Computing windows for {len(transactions)} transactions.", logger)
+        #DebugLogger.info_if_enabled(f"[dividend_service::_compute_ownership_windows] Computing windows for {len(transactions)} transactions.", logger)
         if not transactions:
-            DebugLogger.info_if_enabled("[dividend_service] No transactions, returning empty windows", logger)
+            #DebugLogger.info_if_enabled("[dividend_service] No transactions, returning empty windows", logger)
             return []
         
         # Sort by date ascending
         sorted_transactions = sorted(transactions, key=lambda t: datetime.strptime(t['date'], '%Y-%m-%d'))
-        DebugLogger.info_if_enabled(f"[dividend_service] Sorted {len(sorted_transactions)} transactions", logger)
+        #DebugLogger.info_if_enabled(f"[dividend_service] Sorted {len(sorted_transactions)} transactions", logger)
         
         windows = []
         current_start = None
@@ -1598,22 +1599,22 @@ class DividendService:
             prev_quantity = running_quantity
             running_quantity += quantity_change
             
-            DebugLogger.info_if_enabled(f"[dividend_service] Tx on {date_obj}: {tx['transaction_type']} {quantity_change}, running={running_quantity}", logger)
+            #DebugLogger.info_if_enabled(f"[dividend_service] Tx on {date_obj}: {tx['transaction_type']} {quantity_change}, running={running_quantity}", logger)
             
             if prev_quantity <= 0 and running_quantity > 0:
                 current_start = date_obj
-                DebugLogger.info_if_enabled(f"[dividend_service] Starting new window on {date_obj}", logger)
+                #DebugLogger.info_if_enabled(f"[dividend_service] Starting new window on {date_obj}", logger)
             elif prev_quantity > 0 and running_quantity <= 0 and current_start:
                 windows.append((current_start, date_obj))
-                DebugLogger.info_if_enabled(f"[dividend_service] Closed window: {current_start} to {date_obj}", logger)
+                #DebugLogger.info_if_enabled(f"[dividend_service] Closed window: {current_start} to {date_obj}", logger)
                 current_start = None
         
         # If still holding at end
         if current_start and running_quantity > 0:
             windows.append((current_start, None))
-            DebugLogger.info_if_enabled(f"[dividend_service] Added open window: {current_start} to ongoing", logger)
+            #DebugLogger.info_if_enabled(f"[dividend_service] Added open window: {current_start} to ongoing", logger)
         
-        DebugLogger.info_if_enabled(f"[dividend_service] Computed {len(windows)} ownership windows.", logger)
+        #DebugLogger.info_if_enabled(f"[dividend_service] Computed {len(windows)} ownership windows.", logger)
         return windows
     
     # Old method replaced with _upsert_global_dividend
@@ -1641,7 +1642,7 @@ class DividendService:
         This is called by the frontend and trusts the background sync has done the heavy lifting.
         """
         try:
-            DebugLogger.info_if_enabled(f"[DividendService] Getting all assigned dividends for user {user_id} (confirmed_only={confirmed_only})", logger)
+            #DebugLogger.info_if_enabled(f"[DividendService] Getting all assigned dividends for user {user_id} (confirmed_only={confirmed_only})", logger)
 
             # The logic is now much simpler: just fetch all records for this user.
             # The background sync is responsible for ensuring only eligible dividends are in this table.
@@ -1655,7 +1656,7 @@ class DividendService:
 
             result = query.execute()
 
-            DebugLogger.info_if_enabled(f"[DividendService] Found {len(result.data)} dividend records for user {user_id}", logger)
+            #DebugLogger.info_if_enabled(f"[DividendService] Found {len(result.data)} dividend records for user {user_id}", logger)
 
             # Enrich with company name for frontend convenience
             enriched_dividends = [
@@ -1822,11 +1823,11 @@ class DividendService:
         For each user holding -> For each date range -> Get dividends in range -> Assign to user
         """
         try:
-            logger.info("[SIMPLE_DIVIDEND_ASSIGNMENT] ===== Starting simple dividend assignment =====")
+           # logger.info("[SIMPLE_DIVIDEND_ASSIGNMENT] ===== Starting simple dividend assignment =====")
             
             # Get all users who have transactions
             users = await self._get_users_with_transactions()
-            logger.info(f"[SIMPLE_DIVIDEND_ASSIGNMENT] Found {len(users)} users with transactions")
+            #logger.info(f"[SIMPLE_DIVIDEND_ASSIGNMENT] Found {len(users)} users with transactions")
             
             total_assigned = 0
             assignment_results = []
@@ -1844,11 +1845,11 @@ class DividendService:
                         start_date = holding['start_date']
                         end_date = holding['end_date']
                         
-                        logger.info(f"[SIMPLE_DIVIDEND_ASSIGNMENT] Processing {symbol} for user {user_id}: {start_date} to {end_date}")
+                        #logger.info(f"[SIMPLE_DIVIDEND_ASSIGNMENT] Processing {symbol} for user {user_id}: {start_date} to {end_date}")
                         
                         # Get all global dividends for this symbol in this date range
                         dividends = await self._get_global_dividends_in_range(symbol, start_date, end_date)
-                        logger.info(f"[SIMPLE_DIVIDEND_ASSIGNMENT] Found {len(dividends)} dividends for {symbol} in range")
+                        #logger.info(f"[SIMPLE_DIVIDEND_ASSIGNMENT] Found {len(dividends)} dividends for {symbol} in range")
                         
                         for dividend in dividends:
                             # Calculate shares owned at ex_date
@@ -1866,7 +1867,7 @@ class DividendService:
                                 if success:
                                     user_assigned += 1
                                     total_assigned += 1
-                                    logger.info(f"[SIMPLE_DIVIDEND_ASSIGNMENT] ✓ Assigned {symbol} dividend ({dividend['ex_date']}) to user {user_id}: {shares_at_ex_date} shares * ${dividend['amount']} = ${float(dividend['amount']) * shares_at_ex_date}")
+                                    #logger.info(f"[SIMPLE_DIVIDEND_ASSIGNMENT] ✓ Assigned {symbol} dividend ({dividend['ex_date']}) to user {user_id}: {shares_at_ex_date} shares * ${dividend['amount']} = ${float(dividend['amount']) * shares_at_ex_date}")
                     
                     assignment_results.append({
                         "user_id": user_id,
@@ -1880,7 +1881,7 @@ class DividendService:
                         "error": str(e)
                     })
             
-            logger.info(f"[SIMPLE_DIVIDEND_ASSIGNMENT] ✅ COMPLETED: {total_assigned} dividends assigned to {len(users)} users")
+            #logger.info(f"[SIMPLE_DIVIDEND_ASSIGNMENT] ✅ COMPLETED: {total_assigned} dividends assigned to {len(users)} users")
             
             return {
                 "success": True,
@@ -1908,7 +1909,7 @@ class DividendService:
                 if row.get('user_id') and str(row['user_id']).lower() not in ['none', 'null', 'nan', '']
             ]))
             
-            logger.info(f"[SIMPLE_DIVIDEND_ASSIGNMENT] Found {len(user_ids)} unique users with valid transactions")
+            #logger.info(f"[SIMPLE_DIVIDEND_ASSIGNMENT] Found {len(user_ids)} unique users with valid transactions")
             return user_ids
             
         except Exception as e:
@@ -1966,7 +1967,7 @@ class DividendService:
                         'end_date': date.today(),  # Use today as end date for ongoing holdings
                     })
             
-            logger.info(f"[SIMPLE_DIVIDEND_ASSIGNMENT] User {user_id} holdings: {len(result_holdings)} symbols")
+            #logger.info(f"[SIMPLE_DIVIDEND_ASSIGNMENT] User {user_id} holdings: {len(result_holdings)} symbols")
             return result_holdings
             
         except Exception as e:
@@ -1984,7 +1985,7 @@ class DividendService:
                 .lte('ex_date', end_date.isoformat()) \
                 .execute()
             
-            logger.info(f"[SIMPLE_DIVIDEND_ASSIGNMENT] Found {len(result.data)} global dividends for {symbol} between {start_date} and {end_date}")
+            #logger.info(f"[SIMPLE_DIVIDEND_ASSIGNMENT] Found {len(result.data)} global dividends for {symbol} between {start_date} and {end_date}")
             return result.data
             
         except Exception as e:
@@ -2016,7 +2017,7 @@ class DividendService:
                 elif txn['transaction_type'].upper() in ['SELL', 'SALE']:
                     total_shares -= float(txn['quantity'])
             
-            logger.info(f"[SIMPLE_DIVIDEND_ASSIGNMENT] User {user_id} owned {total_shares} shares of {symbol} on {target_date}")
+            #logger.info(f"[SIMPLE_DIVIDEND_ASSIGNMENT] User {user_id} owned {total_shares} shares of {symbol} on {target_date}")
             return max(0.0, total_shares)
             
         except Exception as e:
@@ -2035,7 +2036,7 @@ class DividendService:
                 .execute()
             
             if existing.data:
-                logger.info(f"[SIMPLE_DIVIDEND_ASSIGNMENT] User dividend already exists for {user_id} {dividend['symbol']} {dividend['ex_date']}")
+             #   logger.info(f"[SIMPLE_DIVIDEND_ASSIGNMENT] User dividend already exists for {user_id} {dividend['symbol']} {dividend['ex_date']}")
                 return False
             
             # Create new user-specific dividend record
@@ -2061,7 +2062,7 @@ class DividendService:
                 .execute()
             
             if result.data:
-                logger.info(f"[SIMPLE_DIVIDEND_ASSIGNMENT] ✓ Created user dividend record for {user_id} {dividend['symbol']} {dividend['ex_date']}")
+                #logger.info(f"[SIMPLE_DIVIDEND_ASSIGNMENT] ✓ Created user dividend record for {user_id} {dividend['symbol']} {dividend['ex_date']}")
                 return True
             else:
                 logger.error(f"[SIMPLE_DIVIDEND_ASSIGNMENT] Failed to create user dividend record")
@@ -2078,17 +2079,17 @@ class DividendService:
         2. Assign dividends to users based on holdings
         """
         try:
-            logger.info("[FULL_DIVIDEND_SYNC] ===== Starting full dividend sync and assignment =====")
+            #logger.info("[FULL_DIVIDEND_SYNC] ===== Starting full dividend sync and assignment =====")
             
             # Step 1: Sync global dividends
-            logger.info("[FULL_DIVIDEND_SYNC] Step 1: Syncing global dividends from Alpha Vantage")
+            #logger.info("[FULL_DIVIDEND_SYNC] Step 1: Syncing global dividends from Alpha Vantage")
             global_sync_result = await self.background_dividend_sync_all_users()
             
             # Step 2: Assign dividends to users
-            logger.info("[FULL_DIVIDEND_SYNC] Step 2: Assigning dividends to users")
+            #logger.info("[FULL_DIVIDEND_SYNC] Step 2: Assigning dividends to users")
             assignment_result = await self.assign_dividends_to_users_simple()
             
-            logger.info("[FULL_DIVIDEND_SYNC] ✅ COMPLETED: Full dividend sync and assignment")
+            #logger.info("[FULL_DIVIDEND_SYNC] ✅ COMPLETED: Full dividend sync and assignment")
             
             return {
                 "success": True,

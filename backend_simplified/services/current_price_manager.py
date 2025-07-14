@@ -15,13 +15,14 @@ Key Features:
 import asyncio
 import logging
 from datetime import datetime, date, timedelta, timezone
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 import math
 
 from debug_logger import DebugLogger
 from supa_api.supa_api_historical_prices import supa_api_get_historical_prices, supa_api_store_historical_prices_batch
 from vantage_api.vantage_api_quotes import vantage_api_get_quote, vantage_api_get_daily_adjusted
 from vantage_api.vantage_api_client import get_vantage_client
+from services.market_status_service import market_status_service
 
 logger = logging.getLogger(__name__)
 
@@ -38,9 +39,9 @@ class CurrentPriceManager:
     
     def __init__(self):
         self.vantage_client = get_vantage_client()
-        self._quote_cache = {}  # Simple in-memory cache
-        self._cache_timeout = 300  # 5 minutes
-        logger.info("[CurrentPriceManager] Initialized with simplified price logic")
+        self._quote_cache = {}  # Cache structure: {symbol: (data, fetch_time, price)}
+        self._cache_timeout_fallback = 300  # 5 minutes fallback when we can't determine market status
+        logger.info("[CurrentPriceManager] Initialized with market-aware caching")
     
     async def get_current_price_fast(self, symbol: str) -> Dict[str, Any]:
         """
@@ -61,18 +62,55 @@ class CurrentPriceManager:
             now = datetime.now(timezone.utc)
             
             if cache_key in self._quote_cache:
-                cached_data, cache_time = self._quote_cache[cache_key]
+                cached_data, cache_time, cached_price = self._quote_cache[cache_key]
                 age_seconds = (now - cache_time).total_seconds()
                 
-                if age_seconds < self._cache_timeout:
-                    logger.info(f"[CurrentPriceManager] Using cached quote for {symbol} (age: {age_seconds:.1f}s)")
+                # Check if market is currently open
+                is_market_open, market_info = await market_status_service.is_market_open_for_symbol(symbol)
+                
+                if not is_market_open:
+                    # Market is closed - use cache if we have it (no matter how old)
+                    logger.info(f"[CurrentPriceManager] Market closed for {symbol}, using cached quote (age: {age_seconds:.1f}s)")
                     return cached_data
+                else:
+                    # Market is open - check if we need fresh data
+                    # Get fresh quote to see if price changed
+                    fresh_quote = await self._get_current_price_data(symbol)
+                    
+                    if fresh_quote and fresh_quote.get('price') == cached_price:
+                        # Price hasn't changed, update cache timestamp and continue using it
+                        logger.info(f"[CurrentPriceManager] Market open but price unchanged for {symbol}, extending cache")
+                        self._quote_cache[cache_key] = (cached_data, now, cached_price)
+                        return cached_data
+                    elif fresh_quote:
+                        # Price changed, use and cache the fresh data
+                        logger.info(f"[CurrentPriceManager] Market open and price changed for {symbol}, using fresh quote")
+                        result = {
+                            "success": True,
+                            "data": fresh_quote,
+                            "metadata": {
+                                "symbol": symbol,
+                                "data_source": "alpha_vantage_quote_fast",
+                                "timestamp": now.isoformat(),
+                                "market_status": "open",
+                                "message": "Fresh quote - price changed"
+                            }
+                        }
+                        self._quote_cache[cache_key] = (result, now, fresh_quote.get('price'))
+                        return result
+                    elif age_seconds < self._cache_timeout_fallback:
+                        # Failed to get fresh quote but cache is recent
+                        logger.info(f"[CurrentPriceManager] Failed to get fresh quote, using recent cache for {symbol}")
+                        return cached_data
             
-            # Get fresh quote from Alpha Vantage
+            # No cache or cache miss - get fresh quote from Alpha Vantage
             logger.info(f"[CurrentPriceManager] Getting fresh quote for {symbol}")
             current_price_data = await self._get_current_price_data(symbol)
             
             if current_price_data:
+                # Check market status for metadata
+                is_market_open, market_info = await market_status_service.is_market_open_for_symbol(symbol)
+                
                 result = {
                     "success": True,
                     "data": current_price_data,
@@ -80,12 +118,13 @@ class CurrentPriceManager:
                         "symbol": symbol,
                         "data_source": "alpha_vantage_quote_fast",
                         "timestamp": now.isoformat(),
+                        "market_status": "open" if is_market_open else "closed",
                         "message": "Current price retrieved successfully (fast mode)"
                     }
                 }
                 
-                # Cache the result
-                self._quote_cache[cache_key] = (result, now)
+                # Cache the result with price for comparison
+                self._quote_cache[cache_key] = (result, now, current_price_data.get('price'))
                 return result
             
             else:
@@ -132,10 +171,16 @@ class CurrentPriceManager:
             current_price_data = await self._get_current_price_data(symbol)
             
             if current_price_data:
-                # Step 2: If we have user_token, ensure historical data is current (background)
+                # Step 2: Check if market is open before updating historical data
                 if user_token:
-                    # Don't await this - let it run in background to avoid blocking
-                    asyncio.create_task(self._ensure_data_current(symbol, user_token))
+                    is_market_open, market_info = await market_status_service.is_market_open_for_symbol(symbol, user_token)
+                    
+                    if is_market_open:
+                        # Market is open - ensure historical data is current (background)
+                        logger.info(f"[CurrentPriceManager] Market open for {symbol}, checking historical data gaps")
+                        asyncio.create_task(self._ensure_data_current(symbol, user_token))
+                    else:
+                        logger.info(f"[CurrentPriceManager] Market closed for {symbol}, skipping historical data update")
                 
                 return {
                     "success": True,
@@ -279,6 +324,7 @@ class CurrentPriceManager:
     ) -> Dict[str, Any]:
         """
         Get historical prices for multiple symbols (portfolio use)
+        NOW WITH SMART MARKET CHECKING: Groups symbols by exchange and checks market status once
         
         Args:
             symbols: List of stock ticker symbols
@@ -292,30 +338,65 @@ class CurrentPriceManager:
         try:
             logger.info(f"[CurrentPriceManager] Getting portfolio prices for {len(symbols)} symbols")
             
-            # Process each symbol
+            # Step 1: Group symbols by market/exchange
+            market_groups = await market_status_service.group_symbols_by_market(symbols, user_token)
+            
+            # Step 2: Check market status for each exchange ONCE
+            market_status = await market_status_service.check_markets_status(market_groups)
+            
+            # Process symbols by market group
             portfolio_data = {}
             successful_symbols = []
             failed_symbols = []
+            skipped_symbols = []
             
-            for symbol in symbols:
-                try:
-                    result = await self.get_historical_prices(
-                        symbol=symbol,
-                        start_date=start_date,
-                        end_date=end_date,
-                        user_token=user_token
-                    )
-                    
-                    if result.get("success"):
-                        portfolio_data[symbol] = result["data"]["price_data"]
-                        successful_symbols.append(symbol)
-                    else:
-                        failed_symbols.append(symbol)
-                        logger.warning(f"[CurrentPriceManager] Failed to get data for {symbol}: {result.get('error')}")
+            for region, region_symbols in market_groups.items():
+                market_is_open = market_status.get(region, True)
+                
+                for symbol in region_symbols:
+                    try:
+                        # Get market info for better decision making
+                        market_info = await market_status_service.get_market_info_for_symbol(symbol, user_token)
                         
-                except Exception as e:
-                    logger.error(f"[CurrentPriceManager] Error processing {symbol}: {e}")
-                    failed_symbols.append(symbol)
+                        # Check if we should update prices for this symbol
+                        should_update = market_status_service.should_update_prices(symbol, market_is_open, market_info)
+                        
+                        if not should_update:
+                            # Market is closed and we already have recent data
+                            # Get cached data from database without triggering updates
+                            logger.info(f"[CurrentPriceManager] Skipping {symbol} - market closed, already have recent data")
+                            
+                            # Get existing data from DB without triggering updates
+                            if user_token:
+                                historical_data = await self._get_db_historical_data(symbol, start_date, end_date, user_token)
+                                if historical_data:
+                                    portfolio_data[symbol] = historical_data
+                                    successful_symbols.append(symbol)
+                                    skipped_symbols.append(symbol)
+                                    continue
+                        
+                        # Market is open or we need to update - proceed normally
+                        result = await self.get_historical_prices(
+                            symbol=symbol,
+                            start_date=start_date,
+                            end_date=end_date,
+                            user_token=user_token
+                        )
+                        
+                        if result.get("success"):
+                            portfolio_data[symbol] = result["data"]["price_data"]
+                            successful_symbols.append(symbol)
+                            # Mark as updated
+                            market_status_service.mark_symbol_updated(symbol)
+                        else:
+                            failed_symbols.append(symbol)
+                            logger.warning(f"[CurrentPriceManager] Failed to get data for {symbol}: {result.get('error')}")
+                            
+                    except Exception as e:
+                        logger.error(f"[CurrentPriceManager] Error processing {symbol}: {e}")
+                        failed_symbols.append(symbol)
+            
+            logger.info(f"[CurrentPriceManager] Portfolio prices summary: {len(successful_symbols)} successful, {len(skipped_symbols)} skipped (market closed), {len(failed_symbols)} failed")
             
             return {
                 "success": True,
@@ -323,11 +404,13 @@ class CurrentPriceManager:
                     "portfolio_prices": portfolio_data,
                     "successful_symbols": successful_symbols,
                     "failed_symbols": failed_symbols,
+                    "skipped_symbols": skipped_symbols,
                     "total_symbols": len(symbols)
                 },
                 "metadata": {
-                    "timestamp": datetime.utcnow().isoformat(),
-                    "message": f"Portfolio data retrieved: {len(successful_symbols)}/{len(symbols)} symbols"
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "message": f"Portfolio data: {len(successful_symbols)} retrieved ({len(skipped_symbols)} from cache), {len(failed_symbols)} failed",
+                    "market_status": market_status
                 }
             }
             
@@ -338,7 +421,7 @@ class CurrentPriceManager:
                 "error": "Data Not Available At This Time",
                 "data": None,
                 "metadata": {
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                     "message": f"Service error: {str(e)}"
                 }
             }
@@ -346,6 +429,7 @@ class CurrentPriceManager:
     async def _ensure_data_current(self, symbol: str, user_token: str) -> bool:
         """
         Ensure we have current data by checking last price date and filling gaps
+        Only fills gaps if market has been open since last data point
         
         Args:
             symbol: Stock ticker symbol
@@ -355,6 +439,13 @@ class CurrentPriceManager:
             True if data is current, False otherwise
         """
         try:
+            # Check if market is currently open
+            is_market_open, market_info = await market_status_service.is_market_open_for_symbol(symbol, user_token)
+            
+            if not is_market_open:
+                logger.info(f"[CurrentPriceManager] Market closed for {symbol}, skipping data update")
+                return True
+            
             # Step 1: Get last price date from database
             last_price_date = await self._get_last_price_date(symbol, user_token)
             today = date.today()
@@ -363,6 +454,14 @@ class CurrentPriceManager:
             
             # Step 2: Check if we need to fill gaps
             if last_price_date is None or last_price_date < today:
+                # Check if market has been open since last price date
+                if last_price_date and (today - last_price_date).days <= 1:
+                    # Only one day gap - might be weekend/holiday
+                    next_open = market_status_service.calculate_next_market_open(market_info)
+                    if next_open and next_open.date() > today:
+                        logger.info(f"[CurrentPriceManager] Market hasn't opened since {last_price_date}, no gaps to fill")
+                        return True
+                
                 logger.info(f"[CurrentPriceManager] Need to fill gaps for {symbol}")
                 
                 # Determine start date for gap filling
@@ -596,6 +695,92 @@ class CurrentPriceManager:
             )
         except (TypeError, ValueError):
             return False
+    
+    async def ensure_closing_prices(self, symbols: List[str], user_token: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Ensure we have closing prices for all symbols
+        Called after market close to capture final prices
+        
+        Args:
+            symbols: List of stock symbols
+            user_token: JWT token for database access
+            
+        Returns:
+            Dict with update results
+        """
+        try:
+            logger.info(f"[CurrentPriceManager] Ensuring closing prices for {len(symbols)} symbols")
+            
+            updated_symbols = []
+            skipped_symbols = []
+            failed_symbols = []
+            
+            for symbol in symbols:
+                try:
+                    # Check market status and info
+                    is_open, market_info = await market_status_service.is_market_open_for_symbol(symbol, user_token)
+                    
+                    if is_open:
+                        logger.info(f"[CurrentPriceManager] Market still open for {symbol}, skipping closing price update")
+                        skipped_symbols.append(symbol)
+                        continue
+                    
+                    # Force check if we need closing price
+                    should_update = market_status_service.should_update_prices(symbol, False, market_info)
+                    
+                    if should_update:
+                        logger.info(f"[CurrentPriceManager] Getting closing price for {symbol}")
+                        
+                        # Get current quote (will be closing price if market closed)
+                        current_price_data = await self._get_current_price_data(symbol)
+                        
+                        if current_price_data and self._is_valid_price(current_price_data.get('price', 0)):
+                            # Update our cache
+                            cache_key = f"quote_{symbol}"
+                            result = {
+                                "success": True,
+                                "data": current_price_data,
+                                "metadata": {
+                                    "symbol": symbol,
+                                    "data_source": "alpha_vantage_closing_price",
+                                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                                    "market_status": "closed",
+                                    "message": "Closing price captured"
+                                }
+                            }
+                            self._quote_cache[cache_key] = (result, datetime.now(timezone.utc), current_price_data.get('price'))
+                            
+                            # Mark as updated
+                            market_status_service.mark_symbol_updated(symbol)
+                            updated_symbols.append(symbol)
+                            
+                            # Also ensure historical data is updated
+                            if user_token:
+                                await self._ensure_data_current(symbol, user_token)
+                        else:
+                            failed_symbols.append(symbol)
+                    else:
+                        logger.info(f"[CurrentPriceManager] {symbol} already has closing price")
+                        skipped_symbols.append(symbol)
+                        
+                except Exception as e:
+                    logger.error(f"[CurrentPriceManager] Error getting closing price for {symbol}: {e}")
+                    failed_symbols.append(symbol)
+            
+            return {
+                "success": True,
+                "updated": updated_symbols,
+                "skipped": skipped_symbols,
+                "failed": failed_symbols,
+                "summary": f"Updated {len(updated_symbols)} closing prices, skipped {len(skipped_symbols)}, failed {len(failed_symbols)}"
+            }
+            
+        except Exception as e:
+            logger.error(f"[CurrentPriceManager] Error ensuring closing prices: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
 
 # Create a singleton instance for easy import
 current_price_manager = CurrentPriceManager()

@@ -90,7 +90,7 @@ class RefactoredDividendService:
         4. Proper error handling
         """
         try:
-            logger.info(f"[RefactoredDividendService] Getting dividends for user {user_id}, confirmed_only={confirmed_only}")
+           # logger.info(f"[RefactoredDividendService] Getting dividends for user {user_id}, confirmed_only={confirmed_only}")
             
             # Get user transactions ONCE for efficiency and transaction-based confirmation
             from supa_api.supa_api_transactions import supa_api_get_user_transactions
@@ -320,7 +320,7 @@ class RefactoredDividendService:
                     error="Failed to create dividend transaction"
                 )
             
-            logger.info(f"[RefactoredDividendService] Confirmed dividend {dividend_id} for user {user_id}")
+           # logger.info(f"[RefactoredDividendService] Confirmed dividend {dividend_id} for user {user_id}")
             
             # Return the updated dividend data
             updated_dividend = UserDividendData(
@@ -409,7 +409,7 @@ class RefactoredDividendService:
                 if inserted:
                     synced_count += 1
             
-            logger.info(f"[RefactoredDividendService] Synced {synced_count} dividends for {symbol}")
+            #logger.info(f"[RefactoredDividendService] Synced {synced_count} dividends for {symbol}")
             
             return {
                 "success": True,
@@ -481,7 +481,7 @@ class RefactoredDividendService:
                 .execute()
             
             if existing.data:
-                logger.debug(f"Global dividend already exists for {symbol} on {dividend_data['ex_date']}")
+                #logger.debug(f"Global dividend already exists for {symbol} on {dividend_data['ex_date']}")
                 return False  # Already exists
             
             # Prepare clean insert data
@@ -513,7 +513,7 @@ class RefactoredDividendService:
                 .execute()
             
             if result.data:
-                logger.info(f"✓ Inserted global dividend for {symbol} on {dividend_data['ex_date']}: ${per_share_amount}")
+                #logger.info(f"✓ Inserted global dividend for {symbol} on {dividend_data['ex_date']}: ${per_share_amount}")
                 return True
             else:
                 logger.error(f"Failed to insert dividend for {symbol}: no data returned")
@@ -532,12 +532,12 @@ class RefactoredDividendService:
             try:
                 from vantage_api.vantage_api_quotes import vantage_api_get_dividends
                 
-                DebugLogger.info_if_enabled(f"[RefactoredDividendService] Fetching dividends for {symbol} (attempt {attempt + 1}/{max_retries})", logger)
+                #DebugLogger.info_if_enabled(f"[RefactoredDividendService] Fetching dividends for {symbol} (attempt {attempt + 1}/{max_retries})", logger)
                 
                 dividends_data_raw = await vantage_api_get_dividends(symbol)
                 
                 if not dividends_data_raw:
-                    logger.info(f"[RefactoredDividendService] No dividend history for {symbol}")
+                    #logger.info(f"[RefactoredDividendService] No dividend history for {symbol}")
                     return []
                 
                 # Validate and convert to consistent format
@@ -568,7 +568,7 @@ class RefactoredDividendService:
                         logger.warning(f"Skipping invalid dividend data for {symbol}: {e}")
                         continue
                 
-                DebugLogger.info_if_enabled(f"[RefactoredDividendService] Successfully fetched {len(dividends)} valid dividends for {symbol}", logger)
+               # DebugLogger.info_if_enabled(f"[RefactoredDividendService] Successfully fetched {len(dividends)} valid dividends for {symbol}", logger)
                 return dividends
             
             except Exception as e:
@@ -617,7 +617,7 @@ class RefactoredDividendService:
         - If ex_date IS changing: Reject original and create new (to recalculate shares)
         """
         try:
-            logger.info(f"[RefactoredDividendService] Editing dividend {original_dividend_id} for user {user_id}")
+            # logger.info(f"[RefactoredDividendService] Editing dividend {original_dividend_id} for user {user_id}")
             
             # Get the original dividend
             original_result = self.supa_client.table('user_dividends') \

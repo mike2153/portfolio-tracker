@@ -34,6 +34,21 @@ async def require_authenticated_user(credentials: Optional[HTTPAuthorizationCred
     token = credentials.credentials
     logger.info(f"[supa_api_auth.py::require_authenticated_user] Token extracted: {token[:20]}...")
     
+    # Debug: Check token structure
+    token_parts = token.split('.')
+    logger.info(f"[supa_api_auth.py::require_authenticated_user] Token parts count: {len(token_parts)}")
+    
+    if len(token_parts) != 3:
+        logger.error(f"[supa_api_auth.py::require_authenticated_user] Invalid JWT structure - expected 3 parts, got {len(token_parts)}")
+        logger.error(f"[supa_api_auth.py::require_authenticated_user] Token preview: {token[:100]}...")
+        # Check if it might be a different format
+        if token.startswith('sbp_'):
+            logger.error("[supa_api_auth.py::require_authenticated_user] This looks like a Supabase service key, not a JWT!")
+        raise HTTPException(
+            status_code=401, 
+            detail=f"Invalid JWT format - expected 3 parts (header.payload.signature), got {len(token_parts)}"
+        )
+    
     try:
         
         # Validate the token with Supabase

@@ -209,10 +209,47 @@ async def backend_api_add_transaction(
             logger.error(f"❌ [FINAL_VALIDATION_DEBUG] MISSING REQUIRED FIELDS: {missing_fields}")
             raise ValueError(f"Missing required fields: {missing_fields}")
         
+        # Fetch market info for the symbol from Alpha Vantage search
+        market_info = None
+        try:
+            from vantage_api.vantage_api_search import vantage_api_symbol_search
+            search_results = await vantage_api_symbol_search(transaction.symbol, limit=5)
+            
+            if search_results and len(search_results) > 0:
+                # Find exact match for the symbol
+                for result in search_results:
+                    if result.get('symbol', '').upper() == transaction.symbol.upper():
+                        # Use the market info directly from Alpha Vantage
+                        market_info = {
+                            'region': result.get('region', 'United States'),
+                            'marketOpen': result.get('marketOpen', '09:30'),
+                            'marketClose': result.get('marketClose', '16:00'),
+                            'timezone': result.get('timezone', 'UTC-05'),
+                            'currency': result.get('currency', 'USD')
+                        }
+                        logger.info(f"[backend_api_portfolio.py] Found market info for {transaction.symbol}: {market_info}")
+                        break
+                
+                # If no exact match, use the first result as fallback
+                if not market_info and search_results:
+                    result = search_results[0]
+                    market_info = {
+                        'region': result.get('region', 'United States'),
+                        'marketOpen': result.get('marketOpen', '09:30'),
+                        'marketClose': result.get('marketClose', '16:00'),
+                        'timezone': result.get('timezone', 'UTC-05'),
+                        'currency': result.get('currency', 'USD')
+                    }
+                    logger.warning(f"[backend_api_portfolio.py] No exact match for {transaction.symbol}, using first result: {result.get('symbol')}")
+                        
+        except Exception as search_error:
+            logger.warning(f"[backend_api_portfolio.py] Failed to fetch market info for {transaction.symbol}: {search_error}")
+            # Continue without market info - will use defaults in the database
+        
         # Add to database
         user_token = user.get("access_token")
         
-        new_transaction = await supa_api_add_transaction(transaction_data, user_token)
+        new_transaction = await supa_api_add_transaction(transaction_data, user_token, market_info)
 
         # Sync dividends for this symbol after adding a BUY transaction
         if transaction.transaction_type == "Buy":

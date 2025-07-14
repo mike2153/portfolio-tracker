@@ -126,7 +126,7 @@ async def supa_api_get_historical_price_for_date(symbol: str, target_date: str) 
                 'is_exact_date': bool(price_record['is_exact_date'])
             }
             
-            logger.info(f"[supa_api_historical_prices.py::supa_api_get_historical_price_for_date] Found price: {symbol} @ ${result['close']} on {result['date']}")
+           # logger.info(f"[supa_api_historical_prices.py::supa_api_get_historical_price_for_date] Found price: {symbol} @ ${result['close']} on {result['date']}")
             
             return result
         else:
@@ -220,7 +220,7 @@ async def supa_api_get_symbols_needing_historical_data() -> List[Dict[str, Any]]
     Returns:
         List of symbols with their earliest transaction dates
     """
-    logger.info(f"[supa_api_historical_prices.py::supa_api_get_symbols_needing_historical_data] Getting symbols needing historical data")
+   # logger.info(f"[supa_api_historical_prices.py::supa_api_get_symbols_needing_historical_data] Getting symbols needing historical data")
     
     client = get_supa_service_client()
     
