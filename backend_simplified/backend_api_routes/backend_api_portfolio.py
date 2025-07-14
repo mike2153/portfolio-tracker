@@ -18,6 +18,7 @@ from supa_api.supa_api_transactions import (
 )
 from supa_api.supa_api_portfolio import supa_api_calculate_portfolio
 from services.dividend_service import dividend_service
+from services.current_price_manager import current_price_manager
 
 logger = logging.getLogger(__name__)
 
