@@ -228,6 +228,7 @@ export default function AnalyticsDividendsTabRefactored() {
   const [showConfirmedOnly, setShowConfirmedOnly] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingDividend, setEditingDividend] = useState<UserDividendData | null>(null);
+  const [confirmingDividendId, setConfirmingDividendId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   // OPTIMIZED: Sync dividends mutation with targeted cache invalidation
@@ -420,6 +421,7 @@ export default function AnalyticsDividendsTabRefactored() {
   // OPTIMIZED: Confirm dividend with targeted cache invalidation (no portfolio recalculation)
   const confirmDividendMutation = useMutation({
     mutationFn: async (params: { dividendId: string; editedAmount?: number }) => {
+      setConfirmingDividendId(params.dividendId);
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) throw new Error('Not authenticated');
 
@@ -467,9 +469,11 @@ export default function AnalyticsDividendsTabRefactored() {
       // - ['dashboard'] - would trigger get_historical_prices for all stocks
       // - ['portfolio'] - would trigger 20-second portfolio recalculation
       console.log('🚀 PERFORMANCE: Skipped expensive cache invalidations to avoid historical price fetching');
+      setConfirmingDividendId(null);
     },
     onError: (error) => {
       console.error('❌ OPTIMIZED dividend confirmation failed:', error);
+      setConfirmingDividendId(null);
     }
   });
 
@@ -494,13 +498,27 @@ export default function AnalyticsDividendsTabRefactored() {
       
       return response.json();
     },
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       console.log('✅ Dividend rejected successfully:', data);
-      // PERFORMANCE FIX: Only invalidate dividend-specific data
-      // DO NOT invalidate portfolio/dashboard caches that trigger expensive historical price calls
-      queryClient.invalidateQueries({ queryKey: ['analytics', 'dividends'] });
-      // NOTE: No need to invalidate summary since it's calculated locally from dividendsData
-      console.log('🚀 PERFORMANCE: Skipped expensive cache invalidations for dividend rejection');
+      
+      // Remove the rejected dividend from the cache
+      queryClient.setQueryData<UserDividendData[]>(['analytics', 'dividends', showConfirmedOnly], (oldData) => {
+        if (!oldData) return oldData;
+        // Filter out the rejected dividend
+        return oldData.filter(dividend => dividend.id !== variables.dividendId);
+      });
+      
+      // Also remove from the non-filtered list
+      queryClient.setQueryData<UserDividendData[]>(['analytics', 'dividends', false], (oldData) => {
+        if (!oldData) return oldData;
+        return oldData.filter(dividend => dividend.id !== variables.dividendId);
+      });
+      queryClient.setQueryData<UserDividendData[]>(['analytics', 'dividends', true], (oldData) => {
+        if (!oldData) return oldData;
+        return oldData.filter(dividend => dividend.id !== variables.dividendId);
+      });
+      
+      console.log('🚀 PERFORMANCE: Updated cache directly without expensive refetch');
     },
     onError: (error) => {
       console.error('❌ Dividend rejection failed:', error);
@@ -755,10 +773,10 @@ export default function AnalyticsDividendsTabRefactored() {
                 <div className="flex flex-col space-y-1">
                   <button
                     onClick={() => confirmDividendMutation.mutate({ dividendId: item.id })}
-                    disabled={confirmDividendMutation.isPending}
+                    disabled={confirmingDividendId === item.id}
                     className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
-                    {confirmDividendMutation.isPending ? (
+                    {confirmingDividendId === item.id ? (
                       <>
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                         Confirming...
@@ -798,7 +816,7 @@ export default function AnalyticsDividendsTabRefactored() {
         }
       }
     ],
-    [dividendsData, confirmDividendMutation]
+    [dividendsData, confirmingDividendId]
   );
 
   console.log('[REFACTORED_FRONTEND] ===== Rendering component =====');

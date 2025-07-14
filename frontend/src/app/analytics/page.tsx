@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { front_api_client } from '@/lib/front_api_client';
+import { usePortfolioAllocation } from '@/hooks/usePortfolioAllocation';
 
 // Components
 import AnalyticsKPIGrid from './components/AnalyticsKPIGrid';
@@ -49,48 +50,43 @@ export default function AnalyticsPage() {
   const [activeTab, setActiveTab] = useState<TabType>('holdings');
   const [includeSoldHoldings, setIncludeSoldHoldings] = useState(false);
 
-  // OPTIMIZED: Fetch analytics summary only when NOT on dividends tab
-  // Dividend tab has its own lightweight data fetching
-  const { data: summaryData, isLoading: summaryLoading, error: summaryError } = useQuery({
-    queryKey: ['analytics', 'summary'],
-    queryFn: async () => {
-      const { supabase } = await import('@/lib/supabaseClient');
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) throw new Error('Not authenticated');
+  // Use shared allocation hook for consistent data
+  const { data: allocationData, isLoading: allocationLoading, error: allocationError } = usePortfolioAllocation();
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/analytics/summary`, {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`
-        }
-      });
-      if (!response.ok) throw new Error('Failed to fetch analytics summary');
-      const data = await response.json();
-      return data.data as AnalyticsSummary;
-    },
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    enabled: activeTab !== 'dividends', // PERFORMANCE: Disable for dividends tab
-  });
+  // Transform allocation data to holdings format
+  const holdingsData = allocationData?.allocations.map(allocation => ({
+    symbol: allocation.symbol,
+    quantity: allocation.quantity,
+    current_price: allocation.current_price,
+    current_value: allocation.current_value,
+    cost_basis: allocation.cost_basis,
+    unrealized_gain: allocation.gain_loss,
+    unrealized_gain_percent: allocation.gain_loss_percent,
+    realized_pnl: 0, // TODO: Calculate from transactions
+    dividends_received: allocation.dividends_received,
+    total_profit: allocation.gain_loss + allocation.dividends_received,
+    total_profit_percent: ((allocation.gain_loss + allocation.dividends_received) / allocation.cost_basis * 100) || 0,
+    daily_change: 0, // TODO: Calculate daily change
+    daily_change_percent: 0, // TODO: Calculate daily change percent
+    irr_percent: 0 // TODO: Calculate IRR
+  })) || [];
 
-  // OPTIMIZED: Fetch holdings data only when needed (not for dividends tab)
-  const { data: holdingsData, isLoading: holdingsLoading, error: holdingsError } = useQuery({
-    queryKey: ['analytics', 'holdings', includeSoldHoldings],
-    queryFn: async () => {
-      const { supabase } = await import('@/lib/supabaseClient');
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) throw new Error('Not authenticated');
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/analytics/holdings?include_sold=${includeSoldHoldings}`, {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`
-        }
-      });
-      if (!response.ok) throw new Error('Failed to fetch holdings data');
-      const data = await response.json();
-      return data.data as Holding[];
-    },
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    enabled: activeTab === 'holdings' || activeTab === 'returns', // PERFORMANCE: Only for holdings/returns tabs
-  });
+  // Create summary data from allocation data
+  const summaryData: AnalyticsSummary | undefined = allocationData ? {
+    portfolio_value: allocationData.summary.total_value,
+    total_profit: allocationData.summary.total_gain_loss + allocationData.summary.total_dividends,
+    total_profit_percent: allocationData.summary.total_gain_loss_percent,
+    irr_percent: 0, // TODO: Calculate IRR
+    passive_income_ytd: allocationData.summary.total_dividends,
+    cash_balance: 0, // TODO: Implement cash tracking
+    dividend_summary: {
+      total_received: allocationData.summary.total_dividends,
+      total_pending: 0,
+      ytd_received: allocationData.summary.total_dividends,
+      confirmed_count: 0,
+      pending_count: 0
+    }
+  } : undefined;
 
   const renderTabContent = () => {
     switch (activeTab) {
@@ -99,8 +95,8 @@ export default function AnalyticsPage() {
         return (
           <AnalyticsHoldingsTable
             holdings={holdingsData || []}
-            isLoading={holdingsLoading}
-            error={holdingsError}
+            isLoading={allocationLoading}
+            error={allocationError}
             includeSoldHoldings={includeSoldHoldings}
             onToggleSoldHoldings={setIncludeSoldHoldings}
           />
@@ -136,8 +132,8 @@ export default function AnalyticsPage() {
           <div className="mb-8">
             <AnalyticsKPIGrid
               summary={summaryData}
-              isLoading={summaryLoading}
-              error={summaryError}
+              isLoading={allocationLoading}
+              error={allocationError}
             />
           </div>
         )}

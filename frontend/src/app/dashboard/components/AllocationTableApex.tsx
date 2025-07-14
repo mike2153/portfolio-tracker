@@ -1,13 +1,12 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import ApexListView from '@/components/charts/ApexListView';
 import type { ListViewColumn, ListViewAction } from '@/components/charts/ApexListView';
 import { AllocationRow } from '@/types/api';
 import { cn } from '@/lib/utils';
 import { useDashboard } from '../contexts/DashboardContext';
-import { useAuth } from '@/components/AuthProvider';
+import { usePortfolioAllocation } from '@/hooks/usePortfolioAllocation';
 
 interface AllocationRowExtended extends AllocationRow {
   id: string;
@@ -16,80 +15,24 @@ interface AllocationRowExtended extends AllocationRow {
 
 const AllocationTableApex = () => {
   useDashboard();
-  const { user } = useAuth();
-
-  const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['dashboardAllocation'],
-    queryFn: async () => {
-      //console.log('[AllocationTableApex] Making API call for allocation data...');
-      // Note: Allocation API needs to be implemented in backend
-      // For now, return sample data for demonstration
-      //console.log('[AllocationTableApex] Allocation API not yet implemented, showing sample data');
-      
-      // Sample data for demonstration
-      const sampleData = {
-        data: {
-          rows: [
-            {
-              groupKey: 'AAPL',
-              value: 50000,
-              invested: 45000,
-              gainValue: 5000,
-              gainPercent: 11.11,
-              allocation: 35.7,
-              accentColor: 'emerald'
-            },
-            {
-              groupKey: 'MSFT',
-              value: 30000,
-              invested: 28000,
-              gainValue: 2000,
-              gainPercent: 7.14,
-              allocation: 21.4,
-              accentColor: 'blue'
-            },
-            {
-              groupKey: 'GOOGL',
-              value: 25000,
-              invested: 26000,
-              gainValue: -1000,
-              gainPercent: -3.85,
-              allocation: 17.9,
-              accentColor: 'purple'
-            },
-            {
-              groupKey: 'TSLA',
-              value: 20000,
-              invested: 18000,
-              gainValue: 2000,
-              gainPercent: 11.11,
-              allocation: 14.3,
-              accentColor: 'orange'
-            },
-            {
-              groupKey: 'AMZN',
-              value: 15000,
-              invested: 16000,
-              gainValue: -1000,
-              gainPercent: -6.25,
-              allocation: 10.7,
-              accentColor: 'red'
-            }
-          ]
-        }
-      };
-      
-      return sampleData;
-    },
-    enabled: !!user,
-  });
-
- // console.log('[AllocationTableApex] Query state:', { data, isLoading, isError, error });
+  const { data: allocationData, isLoading, isError, error, refetch } = usePortfolioAllocation();
 
   // Transform data for ApexListView
   const { listViewData, columns, actions } = useMemo(() => {
-    const rows = data?.data?.rows || [];
-    //console.log('[AllocationTableApex] Processing allocation rows:', rows.length);
+    if (!allocationData) {
+      return { listViewData: [], columns: [], actions: [] };
+    }
+    
+    // Transform allocations to AllocationRow format
+    const rows: AllocationRow[] = allocationData.allocations.map((allocation) => ({
+      groupKey: allocation.symbol,
+      value: allocation.current_value,
+      invested: allocation.cost_basis,
+      gainValue: allocation.gain_loss,
+      gainPercent: allocation.gain_loss_percent,
+      allocation: allocation.allocation_percent,
+      accentColor: allocation.color
+    }));
 
     // Transform rows to extended format
     const transformedData: AllocationRowExtended[] = rows.map((row: AllocationRow, index: number) => ({
@@ -193,7 +136,7 @@ const AllocationTableApex = () => {
       columns: tableColumns,
       actions: tableActions
     };
-  }, [data]);
+  }, [allocationData]);
 
   // Add defensive function to safely format allocation
   const safeFormatAllocation = (allocation: any): string => {
@@ -237,7 +180,7 @@ const AllocationTableApex = () => {
       isLoading={isLoading}
       error={isError ? String(error) : null}
       onRetry={refetch}
-      emptyMessage="No allocation data available. API implementation pending."
+      emptyMessage={allocationData?.allocations.length === 0 ? "No holdings found. Add transactions to see your portfolio allocation." : "Loading allocation data..."}
       showSearch={true}
       showPagination={false}
       searchPlaceholder="Search holdings..."
