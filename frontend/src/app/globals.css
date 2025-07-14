@@ -1,0 +1,60 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: Inter, system-ui, sans-serif;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors;
+  }
+  
+  .btn-secondary {
+    @apply bg-gray-200 text-gray-900 px-4 py-2 rounded-md hover:bg-gray-300 transition-colors;
+  }
+  
+  .card {
+    @apply bg-gray-900 rounded-lg shadow-sm border border-gray-700 p-6 text-gray-100;
+  }
+
+  .metric-card {
+    @apply bg-gray-900 rounded-lg shadow-sm border border-gray-700 p-4 text-center text-gray-100;
+  }
+  
+  .metric-value {
+    @apply text-2xl font-bold text-gray-100;
+  }
+  
+  .metric-label {
+    @apply text-sm text-gray-600;
+  }
+}
+
+/* This is a workaround for Tailwind's JIT compiler not picking up dynamic classes */
+.bg-blue-500 { background-color: #3b82f6; }
+.bg-green-500 { background-color: #22c55e; }
+.bg-purple-500 { background-color: #8b5cf6; }
+.bg-gray-500 { background-color: #6b7280; }
+.bg-teal-500 { background-color: #14b8a6; }
+.bg-yellow-500 { background-color: #eab308; }
+.bg-red-500 { background-color: #ef4444; }
+.bg-indigo-500 { background-color: #6366f1; }
+
+.text-on-white {
+  @apply text-white;
+}
+
+/* Dark theme form controls */
+@layer base {
+  input[type='text'],
+  input[type='number'],
+  input[type='date'],
+  select,
+  textarea {
+    @apply bg-slate-700 text-white border-gray-600 placeholder-gray-400;
+  }
+} 
