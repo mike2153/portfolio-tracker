@@ -40,6 +40,14 @@ from backend_api_routes.backend_api_analytics import analytics_router
 logging.basicConfig(level=getattr(logging, LOG_LEVEL))
 logger = logging.getLogger(__name__)
 
+# Suppress noisy httpx logs
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+# Suppress APScheduler logs
+logging.getLogger("apscheduler").setLevel(logging.WARNING)
+# Suppress dividend service logs
+logging.getLogger("services.dividend_service").setLevel(logging.WARNING)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown events"""
@@ -59,16 +67,18 @@ DEBUG: {BACKEND_API_DEBUG}
     # Step 1: Sync global dividends from Alpha Vantage
     sync_result = await dividend_service.background_dividend_sync_all_users()
     if sync_result.get("success"):
-        logger.info(f"[main.py::lifespan] Successfully synced {sync_result.get('total_assigned', 0)} global dividends")
+        # logger.info(f"[main.py::lifespan] Successfully synced {sync_result.get('total_assigned', 0)} global dividends")
+        pass
     else:
         logger.warning(f"[main.py::lifespan] Dividend sync had issues: {sync_result.get('error', 'Unknown error')}")
     
     # Step 2: Assign dividends to all users based on their holdings
     # This ensures users get dividends even if they were already in the global table
-    logger.info("[main.py::lifespan] Starting dividend assignment to users...")
+    # logger.info("[main.py::lifespan] Starting dividend assignment to users...")
     assignment_result = await dividend_service.assign_dividends_to_users_simple()
     if assignment_result.get("success"):
-        logger.info(f"[main.py::lifespan] Successfully assigned {assignment_result.get('total_assigned', 0)} dividends to users")
+        # logger.info(f"[main.py::lifespan] Successfully assigned {assignment_result.get('total_assigned', 0)} dividends to users")
+        pass
     else:
         logger.warning(f"[main.py::lifespan] Dividend assignment had issues: {assignment_result.get('error', 'Unknown error')}")
     

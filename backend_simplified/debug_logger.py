@@ -96,8 +96,10 @@ OPERATION: {operation}
 SENDER: {sender}
 RECEIVER: {receiver}
 ARGS: {DebugLogger._safe_serialize(args)}
-KWARGS: {DebugLogger._safe_serialize(kwargs)}
+
 ====================================""")
+
+#KWARGS: {DebugLogger._safe_serialize(kwargs)}
                 
                 try:
                     # Execute the function
@@ -107,15 +109,15 @@ KWARGS: {DebugLogger._safe_serialize(kwargs)}
                     execution_time = time.time() - start_time
                     
                     # Log successful completion
-                    logger.info(f"""
-========== API CALL SUCCESS ==========
-FILE: {file_name}
-FUNCTION: {function_name}
-API: {api_name}
-EXECUTION_TIME: {execution_time:.3f}s
-RESULT_TYPE: {type(result).__name__}
-RESULT_PREVIEW: {DebugLogger._safe_serialize(result)[:500]}...
-======================================""")
+                    # logger.info(f"""
+# ========== API CALL SUCCESS ==========
+# FILE: {file_name}
+# FUNCTION: {function_name}
+# API: {api_name}
+# EXECUTION_TIME: {execution_time:.3f}s
+# RESULT_TYPE: {type(result).__name__}
+# RESULT_PREVIEW: {DebugLogger._safe_serialize(result)[:500]}...
+# ======================================""")
                     
                     return result
                     
@@ -164,15 +166,15 @@ KWARGS: {DebugLogger._safe_serialize(kwargs)}
                     execution_time = time.time() - start_time
                     
                     # Log successful completion
-                    logger.info(f"""
-========== API CALL SUCCESS ==========
-FILE: {file_name}
-FUNCTION: {function_name}
-API: {api_name}
-EXECUTION_TIME: {execution_time:.3f}s
-RESULT_TYPE: {type(result).__name__}
-RESULT_PREVIEW: {DebugLogger._safe_serialize(result)[:500]}...
-======================================""")
+                    # logger.info(f"""
+# ========== API CALL SUCCESS ==========
+# FILE: {file_name}
+# FUNCTION: {function_name}
+# API: {api_name}
+# EXECUTION_TIME: {execution_time:.3f}s
+# RESULT_TYPE: {type(result).__name__}
+# RESULT_PREVIEW: {DebugLogger._safe_serialize(result)[:500]}...
+# ======================================""")
                     
                     return result
                     

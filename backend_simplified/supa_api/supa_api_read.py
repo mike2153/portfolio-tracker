@@ -76,7 +76,7 @@ async def get_user_transactions(
         Optional filter for a single ticker.
     """
 
-    logger.info("📄 [get_user_transactions] uid=%s symbol=%s limit=%s offset=%s", user_id, symbol, limit, offset)
+    #logger.info("📄 [get_user_transactions] uid=%s symbol=%s limit=%s offset=%s", user_id, symbol, limit, offset)
 
     client = _jwt_client(jwt)
 
@@ -92,10 +92,10 @@ async def get_user_transactions(
     if symbol:
         query = query.eq("symbol", symbol)
 
-    logger.info("📡 [get_user_transactions] Executing PostgREST query …")
+    #logger.info("📡 [get_user_transactions] Executing PostgREST query …")
     resp = query.execute()
 
     rows: List[Dict[str, Any]] = resp.data or []  # supabase-py returns None when empty
-    logger.info("📈 [get_user_transactions] Retrieved %d rows", len(rows))
+    #logger.info("📈 [get_user_transactions] Retrieved %d rows", len(rows))
 
     return rows 

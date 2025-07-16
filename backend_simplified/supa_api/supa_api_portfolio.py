@@ -1,6 +1,11 @@
 """
 Supabase portfolio calculations
 Calculates holdings and performance from transactions
+
+NOTE: This module has been refactored to use price_data_service instead of direct Alpha Vantage API calls.
+Functions in this module are still being used by:
+- backend_api_portfolio.py::backend_api_get_portfolio_holdings (uses supa_api_calculate_portfolio)
+- backend_api_analytics.py::backend_api_get_analytics_overview (uses supa_api_calculate_portfolio)
 """
 from typing import Dict, Any, List, Optional, TypedDict
 import logging
@@ -8,7 +13,7 @@ from collections import defaultdict
 
 from .supa_api_client import get_supa_client
 from .supa_api_transactions import supa_api_get_user_transactions
-from vantage_api.vantage_api_quotes import vantage_api_get_quote
+from services.price_data_service import price_data_service
 from debug_logger import DebugLogger
 
 logger = logging.getLogger(__name__)
@@ -64,12 +69,16 @@ async def supa_api_calculate_portfolio(user_id: str, user_token: Optional[str] =
             cost = data['total_cost']
             avg_cost = cost / quantity if quantity > 0 else 0
             
-            # Get current price
+            # Get current price from database
             try:
-                quote = await vantage_api_get_quote(symbol)
-                current_price = quote['price']
-            except:
-                logger.warning(f"[supa_api_portfolio.py::supa_api_calculate_portfolio] Failed to get quote for {symbol}, using avg cost")
+                price_data = await price_data_service.get_latest_price(symbol, user_token)
+                if price_data:
+                    current_price = price_data['price']
+                else:
+                    logger.warning(f"[supa_api_portfolio.py::supa_api_calculate_portfolio] No price data for {symbol}, using avg cost")
+                    current_price = avg_cost
+            except Exception as e:
+                logger.warning(f"[supa_api_portfolio.py::supa_api_calculate_portfolio] Failed to get price for {symbol}: {e}, using avg cost")
                 current_price = avg_cost
             
             current_value = quantity * current_price
@@ -126,7 +135,12 @@ async def supa_api_calculate_portfolio(user_id: str, user_token: Optional[str] =
 
 @DebugLogger.log_api_call(api_name="SUPABASE", sender="BACKEND", receiver="SUPA_API", operation="GET_PORTFOLIO_HISTORY")
 async def supa_api_get_portfolio_history(user_id: str, days: int = 30, user_token: Optional[str] = None) -> List[Dict[str, Any]]:
-    """Get portfolio value history for charting"""
+    """
+    Get portfolio value history for charting
+    
+    DEPRECATED: This function is not currently used. Portfolio history is now handled by
+    portfolio_service.py with proper time series calculations.
+    """
     logger.info(f"[supa_api_portfolio.py::supa_api_get_portfolio_history] Getting {days}-day history for user: {user_id}")
     
     try:
@@ -159,7 +173,12 @@ async def supa_api_get_portfolio_history(user_id: str, days: int = 30, user_toke
 
 @DebugLogger.log_api_call(api_name="SUPABASE", sender="BACKEND", receiver="SUPA_API", operation="GET_HOLDINGS_BY_SYMBOL")
 async def supa_api_get_holdings_by_symbol(user_id: str, symbol: str, user_token: Optional[str] = None) -> Dict[str, Any]:
-    """Get detailed holdings for a specific symbol"""
+    """
+    Get detailed holdings for a specific symbol
+    
+    DEPRECATED: This function is not currently used. Consider using supa_api_calculate_portfolio
+    which provides holdings for all symbols.
+    """
     logger.info(f"[supa_api_portfolio.py::supa_api_get_holdings_by_symbol] Getting holdings for {symbol}")
     
     try:
@@ -199,11 +218,16 @@ async def supa_api_get_holdings_by_symbol(user_id: str, symbol: str, user_token:
                 'transactions': transactions
             }
         
-        # Get current price
+        # Get current price from database
         try:
-            quote = await vantage_api_get_quote(symbol)
-            current_price = quote['price']
-        except:
+            price_data = await price_data_service.get_latest_price(symbol, user_token)
+            if price_data:
+                current_price = price_data['price']
+            else:
+                logger.warning(f"[supa_api_portfolio.py::supa_api_get_holdings_by_symbol] No price data for {symbol}, using avg cost")
+                current_price = total_cost / quantity if quantity > 0 else 0
+        except Exception as e:
+            logger.warning(f"[supa_api_portfolio.py::supa_api_get_holdings_by_symbol] Failed to get price for {symbol}: {e}, using avg cost")
             current_price = total_cost / quantity if quantity > 0 else 0
         
         avg_cost = total_cost / quantity if quantity > 0 else 0

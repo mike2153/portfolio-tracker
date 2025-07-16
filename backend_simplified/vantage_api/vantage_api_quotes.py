@@ -436,7 +436,7 @@ async def vantage_api_get_dividends(symbol: str) -> List[Dict[str, Any]]:
             await client._save_to_cache(cache_key, {'dividends': dividends})
             DebugLogger.info_if_enabled(f"[vantage_api_quotes.py] Cached {len(dividends)} dividends for {symbol}", logger)
         
-        logger.info(f"[vantage_api_quotes.py::vantage_api_get_dividends] Found {len(dividends)} dividends for {symbol}")
+        # logger.info(f"[vantage_api_quotes.py::vantage_api_get_dividends] Found {len(dividends)} dividends for {symbol}")
         return dividends
         
     except Exception as e:

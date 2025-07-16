@@ -19,6 +19,7 @@ from supa_api.supa_api_transactions import (
 from supa_api.supa_api_portfolio import supa_api_calculate_portfolio
 from services.dividend_service import dividend_service
 from services.current_price_manager import current_price_manager
+from services.portfolio_calculator import portfolio_calculator
 
 logger = logging.getLogger(__name__)
 
@@ -395,147 +396,16 @@ async def backend_api_get_allocation(
         user_token = user.get("access_token")
         user_id = user["id"]
         
-        # Get all user transactions
-        transactions = await supa_api_get_user_transactions(
+        # Use portfolio_calculator service for all allocation calculations
+        allocation_data = await portfolio_calculator.calculate_allocations(
             user_id=user_id,
-            limit=1000,  # Get all transactions
             user_token=user_token
         )
         
-        if not transactions:
-            logger.info(f"[backend_api_portfolio.py::backend_api_get_allocation] No transactions found for user")
-            return {
-                "success": True,
-                "data": {
-                    "allocations": [],
-                    "summary": {
-                        "total_value": 0,
-                        "total_cost": 0,
-                        "total_gain_loss": 0,
-                        "total_gain_loss_percent": 0,
-                        "total_dividends": 0
-                    }
-                }
-            }
-        
-        # Group transactions by symbol
-        holdings = {}
-        for txn in transactions:
-            symbol = txn['symbol']
-            if symbol not in holdings:
-                holdings[symbol] = {
-                    "symbol": symbol,
-                    "quantity": 0,
-                    "total_cost": 0,
-                    "dividends_received": 0,
-                    "transactions": []
-                }
-            
-            holdings[symbol]["transactions"].append(txn)
-            
-            if txn['transaction_type'] in ['Buy', 'BUY']:
-                holdings[symbol]["quantity"] += txn['quantity']
-                holdings[symbol]["total_cost"] += txn['quantity'] * txn['price']
-            elif txn['transaction_type'] in ['Sell', 'SELL']:
-                holdings[symbol]["quantity"] -= txn['quantity']
-                # Adjust cost basis proportionally
-                if holdings[symbol]["quantity"] > 0:
-                    cost_per_share = holdings[symbol]["total_cost"] / (holdings[symbol]["quantity"] + txn['quantity'])
-                    holdings[symbol]["total_cost"] -= cost_per_share * txn['quantity']
-                else:
-                    holdings[symbol]["total_cost"] = 0
-            elif txn['transaction_type'] in ['Dividend', 'DIVIDEND']:
-                holdings[symbol]["dividends_received"] += txn.get('total_value', txn['price'] * txn['quantity'])
-        
-        # Filter out holdings with zero quantity
-        active_holdings = {k: v for k, v in holdings.items() if v["quantity"] > 0}
-        
-        if not active_holdings:
-            logger.info(f"[backend_api_portfolio.py::backend_api_get_allocation] No active holdings found")
-            return {
-                "success": True,
-                "data": {
-                    "allocations": [],
-                    "summary": {
-                        "total_value": 0,
-                        "total_cost": 0,
-                        "total_gain_loss": 0,
-                        "total_gain_loss_percent": 0,
-                        "total_dividends": 0
-                    }
-                }
-            }
-        
-        # Get current prices for all holdings
-        allocations = []
-        total_value = 0
-        total_cost = 0
-        total_dividends = 0
-        
-        # Define colors for allocation visualization
-        colors = ['emerald', 'blue', 'purple', 'orange', 'red', 'yellow', 'pink', 'indigo', 'cyan', 'lime']
-        
-        for idx, (symbol, holding) in enumerate(active_holdings.items()):
-            # Get current price
-            price_result = await current_price_manager.get_current_price_fast(symbol)
-            
-            if price_result.get("success"):
-                current_price = price_result["data"]["price"]
-                
-                # Calculate values
-                current_value = holding["quantity"] * current_price
-                cost_basis = holding["total_cost"]
-                gain_loss = current_value - cost_basis
-                gain_loss_percent = (gain_loss / cost_basis * 100) if cost_basis > 0 else 0
-                
-                # Add to totals
-                total_value += current_value
-                total_cost += cost_basis
-                total_dividends += holding["dividends_received"]
-                
-                # Create allocation entry
-                allocation = {
-                    "symbol": symbol,
-                    "company_name": price_result["data"].get("company_name", symbol),
-                    "quantity": holding["quantity"],
-                    "current_price": current_price,
-                    "cost_basis": cost_basis,
-                    "current_value": current_value,
-                    "gain_loss": gain_loss,
-                    "gain_loss_percent": gain_loss_percent,
-                    "dividends_received": holding["dividends_received"],
-                    "allocation_percent": 0,  # Will calculate after we have total
-                    "color": colors[idx % len(colors)]
-                }
-                
-                allocations.append(allocation)
-            else:
-                logger.warning(f"[backend_api_portfolio.py::backend_api_get_allocation] Failed to get price for {symbol}")
-        
-        # Calculate allocation percentages
-        if total_value > 0:
-            for allocation in allocations:
-                allocation["allocation_percent"] = (allocation["current_value"] / total_value) * 100
-        
-        # Sort by value (largest first)
-        allocations.sort(key=lambda x: x["current_value"], reverse=True)
-        
-        # Calculate summary metrics
-        total_gain_loss = total_value - total_cost
-        total_gain_loss_percent = (total_gain_loss / total_cost * 100) if total_cost > 0 else 0
-        
+        # Return in the expected format
         return {
             "success": True,
-            "data": {
-                "allocations": allocations,
-                "summary": {
-                    "total_value": total_value,
-                    "total_cost": total_cost,
-                    "total_gain_loss": total_gain_loss,
-                    "total_gain_loss_percent": total_gain_loss_percent,
-                    "total_dividends": total_dividends
-                }
-            }
+            "data": allocation_data
         }
         
     except Exception as e:

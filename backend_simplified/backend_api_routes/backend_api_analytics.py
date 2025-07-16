@@ -12,7 +12,6 @@ from debug_logger import DebugLogger
 from supa_api.supa_api_auth import require_authenticated_user
 from services.dividend_service import dividend_service
 from services.portfolio_service import PortfolioTimeSeriesService
-from services.current_price_manager import current_price_manager
 
 logger = logging.getLogger(__name__)
 
@@ -567,110 +566,37 @@ async def _get_portfolio_summary(user_id: str, user_token: str) -> Dict[str, Any
         return {"total_value": 0, "total_gain_loss": 0, "total_gain_loss_percent": 0, "total_invested": 0}
 
 async def _get_detailed_holdings(user_id: str, user_token: str, include_sold: bool) -> List[Dict[str, Any]]:
-    """Get detailed holdings data for analytics table - OPTIMIZED with bulk price fetching"""
-    from supa_api.supa_api_transactions import supa_api_get_user_transactions
+    """Get detailed holdings data for analytics table - Using centralized portfolio calculator"""
+    from services.portfolio_calculator import portfolio_calculator
     
-    # Get all transactions using user's JWT token (respects RLS)
-    transactions = await supa_api_get_user_transactions(user_id, limit=1000, user_token=user_token)
+    logger.info(f"[backend_api_analytics.py::_get_detailed_holdings] Getting detailed holdings for user {user_id}")
     
-    logger.info(f"[backend_api_analytics.py::_get_detailed_holdings] Found {len(transactions) if transactions else 0} transactions for user {user_id}")
-    
-    if not transactions:
-        logger.warning(f"[backend_api_analytics.py::_get_detailed_holdings] No transactions found for user {user_id}")
+    try:
+        # Use the centralized portfolio calculator for all calculations
+        detailed_holdings = await portfolio_calculator.calculate_detailed_holdings(user_id, user_token)
+        
+        if not detailed_holdings:
+            logger.warning(f"[backend_api_analytics.py::_get_detailed_holdings] No holdings found for user {user_id}")
+            return []
+        
+        # Filter out sold holdings if not requested
+        if not include_sold:
+            detailed_holdings = [h for h in detailed_holdings if h['quantity'] > 0]
+        
+        # Add additional fields that the analytics table expects
+        # These are placeholders until properly implemented
+        for holding in detailed_holdings:
+            holding['daily_change'] = 0  # TODO: Implement daily change calculation
+            holding['daily_change_percent'] = 0  # TODO: Implement daily change percent
+            holding['irr_percent'] = 0  # TODO: Implement IRR per holding
+        
+        logger.info(f"[backend_api_analytics.py::_get_detailed_holdings] Returning {len(detailed_holdings)} holdings")
+        
+        return detailed_holdings
+        
+    except Exception as e:
+        logger.error(f"[backend_api_analytics.py::_get_detailed_holdings] Error getting detailed holdings: {e}")
         return []
-    
-    # Group by symbol and calculate metrics
-    holdings = {}
-    
-    for transaction in transactions:
-        symbol = transaction['symbol']
-        if symbol not in holdings:
-            holdings[symbol] = {
-                "symbol": symbol,
-                "quantity": 0,
-                "cost_basis": 0,
-                "realized_pnl": 0,
-                "dividends_received": 0,
-                "total_bought": 0,
-                "total_sold": 0
-            }
-        
-        if transaction['transaction_type'] in ['Buy', 'BUY']:
-            holdings[symbol]["quantity"] += transaction['quantity']
-            holdings[symbol]["cost_basis"] += transaction['quantity'] * transaction['price']
-            holdings[symbol]["total_bought"] += transaction['quantity'] * transaction['price']
-        elif transaction['transaction_type'] in ['Sell', 'SELL']:
-            # Calculate realized P&L
-            avg_cost = holdings[symbol]["cost_basis"] / holdings[symbol]["quantity"] if holdings[symbol]["quantity"] > 0 else 0
-            realized_gain = (transaction['price'] - avg_cost) * transaction['quantity']
-            holdings[symbol]["realized_pnl"] += realized_gain
-            
-            holdings[symbol]["quantity"] -= transaction['quantity']
-            holdings[symbol]["cost_basis"] -= avg_cost * transaction['quantity']
-            holdings[symbol]["total_sold"] += transaction['quantity'] * transaction['price']
-        elif transaction['transaction_type'] in ['Dividend', 'DIVIDEND']:
-            holdings[symbol]["dividends_received"] += transaction.get('total_value', transaction['quantity'] * transaction['price'])
-    
-    # OPTIMIZATION: Get current prices in bulk for all symbols at once
-    symbols_to_price = [symbol for symbol, holding in holdings.items() 
-                       if include_sold or holding["quantity"] > 0]
-    
-    # Bulk fetch prices for all symbols
-    symbol_prices = {}
-    for symbol in symbols_to_price:
-        price_result = await current_price_manager.get_current_price_fast(symbol)
-        if price_result.get("success"):
-            price = price_result["data"].get("price", 0)
-            symbol_prices[symbol] = price
-            logger.info(f"[backend_api_analytics.py] Price for {symbol}: ${price}")
-        else:
-            symbol_prices[symbol] = 0
-            logger.warning(f"[backend_api_analytics.py] Failed to get price for {symbol}: {price_result.get('error', 'Unknown error')}")
-    
-    logger.info(f"[backend_api_analytics.py::_get_detailed_holdings] Fetched prices for {len(symbol_prices)} symbols")
-    
-    # Get current prices and calculate current values
-    result_holdings = []
-    
-    for symbol, holding in holdings.items():
-        if not include_sold and holding["quantity"] <= 0:
-            continue
-        
-        # Get current price from our bulk-fetched data
-        current_price = symbol_prices.get(symbol, 0)
-        
-        current_value = holding["quantity"] * current_price
-        unrealized_gain = current_value - holding["cost_basis"]
-        total_profit = unrealized_gain + holding["realized_pnl"] + holding["dividends_received"]
-        
-        # Calculate percentages
-        total_invested = holding["cost_basis"] + holding["total_sold"]
-        unrealized_gain_percent = (unrealized_gain / holding["cost_basis"] * 100) if holding["cost_basis"] > 0 else 0
-        total_profit_percent = (total_profit / total_invested * 100) if total_invested > 0 else 0
-        
-        holding_data = {
-            "symbol": symbol,
-            "quantity": holding["quantity"],
-            "current_price": current_price,
-            "current_value": current_value,
-            "cost_basis": holding["cost_basis"],
-            "unrealized_gain": unrealized_gain,
-            "unrealized_gain_percent": unrealized_gain_percent,
-            "realized_pnl": holding["realized_pnl"],
-            "dividends_received": holding["dividends_received"],
-            "total_profit": total_profit,
-            "total_profit_percent": total_profit_percent,
-            "daily_change": 0,  # TODO: Calculate daily change
-            "daily_change_percent": 0,  # TODO: Calculate daily change percent
-            "irr_percent": 0  # TODO: Calculate IRR per holding
-        }
-        
-        # Log the holding data for debugging
-        logger.info(f"[backend_api_analytics.py] Holding {symbol}: qty={holding['quantity']}, price=${current_price}, value=${current_value}, cost=${holding['cost_basis']}")
-        
-        result_holdings.append(holding_data)
-    
-    return result_holdings
 
 async def _enrich_dividend_data(user_id: str, dividends: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Enrich dividend data with current holding information"""

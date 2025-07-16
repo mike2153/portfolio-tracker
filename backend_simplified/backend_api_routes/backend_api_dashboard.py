@@ -14,9 +14,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from debug_logger import DebugLogger, LoggingConfig
 from supa_api.supa_api_auth import require_authenticated_user
-from supa_api.supa_api_portfolio import supa_api_calculate_portfolio
 from supa_api.supa_api_transactions import supa_api_get_transaction_summary
 from services.current_price_manager import current_price_manager
+from services.portfolio_calculator import portfolio_calculator
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP  # local import
 
 # Lazy‑imported heavy modules (they load Supabase clients, etc.)
@@ -82,10 +82,10 @@ async def backend_api_get_dashboard(
     asyncio.create_task(
         current_price_manager.update_user_portfolio_prices(uid, jwt)
     )
-    logger.info(f"[Dashboard] Triggered background price update for user {uid}")
+    # logger.info(f"[Dashboard] Triggered background price update for user {uid}")
         
     # --- Launch parallel data fetches -------------------------------------
-    portfolio_task = asyncio.create_task(supa_api_calculate_portfolio(uid, user_token=jwt))
+    portfolio_task = asyncio.create_task(portfolio_calculator.calculate_holdings(uid, user_token=jwt))
     summary_task   = asyncio.create_task(supa_api_get_transaction_summary(uid, user_token=jwt))
         
     portfolio, summary = await asyncio.gather(
@@ -122,6 +122,20 @@ async def backend_api_get_dashboard(
 
     # --- Build response ----------------------------------------------------
     daily_change = daily_change_pct = 0.0  # TODO: derive from yesterday's prices.
+    
+    # Calculate holdings_count since portfolio_calculator doesn't provide it
+    holdings_count = len(portfolio_dict.get("holdings", []))
+    
+    # Add allocation to each holding for compatibility
+    total_value = portfolio_dict.get("total_value", 0)
+    holdings_with_allocation = []
+    for holding in portfolio_dict.get("holdings", []):
+        holding_with_allocation = holding.copy()
+        holding_with_allocation["allocation"] = (holding["current_value"] / total_value * 100) if total_value > 0 else 0
+        # Rename fields for compatibility
+        holding_with_allocation["total_gain_loss"] = holding.get("gain_loss", 0)
+        holding_with_allocation["total_gain_loss_percent"] = holding.get("gain_loss_percent", 0)
+        holdings_with_allocation.append(holding_with_allocation)
 
     resp = {
         "success": True,
@@ -132,9 +146,9 @@ async def backend_api_get_dashboard(
             "total_gain_loss_percent": portfolio_dict.get("total_gain_loss_percent", 0),
             "daily_change": daily_change,
             "daily_change_percent": daily_change_pct,
-            "holdings_count": portfolio_dict.get("holdings_count", 0),
+            "holdings_count": holdings_count,
         },
-        "top_holdings": portfolio_dict.get("holdings", [])[:5],
+        "top_holdings": holdings_with_allocation[:5],
         "transaction_summary": summary_dict,
     }
 
@@ -335,11 +349,11 @@ async def backend_api_get_performance(
     #logger.info("📊 Filtered series sample: %s", portfolio_series_filtered[:3] if len(portfolio_series_filtered) >= 3 else portfolio_series_filtered)
     
     # Log all filtered dates for debugging
-    if portfolio_series_filtered:
-        logger.info("📅 First trading day: %s = $%s", portfolio_series_filtered[0][0], portfolio_series_filtered[0][1])
+    #if portfolio_series_filtered:
+        #logger.info("📅 First trading day: %s = $%s", portfolio_series_filtered[0][0], portfolio_series_filtered[0][1])
         #logger.info("📅 Last trading day: %s = $%s", portfolio_series_filtered[-1][0], portfolio_series_filtered[-1][1])
-    else:
-        logger.warning("⚠️ No trading days with portfolio values found!")
+    #else:
+        #logger.warning("⚠️ No trading days with portfolio values found!")
     
     # Use filtered series for calculations
     portfolio_series_dec = portfolio_series_filtered
@@ -409,12 +423,12 @@ async def backend_api_get_performance(
     #            len(portfolio_chart_data), len(index_chart_data))
     
     # Log sample of final chart data
-    if portfolio_chart_data:
+   # if portfolio_chart_data:
         #logger.info("📊 First portfolio chart point: %s", portfolio_chart_data[0])
-        logger.info("📊 Last portfolio chart point: %s", portfolio_chart_data[-1])
-    if index_chart_data:
+        #logger.info("📊 Last portfolio chart point: %s", portfolio_chart_data[-1])
+    #if index_chart_data:
         #logger.info("📊 First index chart point: %s", index_chart_data[0])
-        logger.info("📊 Last index chart point: %s", index_chart_data[-1])
+        #logger.info("📊 Last index chart point: %s", index_chart_data[-1])
     
     return {
         "success": True,
@@ -477,7 +491,7 @@ async def backend_api_get_gainers(
         uid, jwt = _assert_jwt(user)
         
         # Get portfolio holdings
-        portfolio = await supa_api_calculate_portfolio(uid, jwt)
+        portfolio = await portfolio_calculator.calculate_holdings(uid, jwt)
         
         if not portfolio or not portfolio.get("holdings"):
             return {
@@ -491,9 +505,9 @@ async def backend_api_get_gainers(
         # Filter for positive gains and sort by gain percentage
         gainers = [
             h for h in holdings 
-            if h.get("total_gain_loss_percent", 0) > 0 and h.get("quantity", 0) > 0
+            if h.get("gain_loss_percent", 0) > 0 and h.get("quantity", 0) > 0
         ]
-        gainers.sort(key=lambda x: x.get("total_gain_loss_percent", 0), reverse=True)
+        gainers.sort(key=lambda x: x.get("gain_loss_percent", 0), reverse=True)
         
         # Format top 5 gainers
         top_gainers = []
@@ -502,8 +516,8 @@ async def backend_api_get_gainers(
                 "ticker": holding["symbol"],
                 "name": holding.get("name", holding["symbol"]),
                 "value": holding.get("current_value", 0),
-                "changePercent": holding.get("total_gain_loss_percent", 0),
-                "changeValue": holding.get("total_gain_loss", 0)
+                "changePercent": holding.get("gain_loss_percent", 0),
+                "changeValue": holding.get("gain_loss", 0)
             })
         
         return {
@@ -534,7 +548,7 @@ async def backend_api_get_losers(
         uid, jwt = _assert_jwt(user)
         
         # Get portfolio holdings
-        portfolio = await supa_api_calculate_portfolio(uid, jwt)
+        portfolio = await portfolio_calculator.calculate_holdings(uid, jwt)
         
         if not portfolio or not portfolio.get("holdings"):
             return {
@@ -548,9 +562,9 @@ async def backend_api_get_losers(
         # Filter for negative gains and sort by gain percentage (ascending for biggest losses)
         losers = [
             h for h in holdings 
-            if h.get("total_gain_loss_percent", 0) < 0 and h.get("quantity", 0) > 0
+            if h.get("gain_loss_percent", 0) < 0 and h.get("quantity", 0) > 0
         ]
-        losers.sort(key=lambda x: x.get("total_gain_loss_percent", 0))
+        losers.sort(key=lambda x: x.get("gain_loss_percent", 0))
         
         # Format top 5 losers
         top_losers = []
@@ -559,8 +573,8 @@ async def backend_api_get_losers(
                 "ticker": holding["symbol"],
                 "name": holding.get("name", holding["symbol"]),
                 "value": holding.get("current_value", 0),
-                "changePercent": abs(holding.get("total_gain_loss_percent", 0)),  # Show as positive for display
-                "changeValue": abs(holding.get("total_gain_loss", 0))  # Show as positive for display
+                "changePercent": abs(holding.get("gain_loss_percent", 0)),  # Show as positive for display
+                "changeValue": abs(holding.get("gain_loss", 0))  # Show as positive for display
             })
         
         return {

@@ -54,7 +54,7 @@ missing_vars = [var for var in required_vars if not os.getenv(var)]
 if missing_vars:
     raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")
 
-print(f"[config.py::init] Configuration loaded successfully")
-print(f"[config.py::init] SUPA_API_URL: {SUPA_API_URL}")
-print(f"[config.py::init] BACKEND_API_PORT: {BACKEND_API_PORT}")
-print(f"[config.py::init] LOG_LEVEL: {LOG_LEVEL}") 
+# print(f"[config.py::init] Configuration loaded successfully")
+# print(f"[config.py::init] SUPA_API_URL: {SUPA_API_URL}")
+# print(f"[config.py::init] BACKEND_API_PORT: {BACKEND_API_PORT}")
+# print(f"[config.py::init] LOG_LEVEL: {LOG_LEVEL}") 

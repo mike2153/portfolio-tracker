@@ -48,10 +48,10 @@ class PortfolioTimeSeriesService:
             
             # Convert range key to number of trading days
             num_trading_days = PortfolioServiceUtils.get_trading_days_limit(range_key)
-            DebugLogger.info_if_enabled(f"[portfolio_service] 📊 Fetching last {num_trading_days} trading days for range: {range_key}", logger)
+            #DebugLogger.info_if_enabled(f"[portfolio_service] 📊 Fetching last {num_trading_days} trading days for range: {range_key}", logger)
             
             # Step 1: Get all user transactions
-            DebugLogger.info_if_enabled(f"[portfolio_service] 📊 Step 1: Fetching user transactions...", logger)
+            #DebugLogger.info_if_enabled(f"[portfolio_service] 📊 Step 1: Fetching user transactions...", logger)
             
             transactions_response = client.table('transactions') \
                 .select('symbol, quantity, price, date, transaction_type') \
@@ -60,22 +60,22 @@ class PortfolioTimeSeriesService:
                 .execute()
             
             transactions = transactions_response.data
-            logger.info(f"[portfolio_service] ✅ Found {len(transactions)} transactions")
+            #logger.info(f"[portfolio_service] ✅ Found {len(transactions)} transactions")
             
             # === EDGE CASE HANDLING: NO TRANSACTIONS ===
             if not transactions:
-                logger.info(f"[portfolio_service] ⚠️ No transactions found for user {user_id}")
-                logger.info(f"[portfolio_service] 🎯 This is a valid edge case - user has no transactions yet")
-                logger.info(f"[portfolio_service] 📊 Returning empty series with no_data flag")
+                #logger.info(f"[portfolio_service] ⚠️ No transactions found for user {user_id}")
+                #logger.info(f"[portfolio_service] 🎯 This is a valid edge case - user has no transactions yet")
+                #logger.info(f"[portfolio_service] 📊 Returning empty series with no_data flag")
                 return [], {"no_data": True, "reason": "no_transactions", "user_guidance": "Add your first transaction to see portfolio performance"}
             
             # Step 2: Get all unique tickers from transactions
             tickers = list(set(t['symbol'] for t in transactions))
-            logger.info(f"[portfolio_service] 📈 Found {len(tickers)} unique tickers")
+            #logger.info(f"[portfolio_service] 📈 Found {len(tickers)} unique tickers")
             
             # Step 3: Get the last N trading days from the database
             # Use any ticker to get the trading days (they should all have the same dates)
-            logger.info(f"[portfolio_service] 📅 Step 3: Fetching last {num_trading_days} trading days...")
+            #logger.info(f"[portfolio_service] 📅 Step 3: Fetching last {num_trading_days} trading days...")
             
             # Special handling for YTD
             if range_key == 'YTD':
@@ -105,10 +105,10 @@ class PortfolioTimeSeriesService:
             ])
             
             if not trading_dates:
-                logger.warning(f"[portfolio_service] No trading dates found for ticker {tickers[0]}")
+                #logger.warning(f"[portfolio_service] No trading dates found for ticker {tickers[0]}")
                 return [], {"no_data": True, "reason": "no_trading_dates", "user_guidance": "Historical price data is not available"}
             
-            logger.info(f"[portfolio_service] ✅ Found {len(trading_dates)} trading days from {trading_dates[0]} to {trading_dates[-1]}")
+            #logger.info(f"[portfolio_service] ✅ Found {len(trading_dates)} trading days from {trading_dates[0]} to {trading_dates[-1]}")
             
             # === EDGE CASE HANDLING: TRANSACTIONS TOO RECENT ===
             # Check if user has any transactions within the requested date range
@@ -119,7 +119,7 @@ class PortfolioTimeSeriesService:
            # logger.info(f"[portfolio_service] 📅 Requested trading date range: {trading_dates[0]} to {trading_dates[-1]}")
             
             # Step 4: Fetch historical prices using CurrentPriceManager
-            logger.info(f"[portfolio_service] 💰 Step 4: Fetching historical prices via CurrentPriceManager...")
+            #logger.info(f"[portfolio_service] 💰 Step 4: Fetching historical prices via CurrentPriceManager...")
             
             # Get the date range from our trading dates
             start_date = trading_dates[0]
@@ -134,7 +134,7 @@ class PortfolioTimeSeriesService:
             )
             
             if not portfolio_prices_result.get("success"):
-                logger.warning(f"[portfolio_service] ⚠️ CurrentPriceManager failed to get portfolio prices")
+                #logger.warning(f"[portfolio_service] ⚠️ CurrentPriceManager failed to get portfolio prices")
                 return [], {
                     "no_data": True, 
                     "reason": "price_service_error", 
@@ -150,7 +150,7 @@ class PortfolioTimeSeriesService:
             
             # === EDGE CASE HANDLING: MISSING PRICE DATA ===
             if not portfolio_prices:
-                logger.warning(f"[portfolio_service] ⚠️ No historical price data available for any ticker")
+                #logger.warning(f"[portfolio_service] ⚠️ No historical price data available for any ticker")
                 return [], {
                     "no_data": True, 
                     "reason": "no_price_data", 
@@ -168,10 +168,10 @@ class PortfolioTimeSeriesService:
                         close_price = Decimal(str(price_record['close']))
                         price_lookup[symbol][price_date] = close_price
                     except (ValueError, KeyError) as e:
-                        logger.warning(f"[portfolio_service] Skipping invalid price record for {symbol}: {e}")
+                        #logger.warning(f"[portfolio_service] Skipping invalid price record for {symbol}: {e}")
                         continue
             
-            logger.info(f"[portfolio_service] 🗂️ Built price lookup for {len(price_lookup)} tickers via CurrentPriceManager")
+            #logger.info(f"[portfolio_service] 🗂️ Built price lookup for {len(price_lookup)} tickers via CurrentPriceManager")
             
             # Step 6: Calculate holdings evolution day by day
             #logger.info(f"[portfolio_service] 🧮 Step 6: Calculating daily portfolio values...")
@@ -205,10 +205,11 @@ class PortfolioTimeSeriesService:
             # Log seeded holdings
             seeded_holdings_count = len([s for s, shares in current_holdings.items() if shares > 0])
             if seeded_holdings_count > 0:
-                logger.info(f"[portfolio_service] 📊 Seeded {seeded_holdings_count} holdings from before {start_date}")
+                #logger.info(f"[portfolio_service] 📊 Seeded {seeded_holdings_count} holdings from before {start_date}")
+                pass
             else:
-                logger.info(f"[portfolio_service] 📊 No holdings seeded from before {start_date}")
-            
+                #logger.info(f"[portfolio_service] 📊 No holdings seeded from before {start_date}")
+                pass
             # Process ONLY the trading dates we got from the database
             for current_date in trading_dates:
                 # Apply any transactions on this date
@@ -252,17 +253,17 @@ class PortfolioTimeSeriesService:
             
             # === EDGE CASE HANDLING: ALL ZERO VALUES ===
             if not portfolio_series:
-                logger.warning("[portfolio_service] No valid portfolio values found - empty series")
+                #logger.warning("[portfolio_service] No valid portfolio values found - empty series")
                 return [], {"no_data": True, "reason": "empty_series", "user_guidance": "Unable to calculate portfolio values for the selected timeframe"}
             
             # Check if all values are zero
             all_zero = all(value == Decimal('0') for _, value in portfolio_series)
             if all_zero:
-                logger.warning("[portfolio_service] All portfolio values are zero")
+                #logger.warning("[portfolio_service] All portfolio values are zero")
                 return portfolio_series, {"no_data": False, "all_zero": True, "reason": "all_zero_values", "user_guidance": "Your portfolio shows zero value. Check if you have any current holdings."}
             
             # Remove leading zero values (non-trading days at start)
-            logger.info(f"[portfolio_service] 🧹 Checking for leading zero values...")
+            #logger.info(f"[portfolio_service] 🧹 Checking for leading zero values...")
             original_length = len(portfolio_series)
             
             # Find first non-zero value
@@ -273,14 +274,14 @@ class PortfolioTimeSeriesService:
                     break
             
             if first_non_zero_index > 0:
-                logger.info(f"[portfolio_service] 🧹 Removing {first_non_zero_index} leading zero-value days")
-                logger.info(f"[portfolio_service] 🧹 First zero date: {portfolio_series[0][0]}")
-                logger.info(f"[portfolio_service] 🧹 First non-zero date: {portfolio_series[first_non_zero_index][0]} (value: ${portfolio_series[first_non_zero_index][1]})")
+                #logger.info(f"[portfolio_service] 🧹 Removing {first_non_zero_index} leading zero-value days")
+                #logger.info(f"[portfolio_service] 🧹 First zero date: {portfolio_series[0][0]}")
+                #logger.info(f"[portfolio_service] 🧹 First non-zero date: {portfolio_series[first_non_zero_index][0]} (value: ${portfolio_series[first_non_zero_index][1]})")
                 # Remove leading zeros
                 portfolio_series = portfolio_series[first_non_zero_index:]
             else:
-                logger.info(f"[portfolio_service] 🧹 No leading zeros to remove")
-            
+               # logger.info(f"[portfolio_service] 🧹 No leading zeros to remove")
+                pass
             # Final validation
             if not portfolio_series:
                 logger.warning("[portfolio_service] No portfolio values remaining after removing leading zeros")
@@ -335,7 +336,7 @@ class PortfolioTimeSeriesService:
             
             # Convert range key to number of trading days
             num_trading_days = PortfolioServiceUtils.get_trading_days_limit(range_key)
-            logger.info(f"[portfolio_service] 📊 Fetching last {num_trading_days} trading days for {benchmark}")
+            #logger.info(f"[portfolio_service] 📊 Fetching last {num_trading_days} trading days for {benchmark}")
             
             # Get trading dates for the benchmark
             if range_key == 'YTD':
@@ -365,11 +366,11 @@ class PortfolioTimeSeriesService:
             ])
             
             if not trading_dates:
-                logger.warning(f"[portfolio_service] No trading dates found for benchmark {benchmark}")
-                logger.info(f"[portfolio_service] 📊 Returning empty series - even index data unavailable")
+                #logger.warning(f"[portfolio_service] No trading dates found for benchmark {benchmark}")
+                #logger.info(f"[portfolio_service] 📊 Returning empty series - even index data unavailable")
                 return [], {"no_data": True, "index_only": True, "reason": "no_benchmark_data", "user_guidance": f"Historical data for {benchmark} is not available"}
             
-            logger.info(f"[portfolio_service] ✅ Found {len(trading_dates)} trading days from {trading_dates[0]} to {trading_dates[-1]}")
+            #logger.info(f"[portfolio_service] ✅ Found {len(trading_dates)} trading days from {trading_dates[0]} to {trading_dates[-1]}")
             
             # Get benchmark prices for these dates
             start_date = trading_dates[0]
@@ -384,11 +385,11 @@ class PortfolioTimeSeriesService:
                 .execute()
             
             price_data = prices_response.data
-            logger.info(f"[portfolio_service] ✅ Found {len(price_data)} price records for {benchmark}")
+            #logger.info(f"[portfolio_service] ✅ Found {len(price_data)} price records for {benchmark}")
             
             if not price_data:
-                logger.warning(f"[portfolio_service] No price data found for benchmark {benchmark}")
-                logger.info(f"[portfolio_service] 📊 Returning empty series - benchmark price data unavailable")
+                #logger.warning(f"[portfolio_service] No price data found for benchmark {benchmark}")
+                #logger.info(f"[portfolio_service] 📊 Returning empty series - benchmark price data unavailable")
                 return [], {"no_data": True, "index_only": True, "reason": "no_benchmark_prices", "user_guidance": f"Price data for {benchmark} is not available"}
             
             # Build index series
@@ -397,14 +398,14 @@ class PortfolioTimeSeriesService:
                 price_date = datetime.strptime(price_record['date'], '%Y-%m-%d').date()
                 close_price = Decimal(str(price_record['close']))
                 index_series.append((price_date, close_price))
-                logger.debug(f"[portfolio_service] 📈 {price_date}: {benchmark} = ${close_price}")
+                #logger.debug(f"[portfolio_service] 📈 {price_date}: {benchmark} = ${close_price}")
             
             # Sort by date
             index_series.sort(key=lambda x: x[0])
             
             if not index_series:
-                logger.warning(f"[portfolio_service] No index series data generated for {benchmark}")
-                logger.info(f"[portfolio_service] 📊 Returning empty series")
+                #logger.warning(f"[portfolio_service] No index series data generated for {benchmark}")
+                #logger.info(f"[portfolio_service] 📊 Returning empty series")
                 return [], {"no_data": True, "index_only": True, "reason": "empty_index_series", "user_guidance": f"Unable to generate {benchmark} performance data"}
             
             return index_series, {
@@ -447,7 +448,7 @@ class PortfolioServiceUtils:
     @staticmethod
     def compute_date_range(range_key: str) -> Tuple[date, date]:
 
-        logger.info(f"[portfolio_service] 📅 Computing date range for: {range_key}")
+        #logger.info(f"[portfolio_service] 📅 Computing date range for: {range_key}")
         
         end_date = date.today()
         
@@ -468,7 +469,7 @@ class PortfolioServiceUtils:
             logger.warning(f"[portfolio_service] ⚠️ Unknown range key: {range_key}, defaulting to 1Y")
             start_date = end_date - timedelta(days=365)
         
-        logger.info(f"[portfolio_service] ✅ Date range: {start_date} to {end_date}")
+        # logger.info(f"[portfolio_service] ✅ Date range: {start_date} to {end_date}")
         return start_date, end_date
     
     @staticmethod

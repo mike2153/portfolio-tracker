@@ -39,12 +39,12 @@ URL: {SUPA_API_URL}
         try:
             # Create anonymous client (for public operations)
             self._client = create_client(SUPA_API_URL, SUPA_API_ANON_KEY)
-            logger.info("[supa_api_client.py::_initialize_clients] Anonymous client created successfully")
+            #logger.info("[supa_api_client.py::_initialize_clients] Anonymous client created successfully")
             
             # Create service client (for admin operations)
             if SUPA_API_SERVICE_KEY:
                 self._service_client = create_client(SUPA_API_URL, SUPA_API_SERVICE_KEY)
-                logger.info("[supa_api_client.py::_initialize_clients] Service client created successfully")
+                #logger.info("[supa_api_client.py::_initialize_clients] Service client created successfully")
             
         except Exception as e:
             DebugLogger.log_error(

@@ -48,14 +48,14 @@ BASE_URL: {self.base_url}
         
         url = self.base_url
         
-        logger.info(f"""
-========== VANTAGE API REQUEST ==========
-FILE: vantage_api_client.py
-FUNCTION: _make_request
-API: ALPHA_VANTAGE
-URL: {url}
-PARAMS: {json.dumps({k: v for k, v in params.items() if k != 'apikey'}, indent=2)}
-=========================================""")
+        # logger.info(f"""
+# ========== VANTAGE API REQUEST ==========
+# FILE: vantage_api_client.py
+# FUNCTION: _make_request
+# API: ALPHA_VANTAGE
+# URL: {url}
+# PARAMS: {json.dumps({k: v for k, v in params.items() if k != 'apikey'}, indent=2)}
+# =========================================""")
         
         try:
             async with self.session.get(url, params=params) as response:
@@ -73,14 +73,14 @@ PARAMS: {json.dumps({k: v for k, v in params.items() if k != 'apikey'}, indent=2
                 if "Note" in data:
                     logger.warning(f"[vantage_api_client.py::_make_request] API Note: {data['Note']}")
                 
-                logger.info(f"""
-========== VANTAGE API RESPONSE ==========
-FILE: vantage_api_client.py
-FUNCTION: _make_request
-API: ALPHA_VANTAGE
-STATUS: {response.status}
-DATA_KEYS: {list(data.keys())}
-==========================================""")
+                # logger.info(f"""
+# ========== VANTAGE API RESPONSE ==========
+# FILE: vantage_api_client.py
+# FUNCTION: _make_request
+# API: ALPHA_VANTAGE
+# STATUS: {response.status}
+# DATA_KEYS: {list(data.keys())}
+# ==========================================""")
                 
                 return data
                 
@@ -96,13 +96,13 @@ DATA_KEYS: {list(data.keys())}
     
     async def _get_from_cache(self, cache_key: str) -> Optional[Dict[str, Any]]:
         """Get data from Supabase cache"""
-        logger.info(f"""
-========== CACHE LOOKUP ==========
-FILE: vantage_api_client.py
-FUNCTION: _get_from_cache
-API: SUPABASE
-CACHE_KEY: {cache_key}
-==================================""")
+        # logger.info(f"""
+# ========== CACHE LOOKUP ==========
+# FILE: vantage_api_client.py
+# FUNCTION: _get_from_cache
+# API: SUPABASE
+# CACHE_KEY: {cache_key}
+# ==================================""")
         
         try:
             # Query cache table
@@ -132,13 +132,13 @@ CACHE_KEY: {cache_key}
     
     async def _save_to_cache(self, cache_key: str, data: Dict[str, Any]):
         """Save data to Supabase cache"""
-        logger.info(f"""
-========== CACHE SAVE ==========
-FILE: vantage_api_client.py
-FUNCTION: _save_to_cache
-API: SUPABASE
-CACHE_KEY: {cache_key}
-=================================""")
+        # logger.info(f"""
+# ========== CACHE SAVE ==========
+# FILE: vantage_api_client.py
+# FUNCTION: _save_to_cache
+# API: SUPABASE
+# CACHE_KEY: {cache_key}
+# =================================""")
         
         try:
             expires_at = datetime.now() + timedelta(seconds=CACHE_TTL_SECONDS)
@@ -150,7 +150,7 @@ CACHE_KEY: {cache_key}
                 'expires_at': expires_at.isoformat()
             }).execute()
             
-            logger.info("[vantage_api_client.py::_save_to_cache] Data cached successfully")
+            # logger.info("[vantage_api_client.py::_save_to_cache] Data cached successfully")
             
         except Exception as e:
             logger.warning(f"[vantage_api_client.py::_save_to_cache] Cache save failed: {e}")

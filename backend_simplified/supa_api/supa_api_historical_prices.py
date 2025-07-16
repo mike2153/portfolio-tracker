@@ -24,7 +24,7 @@ async def supa_api_store_historical_prices(symbol: str, price_data: List[Dict[st
     Returns:
         Dict with success status and number of records stored
     """
-    logger.info(f"[supa_api_historical_prices.py::supa_api_store_historical_prices] Storing {len(price_data)} price records for {symbol}")
+    ##logger.info(f"[supa_api_historical_prices.py::supa_api_store_historical_prices] Storing {len(price_data)} price records for {symbol}")
     
     client = get_supa_service_client()
     
@@ -54,7 +54,7 @@ async def supa_api_store_historical_prices(symbol: str, price_data: List[Dict[st
         
         if hasattr(response, 'data') and response.data:
             stored_count = len(response.data)
-            logger.info(f"[supa_api_historical_prices.py::supa_api_store_historical_prices] Successfully stored {stored_count} records for {symbol}")
+            ##logger.info(f"[supa_api_historical_prices.py::supa_api_store_historical_prices] Successfully stored {stored_count} records for {symbol}")
             
             return {
                 'success': True,
@@ -96,7 +96,7 @@ async def supa_api_get_historical_price_for_date(symbol: str, target_date: str) 
     Returns:
         Price data dict or None if not found
     """
-    logger.info(f"[supa_api_historical_prices.py::supa_api_get_historical_price_for_date] Getting price for {symbol} on {target_date}")
+    ##logger.info(f"[supa_api_historical_prices.py::supa_api_get_historical_price_for_date] Getting price for {symbol} on {target_date}")
     
     client = get_supa_service_client()
     
@@ -126,11 +126,11 @@ async def supa_api_get_historical_price_for_date(symbol: str, target_date: str) 
                 'is_exact_date': bool(price_record['is_exact_date'])
             }
             
-           # logger.info(f"[supa_api_historical_prices.py::supa_api_get_historical_price_for_date] Found price: {symbol} @ ${result['close']} on {result['date']}")
+           # ##logger.info(f"[supa_api_historical_prices.py::supa_api_get_historical_price_for_date] Found price: {symbol} @ ${result['close']} on {result['date']}")
             
             return result
         else:
-            logger.info(f"[supa_api_historical_prices.py::supa_api_get_historical_price_for_date] No price data found for {symbol} on {target_date}")
+            ##logger.info(f"[supa_api_historical_prices.py::supa_api_get_historical_price_for_date] No price data found for {symbol} on {target_date}")
             return None
             
     except Exception as e:
@@ -156,7 +156,7 @@ async def supa_api_check_historical_data_coverage(symbol: str, start_date: str, 
     Returns:
         Dict with coverage information
     """
-    logger.info(f"[supa_api_historical_prices.py::supa_api_check_historical_data_coverage] Checking coverage for {symbol} from {start_date} to {end_date}")
+    ##logger.info(f"[supa_api_historical_prices.py::supa_api_check_historical_data_coverage] Checking coverage for {symbol} from {start_date} to {end_date}")
     
     client = get_supa_service_client()
     
@@ -196,7 +196,7 @@ async def supa_api_check_historical_data_coverage(symbol: str, start_date: str, 
             'latest_date': existing_dates[-1] if existing_dates else None
         }
         
-        logger.info(f"[supa_api_historical_prices.py::supa_api_check_historical_data_coverage] Coverage for {symbol}: {coverage_percentage:.1f}%")
+        #logger.info(f"[supa_api_historical_prices.py::supa_api_check_historical_data_coverage] Coverage for {symbol}: {coverage_percentage:.1f}%")
         
         return result
         
@@ -220,7 +220,7 @@ async def supa_api_get_symbols_needing_historical_data() -> List[Dict[str, Any]]
     Returns:
         List of symbols with their earliest transaction dates
     """
-   # logger.info(f"[supa_api_historical_prices.py::supa_api_get_symbols_needing_historical_data] Getting symbols needing historical data")
+   # #logger.info(f"[supa_api_historical_prices.py::supa_api_get_symbols_needing_historical_data] Getting symbols needing historical data")
     
     client = get_supa_service_client()
     
@@ -257,7 +257,7 @@ async def supa_api_get_symbols_needing_historical_data() -> List[Dict[str, Any]]
                 'data_needed_until': today
             })
         
-        logger.info(f"[supa_api_historical_prices.py::supa_api_get_symbols_needing_historical_data] Found {len(symbols_list)} symbols needing data")
+        #logger.info(f"[supa_api_historical_prices.py::supa_api_get_symbols_needing_historical_data] Found {len(symbols_list)} symbols needing data")
         
         return symbols_list
         
@@ -282,7 +282,7 @@ async def supa_api_get_price_history_for_portfolio(symbols: List[str], start_dat
     Returns:
         Dict mapping symbols to their price history
     """
-    logger.info(f"[supa_api_historical_prices.py::supa_api_get_price_history_for_portfolio] Getting price history for {len(symbols)} symbols from {start_date} to {end_date}")
+    #logger.info(f"[supa_api_historical_prices.py::supa_api_get_price_history_for_portfolio] Getting price history for {len(symbols)} symbols from {start_date} to {end_date}")
     
     client = get_supa_service_client()
     
@@ -313,7 +313,7 @@ async def supa_api_get_price_history_for_portfolio(symbols: List[str], start_dat
                     'volume': int(record['volume'])
                 })
         
-        logger.info(f"[supa_api_historical_prices.py::supa_api_get_price_history_for_portfolio] Retrieved price history for {len(symbol_prices)} symbols")
+        #logger.info(f"[supa_api_historical_prices.py::supa_api_get_price_history_for_portfolio] Retrieved price history for {len(symbol_prices)} symbols")
         
         return symbol_prices
         
@@ -347,7 +347,7 @@ async def supa_api_get_historical_prices(
     Returns:
         List of price records sorted by date (newest first)
     """
-    logger.info(f"[supa_api_historical_prices.py::supa_api_get_historical_prices] Querying price data for {symbol} from {start_date} to {end_date}")
+    #logger.info(f"[supa_api_historical_prices.py::supa_api_get_historical_prices] Querying price data for {symbol} from {start_date} to {end_date}")
     
     client = get_supa_service_client()
     
@@ -362,10 +362,10 @@ async def supa_api_get_historical_prices(
             .execute()
         
         if hasattr(response, 'data') and response.data:
-            logger.info(f"[supa_api_historical_prices.py::supa_api_get_historical_prices] Found {len(response.data)} price records for {symbol}")
+            #logger.info(f"[supa_api_historical_prices.py::supa_api_get_historical_prices] Found {len(response.data)} price records for {symbol}")
             return response.data
         else:
-            logger.info(f"[supa_api_historical_prices.py::supa_api_get_historical_prices] No price data found for {symbol} in date range")
+            #logger.info(f"[supa_api_historical_prices.py::supa_api_get_historical_prices] No price data found for {symbol} in date range")
             return []
             
     except Exception as e:
@@ -426,7 +426,7 @@ async def supa_api_store_historical_prices_batch(
                 
             formatted_data.append(formatted_record)
         
-        logger.info(f"[supa_api_historical_prices.py::supa_api_store_historical_prices_batch] Storing {len(formatted_data)} price records")
+        #logger.info(f"[supa_api_historical_prices.py::supa_api_store_historical_prices_batch] Storing {len(formatted_data)} price records")
         
         # Use upsert to handle duplicates (on conflict with symbol+date, update the record)
         response = client.table('historical_prices') \
@@ -434,7 +434,7 @@ async def supa_api_store_historical_prices_batch(
             .execute()
         
         if hasattr(response, 'data') and response.data:
-            logger.info(f"[supa_api_historical_prices.py::supa_api_store_historical_prices_batch] Successfully stored {len(response.data)} price records")
+            #logger.info(f"[supa_api_historical_prices.py::supa_api_store_historical_prices_batch] Successfully stored {len(response.data)} price records")
             return True
         else:
             logger.warning("[supa_api_historical_prices.py::supa_api_store_historical_prices_batch] Upsert returned no data")

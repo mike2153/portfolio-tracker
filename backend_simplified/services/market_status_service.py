@@ -27,7 +27,7 @@ class MarketStatusService:
         self._cache_duration = 3600  # 1 hour cache
         self._holidays_cache = {}  # Cache exchange -> Set[date]
         self._holidays_loaded = False
-        logger.info("[MarketStatusService] Initialized")
+        # logger.info("[MarketStatusService] Initialized")
     
     async def is_market_open_for_symbol(self, symbol: str, user_token: Optional[str] = None) -> Tuple[bool, Dict[str, Any]]:
         """
@@ -59,7 +59,7 @@ class MarketStatusService:
             market_info['is_open'] = is_open
             market_info['checked_at'] = datetime.now(timezone.utc).isoformat()
             
-            logger.info(f"[MarketStatusService] Market for {symbol} ({market_info['market_region']}): {'OPEN' if is_open else 'CLOSED'}")
+            # logger.info(f"[MarketStatusService] Market for {symbol} ({market_info['market_region']}): {'OPEN' if is_open else 'CLOSED'}")
             
             return is_open, market_info
             
@@ -115,6 +115,21 @@ class MarketStatusService:
                 # Cache the result
                 self._market_info_cache[cache_key] = (market_info, datetime.now())
                 return market_info
+            
+            # NEW: Default market info for common index symbols
+            if symbol.upper() in ['SPY', 'QQQ', 'VTI', 'DIA', 'IWM', 'VOO', 'VXUS', 'URTH', 'A200']:
+                logger.info(f"[MarketStatusService] Using default US market hours for index {symbol}")
+                default_market_info = {
+                    'symbol': symbol.upper(),
+                    'market_region': 'United States',
+                    'market_open': '09:30:00',
+                    'market_close': '16:00:00',
+                    'market_timezone': 'America/New_York',
+                    'market_currency': 'USD'
+                }
+                # Cache the default info
+                self._market_info_cache[cache_key] = (default_market_info, datetime.now())
+                return default_market_info
             
             return None
             
@@ -266,7 +281,7 @@ class MarketStatusService:
         self._market_info_cache.clear()
         self._market_status_cache.clear()
         self._last_update_cache.clear()
-        logger.info("[MarketStatusService] Cache cleared")
+        # logger.info("[MarketStatusService] Cache cleared")
     
     async def group_symbols_by_market(self, symbols: List[str], user_token: Optional[str] = None) -> Dict[str, List[str]]:
         """
@@ -289,9 +304,9 @@ class MarketStatusService:
                 market_groups[region] = []
             market_groups[region].append(symbol)
         
-        logger.info(f"[MarketStatusService] Grouped {len(symbols)} symbols into {len(market_groups)} markets")
-        for region, syms in market_groups.items():
-            logger.info(f"[MarketStatusService] {region}: {', '.join(syms)}")
+        # logger.info(f"[MarketStatusService] Grouped {len(symbols)} symbols into {len(market_groups)} markets")
+        # for region, syms in market_groups.items():
+        #     logger.info(f"[MarketStatusService] {region}: {', '.join(syms)}")
         
         return market_groups
     
@@ -333,7 +348,7 @@ class MarketStatusService:
             market_status[region] = is_open
             self._market_status_cache[cache_key] = (is_open, now)
             
-            logger.info(f"[MarketStatusService] Market {region}: {'OPEN' if is_open else 'CLOSED'}")
+            # logger.info(f"[MarketStatusService] Market {region}: {'OPEN' if is_open else 'CLOSED'}")
         
         return market_status
     
@@ -380,12 +395,12 @@ class MarketStatusService:
                 
                 # If last update was before market close, we need to update to get closing price
                 if last_update_tz < market_close_utc:
-                    logger.info(f"[MarketStatusService] {symbol} last updated before market close, need closing price")
+                    # logger.info(f"[MarketStatusService] {symbol} last updated before market close, need closing price")
                     return True
                     
                 # If updated after market close today, we have the closing price
                 if last_update.date() == today and last_update_tz >= market_close_utc:
-                    logger.info(f"[MarketStatusService] {symbol} already has today's closing price, skipping")
+                    # logger.info(f"[MarketStatusService] {symbol} already has today's closing price, skipping")
                     return False
                     
             except Exception as e:
@@ -397,7 +412,7 @@ class MarketStatusService:
         if last_update.date() == today:
             # Assume market closes by 4:30 PM in most cases
             if last_update.hour >= 16 and last_update.minute >= 30:
-                logger.info(f"[MarketStatusService] {symbol} already updated after market close today, skipping")
+                # logger.info(f"[MarketStatusService] {symbol} already updated after market close today, skipping")
                 return False
         
         # For any other case (different day, etc), update
@@ -435,7 +450,7 @@ class MarketStatusService:
                     self._holidays_cache[exchange].add(holiday_date)
                 
                 self._holidays_loaded = True
-                logger.info(f"[MarketStatusService] Loaded {len(result.data)} holidays for {len(self._holidays_cache)} exchanges")
+                # logger.info(f"[MarketStatusService] Loaded {len(result.data)} holidays for {len(self._holidays_cache)} exchanges")
             
         except Exception as e:
             logger.error(f"[MarketStatusService] Error loading holidays: {e}")
@@ -503,15 +518,15 @@ class MarketStatusService:
         # Get market info for symbol
         market_info = await self.get_market_info_for_symbol(symbol, user_token)
         if not market_info:
-            logger.warning(f"[MarketStatusService] No market info for {symbol}, cannot check missed sessions")
-            return missed_sessions
+            logger.warning(f"[MarketStatusService] No market info for {symbol}, using default US market schedule")
+            # Use default US market schedule if no specific info found
+            market_tz = 'America/New_York'
+        else:
+            market_tz = market_info.get('market_timezone', 'America/New_York')
         
         # Start from day after last update
         current_date = last_update.date() + timedelta(days=1)
         today = date.today()
-        
-        # Get timezone for holiday checking
-        market_tz = market_info.get('market_timezone', 'America/New_York')
         
         while current_date <= today:
             # Skip weekends
@@ -523,8 +538,8 @@ class MarketStatusService:
             
             current_date += timedelta(days=1)
         
-        if missed_sessions:
-            logger.info(f"[MarketStatusService] {symbol} has {len(missed_sessions)} missed sessions: {missed_sessions}")
+        # if missed_sessions:
+        #     logger.info(f"[MarketStatusService] {symbol} has {len(missed_sessions)} missed sessions: {missed_sessions}")
         
         return missed_sessions
     

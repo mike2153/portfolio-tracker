@@ -49,6 +49,7 @@ class IndexSimulationService:
         2. For each transaction after start_date and up to end_date, simulate buying/selling the index with the cash flow amount.
         3. Simulate index value day by day as before.
         """
+        logger.info(f"[DEBUG] get_index_sim_series called: user_id={user_id}, benchmark={benchmark}, start={start_date}, end={end_date}")
         if not user_token:
             logger.error(f"[index_sim_service] ❌ JWT token required for RLS compliance")
             from fastapi import HTTPException
@@ -98,7 +99,7 @@ class IndexSimulationService:
             transactions = transactions_response.data
 
             # Step 3: Ensure benchmark prices are up to date
-            logger.info(f"[index_sim_service] Ensuring {benchmark} prices are current...")
+            # logger.info(f"[index_sim_service] Ensuring {benchmark} prices are current...")
             from services.current_price_manager import current_price_manager
             
             # Use CurrentPriceManager to ensure we have latest index prices
@@ -107,9 +108,10 @@ class IndexSimulationService:
                 user_token=user_token,
                 include_indexes=False  # Already processing an index
             )
-            
             if update_result.get("data", {}).get("updated"):
-                logger.info(f"[index_sim_service] Updated {benchmark} prices with {update_result['data']['sessions_filled']} sessions")
+                 logger.info(f"[index_sim_service] Updated {benchmark} prices with {update_result['data']['sessions_filled']} sessions")
+            else:
+                logger.warning(f"[index_sim_service] ⚠️ No price data for {benchmark} even after update {update_result}")
             
             # Now get benchmark historical prices for the entire range
             extended_start = start_date - timedelta(days=30)
@@ -450,6 +452,8 @@ class IndexSimulationService:
             List of (date, index_portfolio_value) tuples for the timeframe
         """
         
+        logger.info(f"[DEBUG] get_rebalanced_index_series called: user_id={user_id}, benchmark={benchmark}, start={start_date}, end={end_date}")
+        
         if not user_token:
             logger.error(f"[index_sim_service] ❌ JWT token required for rebalanced index simulation")
             raise ValueError("JWT token required for rebalanced index simulation")
@@ -512,18 +516,22 @@ class IndexSimulationService:
                 return await IndexSimulationService._generate_zero_series(start_date, end_date)
             
             # Step 2: Ensure benchmark prices are up to date
-            logger.info(f"[index_sim_service] Ensuring {benchmark} prices are current for rebalanced series...")
+            # logger.info(f"[index_sim_service] Ensuring {benchmark} prices are current for rebalanced series...")
             from services.current_price_manager import current_price_manager
             
             # Use CurrentPriceManager to ensure we have latest index prices
+            logger.info(f"[DEBUG] index_sim_service: Calling update_prices_with_session_check for benchmark={benchmark}")
             update_result = await current_price_manager.update_prices_with_session_check(
                 symbols=[benchmark],
                 user_token=user_token,
                 include_indexes=False  # Already processing an index
             )
             
+            logger.info(f"[DEBUG] index_sim_service: Update result for {benchmark}: {update_result}")
             if update_result.get("data", {}).get("updated"):
-                logger.info(f"[index_sim_service] Updated {benchmark} prices with {update_result['data']['sessions_filled']} sessions")
+                sessions_filled = update_result.get("data", {}).get("sessions_filled", 0)
+                logger.info(f"[DEBUG] index_sim_service: Successfully updated {benchmark} prices, filled {sessions_filled} sessions")
+                pass
             
             # Get benchmark prices for the timeframe
             # CRITICAL FIX: Use the actual portfolio start date, not the requested start_date

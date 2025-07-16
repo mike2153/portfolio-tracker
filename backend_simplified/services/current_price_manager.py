@@ -41,7 +41,7 @@ class CurrentPriceManager:
         self.vantage_client = get_vantage_client()
         self._quote_cache = {}  # Cache structure: {symbol: (data, fetch_time, price)}
         self._cache_timeout_fallback = 300  # 5 minutes fallback when we can't determine market status
-        logger.info("[CurrentPriceManager] Initialized with market-aware caching")
+        # logger.info("[CurrentPriceManager] Initialized with market-aware caching")
     
     async def get_current_price_fast(self, symbol: str) -> Dict[str, Any]:
         """
@@ -70,7 +70,7 @@ class CurrentPriceManager:
                 
                 if not is_market_open:
                     # Market is closed - use cache if we have it (no matter how old)
-                    logger.info(f"[CurrentPriceManager] Market closed for {symbol}, using cached quote (age: {age_seconds:.1f}s)")
+                    # logger.info(f"[CurrentPriceManager] Market closed for {symbol}, using cached quote (age: {age_seconds:.1f}s)")
                     return cached_data
                 else:
                     # Market is open - check if we need fresh data
@@ -79,12 +79,12 @@ class CurrentPriceManager:
                     
                     if fresh_quote and fresh_quote.get('price') == cached_price:
                         # Price hasn't changed, update cache timestamp and continue using it
-                        logger.info(f"[CurrentPriceManager] Market open but price unchanged for {symbol}, extending cache")
+                        # logger.info(f"[CurrentPriceManager] Market open but price unchanged for {symbol}, extending cache")
                         self._quote_cache[cache_key] = (cached_data, now, cached_price)
                         return cached_data
                     elif fresh_quote:
                         # Price changed, use and cache the fresh data
-                        logger.info(f"[CurrentPriceManager] Market open and price changed for {symbol}, using fresh quote")
+                        # logger.info(f"[CurrentPriceManager] Market open and price changed for {symbol}, using fresh quote")
                         result = {
                             "success": True,
                             "data": fresh_quote,
@@ -100,11 +100,11 @@ class CurrentPriceManager:
                         return result
                     elif age_seconds < self._cache_timeout_fallback:
                         # Failed to get fresh quote but cache is recent
-                        logger.info(f"[CurrentPriceManager] Failed to get fresh quote, using recent cache for {symbol}")
+                        # logger.info(f"[CurrentPriceManager] Failed to get fresh quote, using recent cache for {symbol}")
                         return cached_data
             
             # No cache or cache miss - get fresh quote from Alpha Vantage
-            logger.info(f"[CurrentPriceManager] Getting fresh quote for {symbol}")
+            # logger.info(f"[CurrentPriceManager] Getting fresh quote for {symbol}")
             current_price_data = await self._get_current_price_data(symbol)
             
             if current_price_data:
@@ -165,7 +165,7 @@ class CurrentPriceManager:
         """
         try:
             symbol = symbol.upper().strip()
-            logger.info(f"[CurrentPriceManager] Getting current price for {symbol} (user_token: {'provided' if user_token else 'none'})")
+            # logger.info(f"[CurrentPriceManager] Getting current price for {symbol} (user_token: {'provided' if user_token else 'none'})")
             
             # Step 1: Try to get current/intraday price first (most efficient)
             current_price_data = await self._get_current_price_data(symbol)
@@ -177,10 +177,11 @@ class CurrentPriceManager:
                     
                     if is_market_open:
                         # Market is open - ensure historical data is current (background)
-                        logger.info(f"[CurrentPriceManager] Market open for {symbol}, checking historical data gaps")
+                        # logger.info(f"[CurrentPriceManager] Market open for {symbol}, checking historical data gaps")
                         asyncio.create_task(self._ensure_data_current(symbol, user_token))
                     else:
-                        logger.info(f"[CurrentPriceManager] Market closed for {symbol}, skipping historical data update")
+                        # logger.info(f"[CurrentPriceManager] Market closed for {symbol}, skipping historical data update")
+                        pass
                 
                 return {
                     "success": True,
@@ -264,14 +265,22 @@ class CurrentPriceManager:
             if start_date is None:
                 start_date = end_date - timedelta(days=years * 365)
             
-            logger.info(f"[CurrentPriceManager] Getting historical prices for {symbol} from {start_date} to {end_date}")
+            # logger.info(f"[CurrentPriceManager] Getting historical prices for {symbol} from {start_date} to {end_date}")
             
-            # Ensure data is current
-            if user_token:
-                await self._ensure_data_current(symbol, user_token)
-            
-            # Get historical data from database
+            # First, check if we have any data in the database for this date range
             historical_data = await self._get_db_historical_data(symbol, start_date, end_date, user_token)
+            
+            # If no data found, try to fetch from Alpha Vantage
+            if not historical_data:
+                logger.info(f"[DEBUG] No historical data in DB for {symbol} from {start_date} to {end_date}, fetching from Alpha Vantage")
+                # Directly fill price gaps without market hours check
+                await self._fill_price_gaps(symbol, start_date, end_date, user_token)
+                # Try again after filling gaps
+                historical_data = await self._get_db_historical_data(symbol, start_date, end_date, user_token)
+            else:
+                # Data exists, ensure it's current (only if market is open)
+                if user_token:
+                    await self._ensure_data_current(symbol, user_token)
             
             if historical_data:
                 return {
@@ -336,7 +345,7 @@ class CurrentPriceManager:
             Dict containing price data for all symbols
         """
         try:
-            logger.info(f"[CurrentPriceManager] Getting portfolio prices for {len(symbols)} symbols")
+            # logger.info(f"[CurrentPriceManager] Getting portfolio prices for {len(symbols)} symbols")
             
             # Step 1: Group symbols by market/exchange
             market_groups = await market_status_service.group_symbols_by_market(symbols, user_token)
@@ -364,7 +373,7 @@ class CurrentPriceManager:
                         if not should_update:
                             # Market is closed and we already have recent data
                             # Get cached data from database without triggering updates
-                            logger.info(f"[CurrentPriceManager] Skipping {symbol} - market closed, already have recent data")
+                            # logger.info(f"[CurrentPriceManager] Skipping {symbol} - market closed, already have recent data")
                             
                             # Get existing data from DB without triggering updates
                             if user_token:
@@ -396,7 +405,7 @@ class CurrentPriceManager:
                         logger.error(f"[CurrentPriceManager] Error processing {symbol}: {e}")
                         failed_symbols.append(symbol)
             
-            logger.info(f"[CurrentPriceManager] Portfolio prices summary: {len(successful_symbols)} successful, {len(skipped_symbols)} skipped (market closed), {len(failed_symbols)} failed")
+            # logger.info(f"[CurrentPriceManager] Portfolio prices summary: {len(successful_symbols)} successful, {len(skipped_symbols)} skipped (market closed), {len(failed_symbols)} failed")
             
             return {
                 "success": True,
@@ -451,7 +460,7 @@ class CurrentPriceManager:
             Dict containing price data for all symbols (from database only)
         """
         try:
-            logger.info(f"[CurrentPriceManager] Getting CHART-OPTIMIZED prices for {len(symbols)} symbols")
+            # logger.info(f"[CurrentPriceManager] Getting CHART-OPTIMIZED prices for {len(symbols)} symbols")
             
             # Default date range if not provided
             if end_date is None:
@@ -479,7 +488,7 @@ class CurrentPriceManager:
                     if historical_data:
                         portfolio_data[symbol] = historical_data
                         successful_symbols.append(symbol)
-                        logger.info(f"[CurrentPriceManager] ✅ {symbol}: {len(historical_data)} data points from database")
+                        # logger.info(f"[CurrentPriceManager] ✅ {symbol}: {len(historical_data)} data points from database")
                     else:
                         failed_symbols.append(symbol)
                         logger.warning(f"[CurrentPriceManager] ❌ {symbol}: No historical data in database")
@@ -488,7 +497,7 @@ class CurrentPriceManager:
                     logger.error(f"[CurrentPriceManager] Error getting chart data for {symbol}: {e}")
                     failed_symbols.append(symbol)
             
-            logger.info(f"[CurrentPriceManager] CHART-OPTIMIZED: {len(successful_symbols)} successful, {len(failed_symbols)} failed")
+            # logger.info(f"[CurrentPriceManager] CHART-OPTIMIZED: {len(successful_symbols)} successful, {len(failed_symbols)} failed")
             
             return {
                 "success": True,
@@ -536,14 +545,14 @@ class CurrentPriceManager:
             is_market_open, market_info = await market_status_service.is_market_open_for_symbol(symbol, user_token)
             
             if not is_market_open:
-                logger.info(f"[CurrentPriceManager] Market closed for {symbol}, skipping data update")
+                # logger.info(f"[CurrentPriceManager] Market closed for {symbol}, skipping data update")
                 return True
             
             # Step 1: Get last price date from database
             last_price_date = await self._get_last_price_date(symbol, user_token)
             today = date.today()
             
-            logger.info(f"[CurrentPriceManager] Last price date for {symbol}: {last_price_date}, Today: {today}")
+            # logger.info(f"[CurrentPriceManager] Last price date for {symbol}: {last_price_date}, Today: {today}")
             
             # Step 2: Check if we need to fill gaps
             if last_price_date is None or last_price_date < today:
@@ -552,10 +561,10 @@ class CurrentPriceManager:
                     # Only one day gap - might be weekend/holiday
                     next_open = market_status_service.calculate_next_market_open(market_info)
                     if next_open and next_open.date() > today:
-                        logger.info(f"[CurrentPriceManager] Market hasn't opened since {last_price_date}, no gaps to fill")
+                        # logger.info(f"[CurrentPriceManager] Market hasn't opened since {last_price_date}, no gaps to fill")
                         return True
                 
-                logger.info(f"[CurrentPriceManager] Need to fill gaps for {symbol}")
+                # logger.info(f"[CurrentPriceManager] Need to fill gaps for {symbol}")
                 
                 # Determine start date for gap filling
                 if last_price_date is None:
@@ -570,7 +579,7 @@ class CurrentPriceManager:
                 return True
             
             else:
-                logger.info(f"[CurrentPriceManager] Data is current for {symbol}")
+                # logger.info(f"[CurrentPriceManager] Data is current for {symbol}")
                 return True
                 
         except Exception as e:
@@ -605,9 +614,10 @@ class CurrentPriceManager:
     async def _fill_price_gaps(self, symbol: str, start_date: date, end_date: date, user_token: str) -> bool:
         """Fill price gaps by fetching from Alpha Vantage and updating database"""
         try:
-            logger.info(f"[CurrentPriceManager] Filling price gaps for {symbol} from {start_date} to {end_date}")
+            logger.info(f"[DEBUG] _fill_price_gaps called for {symbol} from {start_date} to {end_date}")
             
             # Get daily data from Alpha Vantage
+            logger.info(f"[DEBUG] Calling Alpha Vantage API for {symbol}")
             raw_data = await vantage_api_get_daily_adjusted(symbol)
             
             if not raw_data:
@@ -661,7 +671,7 @@ class CurrentPriceManager:
                 )
                 
                 if success:
-                    logger.info(f"[CurrentPriceManager] Successfully stored {len(formatted_data)} price records for {symbol}")
+                    # logger.info(f"[CurrentPriceManager] Successfully stored {len(formatted_data)} price records for {symbol}")
                     return True
                 else:
                     logger.warning(f"[CurrentPriceManager] Failed to store price data for {symbol}")
@@ -802,7 +812,7 @@ class CurrentPriceManager:
             Dict with update results
         """
         try:
-            logger.info(f"[CurrentPriceManager] Ensuring closing prices for {len(symbols)} symbols")
+            # logger.info(f"[CurrentPriceManager] Ensuring closing prices for {len(symbols)} symbols")
             
             updated_symbols = []
             skipped_symbols = []
@@ -814,7 +824,7 @@ class CurrentPriceManager:
                     is_open, market_info = await market_status_service.is_market_open_for_symbol(symbol, user_token)
                     
                     if is_open:
-                        logger.info(f"[CurrentPriceManager] Market still open for {symbol}, skipping closing price update")
+                        # logger.info(f"[CurrentPriceManager] Market still open for {symbol}, skipping closing price update")
                         skipped_symbols.append(symbol)
                         continue
                     
@@ -822,7 +832,7 @@ class CurrentPriceManager:
                     should_update = market_status_service.should_update_prices(symbol, False, market_info)
                     
                     if should_update:
-                        logger.info(f"[CurrentPriceManager] Getting closing price for {symbol}")
+                        # logger.info(f"[CurrentPriceManager] Getting closing price for {symbol}")
                         
                         # Get current quote (will be closing price if market closed)
                         current_price_data = await self._get_current_price_data(symbol)
@@ -853,7 +863,7 @@ class CurrentPriceManager:
                         else:
                             failed_symbols.append(symbol)
                     else:
-                        logger.info(f"[CurrentPriceManager] {symbol} already has closing price")
+                        # logger.info(f"[CurrentPriceManager] {symbol} already has closing price")
                         skipped_symbols.append(symbol)
                         
                 except Exception as e:
@@ -888,7 +898,7 @@ class CurrentPriceManager:
             Dict with update results and statistics
         """
         try:
-            logger.info(f"[CurrentPriceManager] Starting session-aware price update for {len(symbols)} symbols")
+            logger.info(f"[DEBUG] CurrentPriceManager.update_prices_with_session_check: START - symbols={symbols}, include_indexes={include_indexes}")
             
             # Ensure market holidays are loaded
             await market_status_service.load_market_holidays()
@@ -934,6 +944,7 @@ class CurrentPriceManager:
                             last_update_time = datetime.now() - timedelta(days=365)
                     
                     # Check for missed sessions
+                    logger.info(f"[DEBUG] Checking missed sessions for {symbol}, last_update_time={last_update_time}")
                     missed_sessions = await market_status_service.get_missed_sessions(
                         symbol=symbol,
                         last_update=last_update_time,
@@ -941,17 +952,18 @@ class CurrentPriceManager:
                     )
                     
                     if not missed_sessions:
-                        logger.info(f"[CurrentPriceManager] {symbol} is up to date")
+                        logger.info(f"[DEBUG] {symbol} is up to date - no missed sessions")
                         update_results["skipped"].append(symbol)
                         continue
                     
-                    logger.info(f"[CurrentPriceManager] {symbol} has {len(missed_sessions)} missed sessions: {missed_sessions}")
+                    logger.info(f"[DEBUG] {symbol} has {len(missed_sessions)} missed sessions: {missed_sessions}")
                     
                     # Determine date range to fetch
                     start_date = missed_sessions[0]
                     end_date = date.today()
                     
                     # Fetch historical data to fill gaps
+                    logger.info(f"[DEBUG] Fetching historical data for {symbol} from {start_date} to {end_date}")
                     result = await self.get_historical_prices(
                         symbol=symbol,
                         start_date=start_date,
@@ -960,6 +972,7 @@ class CurrentPriceManager:
                     )
                     
                     if result.get("success"):
+                        logger.info(f"[DEBUG] Successfully updated {symbol}, filling {len(missed_sessions)} sessions")
                         update_results["updated"].append(symbol)
                         update_results["sessions_filled"] += len(missed_sessions)
                         update_results["api_calls"] += 1
@@ -968,7 +981,7 @@ class CurrentPriceManager:
                         await self._update_price_log(symbol, "session_check", len(missed_sessions))
                     else:
                         update_results["failed"].append(symbol)
-                        logger.error(f"[CurrentPriceManager] Failed to update {symbol}: {result.get('error')}")
+                        logger.error(f"[DEBUG] Failed to update {symbol}: {result.get('error')}")
                     
                 except Exception as e:
                     logger.error(f"[CurrentPriceManager] Error processing {symbol}: {e}")
@@ -977,7 +990,7 @@ class CurrentPriceManager:
             # Also update major indexes (only if not already processing indexes)
             if include_indexes:
                 indexes = ['SPY', 'QQQ', 'VTI', 'DIA', 'IWM']
-                logger.info(f"[CurrentPriceManager] Also updating indexes: {indexes}")
+                # logger.info(f"[CurrentPriceManager] Also updating indexes: {indexes}")
                 
                 for index in indexes:
                     if index not in symbols:
@@ -992,9 +1005,11 @@ class CurrentPriceManager:
                         except Exception as e:
                             logger.error(f"[CurrentPriceManager] Error updating index {index}: {e}")
             
-            logger.info(f"[CurrentPriceManager] Session update complete: {len(update_results['updated'])} updated, "
+            logger.info(f"[DEBUG] Session update complete: {len(update_results['updated'])} updated, "
                        f"{len(update_results['skipped'])} skipped, {len(update_results['failed'])} failed, "
                        f"{update_results['sessions_filled']} sessions filled")
+            
+            logger.info(f"[DEBUG] Final update_results: {update_results}")
             
             return {
                 "success": True,
@@ -1044,7 +1059,7 @@ class CurrentPriceManager:
                 .upsert(data, on_conflict='symbol') \
                 .execute()
             
-            logger.info(f"[CurrentPriceManager] Updated price log for {symbol}")
+            # logger.info(f"[CurrentPriceManager] Updated price log for {symbol}")
             
         except Exception as e:
             logger.error(f"[CurrentPriceManager] Error updating price log: {e}")
@@ -1081,7 +1096,7 @@ class CurrentPriceManager:
             # Get unique symbols
             symbols = list(set([t['symbol'] for t in result.data if t['symbol']]))
             
-            logger.info(f"[CurrentPriceManager] Updating prices for user {user_id} with {len(symbols)} symbols")
+            # logger.info(f"[CurrentPriceManager] Updating prices for user {user_id} with {len(symbols)} symbols")
             
             # Run session-aware update
             return await self.update_prices_with_session_check(symbols, user_token)
