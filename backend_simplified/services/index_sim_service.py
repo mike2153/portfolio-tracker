@@ -97,7 +97,21 @@ class IndexSimulationService:
                 .execute()
             transactions = transactions_response.data
 
-            # Step 3: Get benchmark historical prices for the entire range
+            # Step 3: Ensure benchmark prices are up to date
+            logger.info(f"[index_sim_service] Ensuring {benchmark} prices are current...")
+            from services.current_price_manager import current_price_manager
+            
+            # Use CurrentPriceManager to ensure we have latest index prices
+            update_result = await current_price_manager.update_prices_with_session_check(
+                symbols=[benchmark],
+                user_token=user_token,
+                include_indexes=False  # Already processing an index
+            )
+            
+            if update_result.get("data", {}).get("updated"):
+                logger.info(f"[index_sim_service] Updated {benchmark} prices with {update_result['data']['sessions_filled']} sessions")
+            
+            # Now get benchmark historical prices for the entire range
             extended_start = start_date - timedelta(days=30)
             prices_response = client.table('historical_prices') \
                 .select('date, close') \
@@ -107,25 +121,14 @@ class IndexSimulationService:
                 .order('date', desc=False) \
                 .execute()
             price_data = prices_response.data
+            
             if not price_data:
-                logger.warning(f"[index_sim_service] ⚠️ No price data found for {benchmark}. Attempting Alpha Vantage back-fill…")
-                from vantage_api.vantage_api_quotes import vantage_api_fetch_and_store_historical_data
-                await vantage_api_fetch_and_store_historical_data(benchmark, start_date.strftime('%Y-%m-%d'))
-                prices_response = client.table('historical_prices') \
-                    .select('date, close') \
-                    .eq('symbol', benchmark) \
-                    .gte('date', extended_start.isoformat()) \
-                    .lte('date', end_date.isoformat()) \
-                    .order('date', desc=False) \
-                    .execute()
-                price_data = prices_response.data
-                if not price_data:
-                    logger.error(f"[index_sim_service] ❌ Still no price data for {benchmark} after back-fill")
-                    from fastapi import HTTPException
-                    raise HTTPException(
-                        status_code=404,
-                        detail=f"No historical price data found for benchmark {benchmark}"
-                    )
+                logger.error(f"[index_sim_service] ❌ No price data for {benchmark} even after update")
+                from fastapi import HTTPException
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"No historical price data found for benchmark {benchmark}"
+                )
             benchmark_prices = {}
             for price_record in price_data:
                 price_date = datetime.strptime(price_record['date'], '%Y-%m-%d').date()
@@ -508,7 +511,21 @@ class IndexSimulationService:
                 logger.warning(f"[index_sim_service] ⚠️ Portfolio value is zero or negative: ${start_portfolio_value}")
                 return await IndexSimulationService._generate_zero_series(start_date, end_date)
             
-            # Step 2: Get benchmark prices for the timeframe
+            # Step 2: Ensure benchmark prices are up to date
+            logger.info(f"[index_sim_service] Ensuring {benchmark} prices are current for rebalanced series...")
+            from services.current_price_manager import current_price_manager
+            
+            # Use CurrentPriceManager to ensure we have latest index prices
+            update_result = await current_price_manager.update_prices_with_session_check(
+                symbols=[benchmark],
+                user_token=user_token,
+                include_indexes=False  # Already processing an index
+            )
+            
+            if update_result.get("data", {}).get("updated"):
+                logger.info(f"[index_sim_service] Updated {benchmark} prices with {update_result['data']['sessions_filled']} sessions")
+            
+            # Get benchmark prices for the timeframe
             # CRITICAL FIX: Use the actual portfolio start date, not the requested start_date
             # This ensures perfect alignment between portfolio and benchmark baselines
             if actual_start_date is None:

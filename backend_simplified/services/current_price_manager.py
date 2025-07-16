@@ -874,6 +874,225 @@ class CurrentPriceManager:
                 "success": False,
                 "error": str(e)
             }
+    
+    async def update_prices_with_session_check(self, symbols: List[str], user_token: Optional[str] = None, include_indexes: bool = True) -> Dict[str, Any]:
+        """
+        Update prices for symbols that have missed market sessions
+        This is the main entry point for session-aware price updates
+        
+        Args:
+            symbols: List of stock symbols to check and update
+            user_token: JWT token for database access
+            
+        Returns:
+            Dict with update results and statistics
+        """
+        try:
+            logger.info(f"[CurrentPriceManager] Starting session-aware price update for {len(symbols)} symbols")
+            
+            # Ensure market holidays are loaded
+            await market_status_service.load_market_holidays()
+            
+            update_results = {
+                "updated": [],
+                "skipped": [],
+                "failed": [],
+                "sessions_filled": 0,
+                "api_calls": 0
+            }
+            
+            # Get last update info from database
+            from supa_api.supa_api_client import get_supa_service_client
+            supa = get_supa_service_client()
+            
+            for symbol in symbols:
+                try:
+                    # Get last update time for this symbol
+                    result = supa.table('price_update_log') \
+                        .select('last_update_time, last_session_date') \
+                        .eq('symbol', symbol) \
+                        .limit(1) \
+                        .execute()
+                    
+                    last_update_time = None
+                    if result.data and len(result.data) > 0:
+                        last_update_time = datetime.fromisoformat(result.data[0]['last_update_time'])
+                    else:
+                        # No record, check historical prices for last date
+                        hist_result = supa.table('historical_prices') \
+                            .select('date') \
+                            .eq('symbol', symbol) \
+                            .order('date', desc=True) \
+                            .limit(1) \
+                            .execute()
+                        
+                        if hist_result.data:
+                            last_date = datetime.fromisoformat(hist_result.data[0]['date'])
+                            last_update_time = last_date.replace(hour=16, minute=0)  # Assume market close
+                        else:
+                            # Never seen this symbol, need full history
+                            last_update_time = datetime.now() - timedelta(days=365)
+                    
+                    # Check for missed sessions
+                    missed_sessions = await market_status_service.get_missed_sessions(
+                        symbol=symbol,
+                        last_update=last_update_time,
+                        user_token=user_token
+                    )
+                    
+                    if not missed_sessions:
+                        logger.info(f"[CurrentPriceManager] {symbol} is up to date")
+                        update_results["skipped"].append(symbol)
+                        continue
+                    
+                    logger.info(f"[CurrentPriceManager] {symbol} has {len(missed_sessions)} missed sessions: {missed_sessions}")
+                    
+                    # Determine date range to fetch
+                    start_date = missed_sessions[0]
+                    end_date = date.today()
+                    
+                    # Fetch historical data to fill gaps
+                    result = await self.get_historical_prices(
+                        symbol=symbol,
+                        start_date=start_date,
+                        end_date=end_date,
+                        user_token=user_token
+                    )
+                    
+                    if result.get("success"):
+                        update_results["updated"].append(symbol)
+                        update_results["sessions_filled"] += len(missed_sessions)
+                        update_results["api_calls"] += 1
+                        
+                        # Update the price update log
+                        await self._update_price_log(symbol, "session_check", len(missed_sessions))
+                    else:
+                        update_results["failed"].append(symbol)
+                        logger.error(f"[CurrentPriceManager] Failed to update {symbol}: {result.get('error')}")
+                    
+                except Exception as e:
+                    logger.error(f"[CurrentPriceManager] Error processing {symbol}: {e}")
+                    update_results["failed"].append(symbol)
+            
+            # Also update major indexes (only if not already processing indexes)
+            if include_indexes:
+                indexes = ['SPY', 'QQQ', 'VTI', 'DIA', 'IWM']
+                logger.info(f"[CurrentPriceManager] Also updating indexes: {indexes}")
+                
+                for index in indexes:
+                    if index not in symbols:
+                        # Same process for indexes
+                        try:
+                            # Call with include_indexes=False to prevent recursion
+                            result = await self.update_prices_with_session_check([index], user_token, include_indexes=False)
+                            if result["data"]["updated"]:
+                                update_results["updated"].extend(result["data"]["updated"])
+                                update_results["sessions_filled"] += result["data"]["sessions_filled"]
+                                update_results["api_calls"] += result["data"]["api_calls"]
+                        except Exception as e:
+                            logger.error(f"[CurrentPriceManager] Error updating index {index}: {e}")
+            
+            logger.info(f"[CurrentPriceManager] Session update complete: {len(update_results['updated'])} updated, "
+                       f"{len(update_results['skipped'])} skipped, {len(update_results['failed'])} failed, "
+                       f"{update_results['sessions_filled']} sessions filled")
+            
+            return {
+                "success": True,
+                "data": update_results,
+                "metadata": {
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "total_symbols": len(symbols),
+                    "total_api_calls": update_results["api_calls"]
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"[CurrentPriceManager] Error in session-aware update: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "data": None
+            }
+    
+    async def _update_price_log(self, symbol: str, update_trigger: str, sessions_updated: int) -> None:
+        """
+        Update the price update log table
+        
+        Args:
+            symbol: Stock symbol
+            update_trigger: What triggered this update
+            sessions_updated: Number of sessions that were updated
+        """
+        try:
+            from supa_api.supa_api_client import get_supa_service_client
+            supa = get_supa_service_client()
+            
+            # Get last trading day
+            last_session_date = await market_status_service.get_last_trading_day()
+            
+            # Upsert the log entry
+            data = {
+                "symbol": symbol,
+                "last_update_time": datetime.now(timezone.utc).isoformat(),
+                "last_session_date": last_session_date.isoformat(),
+                "update_trigger": update_trigger,
+                "sessions_updated": sessions_updated,
+                "api_calls_made": 1
+            }
+            
+            result = supa.table('price_update_log') \
+                .upsert(data, on_conflict='symbol') \
+                .execute()
+            
+            logger.info(f"[CurrentPriceManager] Updated price log for {symbol}")
+            
+        except Exception as e:
+            logger.error(f"[CurrentPriceManager] Error updating price log: {e}")
+    
+    async def update_user_portfolio_prices(self, user_id: str, user_token: str) -> Dict[str, Any]:
+        """
+        Update prices for all symbols in a user's portfolio
+        Called on user login or manual trigger
+        
+        Args:
+            user_id: User ID
+            user_token: JWT token for database access
+            
+        Returns:
+            Dict with update results
+        """
+        try:
+            # Get user's unique symbols
+            from supa_api.supa_api_client import get_supa_service_client
+            supa = get_supa_service_client()
+            
+            result = supa.table('transactions') \
+                .select('symbol') \
+                .eq('user_id', user_id) \
+                .execute()
+            
+            if not result.data:
+                return {
+                    "success": True,
+                    "data": {"message": "No symbols in portfolio"},
+                    "metadata": {"user_id": user_id}
+                }
+            
+            # Get unique symbols
+            symbols = list(set([t['symbol'] for t in result.data if t['symbol']]))
+            
+            logger.info(f"[CurrentPriceManager] Updating prices for user {user_id} with {len(symbols)} symbols")
+            
+            # Run session-aware update
+            return await self.update_prices_with_session_check(symbols, user_token)
+            
+        except Exception as e:
+            logger.error(f"[CurrentPriceManager] Error updating user portfolio prices: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "data": None
+            }
 
 # Create a singleton instance for easy import
 current_price_manager = CurrentPriceManager()

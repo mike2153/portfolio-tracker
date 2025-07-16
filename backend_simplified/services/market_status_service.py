@@ -1,12 +1,14 @@
 """
 Market Status Service
 Handles checking if markets are open based on stored market hours
+Enhanced with holiday support and session tracking
 """
 import logging
 from datetime import datetime, time, timezone, timedelta, date
-from typing import Dict, Any, Optional, Tuple, List
+from typing import Dict, Any, Optional, Tuple, List, Set
 import pytz
 from zoneinfo import ZoneInfo
+import asyncio
 
 from debug_logger import DebugLogger
 from supa_api.supa_api_client import get_supa_service_client
@@ -23,6 +25,8 @@ class MarketStatusService:
         self._market_status_cache = {}  # Cache region -> (is_open, check_time)
         self._last_update_cache = {}  # Cache symbol -> last_update_time
         self._cache_duration = 3600  # 1 hour cache
+        self._holidays_cache = {}  # Cache exchange -> Set[date]
+        self._holidays_loaded = False
         logger.info("[MarketStatusService] Initialized")
     
     async def is_market_open_for_symbol(self, symbol: str, user_token: Optional[str] = None) -> Tuple[bool, Dict[str, Any]]:
@@ -46,7 +50,7 @@ class MarketStatusService:
                 return True, {"reason": "no_market_info"}
             
             # Check if market is currently open
-            is_open = self._check_market_hours(
+            is_open = await self._check_market_hours(
                 market_info['market_open'],
                 market_info['market_close'],
                 market_info['market_timezone']
@@ -118,7 +122,7 @@ class MarketStatusService:
             logger.error(f"[MarketStatusService] Error getting market info for {symbol}: {e}")
             return None
     
-    def _check_market_hours(self, market_open: str, market_close: str, market_tz: str) -> bool:
+    async def _check_market_hours(self, market_open: str, market_close: str, market_tz: str) -> bool:
         """
         Check if current time is within market hours
         
@@ -139,6 +143,10 @@ class MarketStatusService:
             
             # Check if it's a weekend (Saturday = 5, Sunday = 6)
             if now.weekday() >= 5:
+                return False
+            
+            # Check if it's a holiday
+            if await self.is_market_holiday(now.date(), market_tz):
                 return False
             
             # Parse market hours
@@ -314,7 +322,7 @@ class MarketStatusService:
             market_info = await self.get_market_info_for_symbol(sample_symbol)
             
             if market_info:
-                is_open = self._check_market_hours(
+                is_open = await self._check_market_hours(
                     market_info['market_open'],
                     market_info['market_close'],
                     market_info['market_timezone']
@@ -398,6 +406,241 @@ class MarketStatusService:
     def mark_symbol_updated(self, symbol: str):
         """Mark a symbol as having been updated"""
         self._last_update_cache[symbol] = datetime.now()
+    
+    async def load_market_holidays(self) -> None:
+        """
+        Load market holidays from database into cache
+        Should be called on startup or periodically
+        """
+        if self._holidays_loaded:
+            return
+        
+        try:
+            supa = get_supa_service_client()
+            
+            # Fetch all holidays
+            result = supa.table('market_holidays') \
+                .select('exchange, holiday_date') \
+                .execute()
+            
+            if result.data:
+                # Group holidays by exchange
+                for holiday in result.data:
+                    exchange = holiday['exchange']
+                    holiday_date = datetime.fromisoformat(holiday['holiday_date']).date()
+                    
+                    if exchange not in self._holidays_cache:
+                        self._holidays_cache[exchange] = set()
+                    
+                    self._holidays_cache[exchange].add(holiday_date)
+                
+                self._holidays_loaded = True
+                logger.info(f"[MarketStatusService] Loaded {len(result.data)} holidays for {len(self._holidays_cache)} exchanges")
+            
+        except Exception as e:
+            logger.error(f"[MarketStatusService] Error loading holidays: {e}")
+    
+    async def is_market_holiday(self, check_date: date, market_tz: str) -> bool:
+        """
+        Check if a specific date is a market holiday
+        
+        Args:
+            check_date: Date to check
+            market_tz: Market timezone to determine exchange
+            
+        Returns:
+            True if holiday, False otherwise
+        """
+        # Ensure holidays are loaded
+        if not self._holidays_loaded:
+            await self.load_market_holidays()
+        
+        # Map timezone to exchange
+        exchange = self._get_exchange_from_timezone(market_tz)
+        
+        # Check if date is in holidays set
+        if exchange in self._holidays_cache:
+            return check_date in self._holidays_cache[exchange]
+        
+        return False
+    
+    def _get_exchange_from_timezone(self, market_tz: str) -> str:
+        """
+        Map timezone to exchange name
+        """
+        # Common mappings
+        tz_to_exchange = {
+            'America/New_York': 'NYSE',
+            'UTC-05': 'NYSE',
+            'UTC-04': 'NYSE',  # During DST
+            'America/Toronto': 'TSX',
+            'UTC-08': 'NYSE',  # Pacific
+            'UTC-07': 'NYSE',  # Pacific DST
+            'Europe/London': 'LSE',
+            'UTC+00': 'LSE',
+            'Australia/Sydney': 'ASX',
+            'UTC+10': 'ASX',
+            'UTC+11': 'ASX',  # During DST
+        }
+        
+        return tz_to_exchange.get(market_tz, 'NYSE')  # Default to NYSE
+    
+    async def get_missed_sessions(self, symbol: str, last_update: datetime, 
+                                  user_token: Optional[str] = None) -> List[date]:
+        """
+        Get list of market sessions that occurred since last update
+        
+        Args:
+            symbol: Stock symbol
+            last_update: Last time we updated prices for this symbol
+            user_token: JWT token for database access
+            
+        Returns:
+            List of dates where market was open but we don't have prices
+        """
+        missed_sessions = []
+        
+        # Get market info for symbol
+        market_info = await self.get_market_info_for_symbol(symbol, user_token)
+        if not market_info:
+            logger.warning(f"[MarketStatusService] No market info for {symbol}, cannot check missed sessions")
+            return missed_sessions
+        
+        # Start from day after last update
+        current_date = last_update.date() + timedelta(days=1)
+        today = date.today()
+        
+        # Get timezone for holiday checking
+        market_tz = market_info.get('market_timezone', 'America/New_York')
+        
+        while current_date <= today:
+            # Skip weekends
+            if current_date.weekday() < 5:  # Monday = 0, Friday = 4
+                # Check if it was a holiday
+                if not await self.is_market_holiday(current_date, market_tz):
+                    # This was a trading day we missed
+                    missed_sessions.append(current_date)
+            
+            current_date += timedelta(days=1)
+        
+        if missed_sessions:
+            logger.info(f"[MarketStatusService] {symbol} has {len(missed_sessions)} missed sessions: {missed_sessions}")
+        
+        return missed_sessions
+    
+    async def get_last_trading_day(self, from_date: date = None) -> date:
+        """
+        Get the most recent trading day (not weekend or holiday)
+        
+        Args:
+            from_date: Date to start checking from (default: today)
+            
+        Returns:
+            Most recent trading day
+        """
+        if from_date is None:
+            from_date = date.today()
+        
+        check_date = from_date
+        
+        # Go backwards until we find a trading day
+        while True:
+            # Not a weekend
+            if check_date.weekday() < 5:
+                # Not a holiday (check NYSE by default)
+                if not await self.is_market_holiday(check_date, 'America/New_York'):
+                    return check_date
+            
+            # Go back one day
+            check_date -= timedelta(days=1)
+            
+            # Safety check - don't go back more than 10 days
+            if (from_date - check_date).days > 10:
+                logger.warning(f"[MarketStatusService] Could not find trading day within 10 days of {from_date}")
+                return from_date
+    
+    async def get_next_trading_day(self, from_date: date = None) -> date:
+        """
+        Get the next trading day (not weekend or holiday)
+        
+        Args:
+            from_date: Date to start checking from (default: today)
+            
+        Returns:
+            Next trading day
+        """
+        if from_date is None:
+            from_date = date.today()
+        
+        check_date = from_date + timedelta(days=1)
+        
+        # Go forward until we find a trading day
+        while True:
+            # Not a weekend
+            if check_date.weekday() < 5:
+                # Not a holiday (check NYSE by default)
+                if not await self.is_market_holiday(check_date, 'America/New_York'):
+                    return check_date
+            
+            # Go forward one day
+            check_date += timedelta(days=1)
+            
+            # Safety check - don't go forward more than 10 days
+            if (check_date - from_date).days > 10:
+                logger.warning(f"[MarketStatusService] Could not find trading day within 10 days of {from_date}")
+                return from_date
+    
+    async def was_market_open_on_date(self, check_date: date, symbol: str = None, 
+                                      user_token: Optional[str] = None) -> bool:
+        """
+        Check if market was open on a specific historical date
+        
+        Args:
+            check_date: Date to check
+            symbol: Optional symbol to get specific exchange info
+            user_token: JWT token for database access
+            
+        Returns:
+            True if market was open that day
+        """
+        # Weekend check
+        if check_date.weekday() >= 5:
+            return False
+        
+        # Get market timezone
+        market_tz = 'America/New_York'  # Default
+        if symbol:
+            market_info = await self.get_market_info_for_symbol(symbol, user_token)
+            if market_info:
+                market_tz = market_info.get('market_timezone', 'America/New_York')
+        
+        # Holiday check
+        if await self.is_market_holiday(check_date, market_tz):
+            return False
+        
+        return True
+    
+    def get_market_session_times(self, session_date: date, market_info: Dict[str, Any]) -> Tuple[datetime, datetime]:
+        """
+        Get the open and close times for a specific market session
+        
+        Args:
+            session_date: Date of the market session
+            market_info: Market information including timezone and hours
+            
+        Returns:
+            Tuple of (market_open_datetime, market_close_datetime)
+        """
+        # Parse timezone and times
+        tz = self._parse_timezone(market_info.get('market_timezone', 'America/New_York'))
+        open_time = self._parse_time(market_info.get('market_open', '09:30'))
+        close_time = self._parse_time(market_info.get('market_close', '16:00'))
+        
+        # Create datetime objects
+        market_open = datetime.combine(session_date, open_time).replace(tzinfo=tz)
+        market_close = datetime.combine(session_date, close_time).replace(tzinfo=tz)
+        
+        return market_open, market_close
 
 # Create singleton instance
 market_status_service = MarketStatusService()

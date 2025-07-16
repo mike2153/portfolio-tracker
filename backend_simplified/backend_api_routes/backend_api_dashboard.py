@@ -77,6 +77,13 @@ async def backend_api_get_dashboard(
     # --- Auth --------------------------------------------------------------
     uid, jwt = _assert_jwt(user)
         
+    # --- Trigger background price update for user's portfolio -------------
+    # This runs in the background and doesn't block the dashboard response
+    asyncio.create_task(
+        current_price_manager.update_user_portfolio_prices(uid, jwt)
+    )
+    logger.info(f"[Dashboard] Triggered background price update for user {uid}")
+        
     # --- Launch parallel data fetches -------------------------------------
     portfolio_task = asyncio.create_task(supa_api_calculate_portfolio(uid, user_token=jwt))
     summary_task   = asyncio.create_task(supa_api_get_transaction_summary(uid, user_token=jwt))
