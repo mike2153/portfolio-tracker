@@ -9,7 +9,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from collections import defaultdict
 
-from services.price_data_service import price_data_service
+from services.price_manager import price_manager
 from supa_api.supa_api_transactions import supa_api_get_user_transactions
 from debug_logger import DebugLogger
 
@@ -58,7 +58,7 @@ class PortfolioCalculator:
             
             # Get current prices for all holdings
             symbols = [h['symbol'] for h in holdings_map.values() if h['quantity'] > 0]
-            current_prices = await price_data_service.get_prices_for_symbols(symbols, user_token)
+            current_prices = await price_manager.get_prices_for_symbols_from_db(symbols, user_token)
             
             # Calculate current values and gains
             holdings = []
@@ -213,7 +213,7 @@ class PortfolioCalculator:
             
             # Get current prices
             symbols = [h['symbol'] for h in holdings_map.values() if h['quantity'] > 0]
-            current_prices = await price_data_service.get_prices_for_symbols(symbols, user_token)
+            current_prices = await price_manager.get_prices_for_symbols_from_db(symbols, user_token)
             
             # Build detailed holdings list
             detailed_holdings = []
@@ -363,12 +363,555 @@ class PortfolioCalculator:
                         holdings[symbol]['realized_pnl'] += realized_pnl
                         holdings[symbol]['total_cost'] -= lot['price'] * remaining_to_sell
                         lot['quantity'] -= remaining_to_sell
-                        remaining_to_sell = 0
+                        remaining_to_sell = Decimal('0')
                 
             elif txn['transaction_type'] in ['Dividend', 'DIVIDEND']:
-                holdings[symbol]['dividends_received'] += txn.get('total_value', txn['price'] * txn['quantity'])
+                dividend_amount = Decimal(str(txn.get('total_value', txn['price'] * txn['quantity'])))
+                holdings[symbol]['dividends_received'] += dividend_amount
         
         return dict(holdings)
+    
+    # ========================================================================
+    # Time Series Calculations (Migrated from portfolio_service.py)
+    # ========================================================================
+    
+    @staticmethod
+    async def calculate_portfolio_time_series(
+        user_id: str,
+        user_token: str,
+        range_key: str = "1M",
+        benchmark: Optional[str] = None
+    ) -> Tuple[List[Tuple[date, Decimal]], Dict[str, Any]]:
+        """
+        Calculate portfolio value time series for the specified period.
+        
+        Args:
+            user_id: User's UUID
+            user_token: JWT token for database access
+            range_key: Time range (7D, 1M, 3M, 6M, 1Y, YTD, MAX)
+            benchmark: Optional benchmark symbol for comparison
+            
+        Returns:
+            Tuple of (time_series_data, metadata)
+        """
+        try:
+            # Determine date range
+            start_date, end_date = PortfolioCalculator._compute_date_range(range_key)
+            
+            # Get all user transactions
+            transactions = await supa_api_get_user_transactions(
+                user_id=user_id,
+                limit=10000,
+                user_token=user_token
+            )
+            
+            if not transactions:
+                logger.info(f"[PortfolioCalculator] No transactions found for time series")
+                return [], {"no_data": True, "reason": "no_transactions"}
+            
+            # Filter transactions by date
+            relevant_txns = [t for t in transactions if datetime.strptime(t['date'], '%Y-%m-%d').date() <= end_date]
+            
+            if not relevant_txns:
+                return [], {"no_data": True, "reason": "no_transactions_in_range"}
+            
+            # Get unique symbols from transactions
+            symbols = list(set(t['symbol'] for t in relevant_txns))
+            
+            # Get historical prices for the period
+            price_data = await price_manager.get_portfolio_prices_for_charts(
+                symbols=symbols,
+                start_date=start_date,
+                end_date=end_date,
+                user_token=user_token
+            )
+            
+            # Build price lookup: {symbol: {date: price}}
+            price_lookup = defaultdict(dict)
+            for price_record in price_data:
+                symbol = price_record['symbol']
+                price_date = datetime.strptime(price_record['date'], '%Y-%m-%d').date()
+                price_lookup[symbol][price_date] = Decimal(str(price_record['close']))
+            
+            # Calculate portfolio value for each day
+            time_series = []
+            trading_days = PortfolioCalculator._get_trading_days(start_date, end_date, range_key)
+            
+            for current_date in trading_days:
+                holdings = PortfolioCalculator._calculate_holdings_for_date(
+                    transactions=relevant_txns,
+                    target_date=current_date
+                )
+                
+                # Calculate portfolio value for this date
+                portfolio_value = Decimal('0')
+                
+                for symbol, quantity in holdings.items():
+                    if quantity > 0:
+                        # Get price for this date (with fallback)
+                        price = PortfolioCalculator._get_price_for_date(
+                            symbol, current_date, price_lookup[symbol]
+                        )
+                        if price:
+                            portfolio_value += quantity * price
+                
+                if portfolio_value > 0:
+                    time_series.append((current_date, portfolio_value))
+            
+            # Remove leading zeros
+            while time_series and time_series[0][1] == 0:
+                time_series.pop(0)
+            
+            metadata = {
+                "no_data": len(time_series) == 0,
+                "start_date": start_date.isoformat(),
+                "end_date": end_date.isoformat(),
+                "data_points": len(time_series)
+            }
+            
+            return time_series, metadata
+            
+        except Exception as e:
+            logger.error(f"[PortfolioCalculator] Error calculating time series: {e}")
+            raise
+    
+    @staticmethod
+    def _calculate_holdings_for_date(
+        transactions: List[Dict[str, Any]],
+        target_date: date
+    ) -> Dict[str, Decimal]:
+        """
+        Calculate holdings as of a specific date.
+        
+        Args:
+            transactions: List of all transactions
+            target_date: Date to calculate holdings for
+            
+        Returns:
+            Dict mapping symbol to quantity held
+        """
+        holdings = defaultdict(lambda: Decimal('0'))
+        
+        for txn in transactions:
+            txn_date = datetime.strptime(txn['date'], '%Y-%m-%d').date()
+            if txn_date > target_date:
+                continue
+            
+            symbol = txn['symbol']
+            quantity = Decimal(str(txn['quantity']))
+            
+            if txn['transaction_type'] in ['Buy', 'BUY']:
+                holdings[symbol] += quantity
+            elif txn['transaction_type'] in ['Sell', 'SELL']:
+                holdings[symbol] -= quantity
+        
+        # Remove symbols with zero or negative holdings
+        return {s: q for s, q in holdings.items() if q > 0}
+    
+    @staticmethod
+    def _get_price_for_date(
+        symbol: str,
+        target_date: date,
+        price_history: Dict[date, Decimal]
+    ) -> Optional[Decimal]:
+        """
+        Get price for a specific date with fallback to most recent available.
+        
+        Args:
+            symbol: Stock symbol
+            target_date: Date to get price for
+            price_history: Dict of date to price
+            
+        Returns:
+            Price or None if not found
+        """
+        # Direct lookup
+        if target_date in price_history:
+            return price_history[target_date]
+        
+        # Fallback to most recent price before target date
+        sorted_dates = sorted([d for d in price_history.keys() if d <= target_date], reverse=True)
+        
+        if sorted_dates:
+            return price_history[sorted_dates[0]]
+        
+        return None
+    
+    @staticmethod
+    def _compute_date_range(range_key: str) -> Tuple[date, date]:
+        """
+        Compute start and end dates based on range key.
+        
+        Args:
+            range_key: Time range identifier (7D, 1M, etc.)
+            
+        Returns:
+            Tuple of (start_date, end_date)
+        """
+        today = date.today()
+        
+        if range_key == "7D":
+            start_date = today - timedelta(days=7)
+        elif range_key == "1M":
+            start_date = today - timedelta(days=30)
+        elif range_key == "3M":
+            start_date = today - timedelta(days=90)
+        elif range_key == "6M":
+            start_date = today - timedelta(days=180)
+        elif range_key == "1Y":
+            start_date = today - timedelta(days=365)
+        elif range_key == "YTD":
+            start_date = date(today.year, 1, 1)
+        elif range_key == "MAX":
+            start_date = date(2020, 1, 1)  # Reasonable default
+        else:
+            # Default to 1 month
+            start_date = today - timedelta(days=30)
+        
+        return start_date, today
+    
+    @staticmethod
+    def _get_trading_days(
+        start_date: date,
+        end_date: date,
+        range_key: str
+    ) -> List[date]:
+        """
+        Get list of trading days for the period.
+        
+        Args:
+            start_date: Start of period
+            end_date: End of period
+            range_key: Time range for determining granularity
+            
+        Returns:
+            List of dates to calculate values for
+        """
+        # For now, return all days (could filter for weekdays/market days later)
+        days = []
+        current = start_date
+        
+        while current <= end_date:
+            # Skip weekends for better performance
+            if current.weekday() < 5:  # Monday = 0, Friday = 4
+                days.append(current)
+            current += timedelta(days=1)
+        
+        return days
+    
+    # ========================================================================
+    # Performance Metrics
+    # ========================================================================
+    
+    @staticmethod
+    async def calculate_performance_metrics(
+        user_id: str,
+        user_token: str
+    ) -> Dict[str, Any]:
+        """
+        Calculate comprehensive performance metrics including XIRR.
+        
+        Args:
+            user_id: User's UUID
+            user_token: JWT token for database access
+            
+        Returns:
+            Dict with performance metrics including XIRR
+        """
+        try:
+            # Get all transactions
+            transactions = await supa_api_get_user_transactions(
+                user_id=user_id,
+                limit=10000,
+                user_token=user_token
+            )
+            
+            if not transactions:
+                return {
+                    "portfolio_xirr": None,
+                    "portfolio_xirr_percent": None,
+                    "symbol_xirrs": {},
+                    "total_value": 0.0,
+                    "total_invested": 0.0,
+                    "total_gain_loss": 0.0,
+                    "total_gain_loss_percent": 0.0
+                }
+            
+            # Get current holdings
+            holdings_data = await PortfolioCalculator.calculate_holdings(user_id, user_token)
+            
+            # Prepare cash flows for portfolio XIRR
+            cash_flows = []
+            dates = []
+            
+            # Process historical transactions
+            for txn in transactions:
+                txn_date = datetime.strptime(txn['date'], '%Y-%m-%d').date()
+                
+                if txn['transaction_type'] in ['Buy', 'BUY']:
+                    # Money out (negative)
+                    cash_flow = -(txn['quantity'] * txn['price'] + txn.get('commission', 0))
+                elif txn['transaction_type'] in ['Sell', 'SELL']:
+                    # Money in (positive)
+                    cash_flow = txn['quantity'] * txn['price'] - txn.get('commission', 0)
+                elif txn['transaction_type'] in ['Dividend', 'DIVIDEND']:
+                    # Money in (positive)
+                    cash_flow = txn.get('total_value', txn['price'] * txn['quantity'])
+                else:
+                    continue
+                
+                cash_flows.append(float(cash_flow))
+                dates.append(txn_date)
+            
+            # Add current portfolio value as final cash flow
+            if holdings_data['total_value'] > 0:
+                cash_flows.append(holdings_data['total_value'])
+                dates.append(date.today())
+            
+            # Calculate portfolio XIRR
+            portfolio_xirr = None
+            if cash_flows and len(cash_flows) > 1:
+                portfolio_xirr = XIRRCalculator.calculate_xirr(cash_flows, dates)
+            
+            # Calculate XIRR for each symbol
+            symbol_xirrs = {}
+            for holding in holdings_data['holdings']:
+                symbol = holding['symbol']
+                if holding['quantity'] > 0:
+                    symbol_xirr = await PortfolioCalculator._calculate_symbol_xirr(
+                        transactions, symbol, holding['current_price'], holding['quantity']
+                    )
+                    if symbol_xirr is not None:
+                        symbol_xirrs[symbol] = {
+                            "xirr": symbol_xirr,
+                            "xirr_percent": symbol_xirr * 100,
+                            "current_value": holding['current_value'],
+                            "total_invested": holding['total_cost']
+                        }
+            
+            # Calculate total invested
+            total_invested = sum(
+                txn['quantity'] * txn['price'] + txn.get('commission', 0)
+                for txn in transactions
+                if txn['transaction_type'] in ['Buy', 'BUY']
+            )
+            
+            return {
+                "portfolio_xirr": portfolio_xirr,
+                "portfolio_xirr_percent": portfolio_xirr * 100 if portfolio_xirr else None,
+                "symbol_xirrs": symbol_xirrs,
+                "total_value": holdings_data['total_value'],
+                "total_invested": total_invested,
+                "total_gain_loss": holdings_data['total_gain_loss'],
+                "total_gain_loss_percent": holdings_data['total_gain_loss_percent'],
+                "total_dividends": holdings_data['total_dividends']
+            }
+            
+        except Exception as e:
+            logger.error(f"[PortfolioCalculator] Error calculating performance metrics: {e}")
+            raise
+    
+    @staticmethod
+    async def _calculate_symbol_xirr(
+        transactions: List[Dict[str, Any]],
+        symbol: str,
+        current_price: float,
+        current_quantity: float
+    ) -> Optional[float]:
+        """
+        Calculate XIRR for a single symbol.
+        
+        Args:
+            transactions: All transactions
+            symbol: Stock symbol
+            current_price: Current market price
+            current_quantity: Current quantity held
+            
+        Returns:
+            XIRR or None if calculation fails
+        """
+        # Filter transactions for this symbol
+        symbol_txns = [t for t in transactions if t['symbol'] == symbol]
+        
+        if not symbol_txns:
+            return None
+        
+        cash_flows = []
+        dates = []
+        
+        for txn in symbol_txns:
+            txn_date = datetime.strptime(txn['date'], '%Y-%m-%d').date()
+            
+            if txn['transaction_type'] in ['Buy', 'BUY']:
+                cash_flow = -(txn['quantity'] * txn['price'] + txn.get('commission', 0))
+            elif txn['transaction_type'] in ['Sell', 'SELL']:
+                cash_flow = txn['quantity'] * txn['price'] - txn.get('commission', 0)
+            elif txn['transaction_type'] in ['Dividend', 'DIVIDEND']:
+                cash_flow = txn.get('total_value', txn['price'] * txn['quantity'])
+            else:
+                continue
+            
+            cash_flows.append(float(cash_flow))
+            dates.append(txn_date)
+        
+        # Add current value if still holding
+        if current_quantity > 0:
+            cash_flows.append(current_price * current_quantity)
+            dates.append(date.today())
+        
+        if len(cash_flows) > 1:
+            return XIRRCalculator.calculate_xirr(cash_flows, dates)
+        
+        return None
+    
+    @staticmethod
+    async def calculate_index_time_series(
+        user_id: str,
+        user_token: str,
+        range_key: str = "1M",
+        benchmark: str = "SPY"
+    ) -> Tuple[List[Tuple[date, Decimal]], Dict[str, Any]]:
+        """
+        Calculate index-only time series for benchmark comparison.
+        Used as fallback when no portfolio data exists.
+        
+        Args:
+            user_id: User's UUID
+            user_token: JWT token for database access
+            range_key: Time range (7D, 1M, 3M, 6M, 1Y, YTD, MAX)
+            benchmark: Benchmark symbol (default: SPY)
+            
+        Returns:
+            Tuple of (time_series_data, metadata)
+        """
+        try:
+            # Use authenticated client for RLS compliance
+            client = create_authenticated_client(user_token)
+            
+            # Convert range key to number of trading days
+            num_trading_days = PortfolioCalculator._get_trading_days_limit(range_key)
+            
+            # Get trading dates for the benchmark
+            if range_key == 'YTD':
+                # For YTD, we need dates from Jan 1 of current year
+                current_year = date.today().year
+                ytd_start = date(current_year, 1, 1)
+                
+                dates_response = client.table('historical_prices') \
+                    .select('date') \
+                    .eq('symbol', benchmark) \
+                    .gte('date', ytd_start.isoformat()) \
+                    .order('date', desc=True) \
+                    .execute()
+            else:
+                # For other ranges, get last N trading days
+                dates_response = client.table('historical_prices') \
+                    .select('date') \
+                    .eq('symbol', benchmark) \
+                    .order('date', desc=True) \
+                    .limit(num_trading_days) \
+                    .execute()
+            
+            # Extract and sort dates (oldest to newest)
+            trading_dates = sorted([
+                datetime.strptime(record['date'], '%Y-%m-%d').date() 
+                for record in dates_response.data
+            ])
+            
+            if not trading_dates:
+                return [], {
+                    "no_data": True, 
+                    "index_only": True, 
+                    "reason": "no_benchmark_data", 
+                    "user_guidance": f"Historical data for {benchmark} is not available"
+                }
+            
+            # Calculate date range
+            start_date = trading_dates[0]
+            end_date = trading_dates[-1]
+            
+            # Get prices for the date range
+            prices_response = client.table('historical_prices') \
+                .select('date, close') \
+                .eq('symbol', benchmark) \
+                .gte('date', start_date.isoformat()) \
+                .lte('date', end_date.isoformat()) \
+                .order('date') \
+                .execute()
+            
+            # Build index series
+            index_series = []
+            for record in prices_response.data:
+                price_date = datetime.strptime(record['date'], '%Y-%m-%d').date()
+                price_value = Decimal(str(record['close']))
+                index_series.append((price_date, price_value))
+            
+            metadata = {
+                "no_data": len(index_series) == 0,
+                "index_only": True,
+                "start_date": start_date.isoformat() if index_series else None,
+                "end_date": end_date.isoformat() if index_series else None,
+                "data_points": len(index_series),
+                "benchmark": benchmark
+            }
+            
+            return index_series, metadata
+            
+        except Exception as e:
+            logger.error(f"[PortfolioCalculator] Error calculating index series: {e}")
+            raise
+    
+    @staticmethod
+    def _get_trading_days_limit(range_key: str) -> int:
+        """
+        Get number of trading days for a range key.
+        
+        Args:
+            range_key: Time range identifier
+            
+        Returns:
+            Number of trading days to fetch
+        """
+        trading_days_map = {
+            '7D': 7,
+            '1M': 30,
+            '3M': 90,
+            '6M': 180,
+            '1Y': 365,
+            'YTD': 365,  # Will be handled specially
+            'MAX': 1825  # 5 years
+        }
+        
+        return trading_days_map.get(range_key, 30)
+    
+    @staticmethod
+    def format_series_for_response(
+        portfolio_series: List[Tuple[date, Decimal]], 
+        index_series: List[Tuple[date, Decimal]]
+    ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        """
+        Format time series data for API response.
+        
+        Args:
+            portfolio_series: Portfolio value time series
+            index_series: Index value time series
+            
+        Returns:
+            Tuple of (formatted_portfolio, formatted_index)
+        """
+        # Format portfolio series
+        formatted_portfolio = [
+            {"date": d.isoformat(), "value": float(v)}
+            for d, v in portfolio_series
+        ]
+        
+        # Format index series
+        formatted_index = [
+            {"date": d.isoformat(), "value": float(v)}
+            for d, v in index_series
+        ]
+        
+        return formatted_portfolio, formatted_index
 
 
 # Create singleton instance

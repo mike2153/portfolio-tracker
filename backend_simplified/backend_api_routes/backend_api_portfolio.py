@@ -18,8 +18,9 @@ from supa_api.supa_api_transactions import (
 )
 from supa_api.supa_api_portfolio import supa_api_calculate_portfolio
 from services.dividend_service import dividend_service
-from services.current_price_manager import current_price_manager
+from services.price_manager import price_manager
 from services.portfolio_calculator import portfolio_calculator
+from services.portfolio_metrics_manager import portfolio_metrics_manager
 
 logger = logging.getLogger(__name__)
 
@@ -56,17 +57,42 @@ async def backend_api_get_portfolio(
     logger.info(f"[backend_api_portfolio.py::backend_api_get_portfolio] Portfolio requested for user: {user['email']}")
     
     try:
-        # Get portfolio calculations
+        # Use PortfolioMetricsManager for optimized portfolio data
         user_token = user.get("access_token")
-        portfolio_data = await supa_api_calculate_portfolio(user["id"], user_token=user_token)
+        user_id = user["id"]
+        
+        metrics = await portfolio_metrics_manager.get_portfolio_metrics(
+            user_id=user_id,
+            user_token=user_token,
+            metric_type="portfolio",
+            force_refresh=False
+        )
+        
+        # Convert holdings to expected format
+        holdings_list = []
+        for holding in metrics.holdings:
+            holdings_list.append({
+                "symbol": holding.symbol,
+                "quantity": float(holding.quantity),
+                "avg_cost": float(holding.avg_cost),
+                "total_cost": float(holding.total_cost),
+                "current_price": float(holding.current_price),
+                "current_value": float(holding.current_value),
+                "gain_loss": float(holding.gain_loss),
+                "gain_loss_percent": holding.gain_loss_percent,
+                "dividends_received": float(holding.dividends_received) if hasattr(holding, 'dividends_received') else 0,
+                "price_date": holding.price_date
+            })
         
         return {
             "success": True,
-            "holdings": portfolio_data["holdings"],
-            "total_value": portfolio_data["total_value"],
-            "total_cost": portfolio_data["total_cost"],
-            "total_gain_loss": portfolio_data["total_gain_loss"],
-            "total_gain_loss_percent": portfolio_data["total_gain_loss_percent"]
+            "holdings": holdings_list,
+            "total_value": float(metrics.performance.total_value),
+            "total_cost": float(metrics.performance.total_cost),
+            "total_gain_loss": float(metrics.performance.total_gain_loss),
+            "total_gain_loss_percent": metrics.performance.total_gain_loss_percent,
+            "cache_status": metrics.cache_status,
+            "computation_time_ms": metrics.computation_time_ms
         }
         
     except Exception as e:
@@ -76,7 +102,21 @@ async def backend_api_get_portfolio(
             error=e,
             user_id=user["id"]
         )
-        raise HTTPException(status_code=500, detail=str(e))
+        # Fallback to direct API call if metrics manager fails
+        try:
+            user_token = user.get("access_token")
+            portfolio_data = await supa_api_calculate_portfolio(user["id"], user_token=user_token)
+            
+            return {
+                "success": True,
+                "holdings": portfolio_data["holdings"],
+                "total_value": portfolio_data["total_value"],
+                "total_cost": portfolio_data["total_cost"],
+                "total_gain_loss": portfolio_data["total_gain_loss"],
+                "total_gain_loss_percent": portfolio_data["total_gain_loss_percent"]
+            }
+        except Exception as e2:
+            raise HTTPException(status_code=500, detail=str(e2))
 
 @portfolio_router.get("/transactions")
 @DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="GET_TRANSACTIONS")
@@ -396,11 +436,46 @@ async def backend_api_get_allocation(
         user_token = user.get("access_token")
         user_id = user["id"]
         
-        # Use portfolio_calculator service for all allocation calculations
-        allocation_data = await portfolio_calculator.calculate_allocations(
+        # Use PortfolioMetricsManager for optimized allocation data
+        metrics = await portfolio_metrics_manager.get_portfolio_metrics(
             user_id=user_id,
-            user_token=user_token
+            user_token=user_token,
+            metric_type="allocation",
+            force_refresh=False
         )
+        
+        # Convert allocations to expected format
+        allocations = []
+        colors = ['emerald', 'blue', 'purple', 'orange', 'red', 'yellow', 'pink', 'indigo', 'cyan', 'lime']
+        
+        for idx, holding in enumerate(metrics.holdings):
+            if holding.quantity > 0:  # Only include current holdings
+                allocations.append({
+                    'symbol': holding.symbol,
+                    'company_name': holding.symbol,  # We don't store company names
+                    'quantity': float(holding.quantity),
+                    'current_price': float(holding.current_price),
+                    'cost_basis': float(holding.total_cost),
+                    'current_value': float(holding.current_value),
+                    'gain_loss': float(holding.gain_loss),
+                    'gain_loss_percent': holding.gain_loss_percent,
+                    'dividends_received': float(holding.dividends_received) if hasattr(holding, 'dividends_received') else 0,
+                    'allocation_percent': holding.allocation_percent,
+                    'color': colors[idx % len(colors)]
+                })
+        
+        allocation_data = {
+            "allocations": allocations,
+            "summary": {
+                "total_value": float(metrics.performance.total_value),
+                "total_cost": float(metrics.performance.total_cost),
+                "total_gain_loss": float(metrics.performance.total_gain_loss),
+                "total_gain_loss_percent": metrics.performance.total_gain_loss_percent,
+                "total_dividends": float(metrics.performance.total_dividends),
+                "cache_status": metrics.cache_status,
+                "computation_time_ms": metrics.computation_time_ms
+            }
+        }
         
         # Return in the expected format
         return {
@@ -415,4 +490,16 @@ async def backend_api_get_allocation(
             error=e,
             user_id=user["id"]
         )
-        raise HTTPException(status_code=500, detail=str(e)) 
+        # Fallback to direct portfolio calculator call
+        try:
+            allocation_data = await portfolio_calculator.calculate_allocations(
+                user_id=user_id,
+                user_token=user_token
+            )
+            
+            return {
+                "success": True,
+                "data": allocation_data
+            }
+        except Exception as e2:
+            raise HTTPException(status_code=500, detail=str(e2)) 

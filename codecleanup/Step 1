@@ -1,0 +1,38 @@
+### LLM Task: Execute Step 1 of Backend Refactoring - Create the `PriceManager`
+
+#### **Goal:**
+
+Our goal is to refactor the application's price management logic. We will create a single, authoritative `PriceManager` service that will be the one and only place in the entire application responsible for fetching, caching, and managing all market price data and market status information.
+
+#### **Why We Are Doing This:**
+
+Currently, our logic for handling prices is scattered across multiple files, including `current_price_manager.py`, `price_data_service.py`, and `market_status_service.py`. This has led to redundant code, an inefficient data flow, and makes the system difficult to maintain and debug.
+
+By consolidating this logic, we will create a single, highly-efficient service that is easy to understand, test, and scale. This will reduce complexity and eliminate performance bottlenecks caused by redundant database and API calls.
+
+#### **What Needs to Be Done:**
+
+1.  **Create a new file**: `services/price_manager.py`.
+2.  **Create a `PriceManager` class** inside this new file.
+3.  **Merge the Logic**: You must move all methods and functionality from the following files into the new `PriceManager` class:
+    * `services/current_price_manager.py`
+    * `services/price_data_service.py`
+    * `services/market_status_service.py`
+4.  **Update References**: After the new `PriceManager` is created, you must trace all calls to the old services throughout the codebase and update them to call the new, consolidated `PriceManager`.
+5.  **Delete the Old Files**: Once all logic has been migrated and all references have been updated, you must delete `current_price_manager.py`, `price_data_service.py`, and `market_status_service.py` from the project.
+
+#### **What Steps Must Be Taken Carefully:**
+
+* **Cache Logic**: The old `CurrentPriceManager` has logic for both an in-memory dictionary cache and a database cache. You must merge these two concepts correctly. The new `PriceManager` should use the in-memory cache for very short-term checks (e.g., within a single request) and the database cache for longer-term storage between requests.
+* **Method Naming**: The old services have methods with similar names. When merging, you must choose a single, clear, and consistent name for each function (e.g., `get_historical_prices`, `get_current_quote`).
+* **Dependency Management**: Ensure that any other services that relied on the old price and market status services are correctly updated to use the new `PriceManager`.
+
+---
+
+#### **LLM Task & Questions:**
+
+Now, as the Language Model executing this task:
+
+1.  **Give me your opinion** on this plan. Be blunt and critical. Is this consolidation a good architectural decision, or does it introduce new problems? What are the potential pitfalls you see?
+2.  **Explain your understanding** of what we are trying to achieve with this refactoring step.
+3.  **How can you make this plan even better?** What specific improvements or optimizations would you make to the `PriceManager` beyond just merging the existing code? Propose a more advanced implementation.

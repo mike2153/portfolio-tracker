@@ -1,0 +1,39 @@
+### LLM Task: Execute Step 5 - Refactor the `DividendService`
+
+#### **Goal:**
+
+The goal of this final step is to refactor the `DividendService` to fully integrate with our new, centralized architecture. The service will no longer access data sources directly; instead, it will rely on the `PriceManager` and `PortfolioMetricsManager` to provide the data it needs.
+
+#### **Why We Are Doing This:**
+
+While the `DividendService` is well-organized, its current implementation bypasses our new architecture. It makes its own direct calls to the database to fetch user transactions and to Alpha Vantage for dividend data. This creates the same inefficiencies and potential for redundant data fetching that we have worked to eliminate in the rest of the application.
+
+By refactoring it to use our new managers, we ensure that our entire backend operates under a single, efficient data flow strategy, making the application faster and more maintainable.
+
+#### **What Needs to Be Done:**
+
+1.  **Modify `services/dividend_service.py`**: This refactoring will occur within the existing `DividendService` file.
+2.  **Remove Direct Data Access**: You must identify and remove all direct calls to `supa_api` and the `vantage_api_client` from within this service.
+3.  **Integrate with `PriceManager`**:
+    * Any function that fetches dividend history (like `_fetch_dividends_from_alpha_vantage`) must be updated.
+    * Instead of calling Alpha Vantage directly, it should now call a method on our new `PriceManager` (e.g., `price_manager.get_dividend_history(...)`). The `PriceManager` will be responsible for the actual API call and caching.
+4.  **Integrate with `PortfolioMetricsManager`**:
+    * Functions that need transaction data to calculate dividend eligibility (like `_calculate_shares_owned_at_date`) must be changed.
+    * Instead of fetching transactions from the database, these functions should now receive the required transaction list as a parameter, which will be provided by the `PortfolioMetricsManager` that orchestrates the request.
+5.  **Preserve Core Logic**: The business logic for handling dividend-specific tasks, such as confirming or rejecting a dividend, should remain within the `DividendService`. The `reject_dividend` functionality, which sets a `rejected = true` flag, is correct and must be preserved.
+
+#### **What Steps Must Be Taken Carefully:**
+
+* **Method Signatures**: You will need to change the function signatures for methods within the `DividendService`. For example, a function that previously took `user_id` to fetch transactions will now need to accept a `transactions: List[Dict]` parameter instead.
+* **Data Flow**: Ensure you trace the new data flow correctly. The `PortfolioMetricsManager` will fetch the transaction history once, then pass it to the `DividendService` when it needs to perform its calculations. This avoids redundant database calls.
+* **Preserving Functionality**: Be careful not to break the dividend rejection logic. The service should still be able to update the `user_dividends` table to set the `rejected` flag, as this is a core piece of its responsibility.
+
+---
+
+#### **LLM Task & Questions:**
+
+Now, as the Language Model executing this task:
+
+1.  **Give me your opinion** on this refactoring step. Be blunt. Is making the `DividendService` dependent on other managers the right approach, or should it remain self-contained? What are the potential downsides of this tight integration?
+2.  **Explain your understanding** of the `DividendService`'s new role in the architecture. How does it fit into the overall data flow managed by the `PortfolioMetricsManager`?
+3.  **How can you make this plan even better?** Suggest a specific improvement to the `DividendService`'s design. For instance, given that it will no longer fetch data, how could you restructure its methods to be purer, more predictable functions that simply take data as input and return a calculated result?

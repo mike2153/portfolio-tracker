@@ -1,0 +1,37 @@
+### LLM Task: Execute Step 3 - Fix and Consolidate the `PortfolioCalculator`
+
+#### **Goal:**
+
+The goal of this step is to transform the `PortfolioCalculator` into the single, authoritative engine for all financial mathematics in the application. We will fix the critical flaws in its current calculation logic and consolidate all computational responsibilities into this one service.
+
+#### **Why We Are Doing This:**
+
+Currently, the financial calculations are split between `portfolio_calculator.py` and `portfolio_service.py`, leading to confusion and duplicated effort. More importantly, the existing `PortfolioCalculator` has a significant flaw in how it calculates cost basis after a sale, which leads to inaccurate profit and loss reporting for users.
+
+By fixing these inaccuracies and consolidating all calculation logic into one place, we will ensure our metrics are correct, reliable, and easier to debug and extend in the future.
+
+#### **What Needs to Be Done:**
+
+1.  **Consolidate into `portfolio_calculator.py`**: This file will become the sole home for all financial math.
+2.  **Fix the Cost Basis Calculation**: This is the most critical part of this step.
+    * You must **delete the `_process_transactions` function**. Its logic is incorrect.
+    * You must modify the class to **exclusively use the `_process_transactions_with_realized_gains` method** for all transaction processing. This method correctly uses a FIFO (First-In, First-Out) approach, which is essential for accurate P&L and cost basis tracking.
+3.  **Merge Time-Series Logic**: Move all the time-series calculation logic from `services/portfolio_service.py` into the `PortfolioCalculator`. The calculator should be able to produce the daily portfolio value history that the `PortfolioMetricsManager` will need.
+4.  **Implement Correct IRR**: Implement a proper **XIRR (eXtended Internal Rate of Return)** calculation that correctly uses the dates and amounts of all cash flows (buys and sells), as outlined in the design document. The current `_calculate_simple_irr` function is not accurate and should be replaced.
+5.  **Delete the Old Service**: Once all its logic has been moved, **delete** the file `services/portfolio_service.py`.
+
+#### **What Steps Must Be Taken Carefully:**
+
+* **FIFO Logic**: The `_process_transactions_with_realized_gains` method must be applied universally. Double-check that all functions that need to process transactions now use this correct method.
+* **XIRR Implementation**: A correct XIRR calculation requires a numerical solving method (like Newton's method or a similar iterative approach). This is more complex than a simple formula. Ensure the implementation is robust and handles edge cases.
+* **Data Integrity**: When merging the time-series logic, ensure that the daily portfolio values are calculated *after* applying the day's transactions to accurately reflect the end-of-day value.
+
+---
+
+#### **LLM Task & Questions:**
+
+Now, as the Language Model executing this task:
+
+1.  **Give me your opinion** on this consolidation. Be blunt. Is making the `PortfolioCalculator` responsible for both current-state metrics and time-series calculations a good idea, or does it risk creating a "god class" that does too much?
+2.  **Explain your understanding** of the core problem with the current cost basis calculation and why the FIFO approach in `_process_transactions_with_realized_gains` is the correct solution.
+3.  **How can you make this plan even better?** Suggest a specific improvement to the `PortfolioCalculator`'s design. For example, how would you structure the class to cleanly separate the different types of calculations (e.g., holdings vs. performance vs. time-series) within the single file to keep it organized and maintainable?

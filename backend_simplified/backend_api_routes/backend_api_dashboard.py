@@ -15,8 +15,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from debug_logger import DebugLogger, LoggingConfig
 from supa_api.supa_api_auth import require_authenticated_user
 from supa_api.supa_api_transactions import supa_api_get_transaction_summary
-from services.current_price_manager import current_price_manager
+from services.price_manager import price_manager
 from services.portfolio_calculator import portfolio_calculator
+from services.portfolio_metrics_manager import portfolio_metrics_manager
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP  # local import
 
 # Lazy‑imported heavy modules (they load Supabase clients, etc.)
@@ -69,6 +70,7 @@ def _assert_jwt(user: Dict[str, Any]) -> _AuthContext:  # pragma: no cover
 )
 async def backend_api_get_dashboard(
     user: Dict[str, Any] = Depends(require_authenticated_user),
+    force_refresh: bool = Query(False, description="Force refresh cache"),
 ) -> Dict[str, Any]:
     """Return portfolio snapshot + market blurb for the dashboard."""
 
@@ -76,84 +78,150 @@ async def backend_api_get_dashboard(
 
     # --- Auth --------------------------------------------------------------
     uid, jwt = _assert_jwt(user)
-        
-    # --- Trigger background price update for user's portfolio -------------
-    # This runs in the background and doesn't block the dashboard response
-    asyncio.create_task(
-        current_price_manager.update_user_portfolio_prices(uid, jwt)
-    )
-    # logger.info(f"[Dashboard] Triggered background price update for user {uid}")
-        
-    # --- Launch parallel data fetches -------------------------------------
-    portfolio_task = asyncio.create_task(portfolio_calculator.calculate_holdings(uid, user_token=jwt))
-    summary_task   = asyncio.create_task(supa_api_get_transaction_summary(uid, user_token=jwt))
-        
-    portfolio, summary = await asyncio.gather(
-            portfolio_task,
-            summary_task,
-        return_exceptions=True,
+    
+    try:
+        # --- Use PortfolioMetricsManager for simplified data fetching -------
+        metrics = await portfolio_metrics_manager.get_portfolio_metrics(
+            user_id=uid,
+            user_token=jwt,
+            metric_type="dashboard",
+            force_refresh=force_refresh
         )
         
-    # --- Error handling ----------------------------------------------------
-    if isinstance(portfolio, Exception):
-        DebugLogger.log_error(__file__, "backend_api_get_dashboard/portfolio", portfolio, user_id=uid)
-        portfolio = {
-            "holdings": [],
-                "total_value": 0,
-                "total_cost": 0,
-                "total_gain_loss": 0,
-                "total_gain_loss_percent": 0,
-            "holdings_count": 0,
-        }
-
-    if isinstance(summary, Exception):
-        DebugLogger.log_error(__file__, "backend_api_get_dashboard/summary", summary, user_id=uid)
-        summary = {
+        # --- Get transaction summary separately (not yet in metrics manager) --
+        try:
+            summary = await supa_api_get_transaction_summary(uid, user_token=jwt)
+        except Exception as e:
+            DebugLogger.log_error(__file__, "backend_api_get_dashboard/summary", e, user_id=uid)
+            summary = {
                 "total_invested": 0,
                 "total_sold": 0,
                 "net_invested": 0,
-            "total_transactions": 0,
+                "total_transactions": 0,
+            }
+        
+        # --- Trigger background price update for user's portfolio -------------
+        # This runs in the background and doesn't block the dashboard response
+        if not metrics.cache_status == "hit":  # Only update if we didn't get cached data
+            asyncio.create_task(
+                price_manager.update_user_portfolio_prices(uid, jwt)
+            )
+        
+        # --- Build response for backward compatibility ---------------------
+        daily_change = daily_change_pct = 0.0  # TODO: derive from yesterday's prices.
+        
+        # Transform holdings to match existing format
+        holdings_with_allocation = []
+        for holding in metrics.holdings[:5]:  # Top 5 holdings
+            holding_dict = {
+                "symbol": holding.symbol,
+                "quantity": float(holding.quantity),
+                "avg_cost": float(holding.avg_cost),
+                "total_cost": float(holding.total_cost),
+                "current_price": float(holding.current_price),
+                "current_value": float(holding.current_value),
+                "allocation": holding.allocation_percent,
+                "total_gain_loss": float(holding.gain_loss),
+                "total_gain_loss_percent": holding.gain_loss_percent,
+                "gain_loss": float(holding.gain_loss),  # Keep both for compatibility
+                "gain_loss_percent": holding.gain_loss_percent,
+            }
+            holdings_with_allocation.append(holding_dict)
+        
+        resp = {
+            "success": True,
+            "portfolio": {
+                "total_value": float(metrics.performance.total_value),
+                "total_cost": float(metrics.performance.total_cost),
+                "total_gain_loss": float(metrics.performance.total_gain_loss),
+                "total_gain_loss_percent": metrics.performance.total_gain_loss_percent,
+                "daily_change": daily_change,
+                "daily_change_percent": daily_change_pct,
+                "holdings_count": len(metrics.holdings),
+            },
+            "top_holdings": holdings_with_allocation,
+            "transaction_summary": summary,
+            "cache_status": metrics.cache_status,  # Include cache status for monitoring
+            "computation_time_ms": metrics.computation_time_ms,
+        }
+        
+        #logger.info("✅ Dashboard payload ready (cache: %s)", metrics.cache_status)
+        return resp
+        
+    except Exception as e:
+        # Fallback to old method if metrics manager fails
+        logger.error(f"PortfolioMetricsManager failed, falling back to direct calls: {e}")
+        
+        # --- Launch parallel data fetches -------------------------------------
+        portfolio_task = asyncio.create_task(portfolio_calculator.calculate_holdings(uid, user_token=jwt))
+        summary_task   = asyncio.create_task(supa_api_get_transaction_summary(uid, user_token=jwt))
+            
+        portfolio, summary = await asyncio.gather(
+                portfolio_task,
+                summary_task,
+            return_exceptions=True,
+            )
+            
+        # --- Error handling ----------------------------------------------------
+        if isinstance(portfolio, Exception):
+            DebugLogger.log_error(__file__, "backend_api_get_dashboard/portfolio", portfolio, user_id=uid)
+            portfolio = {
+                "holdings": [],
+                    "total_value": 0,
+                    "total_cost": 0,
+                    "total_gain_loss": 0,
+                    "total_gain_loss_percent": 0,
+                "holdings_count": 0,
+            }
+
+        if isinstance(summary, Exception):
+            DebugLogger.log_error(__file__, "backend_api_get_dashboard/summary", summary, user_id=uid)
+            summary = {
+                    "total_invested": 0,
+                    "total_sold": 0,
+                    "net_invested": 0,
+                "total_transactions": 0,
+            }
+
+
+        # Coerce to dictionaries for static typing
+        portfolio_dict: Dict[str, Any] = cast(Dict[str, Any], portfolio)
+        summary_dict: Dict[str, Any] = cast(Dict[str, Any], summary)
+
+        # --- Build response ----------------------------------------------------
+        daily_change = daily_change_pct = 0.0  # TODO: derive from yesterday's prices.
+        
+        # Calculate holdings_count since portfolio_calculator doesn't provide it
+        holdings_count = len(portfolio_dict.get("holdings", []))
+        
+        # Add allocation to each holding for compatibility
+        total_value = portfolio_dict.get("total_value", 0)
+        holdings_with_allocation = []
+        for holding in portfolio_dict.get("holdings", []):
+            holding_with_allocation = holding.copy()
+            holding_with_allocation["allocation"] = (holding["current_value"] / total_value * 100) if total_value > 0 else 0
+            # Rename fields for compatibility
+            holding_with_allocation["total_gain_loss"] = holding.get("gain_loss", 0)
+            holding_with_allocation["total_gain_loss_percent"] = holding.get("gain_loss_percent", 0)
+            holdings_with_allocation.append(holding_with_allocation)
+
+        resp = {
+            "success": True,
+            "portfolio": {
+                "total_value": portfolio_dict.get("total_value", 0),
+                "total_cost": portfolio_dict.get("total_cost", 0),
+                "total_gain_loss": portfolio_dict.get("total_gain_loss", 0),
+                "total_gain_loss_percent": portfolio_dict.get("total_gain_loss_percent", 0),
+                "daily_change": daily_change,
+                "daily_change_percent": daily_change_pct,
+                "holdings_count": holdings_count,
+            },
+            "top_holdings": holdings_with_allocation[:5],
+            "transaction_summary": summary_dict,
         }
 
-
-    # Coerce to dictionaries for static typing
-    portfolio_dict: Dict[str, Any] = cast(Dict[str, Any], portfolio)
-    summary_dict: Dict[str, Any] = cast(Dict[str, Any], summary)
-
-    # --- Build response ----------------------------------------------------
-    daily_change = daily_change_pct = 0.0  # TODO: derive from yesterday's prices.
-    
-    # Calculate holdings_count since portfolio_calculator doesn't provide it
-    holdings_count = len(portfolio_dict.get("holdings", []))
-    
-    # Add allocation to each holding for compatibility
-    total_value = portfolio_dict.get("total_value", 0)
-    holdings_with_allocation = []
-    for holding in portfolio_dict.get("holdings", []):
-        holding_with_allocation = holding.copy()
-        holding_with_allocation["allocation"] = (holding["current_value"] / total_value * 100) if total_value > 0 else 0
-        # Rename fields for compatibility
-        holding_with_allocation["total_gain_loss"] = holding.get("gain_loss", 0)
-        holding_with_allocation["total_gain_loss_percent"] = holding.get("gain_loss_percent", 0)
-        holdings_with_allocation.append(holding_with_allocation)
-
-    resp = {
-        "success": True,
-        "portfolio": {
-            "total_value": portfolio_dict.get("total_value", 0),
-            "total_cost": portfolio_dict.get("total_cost", 0),
-            "total_gain_loss": portfolio_dict.get("total_gain_loss", 0),
-            "total_gain_loss_percent": portfolio_dict.get("total_gain_loss_percent", 0),
-            "daily_change": daily_change,
-            "daily_change_percent": daily_change_pct,
-            "holdings_count": holdings_count,
-        },
-        "top_holdings": holdings_with_allocation[:5],
-        "transaction_summary": summary_dict,
-    }
-
-    #logger.info("✅ Dashboard payload ready")
-    return resp
+        #logger.info("✅ Dashboard payload ready")
+        return resp
 
 
 # ---------------------------------------------------------------------------
@@ -182,10 +250,7 @@ async def backend_api_get_performance(
     uid, jwt = _assert_jwt(user)
         
     # --- Lazy imports (avoid circular deps) -------------------------------
-    from services.portfolio_service import (
-        PortfolioTimeSeriesService as PTS,
-        PortfolioServiceUtils as PSU,
-    )
+    from services.portfolio_calculator import portfolio_calculator
     from services.index_sim_service import (
         IndexSimulationService as ISS,
         IndexSimulationUtils as ISU,
@@ -197,12 +262,12 @@ async def backend_api_get_performance(
             raise HTTPException(status_code=400, detail=f"Unsupported benchmark: {benchmark}")
         
     # --- Resolve date range ----------------------------------------------
-    start_date, end_date = PSU.compute_date_range(period)
+    start_date, end_date = portfolio_calculator._compute_date_range(period)
     #logger.info("📅 Range: %s → %s", start_date, end_date)
         
     # --- Portfolio calculation in background -----------------------------
     portfolio_task = asyncio.create_task(
-        PTS.get_portfolio_series(uid, period, jwt)
+        portfolio_calculator.calculate_portfolio_time_series(uid, jwt, period)
     )
         
     # --- Build rebalanced index series for this timeframe --------------
@@ -234,11 +299,11 @@ async def backend_api_get_performance(
         
         # Get index-only series using the new method
         try:
-            index_only_series, index_only_meta = await PTS.get_index_only_series(
+            index_only_series, index_only_meta = await portfolio_calculator.calculate_index_time_series(
                 user_id=uid,
+                user_token=jwt,
                 range_key=period,
-                benchmark=benchmark,
-                user_token=jwt
+                benchmark=benchmark
             )
             
             if index_only_meta.get("no_data"):
@@ -386,7 +451,7 @@ async def backend_api_get_performance(
     #logger.info("🔧 Formatting series for response...")
 
     
-    formatted = PSU.format_series_for_response(portfolio_series_dec, final_index_series_dec)
+    formatted = portfolio_calculator.format_series_for_response(portfolio_series_dec, final_index_series_dec)
     #logger.info("✅ Series formatted successfully")
 
     
@@ -485,53 +550,94 @@ async def get_logging_status(current_user: dict = Depends(require_authenticated_
 )
 async def backend_api_get_gainers(
     user: Dict[str, Any] = Depends(require_authenticated_user),
+    force_refresh: bool = Query(False),
 ) -> Dict[str, Any]:
     """Get top gaining holdings for the dashboard."""
     try:
         uid, jwt = _assert_jwt(user)
         
-        # Get portfolio holdings
-        portfolio = await portfolio_calculator.calculate_holdings(uid, jwt)
+        # Get portfolio metrics
+        metrics = await portfolio_metrics_manager.get_portfolio_metrics(
+            user_id=uid,
+            user_token=jwt,
+            metric_type="gainers",
+            force_refresh=force_refresh
+        )
         
-        if not portfolio or not portfolio.get("holdings"):
+        if not metrics.holdings:
             return {
                 "success": True,
                 "data": {"items": []},
                 "message": "No holdings found"
             }
         
-        holdings = portfolio["holdings"]
-        
         # Filter for positive gains and sort by gain percentage
         gainers = [
-            h for h in holdings 
-            if h.get("gain_loss_percent", 0) > 0 and h.get("quantity", 0) > 0
+            h for h in metrics.holdings 
+            if h.gain_loss_percent > 0 and h.quantity > 0
         ]
-        gainers.sort(key=lambda x: x.get("gain_loss_percent", 0), reverse=True)
+        gainers.sort(key=lambda x: x.gain_loss_percent, reverse=True)
         
         # Format top 5 gainers
         top_gainers = []
         for holding in gainers[:5]:
             top_gainers.append({
-                "ticker": holding["symbol"],
-                "name": holding.get("name", holding["symbol"]),
-                "value": holding.get("current_value", 0),
-                "changePercent": holding.get("gain_loss_percent", 0),
-                "changeValue": holding.get("gain_loss", 0)
+                "ticker": holding.symbol,
+                "name": holding.symbol,  # We don't have company names yet
+                "value": float(holding.current_value),
+                "changePercent": holding.gain_loss_percent,
+                "changeValue": float(holding.gain_loss)
             })
         
         return {
             "success": True,
-            "data": {"items": top_gainers}
+            "data": {"items": top_gainers},
+            "cache_status": metrics.cache_status
         }
         
     except Exception as e:
         DebugLogger.log_error(__file__, "backend_api_get_gainers", e, user_id=uid)
-        return {
-            "success": False,
-            "error": str(e),
-            "data": {"items": []}
-        }
+        # Fallback to direct call
+        try:
+            portfolio = await portfolio_calculator.calculate_holdings(uid, jwt)
+            
+            if not portfolio or not portfolio.get("holdings"):
+                return {
+                    "success": True,
+                    "data": {"items": []},
+                    "message": "No holdings found"
+                }
+            
+            holdings = portfolio["holdings"]
+            
+            # Filter for positive gains and sort by gain percentage
+            gainers = [
+                h for h in holdings 
+                if h.get("gain_loss_percent", 0) > 0 and h.get("quantity", 0) > 0
+            ]
+            gainers.sort(key=lambda x: x.get("gain_loss_percent", 0), reverse=True)
+            
+            # Format top 5 gainers
+            top_gainers = []
+            for holding in gainers[:5]:
+                top_gainers.append({
+                    "ticker": holding["symbol"],
+                    "name": holding.get("name", holding["symbol"]),
+                    "value": holding.get("current_value", 0),
+                    "changePercent": holding.get("gain_loss_percent", 0),
+                    "changeValue": holding.get("gain_loss", 0)
+                })
+            
+            return {
+                "success": True,
+                "data": {"items": top_gainers}
+            }
+        except Exception as e2:
+            return {
+                "success": False,
+                "error": str(e2),
+                "data": {"items": []}
+            }
 
 @dashboard_router.get("/dashboard/losers")
 @DebugLogger.log_api_call(
@@ -542,50 +648,91 @@ async def backend_api_get_gainers(
 )
 async def backend_api_get_losers(
     user: Dict[str, Any] = Depends(require_authenticated_user),
+    force_refresh: bool = Query(False),
 ) -> Dict[str, Any]:
     """Get top losing holdings for the dashboard."""
     try:
         uid, jwt = _assert_jwt(user)
         
-        # Get portfolio holdings
-        portfolio = await portfolio_calculator.calculate_holdings(uid, jwt)
+        # Get portfolio metrics
+        metrics = await portfolio_metrics_manager.get_portfolio_metrics(
+            user_id=uid,
+            user_token=jwt,
+            metric_type="losers",
+            force_refresh=force_refresh
+        )
         
-        if not portfolio or not portfolio.get("holdings"):
+        if not metrics.holdings:
             return {
                 "success": True,
                 "data": {"items": []},
                 "message": "No holdings found"
             }
         
-        holdings = portfolio["holdings"]
-        
         # Filter for negative gains and sort by gain percentage (ascending for biggest losses)
         losers = [
-            h for h in holdings 
-            if h.get("gain_loss_percent", 0) < 0 and h.get("quantity", 0) > 0
+            h for h in metrics.holdings 
+            if h.gain_loss_percent < 0 and h.quantity > 0
         ]
-        losers.sort(key=lambda x: x.get("gain_loss_percent", 0))
+        losers.sort(key=lambda x: x.gain_loss_percent)
         
         # Format top 5 losers
         top_losers = []
         for holding in losers[:5]:
             top_losers.append({
-                "ticker": holding["symbol"],
-                "name": holding.get("name", holding["symbol"]),
-                "value": holding.get("current_value", 0),
-                "changePercent": abs(holding.get("gain_loss_percent", 0)),  # Show as positive for display
-                "changeValue": abs(holding.get("gain_loss", 0))  # Show as positive for display
+                "ticker": holding.symbol,
+                "name": holding.symbol,  # We don't have company names yet
+                "value": float(holding.current_value),
+                "changePercent": abs(holding.gain_loss_percent),  # Show as positive for display
+                "changeValue": abs(float(holding.gain_loss))  # Show as positive for display
             })
         
         return {
             "success": True,
-            "data": {"items": top_losers}
+            "data": {"items": top_losers},
+            "cache_status": metrics.cache_status
         }
         
     except Exception as e:
         DebugLogger.log_error(__file__, "backend_api_get_losers", e, user_id=uid)
-        return {
-            "success": False,
-            "error": str(e),
-            "data": {"items": []}
-        }
+        # Fallback to direct call
+        try:
+            portfolio = await portfolio_calculator.calculate_holdings(uid, jwt)
+            
+            if not portfolio or not portfolio.get("holdings"):
+                return {
+                    "success": True,
+                    "data": {"items": []},
+                    "message": "No holdings found"
+                }
+            
+            holdings = portfolio["holdings"]
+            
+            # Filter for negative gains and sort by gain percentage (ascending for biggest losses)
+            losers = [
+                h for h in holdings 
+                if h.get("gain_loss_percent", 0) < 0 and h.get("quantity", 0) > 0
+            ]
+            losers.sort(key=lambda x: x.get("gain_loss_percent", 0))
+            
+            # Format top 5 losers
+            top_losers = []
+            for holding in losers[:5]:
+                top_losers.append({
+                    "ticker": holding["symbol"],
+                    "name": holding.get("name", holding["symbol"]),
+                    "value": holding.get("current_value", 0),
+                    "changePercent": abs(holding.get("gain_loss_percent", 0)),  # Show as positive for display
+                    "changeValue": abs(holding.get("gain_loss", 0))  # Show as positive for display
+                })
+            
+            return {
+                "success": True,
+                "data": {"items": top_losers}
+            }
+        except Exception as e2:
+            return {
+                "success": False,
+                "error": str(e2),
+                "data": {"items": []}
+            }

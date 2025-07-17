@@ -11,7 +11,8 @@ from decimal import Decimal
 from debug_logger import DebugLogger
 from supa_api.supa_api_auth import require_authenticated_user
 from services.dividend_service import dividend_service
-from services.portfolio_service import PortfolioTimeSeriesService
+from services.portfolio_calculator import portfolio_calculator
+from services.portfolio_metrics_manager import portfolio_metrics_manager
 
 logger = logging.getLogger(__name__)
 
@@ -40,21 +41,39 @@ async def backend_api_analytics_summary(
     logger.info(f"[backend_api_analytics.py::backend_api_analytics_summary] OPTIMIZED Summary request for user: {user_id}")
     
     try:
-        # Get detailed portfolio calculation with proper gain/loss
-        from supa_api.supa_api_portfolio import supa_api_calculate_portfolio
-        portfolio_data = await supa_api_calculate_portfolio(user_id, user_token)
+        # Use PortfolioMetricsManager for optimized data fetching
+        metrics = await portfolio_metrics_manager.get_portfolio_metrics(
+            user_id=user_id,
+            user_token=user_token,
+            metric_type="analytics_summary",
+            force_refresh=False
+        )
         
         # Extract portfolio metrics
-        portfolio_value = portfolio_data.get("total_value", 0)
-        total_cost = portfolio_data.get("total_cost", 0)
-        total_gain_loss = portfolio_data.get("total_gain_loss", 0)
-        total_gain_loss_percent = portfolio_data.get("total_gain_loss_percent", 0)
+        portfolio_value = float(metrics.performance.total_value)
+        total_cost = float(metrics.performance.total_cost)
+        total_gain_loss = float(metrics.performance.total_gain_loss)
+        total_gain_loss_percent = metrics.performance.total_gain_loss_percent
         
-        # OPTIMIZATION: Get lightweight dividend summary (no complex calculations)
-        dividend_summary = await _get_lightweight_dividend_summary(user_id)
+        # Use dividend summary from metrics if available, otherwise get lightweight version
+        if metrics.dividend_summary:
+            dividend_summary = {
+                "ytd_received": float(metrics.dividend_summary.ytd_received),
+                "total_received": float(metrics.dividend_summary.total_received),
+                "total_pending": float(metrics.dividend_summary.total_pending),
+                "confirmed_count": metrics.dividend_summary.count_received,  # Note: model uses count_received
+                "pending_count": metrics.dividend_summary.count_pending
+            }
+        else:
+            # Fallback to lightweight summary
+            dividend_summary = await _get_lightweight_dividend_summary(user_id)
         
-        # Calculate IRR (simple calculation for now)
+        # Calculate IRR using performance data if available
+        irr_percent = 0.0
+        # For now, always use the simple IRR calculation
+        # TODO: Add XIRR to PortfolioPerformance model in future
         irr_data = await _calculate_simple_irr(user_id, user_token)
+        irr_percent = float(irr_data.get("irr_percent", 0))
         
         # Calculate total profit including dividends
         total_dividends = dividend_summary.get("ytd_received", 0)  # This year's dividends
@@ -64,7 +83,7 @@ async def backend_api_analytics_summary(
             "portfolio_value": portfolio_value,
             "total_profit": total_profit_with_dividends,  # Include dividends in total profit
             "total_profit_percent": total_gain_loss_percent,  # Keep original percentage for now
-            "irr_percent": float(irr_data.get("irr_percent", 0)),
+            "irr_percent": irr_percent,
             "passive_income_ytd": dividend_summary.get("ytd_received", 0),
             "cash_balance": 0,  # TODO: Implement cash tracking
             "dividend_summary": dividend_summary
@@ -76,7 +95,9 @@ async def backend_api_analytics_summary(
             "metadata": {
                 "timestamp": datetime.now().isoformat(),
                 "user_id": user_id,
-                "optimized": True
+                "optimized": True,
+                "cache_status": metrics.cache_status,
+                "computation_time_ms": metrics.computation_time_ms
             }
         }
         
@@ -542,9 +563,8 @@ async def backend_api_edit_dividend(
 async def _get_portfolio_summary(user_id: str, user_token: str) -> Dict[str, Any]:
     """Get basic portfolio summary data - OPTIMIZED to use existing portfolio service"""
     try:
-        # Use the optimized portfolio service instead of duplicating logic
-        portfolio_service = PortfolioTimeSeriesService()
-        portfolio_result = await portfolio_service.get_portfolio_series(user_id, "1D", user_token)
+        # Use the optimized portfolio calculator instead of duplicating logic
+        portfolio_result = await portfolio_calculator.calculate_portfolio_time_series(user_id, user_token, "1D")
         
         if not portfolio_result[0] or len(portfolio_result[0]) == 0:
             return {"total_value": 0, "total_gain_loss": 0, "total_gain_loss_percent": 0, "total_invested": 0}
@@ -566,29 +586,49 @@ async def _get_portfolio_summary(user_id: str, user_token: str) -> Dict[str, Any
         return {"total_value": 0, "total_gain_loss": 0, "total_gain_loss_percent": 0, "total_invested": 0}
 
 async def _get_detailed_holdings(user_id: str, user_token: str, include_sold: bool) -> List[Dict[str, Any]]:
-    """Get detailed holdings data for analytics table - Using centralized portfolio calculator"""
-    from services.portfolio_calculator import portfolio_calculator
-    
+    """Get detailed holdings data for analytics table - Using PortfolioMetricsManager"""
     logger.info(f"[backend_api_analytics.py::_get_detailed_holdings] Getting detailed holdings for user {user_id}")
     
     try:
-        # Use the centralized portfolio calculator for all calculations
-        detailed_holdings = await portfolio_calculator.calculate_detailed_holdings(user_id, user_token)
+        # Use PortfolioMetricsManager for optimized data fetching
+        metrics = await portfolio_metrics_manager.get_portfolio_metrics(
+            user_id=user_id,
+            user_token=user_token,
+            metric_type="detailed_holdings",
+            force_refresh=False
+        )
         
-        if not detailed_holdings:
+        if not metrics.holdings:
             logger.warning(f"[backend_api_analytics.py::_get_detailed_holdings] No holdings found for user {user_id}")
             return []
         
-        # Filter out sold holdings if not requested
-        if not include_sold:
-            detailed_holdings = [h for h in detailed_holdings if h['quantity'] > 0]
-        
-        # Add additional fields that the analytics table expects
-        # These are placeholders until properly implemented
-        for holding in detailed_holdings:
-            holding['daily_change'] = 0  # TODO: Implement daily change calculation
-            holding['daily_change_percent'] = 0  # TODO: Implement daily change percent
-            holding['irr_percent'] = 0  # TODO: Implement IRR per holding
+        # Convert holdings to dictionary format expected by the frontend
+        detailed_holdings = []
+        for holding in metrics.holdings:
+            # Filter out sold holdings if not requested
+            if not include_sold and holding.quantity <= 0:
+                continue
+                
+            holding_dict = {
+                'symbol': holding.symbol,
+                'quantity': float(holding.quantity),
+                'avg_cost': float(holding.avg_cost),
+                'current_price': float(holding.current_price),
+                'cost_basis': float(holding.total_cost),
+                'current_value': float(holding.current_value),
+                'unrealized_gain': float(holding.gain_loss),
+                'unrealized_gain_percent': holding.gain_loss_percent,
+                'realized_pnl': float(holding.realized_pnl) if hasattr(holding, 'realized_pnl') else 0,
+                'dividends_received': float(holding.dividends_received) if hasattr(holding, 'dividends_received') else 0,
+                'total_profit': float(holding.gain_loss) + float(getattr(holding, 'realized_pnl', 0)) + float(getattr(holding, 'dividends_received', 0)),
+                'total_profit_percent': holding.gain_loss_percent,  # Simplified for now
+                'total_bought': float(holding.total_cost),  # Simplified
+                'total_sold': 0,  # TODO: Track sold amounts
+                'daily_change': 0,  # TODO: Implement daily change calculation
+                'daily_change_percent': 0,  # TODO: Implement daily change percent
+                'irr_percent': 0  # TODO: Implement IRR per holding
+            }
+            detailed_holdings.append(holding_dict)
         
         logger.info(f"[backend_api_analytics.py::_get_detailed_holdings] Returning {len(detailed_holdings)} holdings")
         
@@ -596,7 +636,27 @@ async def _get_detailed_holdings(user_id: str, user_token: str, include_sold: bo
         
     except Exception as e:
         logger.error(f"[backend_api_analytics.py::_get_detailed_holdings] Error getting detailed holdings: {e}")
-        return []
+        # Fallback to direct portfolio calculator
+        try:
+            detailed_holdings = await portfolio_calculator.calculate_detailed_holdings(user_id, user_token)
+            
+            if not detailed_holdings:
+                return []
+            
+            # Filter out sold holdings if not requested
+            if not include_sold:
+                detailed_holdings = [h for h in detailed_holdings if h['quantity'] > 0]
+            
+            # Add missing fields
+            for holding in detailed_holdings:
+                holding['daily_change'] = 0
+                holding['daily_change_percent'] = 0
+                holding['irr_percent'] = 0
+            
+            return detailed_holdings
+        except Exception as e2:
+            logger.error(f"[backend_api_analytics.py::_get_detailed_holdings] Fallback also failed: {e2}")
+            return []
 
 async def _enrich_dividend_data(user_id: str, dividends: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Enrich dividend data with current holding information"""
@@ -671,8 +731,7 @@ async def _calculate_simple_irr(user_id: str, user_token: str) -> Dict[str, Any]
     
     try:
         # Get portfolio performance for the last year
-        portfolio_service = PortfolioTimeSeriesService()
-        portfolio_data = await portfolio_service.get_portfolio_series(user_id, "1Y", user_token)
+        portfolio_data = await portfolio_calculator.calculate_portfolio_time_series(user_id, user_token, "1Y")
         
         if not portfolio_data[0]:  # No data
             return {"irr_percent": 0}

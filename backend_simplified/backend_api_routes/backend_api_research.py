@@ -12,7 +12,7 @@ from vantage_api.vantage_api_search import combined_symbol_search
 from vantage_api.vantage_api_quotes import vantage_api_get_overview, vantage_api_get_historical_price
 from supa_api.supa_api_auth import require_authenticated_user
 from services.financials_service import FinancialsService
-from services.current_price_manager import current_price_manager
+from services.price_manager import price_manager
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +87,7 @@ async def backend_api_stock_overview_handler(
         user_token = user_data.get("access_token")
         
         # Use fast quote for basic stock overview to improve performance
-        quote_task = asyncio.create_task(current_price_manager.get_current_price_fast(symbol))
+        quote_task = asyncio.create_task(price_manager.get_current_price_fast(symbol))
         overview_task = asyncio.create_task(vantage_api_get_overview(symbol))
         
         quote_result, overview_data = await asyncio.gather(quote_task, overview_task)
@@ -143,7 +143,7 @@ async def backend_api_quote_handler(
     
     try:
         user_token = user_data.get("access_token")
-        quote_result = await current_price_manager.get_current_price(symbol.upper(), user_token)
+        quote_result = await price_manager.get_current_price(symbol.upper(), user_token)
         
         if quote_result.get("success"):
             return {
@@ -380,7 +380,7 @@ async def backend_api_stock_prices_handler(
         if not user_token:
             raise HTTPException(status_code=401, detail="Unauthorized")
             
-        result = await current_price_manager.get_historical_prices(
+        result = await price_manager.get_historical_prices(
             symbol=symbol,
             start_date=start_date,
             end_date=today,

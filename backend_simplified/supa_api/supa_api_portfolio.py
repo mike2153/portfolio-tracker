@@ -2,7 +2,7 @@
 Supabase portfolio calculations
 Calculates holdings and performance from transactions
 
-NOTE: This module has been refactored to use price_data_service instead of direct Alpha Vantage API calls.
+NOTE: This module has been refactored to use price_manager instead of direct Alpha Vantage API calls.
 Functions in this module are still being used by:
 - backend_api_portfolio.py::backend_api_get_portfolio_holdings (uses supa_api_calculate_portfolio)
 - backend_api_analytics.py::backend_api_get_analytics_overview (uses supa_api_calculate_portfolio)
@@ -13,7 +13,7 @@ from collections import defaultdict
 
 from .supa_api_client import get_supa_client
 from .supa_api_transactions import supa_api_get_user_transactions
-from services.price_data_service import price_data_service
+from services.price_manager import price_manager
 from debug_logger import DebugLogger
 
 logger = logging.getLogger(__name__)
@@ -71,7 +71,7 @@ async def supa_api_calculate_portfolio(user_id: str, user_token: Optional[str] =
             
             # Get current price from database
             try:
-                price_data = await price_data_service.get_latest_price(symbol, user_token)
+                price_data = await price_manager.get_latest_price_from_db(symbol, user_token)
                 if price_data:
                     current_price = price_data['price']
                 else:

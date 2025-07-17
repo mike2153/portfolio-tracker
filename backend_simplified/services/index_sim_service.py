@@ -9,10 +9,10 @@ from decimal import Decimal
 from collections import defaultdict
 import logging
 
-# Import portfolio service to fetch the user's portfolio value on the
+# Import portfolio calculator to fetch the user's portfolio value on the
 # simulation start date.  This avoids a circular dependency because
-# portfolio_service does not import this module.
-from services.portfolio_service import PortfolioTimeSeriesService
+# portfolio_calculator does not import this module.
+from services.portfolio_calculator import portfolio_calculator
 
 from debug_logger import DebugLogger
 from supa_api.supa_api_jwt_helpers import (
@@ -69,10 +69,10 @@ class IndexSimulationService:
 
             # Step 1: Get user's portfolio value at start_date
             #logger.info(f"[index_sim_service] 📊 Step 1: Fetching portfolio value at {start_date}")
-            start_series, start_meta = await PortfolioTimeSeriesService.get_portfolio_series(
+            start_series, start_meta = await portfolio_calculator.calculate_portfolio_time_series(
                 user_id=user_id,
-                range_key="MAX",
-                user_token=user_token
+                user_token=user_token,
+                range_key="MAX"
             )
             if not start_series or start_meta.get("no_data"):
                 start_value = Decimal('0')
@@ -100,10 +100,10 @@ class IndexSimulationService:
 
             # Step 3: Ensure benchmark prices are up to date
             # logger.info(f"[index_sim_service] Ensuring {benchmark} prices are current...")
-            from services.current_price_manager import current_price_manager
+            from services.price_manager import price_manager
             
             # Use CurrentPriceManager to ensure we have latest index prices
-            update_result = await current_price_manager.update_prices_with_session_check(
+            update_result = await price_manager.update_prices_with_session_check(
                 symbols=[benchmark],
                 user_token=user_token,
                 include_indexes=False  # Already processing an index
@@ -466,10 +466,10 @@ class IndexSimulationService:
             #logger.info(f"[index_sim_service] 📊 Step 1: Getting user's portfolio value at {start_date}")
             
             # Get portfolio data for the exact timeframe we need
-            portfolio_series, portfolio_meta = await PortfolioTimeSeriesService.get_portfolio_series(
+            portfolio_series, portfolio_meta = await portfolio_calculator.calculate_portfolio_time_series(
                 user_id=user_id,
-                range_key="MAX",  # Get all data to ensure we find the start_date
-                user_token=user_token
+                user_token=user_token,
+                range_key="MAX"  # Get all data to ensure we find the start_date
             )
             
             if portfolio_meta.get("no_data") or not portfolio_series:
@@ -517,11 +517,11 @@ class IndexSimulationService:
             
             # Step 2: Ensure benchmark prices are up to date
             # logger.info(f"[index_sim_service] Ensuring {benchmark} prices are current for rebalanced series...")
-            from services.current_price_manager import current_price_manager
+            from services.price_manager import price_manager
             
             # Use CurrentPriceManager to ensure we have latest index prices
             logger.info(f"[DEBUG] index_sim_service: Calling update_prices_with_session_check for benchmark={benchmark}")
-            update_result = await current_price_manager.update_prices_with_session_check(
+            update_result = await price_manager.update_prices_with_session_check(
                 symbols=[benchmark],
                 user_token=user_token,
                 include_indexes=False  # Already processing an index
