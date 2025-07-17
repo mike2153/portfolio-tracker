@@ -333,7 +333,7 @@ async def supa_api_get_historical_prices(
     symbol: str,
     start_date: str,
     end_date: str,
-    user_token: str = None
+    user_token: str,
 ) -> List[Dict[str, Any]]:
     """
     Get historical price data from database for a symbol within date range
@@ -382,7 +382,6 @@ async def supa_api_get_historical_prices(
 @DebugLogger.log_api_call(api_name="SUPABASE", sender="BACKEND", receiver="SUPA_API", operation="STORE_HISTORICAL_PRICES_BATCH")
 async def supa_api_store_historical_prices_batch(
     price_data: List[Dict[str, Any]],
-    user_token: str = None
 ) -> bool:
     """
     Store historical price data in database with upsert logic (batch version)
