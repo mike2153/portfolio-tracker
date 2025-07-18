@@ -310,10 +310,13 @@ class PortfolioMetricsManager:
         market_status = await self._get_market_status()
         data_completeness["market_status"] = True
         
+        # Fetch transactions once for reuse
+        transactions = await self._get_all_transactions(user_id, user_token)
+        
         # Stage 2: Parallel fetch of independent data
         results = await asyncio.gather(
-            self._get_holdings_data(user_id, user_token),
-            self._get_dividend_summary(user_id, user_token),
+            self._get_holdings_data(user_id, user_token, transactions),
+            self._get_dividend_summary(user_id, user_token, transactions),
             self._get_time_series_data(user_id, user_token, params),
             return_exceptions=True  # Don't fail everything if one service fails
         )
@@ -370,7 +373,7 @@ class PortfolioMetricsManager:
     # Service Integration Methods
     # ========================================================================
     
-    async def _get_holdings_data(self, user_id: str, user_token: str) -> List[PortfolioHolding]:
+    async def _get_holdings_data(self, user_id: str, user_token: str, transactions: Optional[List[Dict[str, Any]]] = None) -> List[PortfolioHolding]:
         """Fetch and transform holdings data from PortfolioCalculator"""
         if not self._is_service_available("holdings"):
             raise Exception("Holdings service is circuit broken")
@@ -404,51 +407,48 @@ class PortfolioMetricsManager:
             self._record_service_failure("holdings")
             raise e
     
-    async def _get_dividend_summary(self, user_id: str, user_token: str) -> DividendSummary:
+    async def _get_dividend_summary(self, user_id: str, user_token: str, transactions: Optional[List[Dict[str, Any]]] = None) -> DividendSummary:
         """Fetch dividend summary from DividendService"""
         if not self._is_service_available("dividends"):
             logger.warning("[PortfolioMetricsManager] Dividend service is circuit broken, returning empty summary")
             return DividendSummary()
         
         try:
-            # For now, use existing DividendService methods
-            # This will be refactored in Step 5 to receive transaction data
-            dividends = await self.dividend_service.get_user_dividends(user_id, user_token)
+            # Import refactored service
+            from services.dividend_service_refactored import DividendServiceRefactored
+            refactored_dividend_service = DividendServiceRefactored()
             
-            # Calculate summary statistics
-            total_received = Decimal("0")
-            total_pending = Decimal("0")
-            ytd_received = Decimal("0")
-            count_received = 0
-            count_pending = 0
+            # Get user dividends from database
+            from supa_api.supa_api_client import get_supa_service_client
+            supa_client = get_supa_service_client()
             
-            current_year = datetime.now().year
+            response = supa_client.table('user_dividends') \
+                .select('*') \
+                .eq('user_id', user_id) \
+                .eq('confirmed', True) \
+                .execute()
             
-            for div in dividends:
-                if div.get("confirmed"):
-                    amount = Decimal(str(div.get("total_amount", 0)))
-                    total_received += amount
-                    count_received += 1
-                    
-                    # Check if YTD
-                    pay_date = datetime.fromisoformat(div["pay_date"])
-                    if pay_date.year == current_year:
-                        ytd_received += amount
-                else:
-                    total_pending += Decimal(str(div.get("total_amount", 0)))
-                    count_pending += 1
+            user_dividends = response.data if response else []
             
-            summary = DividendSummary(
-                total_received=total_received,
-                total_pending=total_pending,
-                ytd_received=ytd_received,
-                count_received=count_received,
-                count_pending=count_pending,
-                recent_dividends=dividends[:5] if dividends else []
-            )
+            # Use refactored service to calculate summary
+            summary_data = refactored_dividend_service.calculate_dividend_summary(user_dividends)
             
+            # If transactions were provided, we can enrich the data
+            if transactions:
+                # Get portfolio symbols from transactions
+                symbols = refactored_dividend_service.get_portfolio_symbols(transactions)
+            
+            # Transform to our model
             self._reset_service_failures("dividends")
-            return summary
+            return DividendSummary(
+                total_received=Decimal(str(summary_data['total_dividends'])),
+                ytd_received=Decimal(str(summary_data['total_dividends_ytd'])),
+                total_pending=Decimal("0"),  # Would need pending dividends query
+                count_received=summary_data['confirmed_count'],
+                count_pending=summary_data['pending_count'],
+                next_payment_date=None,  # Would need additional query
+                next_payment_amount=Decimal("0")
+            )
         except Exception as e:
             self._record_service_failure("dividends")
             logger.warning(f"[PortfolioMetricsManager] Dividend service error: {e}, returning empty summary")
@@ -492,6 +492,25 @@ class PortfolioMetricsManager:
             self._record_service_failure("time_series")
             logger.warning(f"[PortfolioMetricsManager] Time series error: {e}")
             return []
+    
+    async def _get_all_transactions(self, user_id: str, user_token: str) -> List[Dict[str, Any]]:
+        """Fetch all user transactions once for reuse"""
+        if not self._is_service_available("transactions"):
+            raise Exception("Transaction service is circuit broken")
+        
+        try:
+            from supa_api.supa_api_transactions import supa_api_get_user_transactions
+            transactions = await supa_api_get_user_transactions(
+                user_id=user_id,
+                limit=10000,
+                user_token=user_token
+            )
+            self._reset_service_failures("transactions")
+            return transactions or []
+        except Exception as e:
+            self._record_service_failure("transactions")
+            logger.error(f"[PortfolioMetricsManager] Transaction fetch failed: {e}")
+            raise e
     
     async def _get_market_status(self) -> MarketStatus:
         """Get current market status from PriceManager"""

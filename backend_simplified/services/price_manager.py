@@ -1377,6 +1377,278 @@ class PriceManager:
         self._market_status_cache.clear()
         self._last_update_cache.clear()
         logger.info("[PriceManager] All caches cleared")
+    
+    # ========== Dividend Operations ==========
+    
+    async def get_dividend_history(
+        self,
+        symbol: str,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+        user_token: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Get dividend history for a symbol with caching and fallback to Alpha Vantage
+        
+        Args:
+            symbol: Stock ticker symbol
+            start_date: Optional start date for filtering
+            end_date: Optional end date for filtering
+            user_token: JWT token for database access
+            
+        Returns:
+            Dict containing dividend history data
+        """
+        try:
+            # Check circuit breaker
+            if self._circuit_breaker.is_open("dividend_api"):
+                logger.warning(f"[PriceManager] Circuit breaker open for dividend API")
+                return {
+                    "success": False,
+                    "error": "Dividend API temporarily unavailable",
+                    "data": []
+                }
+            
+            # Try to get from database first
+            db_dividends = await self._get_db_dividend_history(symbol, start_date, end_date, user_token)
+            
+            # If we have recent data, return it
+            if db_dividends and self._has_recent_dividend_data(db_dividends):
+                return {
+                    "success": True,
+                    "data": db_dividends,
+                    "source": "database"
+                }
+            
+            # Fetch from Alpha Vantage
+            try:
+                api_dividends = await self._fetch_dividends_from_alpha_vantage(symbol)
+                
+                if api_dividends:
+                    # Store in database for future use
+                    await self._store_dividend_history(symbol, api_dividends, user_token)
+                    
+                    # Filter by date range if specified
+                    filtered = self._filter_dividends_by_date(api_dividends, start_date, end_date)
+                    
+                    self._circuit_breaker.record_success("dividend_api")
+                    return {
+                        "success": True,
+                        "data": filtered,
+                        "source": "alpha_vantage"
+                    }
+                else:
+                    # Return database data even if potentially stale
+                    return {
+                        "success": True,
+                        "data": db_dividends or [],
+                        "source": "database",
+                        "warning": "Using cached data, API returned no results"
+                    }
+                    
+            except Exception as api_error:
+                self._circuit_breaker.record_failure("dividend_api")
+                logger.error(f"[PriceManager] Alpha Vantage dividend fetch failed: {api_error}")
+                
+                # Return database data as fallback
+                return {
+                    "success": True,
+                    "data": db_dividends or [],
+                    "source": "database",
+                    "warning": f"Using cached data due to API error: {str(api_error)}"
+                }
+                
+        except Exception as e:
+            logger.error(f"[PriceManager] Error getting dividend history: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "data": []
+            }
+    
+    async def get_portfolio_dividends(
+        self,
+        symbols: List[str],
+        start_date: Optional[date] = None,
+        user_token: Optional[str] = None
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        """
+        Get dividend history for multiple symbols efficiently
+        
+        Args:
+            symbols: List of stock ticker symbols
+            start_date: Optional start date for filtering
+            user_token: JWT token for database access
+            
+        Returns:
+            Dict mapping symbols to their dividend histories
+        """
+        try:
+            results = {}
+            errors = []
+            
+            # Process symbols in parallel batches
+            batch_size = 10
+            for i in range(0, len(symbols), batch_size):
+                batch = symbols[i:i + batch_size]
+                
+                # Create tasks for batch
+                tasks = []
+                for symbol in batch:
+                    task = self.get_dividend_history(symbol, start_date, None, user_token)
+                    tasks.append(task)
+                
+                # Execute batch in parallel
+                batch_results = await asyncio.gather(*tasks, return_exceptions=True)
+                
+                # Process results
+                for symbol, result in zip(batch, batch_results):
+                    if isinstance(result, Exception):
+                        errors.append(f"{symbol}: {str(result)}")
+                        results[symbol] = []
+                    elif result.get("success"):
+                        results[symbol] = result.get("data", [])
+                    else:
+                        errors.append(f"{symbol}: {result.get('error', 'Unknown error')}")
+                        results[symbol] = []
+            
+            return {
+                "success": len(errors) == 0,
+                "data": results,
+                "errors": errors if errors else None
+            }
+            
+        except Exception as e:
+            logger.error(f"[PriceManager] Error getting portfolio dividends: {e}")
+            return {
+                "success": False,
+                "data": {},
+                "errors": [str(e)]
+            }
+    
+    async def _get_db_dividend_history(
+        self,
+        symbol: str,
+        start_date: Optional[date],
+        end_date: Optional[date],
+        user_token: Optional[str]
+    ) -> List[Dict[str, Any]]:
+        """Get dividend history from database"""
+        try:
+            # Note: This assumes a dividend_history table exists
+            # For now, we'll use the user_dividends table with a service account
+            query = self.db_client.table("dividend_history").select("*").eq("symbol", symbol)
+            
+            if start_date:
+                query = query.gte("ex_date", start_date.isoformat())
+            if end_date:
+                query = query.lte("ex_date", end_date.isoformat())
+            
+            response = query.order("ex_date", desc=True).execute()
+            return response.data if response else []
+            
+        except Exception as e:
+            # Table might not exist yet, return empty
+            logger.debug(f"[PriceManager] Database dividend fetch failed (expected if table doesn't exist): {e}")
+            return []
+    
+    async def _fetch_dividends_from_alpha_vantage(self, symbol: str) -> List[Dict[str, Any]]:
+        """Fetch dividend history from Alpha Vantage"""
+        from vantage_api.vantage_api_financials import vantage_api_get_dividends
+        
+        try:
+            # Get dividend data from Alpha Vantage
+            response = await vantage_api_get_dividends(symbol)
+            
+            if response and "data" in response:
+                return response["data"]
+            
+            return []
+            
+        except Exception as e:
+            logger.error(f"[PriceManager] Alpha Vantage dividend API error for {symbol}: {e}")
+            raise
+    
+    async def _store_dividend_history(
+        self,
+        symbol: str,
+        dividends: List[Dict[str, Any]],
+        user_token: Optional[str]
+    ) -> None:
+        """Store dividend history in database for future use"""
+        try:
+            # Note: This assumes a dividend_history table
+            # For now, we'll skip storage if table doesn't exist
+            for dividend in dividends:
+                dividend_record = {
+                    "symbol": symbol,
+                    "ex_date": dividend.get("ex_dividend_date"),
+                    "pay_date": dividend.get("payment_date"),
+                    "amount": float(dividend.get("amount", 0)),
+                    "currency": dividend.get("currency", "USD"),
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }
+                
+                # Upsert to avoid duplicates
+                await self.db_client.table("dividend_history").upsert(
+                    dividend_record,
+                    on_conflict="symbol,ex_date"
+                ).execute()
+                
+        except Exception as e:
+            # Log but don't fail - storage is optional optimization
+            logger.debug(f"[PriceManager] Failed to store dividend history: {e}")
+    
+    def _has_recent_dividend_data(self, dividends: List[Dict[str, Any]]) -> bool:
+        """Check if dividend data is recent enough to use"""
+        if not dividends:
+            return False
+        
+        # Check if we have data from the last 30 days
+        thirty_days_ago = date.today() - timedelta(days=30)
+        
+        for dividend in dividends:
+            try:
+                updated_str = dividend.get("updated_at")
+                if updated_str:
+                    updated_date = datetime.fromisoformat(updated_str.replace("Z", "+00:00")).date()
+                    if updated_date >= thirty_days_ago:
+                        return True
+            except:
+                continue
+        
+        return False
+    
+    def _filter_dividends_by_date(
+        self,
+        dividends: List[Dict[str, Any]],
+        start_date: Optional[date],
+        end_date: Optional[date]
+    ) -> List[Dict[str, Any]]:
+        """Filter dividends by date range"""
+        if not start_date and not end_date:
+            return dividends
+        
+        filtered = []
+        for dividend in dividends:
+            try:
+                ex_date_str = dividend.get("ex_dividend_date") or dividend.get("ex_date")
+                if not ex_date_str:
+                    continue
+                
+                ex_date = datetime.strptime(ex_date_str, "%Y-%m-%d").date()
+                
+                if start_date and ex_date < start_date:
+                    continue
+                if end_date and ex_date > end_date:
+                    continue
+                
+                filtered.append(dividend)
+                
+            except:
+                continue
+        
+        return filtered
 
 
 # Create singleton instance
