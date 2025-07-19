@@ -177,7 +177,8 @@ def global_dividend_to_user_dividend(
         is_future=global_dividend.pay_date > date.today(),
         is_recent=(datetime.now() - created_at).days < 7,
         created_at=created_at,
-        updated_at=updated_at
+        updated_at=updated_at,
+        notes=None
     )
 
 
