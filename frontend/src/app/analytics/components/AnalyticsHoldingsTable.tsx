@@ -75,6 +75,12 @@ export default function AnalyticsHoldingsTable({
   includeSoldHoldings,
   onToggleSoldHoldings
 }: AnalyticsHoldingsTableProps) {
+  console.log('[AnalyticsHoldingsTable] Received props:', {
+    holdingsCount: holdings?.length,
+    firstHolding: holdings?.[0],
+    isLoading
+  });
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState<keyof Holding>('current_value');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -117,7 +123,7 @@ export default function AnalyticsHoldingsTable({
 
   // Transform data for ApexListView
   const listData = useMemo(() => {
-    return processedHoldings.map(holding => ({
+    const transformed = processedHoldings.map(holding => ({
       id: holding.symbol || '',
       symbol: holding.symbol || '',
       company: getCompanyName(holding.symbol || ''),
@@ -140,16 +146,18 @@ export default function AnalyticsHoldingsTable({
         quantity: holding.quantity || 0
       }
     }));
+    console.log('[AnalyticsHoldingsTable] Transformed listData:', transformed);
+    return transformed;
   }, [processedHoldings]);
 
   // Column configuration
-  const columns = [
+  const columns: any[] = [
     {
       key: 'holding',
       label: 'Holding',
       searchable: true,
       sortable: true,
-      render: (item: any) => (
+      render: (value: any, item: any) => (
         <div className="flex items-center space-x-3">
           <CompanyIcon 
             symbol={item.symbol} 
@@ -169,21 +177,22 @@ export default function AnalyticsHoldingsTable({
       key: 'cost_basis',
       label: 'Cost Basis',
       sortable: true,
-      render: (item: any) => (
-        <div className="text-right">
-          <div className="font-medium text-white">{formatCurrency(item.cost_basis)}</div>
-          <div className="text-sm text-gray-400">{formatCurrency(item.cost_basis / item.quantity)}/share</div>
-        </div>
-      )
+      render: (value: any, item: any) => {
+        console.log('[Column Render] Cost Basis value:', value, 'item:', item.symbol);
+        return (
+          <div className="text-right">
+            <div className="font-medium text-white">{formatCurrency(value)}</div>
+          </div>
+        );
+      }
     },
     {
       key: 'current_value',
       label: 'Current Value',
       sortable: true,
-      render: (item: any) => (
+      render: (value: any, item: any) => (
         <div className="text-right">
-          <div className="font-medium text-white">{formatCurrency(item.current_value)}</div>
-          <div className="text-sm text-gray-400">{formatCurrency(item.current_price)}/share</div>
+          <div className="font-medium text-white">{formatCurrency(value)}</div>
         </div>
       )
     },
@@ -191,9 +200,9 @@ export default function AnalyticsHoldingsTable({
       key: 'dividends_received',
       label: 'Dividends Received',
       sortable: true,
-      render: (item: any) => (
+      render: (value: any, item: any) => (
         <div className="text-right">
-          <div className="font-medium text-blue-400">{formatCurrency(item.dividends_received)}</div>
+          <div className="font-medium text-blue-400">{formatCurrency(value)}</div>
         </div>
       )
     },
@@ -201,10 +210,10 @@ export default function AnalyticsHoldingsTable({
       key: 'unrealized_gain',
       label: 'Capital Gain',
       sortable: true,
-      render: (item: any) => (
+      render: (value: any, item: any) => (
         <div className="text-right">
-          <div className={`font-medium ${getChangeColor(item.unrealized_gain)}`}>
-            {formatCurrency(item.unrealized_gain)}
+          <div className={`font-medium ${getChangeColor(value)}`}>
+            {formatCurrency(value)}
           </div>
           <div className={`text-sm ${getChangeColor(item.unrealized_gain_percent)}`}>
             {formatPercentage(item.unrealized_gain_percent)}
@@ -216,10 +225,10 @@ export default function AnalyticsHoldingsTable({
       key: 'realized_pnl',
       label: 'Realized P&L',
       sortable: true,
-      render: (item: any) => (
+      render: (value: any, item: any) => (
         <div className="text-right">
-          <div className={`font-medium ${getChangeColor(item.realized_pnl)}`}>
-            {formatCurrency(item.realized_pnl)}
+          <div className={`font-medium ${getChangeColor(value)}`}>
+            {formatCurrency(value)}
           </div>
         </div>
       )
@@ -228,10 +237,10 @@ export default function AnalyticsHoldingsTable({
       key: 'total_profit',
       label: 'Total Profit',
       sortable: true,
-      render: (item: any) => (
+      render: (value: any, item: any) => (
         <div className="text-right">
-          <div className={`font-medium ${getChangeColor(item.total_profit)}`}>
-            {formatCurrency(item.total_profit)}
+          <div className={`font-medium ${getChangeColor(value)}`}>
+            {formatCurrency(value)}
           </div>
           <div className={`text-sm ${getChangeColor(item.total_profit_percent)}`}>
             {formatPercentage(item.total_profit_percent)}
@@ -243,10 +252,10 @@ export default function AnalyticsHoldingsTable({
       key: 'daily_change',
       label: 'Daily',
       sortable: true,
-      render: (item: any) => (
+      render: (value: any, item: any) => (
         <div className="text-right">
-          <div className={`font-medium ${getChangeColor(item.daily_change)}`}>
-            {formatCurrency(item.daily_change)}
+          <div className={`font-medium ${getChangeColor(value)}`}>
+            {formatCurrency(value)}
           </div>
           <div className={`text-sm ${getChangeColor(item.daily_change_percent)}`}>
             {formatPercentage(item.daily_change_percent)}
@@ -258,10 +267,10 @@ export default function AnalyticsHoldingsTable({
       key: 'irr_percent',
       label: 'IRR',
       sortable: true,
-      render: (item: any) => (
+      render: (value: any, item: any) => (
         <div className="text-right">
-          <div className={`font-medium ${getChangeColor(item.irr_percent)}`}>
-            {formatPercentage(item.irr_percent)}
+          <div className={`font-medium ${getChangeColor(value)}`}>
+            {formatPercentage(value)}
           </div>
         </div>
       )
@@ -305,19 +314,19 @@ export default function AnalyticsHoldingsTable({
           <div>
             <div className="text-gray-400">Total Value</div>
             <div className="text-white font-medium">
-              {formatCurrency(processedHoldings.reduce((sum, h) => sum + h.current_value, 0))}
+              {formatCurrency(processedHoldings.reduce((sum, h) => sum + (h.current_value || 0), 0))}
             </div>
           </div>
           <div>
             <div className="text-gray-400">Total Cost</div>
             <div className="text-white font-medium">
-              {formatCurrency(processedHoldings.reduce((sum, h) => sum + h.cost_basis, 0))}
+              {formatCurrency(processedHoldings.reduce((sum, h) => sum + (h.cost_basis || 0), 0))}
             </div>
           </div>
           <div>
             <div className="text-gray-400">Total Profit</div>
-            <div className={`font-medium ${getChangeColor(processedHoldings.reduce((sum, h) => sum + h.total_profit, 0))}`}>
-              {formatCurrency(processedHoldings.reduce((sum, h) => sum + h.total_profit, 0))}
+            <div className={`font-medium ${getChangeColor(processedHoldings.reduce((sum, h) => sum + (h.total_profit || 0), 0))}`}>
+              {formatCurrency(processedHoldings.reduce((sum, h) => sum + (h.total_profit || 0), 0))}
             </div>
           </div>
         </div>
@@ -329,7 +338,7 @@ export default function AnalyticsHoldingsTable({
           data={listData}
           columns={columns}
           isLoading={isLoading}
-          error={error?.message}
+          error={error?.message || null}
           showSearch={true}
           showPagination={true}
           itemsPerPage={10}

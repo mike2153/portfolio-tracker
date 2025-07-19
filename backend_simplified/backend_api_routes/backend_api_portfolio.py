@@ -503,6 +503,7 @@ async def backend_api_get_allocation(
                     'gain_loss': float(holding.gain_loss),
                     'gain_loss_percent': holding.gain_loss_percent,
                     'dividends_received': float(holding.dividends_received) if hasattr(holding, 'dividends_received') else 0,
+                    'realized_pnl': float(holding.realized_pnl) if hasattr(holding, 'realized_pnl') else 0,
                     'allocation_percent': holding.allocation_percent,
                     'color': colors[idx % len(colors)]
                 })

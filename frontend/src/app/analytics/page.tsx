@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { front_api_client } from '@/lib/front_api_client';
 import { usePortfolioAllocation } from '@/hooks/usePortfolioAllocation';
@@ -27,23 +27,6 @@ interface AnalyticsSummary {
   };
 }
 
-interface Holding {
-  symbol: string;
-  quantity: number;
-  current_price: number;
-  current_value: number;
-  cost_basis: number;
-  unrealized_gain: number;
-  unrealized_gain_percent: number;
-  realized_pnl: number;
-  dividends_received: number;
-  total_profit: number;
-  total_profit_percent: number;
-  daily_change: number;
-  daily_change_percent: number;
-  irr_percent: number;
-}
-
 type TabType = 'holdings' | 'general' | 'dividends' | 'returns';
 
 export default function AnalyticsPage() {
@@ -51,10 +34,27 @@ export default function AnalyticsPage() {
   const [includeSoldHoldings, setIncludeSoldHoldings] = useState(false);
 
   // Use shared allocation hook for consistent data
-  const { data: allocationData, isLoading: allocationLoading, error: allocationError } = usePortfolioAllocation();
+  const { data: allocationData, isLoading: allocationLoading, error: allocationError, refetch } = usePortfolioAllocation();
+  
+  // Force refetch on mount to ensure fresh data
+  React.useEffect(() => {
+    console.log('[AnalyticsPage] Mounted, forcing data refresh');
+    refetch();
+  }, []);
+
+  console.log('[AnalyticsPage] Allocation data:', allocationData);
+  console.log('[AnalyticsPage] Loading:', allocationLoading, 'Error:', allocationError);
 
   // Transform allocation data to holdings format
-  const holdingsData = allocationData?.allocations.map(allocation => ({
+  const holdingsData = allocationData?.allocations.map(allocation => {
+    console.log('[AnalyticsPage] Processing allocation:', {
+      symbol: allocation.symbol,
+      cost_basis: allocation.cost_basis,
+      current_value: allocation.current_value,
+      gain_loss: allocation.gain_loss,
+      realized_pnl: allocation.realized_pnl
+    });
+    return {
     symbol: allocation.symbol,
     quantity: allocation.quantity,
     current_price: allocation.current_price,
@@ -62,14 +62,15 @@ export default function AnalyticsPage() {
     cost_basis: allocation.cost_basis,
     unrealized_gain: allocation.gain_loss,
     unrealized_gain_percent: allocation.gain_loss_percent,
-    realized_pnl: 0, // TODO: Calculate from transactions
-    dividends_received: allocation.dividends_received,
-    total_profit: allocation.gain_loss + allocation.dividends_received,
-    total_profit_percent: ((allocation.gain_loss + allocation.dividends_received) / allocation.cost_basis * 100) || 0,
+    realized_pnl: allocation.realized_pnl ?? 0,
+    dividends_received: allocation.dividends_received ?? 0,
+    total_profit: allocation.gain_loss + (allocation.dividends_received ?? 0) + (allocation.realized_pnl ?? 0),
+    total_profit_percent: ((allocation.gain_loss + (allocation.dividends_received ?? 0) + (allocation.realized_pnl ?? 0)) / allocation.cost_basis * 100) || 0,
     daily_change: 0, // TODO: Calculate daily change
     daily_change_percent: 0, // TODO: Calculate daily change percent
     irr_percent: 0 // TODO: Calculate IRR
-  })) || [];
+    };
+  }) || [];
 
   // Create summary data from allocation data
   const summaryData: AnalyticsSummary | undefined = allocationData ? {
@@ -92,6 +93,11 @@ export default function AnalyticsPage() {
     switch (activeTab) {
       case 'holdings':
       case 'returns':
+        console.log('[AnalyticsPage] Passing to AnalyticsHoldingsTable:', {
+          holdingsCount: holdingsData?.length,
+          firstHolding: holdingsData?.[0],
+          isLoading: allocationLoading
+        });
         return (
           <AnalyticsHoldingsTable
             holdings={holdingsData || []}

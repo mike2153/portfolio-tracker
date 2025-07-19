@@ -15,6 +15,7 @@ export interface AllocationItem {
   gain_loss: number;
   gain_loss_percent: number;
   dividends_received: number;
+  realized_pnl: number;
   allocation_percent: number;
   color: string;
 }
@@ -44,12 +45,15 @@ export function usePortfolioAllocation(): UsePortfolioAllocationResult {
   const query: UseQueryResult<AllocationData, Error> = useQuery({
     queryKey: ['portfolioAllocation'],
     queryFn: async (): Promise<AllocationData> => {
+      console.log('[usePortfolioAllocation] Fetching allocation data...');
       const { data } = await supabase.auth.getSession();
       if (!data?.session?.access_token) throw new Error('Not authenticated');
       
       const token = data.session.access_token;
       
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/allocation`, {
+      const url = `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/allocation?t=${Date.now()}`;
+      console.log('[usePortfolioAllocation] Making API request to:', url);
+      const response = await fetch(url, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -62,16 +66,20 @@ export function usePortfolioAllocation(): UsePortfolioAllocationResult {
       }
       
       const result = await response.json();
+      console.log('[usePortfolioAllocation] API Response:', result);
       
       if (!result.success || !result.data) {
+        console.error('[usePortfolioAllocation] Invalid response format:', result);
         throw new Error('Invalid response format');
       }
       
+      console.log('[usePortfolioAllocation] Returning data with', result.data.allocations?.length || 0, 'allocations');
       return result.data;
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes - data is relatively stable
+    staleTime: 0, // Always consider data stale to force fresh fetches
     gcTime: 10 * 60 * 1000, // 10 minutes garbage collection time (formerly cacheTime)
-    refetchOnWindowFocus: false, // Don't refetch on window focus to reduce API calls
+    refetchOnWindowFocus: true, // Refetch on window focus
+    refetchOnMount: 'always' // Always refetch on mount
   });
 
   return {
