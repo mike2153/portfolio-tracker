@@ -315,9 +315,9 @@ async def backend_api_force_refresh_financials_handler(
             raise HTTPException(status_code=401, detail="Unauthorized")
         result = await FinancialsService.get_company_financials(
             symbol=symbol,
+            user_token=user_token,
             data_type=data_type,
-            force_refresh=True,
-            user_token=user_token
+            force_refresh=True
         )
         
         return {
