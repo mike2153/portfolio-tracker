@@ -49,7 +49,7 @@ class IndexSimulationService:
         2. For each transaction after start_date and up to end_date, simulate buying/selling the index with the cash flow amount.
         3. Simulate index value day by day as before.
         """
-        logger.info(f"[DEBUG] get_index_sim_series called: user_id={user_id}, benchmark={benchmark}, start={start_date}, end={end_date}")
+        # Get index simulation series for the specified date range
         if not user_token:
             logger.error(f"[index_sim_service] ❌ JWT token required for RLS compliance")
             from fastapi import HTTPException
@@ -113,16 +113,17 @@ class IndexSimulationService:
             else:
                 logger.warning(f"[index_sim_service] ⚠️ No price data for {benchmark} even after update {update_result}")
             
-            # Now get benchmark historical prices for the entire range
+            # Now get benchmark historical prices using PriceManager (with date filtering!)
             extended_start = start_date - timedelta(days=30)
-            prices_response = client.table('historical_prices') \
-                .select('date, close') \
-                .eq('symbol', benchmark) \
-                .gte('date', extended_start.isoformat()) \
-                .lte('date', end_date.isoformat()) \
-                .order('date', desc=False) \
-                .execute()
-            price_data = prices_response.data
+            
+            # Use the date-filtered API to get ONLY the data we need
+            from supa_api.supa_api_historical_prices import supa_api_get_historical_prices
+            price_data = await supa_api_get_historical_prices(
+                symbol=benchmark,
+                start_date=extended_start.isoformat(),  # Convert to string
+                end_date=end_date.isoformat(),  # Convert to string
+                user_token=user_token
+            )
             
             if not price_data:
                 logger.error(f"[index_sim_service] ❌ No price data for {benchmark} even after update")
@@ -452,7 +453,7 @@ class IndexSimulationService:
             List of (date, index_portfolio_value) tuples for the timeframe
         """
         
-        logger.info(f"[DEBUG] get_rebalanced_index_series called: user_id={user_id}, benchmark={benchmark}, start={start_date}, end={end_date}")
+        # Create a properly rebalanced index series for the exact timeframe
         
         if not user_token:
             logger.error(f"[index_sim_service] ❌ JWT token required for rebalanced index simulation")
@@ -520,18 +521,16 @@ class IndexSimulationService:
             from services.price_manager import price_manager
             
             # Use CurrentPriceManager to ensure we have latest index prices
-            logger.info(f"[DEBUG] index_sim_service: Calling update_prices_with_session_check for benchmark={benchmark}")
+            # Use CurrentPriceManager to ensure we have latest index prices
             update_result = await price_manager.update_prices_with_session_check(
                 symbols=[benchmark],
                 user_token=user_token,
                 include_indexes=False  # Already processing an index
             )
             
-            logger.info(f"[DEBUG] index_sim_service: Update result for {benchmark}: {update_result}")
             if update_result.get("data", {}).get("updated"):
                 sessions_filled = update_result.get("data", {}).get("sessions_filled", 0)
-                logger.info(f"[DEBUG] index_sim_service: Successfully updated {benchmark} prices, filled {sessions_filled} sessions")
-                pass
+                logger.info(f"Updated {benchmark} prices, filled {sessions_filled} sessions")
             
             # Get benchmark prices for the timeframe
             # CRITICAL FIX: Use the actual portfolio start date, not the requested start_date
@@ -542,15 +541,14 @@ class IndexSimulationService:
             
             benchmark_start_date = actual_start_date  # Use portfolio's actual start date
             
-            prices_response = client.table('historical_prices') \
-                .select('date, close') \
-                .eq('symbol', benchmark) \
-                .gte('date', benchmark_start_date.isoformat()) \
-                .lte('date', end_date.isoformat()) \
-                .order('date', desc=False) \
-                .execute()
-            
-            price_data = prices_response.data
+            # Use the date-filtered API to get ONLY the data we need
+            from supa_api.supa_api_historical_prices import supa_api_get_historical_prices
+            price_data = await supa_api_get_historical_prices(
+                symbol=benchmark,
+                start_date=benchmark_start_date.isoformat(),
+                end_date=end_date.isoformat(),
+                user_token=user_token
+            )
             #logger.info(f"[index_sim_service] ✅ Found {len(price_data)} {benchmark} price records")
             
             if not price_data:

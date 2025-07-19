@@ -1260,8 +1260,22 @@ class DividendService:
             }
     
     @DebugLogger.log_api_call(api_name="DIVIDEND_SERVICE", sender="BACKEND", receiver="DATABASE", operation="GET_DIVIDEND_SUMMARY")
-    async def get_dividend_summary(self, user_id: str) -> Dict[str, Any]:
-        """Get dividend summary statistics for analytics"""
+    async def get_dividend_summary(self, user_id: str, user_token: str, transactions: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Get dividend summary statistics for analytics
+        
+        Args:
+            user_id: User's UUID (required)
+            user_token: JWT token for authentication (required)
+            transactions: User's transactions list (required)
+        """
+        # Type assertions
+        if not user_id:
+            raise ValueError("user_id cannot be empty")
+        if not user_token:
+            raise ValueError("user_token cannot be empty")
+        if not isinstance(transactions, list):
+            raise TypeError(f"transactions must be a list, got {type(transactions)}")
+        
         try:
             # Get all confirmed dividends
             confirmed_dividends_result = self.supa_client.table('user_dividends') \

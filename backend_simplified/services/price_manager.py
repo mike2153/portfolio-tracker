@@ -83,7 +83,24 @@ class CircuitBreaker:
         if service in self._state and self._state[service] == 'half_open':
             self._state[service] = 'closed'
             self._failures[service] = 0
-            logger.info(f"Circuit breaker CLOSED for {service}")
+    
+    def reset(self, service: Optional[str] = None):
+        """Reset circuit breaker for a service or all services"""
+        if service:
+            # Reset specific service
+            if service in self._failures:
+                self._failures[service] = 0
+            if service in self._state:
+                self._state[service] = 'closed'
+            if service in self._last_failure_time:
+                del self._last_failure_time[service]
+            logger.info(f"Circuit breaker RESET for {service}")
+        else:
+            # Reset all services
+            self._failures.clear()
+            self._state.clear()
+            self._last_failure_time.clear()
+            logger.info("Circuit breaker RESET for all services")
 
 
 class PriceManager:
@@ -120,6 +137,7 @@ class PriceManager:
         
         # Circuit breaker for API failures
         self._circuit_breaker = CircuitBreaker()
+        logger.info("PriceManager initialized")
         
         # Session management
         self._update_locks: Dict[str, asyncio.Lock] = {}
@@ -270,6 +288,8 @@ class PriceManager:
             # Get current time in market timezone
             now = datetime.now(market_tz)
             start_date = last_update.date() if isinstance(last_update, datetime) else last_update
+            
+            logger.info(f"[DEBUG] get_missed_sessions: Checking {symbol} from {start_date} to {now.date()}")
             
             missed_sessions = []
             current_date = start_date + timedelta(days=1)
@@ -965,18 +985,22 @@ class PriceManager:
                         missed_sessions = await self.get_missed_sessions(symbol, last_update)
                         
                         if missed_sessions:
-                            logger.info(f"[PriceManager] Found {len(missed_sessions)} missed sessions for {symbol}")
+                            logger.info(f"{symbol} missing {len(missed_sessions)} sessions")
                             
                             # Fill the gaps
                             start_date = min(missed_sessions)
                             end_date = max(missed_sessions)
                             
+                            logger.info(f"Filling price gaps for {symbol}")
                             success = await self._fill_price_gaps(symbol, start_date, end_date, user_token)
                             
                             if success:
                                 update_results["symbols_updated"] += 1
                                 update_results["sessions_filled"] += len(missed_sessions)
                                 update_results["api_calls"] += 1
+                                logger.info(f"Successfully updated {symbol} prices")
+                            else:
+                                logger.error(f"Failed to update prices for {symbol}")
                                 
                                 # Update the log
                                 await self._update_price_log(
@@ -1007,13 +1031,17 @@ class PriceManager:
             Dict with update results
         """
         try:
-            # Get user's portfolio symbols
+            logger.info(f"[PriceManager] Starting portfolio price update for user {user_id}")
+            
+            # Get user's portfolio symbols using service client
+            # (transactions table doesn't have RLS, so service client is appropriate)
             result = self.db_client.table('transactions') \
                 .select('symbol') \
                 .eq('user_id', user_id) \
                 .execute()
             
             if not result.data:
+                logger.info(f"[PriceManager] No transactions found for user {user_id}")
                 return {
                     "success": True,
                     "message": "No symbols in portfolio",
@@ -1022,9 +1050,11 @@ class PriceManager:
             
             # Get unique symbols
             symbols = list(set(row['symbol'] for row in result.data if row.get('symbol')))
+            logger.info(f"[PriceManager] Found {len(symbols)} unique symbols in portfolio: {symbols}")
             
             # Update prices
             update_results = await self.update_prices_with_session_check(symbols, user_token)
+            logger.info(f"[PriceManager] Price update results: {update_results}")
             
             return {
                 "success": True,
@@ -1362,52 +1392,75 @@ class PriceManager:
         try:
             # Check circuit breaker
             if self._circuit_breaker.is_open('alpha_vantage'):
-                logger.warning(f"[PriceManager] Circuit breaker open, skipping gap fill for {symbol}")
+                logger.warning(f"Circuit breaker open, skipping gap fill for {symbol}")
                 return False
             
+            # Get daily adjusted prices from Alpha Vantage
             # Get daily adjusted prices from Alpha Vantage
             daily_response = await vantage_api_get_daily_adjusted(symbol)
             
             if not daily_response or daily_response.get('status') != 'success':
+                logger.error(f"Alpha Vantage API failed for {symbol}")
                 self._circuit_breaker.record_failure('alpha_vantage')
                 return False
             
             time_series = daily_response.get('data', {})
             if not time_series:
+                logger.error(f"No time series data in response for {symbol}")
                 return False
+            
+            # Process time series data
+            
+            # Filter and prepare data for the requested date range
             
             # Filter and prepare data for the requested date range
             price_records = []
+            records_in_range = 0
             for date_str, day_data in time_series.items():
                 try:
                     price_date = datetime.strptime(date_str, '%Y-%m-%d').date()
                     
                     if start_date <= price_date <= end_date:
-                        close_price = float(day_data.get('adjusted_close', day_data.get('close', 0)))
+                        records_in_range += 1
                         
-                        if self._is_valid_price(close_price):
+                        # Extract price data from Alpha Vantage format
+                        if isinstance(day_data, dict):
+                            # Alpha Vantage returns keys like '5. adjusted close' and '4. close'
+                            close_price = float(day_data.get('5. adjusted close', day_data.get('4. close', 0)))
+                        else:
+                            # If day_data is not a dict, it might be the price value directly
+                            logger.error(f"Unexpected data type for {date_str}: {type(day_data)}")
+                            continue
+                        
+                        if not self._is_valid_price(close_price):
+                            logger.warning(f"Invalid price for {symbol} on {date_str}: {close_price}")
+                        else:
                             price_records.append({
                                 'symbol': symbol,
                                 'date': date_str,
-                                'open': float(day_data.get('open', close_price)),
-                                'high': float(day_data.get('high', close_price)),
-                                'low': float(day_data.get('low', close_price)),
-                                'close': float(day_data.get('close', close_price)),
+                                'open': float(day_data.get('1. open', close_price)),
+                                'high': float(day_data.get('2. high', close_price)),
+                                'low': float(day_data.get('3. low', close_price)),
+                                'close': float(day_data.get('4. close', close_price)),
                                 'adjusted_close': close_price,
-                                'volume': int(day_data.get('volume', 0)),
-                                'dividend_amount': float(day_data.get('dividend_amount', 0)),
-                                'split_coefficient': float(day_data.get('split_coefficient', 1))
+                                'volume': int(day_data.get('6. volume', 0)),
+                                'dividend_amount': float(day_data.get('7. dividend amount', 0)),
+                                'split_coefficient': float(day_data.get('8. split coefficient', 1))
                             })
                 except (ValueError, KeyError) as e:
                     logger.warning(f"[PriceManager] Skipping invalid data for {symbol} on {date_str}: {e}")
                     continue
             
+            # Store valid price records
+            
             # Store in database if we have records
             if price_records:
-                await supa_api_store_historical_prices_batch(price_records, user_token)
-                logger.info(f"[PriceManager] Stored {len(price_records)} price records for {symbol}")
+                await supa_api_store_historical_prices_batch(price_records)
+                logger.info(f"Stored {len(price_records)} price records for {symbol}")
                 self._circuit_breaker.record_success('alpha_vantage')
                 return True
+            else:
+                logger.warning(f"No valid price records to store for {symbol}")
             
             return False
             
@@ -1428,14 +1481,22 @@ class PriceManager:
                 'symbol': symbol,
                 'update_trigger': update_trigger,
                 'sessions_updated': sessions_updated,
-                'api_calls': 1,
+                'api_calls_made': 1,  # Correct column name
+                'last_update_time': datetime.now(timezone.utc).isoformat(),
+                'last_session_date': date.today().isoformat(),
                 'updated_at': datetime.now(timezone.utc).isoformat()
             }
             
-            self.db_client.table('price_update_log').insert(log_entry).execute()
+            # Use upsert to update existing entry or insert new one
+            self.db_client.table('price_update_log').upsert(
+                log_entry,
+                on_conflict='symbol'  # Update if symbol already exists
+            ).execute()
             
         except Exception as e:
-            logger.error(f"[PriceManager] Error updating price log: {e}")
+            logger.error(f"[PriceManager] Failed to update price log: {e}")
+            # Re-raise because this is a real error that needs fixing
+            raise
     
     # ========== Additional Market Status Methods ==========
     
@@ -1737,6 +1798,44 @@ class PriceManager:
     
     # Removed _has_recent_dividend_data - not needed without dividend_history table
     
+    async def prefetch_user_symbols(self, user_id: str, user_token: str) -> int:
+        """Prefetch all prices for user's holdings to warm the cache
+        
+        Args:
+            user_id: User's UUID (required)
+            user_token: JWT token (required)
+            
+        Returns:
+            Number of symbols prefetched
+        """
+        # Type assertions
+        if not user_id:
+            raise ValueError("user_id cannot be empty")
+        if not user_token:
+            raise ValueError("user_token cannot be empty")
+            
+        try:
+            # Get user's symbols
+            from supa_api.supa_api_portfolio import supa_api_get_user_symbols
+            symbols = await supa_api_get_user_symbols(user_id, user_token)
+            
+            # Type check
+            if not isinstance(symbols, list):
+                logger.error(f"Expected list from supa_api_get_user_symbols, got {type(symbols)}")
+                return 0
+            
+            if symbols:
+                # Use existing batch method to fetch all prices
+                await self.get_latest_quotes(symbols, user_token)
+                logger.info(f"[PriceManager] Prefetched {len(symbols)} symbols for user {user_id}")
+                return len(symbols)
+            
+            return 0
+            
+        except Exception as e:
+            logger.warning(f"[PriceManager] Prefetch failed for user {user_id}: {e}")
+            return 0
+    
     def _filter_dividends_by_date(
         self,
         dividends: List[Dict[str, Any]],
@@ -1767,6 +1866,18 @@ class PriceManager:
                 continue
         
         return filtered
+    
+    def reset_circuit_breaker(self, service: Optional[str] = None):
+        """Reset circuit breaker for Alpha Vantage or all services
+        
+        Args:
+            service: Specific service to reset ('alpha_vantage', 'dividend_api') or None for all
+        """
+        self._circuit_breaker.reset(service)
+        if service:
+            logger.info(f"[PriceManager] Circuit breaker reset for {service}")
+        else:
+            logger.info("[PriceManager] Circuit breaker reset for all services")
 
 
 # Create singleton instance

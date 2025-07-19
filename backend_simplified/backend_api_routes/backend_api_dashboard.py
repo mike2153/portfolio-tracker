@@ -102,10 +102,11 @@ async def backend_api_get_dashboard(
         
         # --- Trigger background price update for user's portfolio -------------
         # This runs in the background and doesn't block the dashboard response
-        if not metrics.cache_status == "hit":  # Only update if we didn't get cached data
-            asyncio.create_task(
-                price_manager.update_user_portfolio_prices(uid, jwt)
-            )
+        # Always check for price updates to ensure we have the latest data
+        logger.info(f"[Dashboard] Triggering background price update for user {uid}")
+        asyncio.create_task(
+            price_manager.update_user_portfolio_prices(uid, jwt)
+        )
         
         # --- Build response for backward compatibility ---------------------
         daily_change = daily_change_pct = 0.0  # TODO: derive from yesterday's prices.
@@ -264,6 +265,12 @@ async def backend_api_get_performance(
     # --- Resolve date range ----------------------------------------------
     start_date, end_date = portfolio_calculator._compute_date_range(period)
     #logger.info("📅 Range: %s → %s", start_date, end_date)
+    
+    # --- Trigger background price update for user's portfolio -------------
+    logger.info(f"[Performance] Triggering background price update for user {uid}")
+    asyncio.create_task(
+        price_manager.update_user_portfolio_prices(uid, jwt)
+    )
         
     # --- Portfolio calculation in background -----------------------------
     portfolio_task = asyncio.create_task(
@@ -540,6 +547,30 @@ async def get_logging_status(current_user: dict = Depends(require_authenticated_
     return {
         "info_logging_enabled": LoggingConfig.is_info_enabled()
     }
+
+@dashboard_router.post("/debug/reset-circuit-breaker")
+async def reset_circuit_breaker(
+    service: Optional[str] = Query(None, description="Service name (alpha_vantage, dividend_api) or None for all"),
+    current_user: dict = Depends(require_authenticated_user)
+):
+    """
+    Reset circuit breaker for price services
+    Useful when the circuit breaker is blocking API calls after failures
+    """
+    try:
+        from services.price_manager import price_manager
+        price_manager.reset_circuit_breaker(service)
+        
+        return {
+            "success": True,
+            "message": f"Circuit breaker reset for {service if service else 'all services'}"
+        }
+    except Exception as e:
+        logger.error(f"Error resetting circuit breaker: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
 
 @dashboard_router.get("/dashboard/gainers")
 @DebugLogger.log_api_call(

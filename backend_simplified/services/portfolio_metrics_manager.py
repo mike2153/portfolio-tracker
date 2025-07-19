@@ -321,18 +321,31 @@ class PortfolioMetricsManager:
             "market_status": False
         }
         
-        # Stage 1: Get market status first (affects caching)
-        market_status = await self._get_market_status()
-        data_completeness["market_status"] = True
+        # Stage 1: Parallel fetch of ALL independent data
+        stage1_results = await asyncio.gather(
+            self._get_market_status(),
+            self._get_all_transactions(user_id, user_token),
+            price_manager.prefetch_user_symbols(user_id, user_token),
+            return_exceptions=True
+        )
         
-        # Enable request-level caching in PriceManager
+        # Extract results with type checking
+        market_status = stage1_results[0] if isinstance(stage1_results[0], MarketStatus) else MarketStatus(is_open=False)
+        transactions = stage1_results[1] if isinstance(stage1_results[1], list) else []
+        prefetch_count = stage1_results[2] if isinstance(stage1_results[2], int) else 0
+        
+        # Log any failures
+        for i, result in enumerate(stage1_results):
+            if isinstance(result, Exception):
+                logger.error(f"[PortfolioMetricsManager] Stage 1 task {i} failed: {result}")
+        
+        data_completeness["market_status"] = isinstance(stage1_results[0], MarketStatus)
+        
+        # Enable request-level caching AFTER prefetch
         price_manager.enable_request_cache()
         
         try:
-            # Fetch transactions once for reuse
-            transactions = await self._get_all_transactions(user_id, user_token)
-            
-            # Stage 2: Parallel fetch of independent data
+            # Stage 2: Parallel fetch of dependent data
             results: Tuple[
                 Union[List[PortfolioHolding], BaseException],
                 Union[DividendSummary, BaseException],
@@ -403,15 +416,31 @@ class PortfolioMetricsManager:
     # Service Integration Methods
     # ========================================================================
     
-    async def _get_holdings_data(self, user_id: str, user_token: str, transactions: Optional[List[Dict[str, Any]]] = None) -> List[PortfolioHolding]:
+    async def _get_holdings_data(self, user_id: str, user_token: str, transactions: List[Dict[str, Any]]) -> List[PortfolioHolding]:
         """Fetch and transform holdings data from PortfolioCalculator"""
+        # Type assertions
+        if not isinstance(transactions, list):
+            raise TypeError(f"transactions must be a list, got {type(transactions)}")
+            
         if not self._is_service_available("holdings"):
             raise Exception("Holdings service is circuit broken")
         
         try:
             holdings_data = await portfolio_calculator.calculate_holdings(user_id, user_token, transactions)
+            
+            # Type check response
+            if not isinstance(holdings_data, dict):
+                raise TypeError(f"Expected dict from calculate_holdings, got {type(holdings_data)}")
+                
             holdings_list = holdings_data.get("holdings", [])
-            total_value = float(holdings_data.get("total_value", 0))
+            total_value = holdings_data.get("total_value", 0)
+            
+            # Ensure total_value is numeric
+            if not isinstance(total_value, (int, float, Decimal)):
+                logger.error(f"total_value is not numeric: {type(total_value)}")
+                total_value = 0
+            
+            total_value = float(total_value)
             
             # Transform to our model and add allocation percentages
             result = []
@@ -448,8 +477,12 @@ class PortfolioMetricsManager:
             self._record_service_failure("holdings")
             raise e
     
-    async def _get_dividend_summary(self, user_id: str, user_token: str, transactions: Optional[List[Dict[str, Any]]] = None) -> DividendSummary:
+    async def _get_dividend_summary(self, user_id: str, user_token: str, transactions: List[Dict[str, Any]]) -> DividendSummary:
         """Fetch dividend summary from DividendService"""
+        # Type assertion
+        if not isinstance(transactions, list):
+            raise TypeError(f"transactions must be a list, got {type(transactions)}")
+            
         if not self._is_service_available("dividends"):
             logger.warning("[PortfolioMetricsManager] Dividend service is circuit broken, returning empty summary")
             return DividendSummary()
@@ -458,8 +491,8 @@ class PortfolioMetricsManager:
             # Use the main dividend service
             from services.dividend_service import dividend_service
             
-            # Get dividend summary
-            summary_result = await dividend_service.get_dividend_summary(user_id)
+            # Get dividend summary - now passing transactions
+            summary_result = await dividend_service.get_dividend_summary(user_id, user_token, transactions)
             
             if not summary_result.get('success', False):
                 logger.warning(f"[PortfolioMetricsManager] Failed to get dividend summary: {summary_result.get('error')}")
@@ -486,9 +519,13 @@ class PortfolioMetricsManager:
         user_id: str, 
         user_token: str,
         params: Dict[str, Any],
-        transactions: Optional[List[Dict[str, Any]]] = None
+        transactions: List[Dict[str, Any]]
     ) -> List[TimeSeriesDataPoint]:
         """Get portfolio time series data"""
+        # Type assertion
+        if not isinstance(transactions, list):
+            raise TypeError(f"transactions must be a list, got {type(transactions)}")
+            
         if not self._is_service_available("time_series"):
             return []
         

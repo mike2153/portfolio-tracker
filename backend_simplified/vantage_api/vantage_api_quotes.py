@@ -331,7 +331,7 @@ async def vantage_api_get_historical_price(symbol: str, date: str) -> Dict[str, 
         raise
 
 @DebugLogger.log_api_call(api_name="ALPHA_VANTAGE", sender="BACKEND", receiver="VANTAGE_API", operation="TIME_SERIES_DAILY_ADJUSTED")
-async def vantage_api_get_daily_adjusted(symbol: str) -> Dict[str, Any]:
+async def vantage_api_get_daily_adjusted(symbol: str, outputsize: str = 'compact') -> Dict[str, Any]:
     """
     Get daily adjusted time series data from Alpha Vantage
     
@@ -344,53 +344,76 @@ async def vantage_api_get_daily_adjusted(symbol: str) -> Dict[str, Any]:
     
     Args:
         symbol: Stock ticker symbol
+        outputsize: 'compact' (last 100 days) or 'full' (all data)
         
     Returns:
         Dictionary with date keys and price data values
     """
-    logger.info(f"[vantage_api_quotes.py::vantage_api_get_daily_adjusted] Fetching daily adjusted data for {symbol}")
+    logger.info(f"[vantage_api_quotes.py::vantage_api_get_daily_adjusted] Fetching daily adjusted data for {symbol} (outputsize={outputsize})")
     
     client = get_vantage_client()
     
     # Check cache first
-    cache_key = f"daily_adjusted:{symbol}"
+    cache_key = f"daily_adjusted:{symbol}:{outputsize}"
     cached_data = await client._get_from_cache(cache_key)
     
     if cached_data:
-        logger.info(f"[vantage_api_quotes.py::vantage_api_get_daily_adjusted] Cache hit for {symbol}")
+        logger.info(f"[vantange_api_quotes.py::vantage_api_get_daily_adjusted] Cache hit for {symbol}")
+        # Ensure cached data is in the expected format
+        if isinstance(cached_data, dict) and 'status' not in cached_data:
+            # This is raw time series data from old cache format
+            return {
+                'status': 'success',
+                'data': cached_data
+            }
         return cached_data
     
     # Make API request
     params = {
         'function': 'TIME_SERIES_DAILY_ADJUSTED',
         'symbol': symbol,
-        'outputsize': 'full'  # Get all available historical data
+        'outputsize': outputsize  # Default to compact (100 days)
     }
     
     try:
         response = await client._make_request(params)
         
         if 'Time Series (Daily)' not in response:
-            logger.warning(f"[vantage_api_quotes.py::vantage_api_get_daily_adjusted] No time series data found for {symbol}")
-            return {}
+            logger.error(f"Alpha Vantage response missing time series for {symbol}")
+            if 'Error Message' in response:
+                logger.error(f"Alpha Vantage Error: {response['Error Message']}")
+            elif 'Note' in response:
+                logger.error(f"Alpha Vantage API rate limit: {response['Note']}")
+            return {
+                'status': 'error',
+                'error': response.get('Error Message', response.get('Note', 'No time series data'))
+            }
         
         time_series = response['Time Series (Daily)']
         
         # Cache the result (expires in 4 hours for historical data)
         await client._save_to_cache(cache_key, time_series)
         
-        logger.info(f"[vantage_api_quotes.py::vantage_api_get_daily_adjusted] Successfully fetched {len(time_series)} days of data for {symbol}")
+        # Cache the result
         
-        return time_series
+        # Return in the expected format
+        return {
+            'status': 'success',
+            'data': time_series
+        }
         
     except Exception as e:
+        logger.error(f"Alpha Vantage API error for {symbol}: {str(e)}")
         DebugLogger.log_error(
             file_name="vantage_api_quotes.py",
             function_name="vantage_api_get_daily_adjusted",
             error=e,
             symbol=symbol
         )
-        return {}
+        return {
+            'status': 'error',
+            'error': str(e)
+        }
 
 @DebugLogger.log_api_call(api_name="ALPHA_VANTAGE", sender="BACKEND", receiver="VANTAGE_API", operation="DIVIDENDS")
 async def vantage_api_get_dividends(symbol: str) -> List[Dict[str, Any]]:
