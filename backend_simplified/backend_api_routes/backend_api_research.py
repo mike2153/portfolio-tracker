@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 from debug_logger import DebugLogger
 from vantage_api.vantage_api_search import combined_symbol_search
 from vantage_api.vantage_api_quotes import vantage_api_get_overview, vantage_api_get_historical_price
+from vantage_api.vantage_api_news import vantage_api_get_news_sentiment
 from supa_api.supa_api_auth import require_authenticated_user
 from services.financials_service import FinancialsService
 from services.price_manager import price_manager
@@ -422,3 +423,43 @@ async def backend_api_stock_prices_handler(
         },
         "metadata": result.get("metadata", {})
     }
+
+@research_router.get("/news/{symbol}")
+@DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="NEWS")
+async def backend_api_news_handler(
+    symbol: str,
+    limit: int = Query(50, description="Maximum number of articles"),
+    user_data: Dict[str, Any] = Depends(require_authenticated_user)
+) -> Dict[str, Any]:
+    """
+    Fetch news and sentiment data for a stock symbol
+    """
+    logger.info(f"[backend_api_research.py::backend_api_news_handler] Fetching news for {symbol}, limit={limit}")
+    
+    try:
+        result = await vantage_api_get_news_sentiment(symbol, limit=limit)
+        
+        if not result.get('ok'):
+            return {
+                "success": False,
+                "error": result.get('error', 'Failed to fetch news'),
+                "data": None
+            }
+        
+        return {
+            "success": True,
+            "data": result['data']
+        }
+        
+    except Exception as e:
+        DebugLogger.log_error(
+            file_name="backend_api_research.py",
+            function_name="backend_api_news_handler",
+            error=e,
+            symbol=symbol
+        )
+        return {
+            "success": False,
+            "error": str(e),
+            "data": None
+        }

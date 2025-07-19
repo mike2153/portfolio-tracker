@@ -265,6 +265,25 @@ export default function AnalyticsDividendsTabRefactored() {
         body: JSON.stringify(formData)
       });
       
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || errorData.detail || 'Failed to add dividend');
+      }
+      
+      return response.json();
+    },
+    onSuccess: (data) => {
+      console.log('✅ Manual dividend added successfully:', data);
+      setShowAddModal(false);
+      queryClient.invalidateQueries({ queryKey: ['analytics', 'dividends'] });
+      console.log('🚀 PERFORMANCE: Skipped expensive cache invalidations for manual dividend add');
+    },
+    onError: (error) => {
+      console.error('❌ Manual dividend addition failed:', error);
+      alert(`Failed to add dividend: ${error.message}`);
+    }
+  });
+      
   // FIXED: Fetch dividends with unified data model
   const { data: dividendsData, isLoading: dividendsLoading, error: dividendsError } = useQuery<UserDividendData[], Error>({
     queryKey: ['analytics', 'dividends', showConfirmedOnly],
@@ -1003,6 +1022,18 @@ export default function AnalyticsDividendsTabRefactored() {
           }}
         />
       )}
+
+      {/* Add Modal */}
+      {showAddModal && (
+        <AddDividendModal
+          isOpen={showAddModal}
+          onClose={() => setShowAddModal(false)}
+          onSave={async (formData: ManualDividendFormState) => {
+            addDividendMutation.mutate(formData);
+          }}
+          isSubmitting={addDividendMutation.isPending}
+        />
+      )}
     </div>
   );
-};      
+}

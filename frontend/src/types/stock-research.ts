@@ -91,14 +91,21 @@ export interface NewsArticle {
   time_published: string;
   authors: string[];
   summary: string;
+  banner_image: string;
   source: string;
   source_domain: string;
-  sentiment: 'Bullish' | 'Neutral' | 'Bearish';
-  sentiment_score: number;
+  overall_sentiment_label: string;
+  overall_sentiment_score: number;
   topics: Array<{
     topic: string;
     relevance_score: string;
   }>;
+  ticker_sentiment?: {
+    ticker: string;
+    relevance_score: string;
+    ticker_sentiment_score: string;
+    ticker_sentiment_label: string;
+  };
 }
 
 export interface StockNote {
@@ -266,11 +273,11 @@ export interface CompanyFinancials {
 }
 
 // Enhanced financial statement with cache-aware typing
-export interface CachedFinancialStatement extends FinancialStatement {
+export type CachedFinancialStatement = FinancialStatement & {
   fiscal_date_ending?: string;
   reported_currency?: string;
   cache_metadata?: FinancialDataCache;
-}
+};
 
 // State Management
 export interface StockResearchState {

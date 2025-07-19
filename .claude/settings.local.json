@@ -34,7 +34,8 @@
       "Bash(-e SUPA_API_ANON_KEY=test_anon_key )",
       "Bash(-e VANTAGE_API_KEY=test_api_key )",
       "Bash(docker build:*)",
-      "Bash(docker compose run:*)"
+      "Bash(docker compose run:*)",
+      "WebFetch(domain:www.alphavantage.co)"
     ],
     "deny": []
   }
