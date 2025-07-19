@@ -1,0 +1,52 @@
+# Backend API Endpoints List
+
+## Root
+GET /
+
+## Auth Router (prefix: /api/auth)
+GET /api/auth/validate
+
+## Research Router (prefix: /api)
+GET /api/symbol_search
+GET /api/stock_overview
+GET /api/quote/{symbol}
+GET /api/historical_price/{symbol}
+GET /api/financials/{symbol}
+POST /api/financials/force-refresh
+GET /api/stock_prices/{symbol}
+
+## Portfolio Router (prefix: /api)
+GET /api/portfolio
+GET /api/transactions
+POST /api/cache/clear
+POST /api/transactions
+PUT /api/transactions/{transaction_id}
+DELETE /api/transactions/{transaction_id}
+GET /api/allocation
+
+## Dashboard Router (no prefix - router already has /api prefix)
+GET /api/dashboard
+GET /api/dashboard/performance
+POST /api/debug/toggle-info-logging
+GET /api/debug/logging-status
+GET /api/dashboard/gainers
+GET /api/dashboard/losers
+
+## Analytics Router (prefix: /api/analytics)
+GET /api/analytics/summary
+GET /api/analytics/holdings
+GET /api/analytics/dividends
+POST /api/analytics/dividends/confirm
+POST /api/analytics/dividends/sync
+POST /api/analytics/dividends/sync-all
+GET /api/analytics/dividends/summary
+POST /api/analytics/dividends/assign-simple
+POST /api/analytics/dividends/reject
+POST /api/analytics/dividends/edit
+
+## Analytics Dividend Refactored Router (prefix: /api/analytics - duplicate routes?)
+GET /api/analytics/dividends
+POST /api/analytics/dividends/confirm
+POST /api/analytics/dividends/reject
+POST /api/analytics/dividends/sync
+POST /api/analytics/dividends/sync-all

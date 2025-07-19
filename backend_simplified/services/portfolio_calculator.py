@@ -141,24 +141,26 @@ class PortfolioCalculator:
     """
     
     @staticmethod
-    async def calculate_holdings(user_id: str, user_token: str) -> Dict[str, Any]:
+    async def calculate_holdings(user_id: str, user_token: str, transactions: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
         """
         Calculate current holdings from user transactions.
         
         Args:
             user_id: User's UUID
             user_token: JWT token for database access
+            transactions: Optional pre-fetched transactions to avoid duplicate DB calls
             
         Returns:
             Dict with holdings and portfolio summary
         """
         try:
-            # Get all user transactions
-            transactions = await supa_api_get_user_transactions(
-                user_id=user_id,
-                limit=10000,  # Get all transactions
-                user_token=user_token
-            )
+            # Use provided transactions or fetch them
+            if transactions is None:
+                transactions = await supa_api_get_user_transactions(
+                    user_id=user_id,
+                    limit=10000,  # Get all transactions
+                    user_token=user_token
+                )
             
             if not transactions:
                 logger.info(f"[PortfolioCalculator] No transactions found for user {user_id}")
@@ -304,24 +306,26 @@ class PortfolioCalculator:
             raise
     
     @staticmethod
-    async def calculate_detailed_holdings(user_id: str, user_token: str) -> List[Dict[str, Any]]:
+    async def calculate_detailed_holdings(user_id: str, user_token: str, transactions: Optional[List[Dict[str, Any]]] = None) -> List[Dict[str, Any]]:
         """
         Calculate detailed holdings with realized gains for analytics.
         
         Args:
             user_id: User's UUID
             user_token: JWT token for database access
+            transactions: Optional pre-fetched transactions to avoid duplicate DB calls
             
         Returns:
             List of detailed holding records
         """
         try:
-            # Get all transactions
-            transactions = await supa_api_get_user_transactions(
-                user_id=user_id,
-                limit=10000,
-                user_token=user_token
-            )
+            # Use provided transactions or fetch them
+            if transactions is None:
+                transactions = await supa_api_get_user_transactions(
+                    user_id=user_id,
+                    limit=10000,
+                    user_token=user_token
+                )
             
             if not transactions:
                 return []
@@ -520,7 +524,8 @@ class PortfolioCalculator:
         user_id: str,
         user_token: str,
         range_key: str = "1M",
-        benchmark: Optional[str] = None
+        benchmark: Optional[str] = None,
+        transactions: Optional[List[Dict[str, Any]]] = None
     ) -> Tuple[List[Tuple[date, Decimal]], Dict[str, Any]]:
         """
         Calculate portfolio value time series for the specified period.
@@ -530,6 +535,7 @@ class PortfolioCalculator:
             user_token: JWT token for database access
             range_key: Time range (7D, 1M, 3M, 6M, 1Y, YTD, MAX)
             benchmark: Optional benchmark symbol for comparison
+            transactions: Optional pre-fetched transactions to avoid duplicate DB calls
             
         Returns:
             Tuple of (time_series_data, metadata)
@@ -538,12 +544,13 @@ class PortfolioCalculator:
             # Determine date range
             start_date, end_date = PortfolioCalculator._compute_date_range(range_key)
             
-            # Get all user transactions
-            transactions = await supa_api_get_user_transactions(
-                user_id=user_id,
-                limit=10000,
-                user_token=user_token
-            )
+            # Use provided transactions or fetch them
+            if transactions is None:
+                transactions = await supa_api_get_user_transactions(
+                    user_id=user_id,
+                    limit=10000,
+                    user_token=user_token
+                )
             
             if not transactions:
                 logger.info(f"[PortfolioCalculator] No transactions found for time series")
@@ -753,7 +760,8 @@ class PortfolioCalculator:
     @staticmethod
     async def calculate_performance_metrics(
         user_id: str,
-        user_token: str
+        user_token: str,
+        transactions: Optional[List[Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
         """
         Calculate comprehensive performance metrics including XIRR.
@@ -761,17 +769,19 @@ class PortfolioCalculator:
         Args:
             user_id: User's UUID
             user_token: JWT token for database access
+            transactions: Optional pre-fetched transactions to avoid duplicate DB calls
             
         Returns:
             Dict with performance metrics including XIRR
         """
         try:
-            # Get all transactions
-            transactions = await supa_api_get_user_transactions(
-                user_id=user_id,
-                limit=10000,
-                user_token=user_token
-            )
+            # Use provided transactions or fetch them
+            if transactions is None:
+                transactions = await supa_api_get_user_transactions(
+                    user_id=user_id,
+                    limit=10000,
+                    user_token=user_token
+                )
             
             if not transactions:
                 return {

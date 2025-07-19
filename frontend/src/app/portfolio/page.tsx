@@ -35,7 +35,7 @@ export default function PortfolioPage() {
     const [, setLoadingPrice] = useState(false);
     const [, setShowSuggestions] = useState(false);
     const [, setTickerSuggestions] = useState<StockSymbol[]>([]);
-    const [searchCache] = useState<Record<string, StockSymbol[]>>({});
+    const [searchCache, setSearchCache] = useState<Record<string, StockSymbol[]>>({});
     const [, setSearchLoading] = useState(false);
     const [formErrors, setFormErrors] = useState<FormErrors>({});
     const [openMenuId, setOpenMenuId] = useState<number | null>(null);
@@ -74,8 +74,11 @@ export default function PortfolioPage() {
                 return;
             }
 
-            // Access the nested data structure: data.data.holdings
-            const initialHoldings: Holding[] = (portfolioResponse.data as any)?.data?.holdings || [];
+            // The backend returns a PortfolioMetrics object. We access the 'holdings' property from it.
+            // The API client wraps the response, so the metrics object is in portfolioResponse.data.
+            const portfolioMetrics = portfolioResponse.data as any;
+            const initialHoldings: Holding[] = portfolioMetrics?.holdings || [];
+
             setHoldings(initialHoldings);
 
             if (initialHoldings.length > 0) {
@@ -299,7 +302,7 @@ export default function PortfolioPage() {
             const response: any = await front_api_search_symbols({ query, limit: 50 });
             if ((response as any)?.ok && (response as any)?.data) {
                 setTickerSuggestions((response as any)?.data?.results);
-                setSearchCache(prev => ({ ...prev, [query]: (response as any)?.data?.results }));
+                setSearchCache((prev: Record<string, StockSymbol[]>) => ({ ...prev, [query]: (response as any)?.data?.results }));
             } else {
                 setTickerSuggestions([]);
             }
@@ -313,13 +316,13 @@ export default function PortfolioPage() {
     const _handleTickerFocus = () => setShowSuggestions(true);
     const _handleTickerBlur = () => setTimeout(() => setShowSuggestions(false), 200);
 
-    const _handleSuggestionClick = async (symbol: StockSymbol) => {
+    const _handleSuggestionClick = useCallback((symbol: StockSymbol) => {
         setForm(prev => ({
             ...prev,
             ticker: symbol.symbol,
             company_name: symbol.name,
-            exchange: symbol.exchange,
-            purchase_price: '',
+            exchange: symbol.exchange ?? '',
+            purchase_price: '', // Clear price initially
         }));
         setTickerSuggestions([]);
         setShowSuggestions(false);
@@ -327,7 +330,39 @@ export default function PortfolioPage() {
         if (formErrors.ticker) {
             setFormErrors(prev => ({ ...prev, ticker: '' }));
         }
-    };
+
+        // Automatically fetch the current price for the selected symbol
+        const fetchPrice = async () => {
+            setLoadingPrice(true);
+            try {
+                const res: any = await front_api_get_quote(symbol.symbol);
+                if (res.ok && res.data?.data?.price) {
+                    const price = res.data.data.price as number;
+                    setForm(prev => ({
+                        ...prev,
+                        purchase_price: String(price.toFixed(2)),
+                    }));
+                } else {
+                    addToast({
+                        type: 'warning',
+                        title: 'Could Not Fetch Price',
+                        message: `Could not fetch current price for ${symbol.symbol}. Please enter manually.`,
+                    });
+                }
+            } catch (err) {
+                addToast({
+                    type: 'error',
+                    title: 'Price Fetch Failed',
+                    message: `An error occurred fetching the price for ${symbol.symbol}.`,
+                });
+                console.error(`Failed to fetch quote for ${symbol.symbol}`, err);
+            } finally {
+                setLoadingPrice(false);
+            }
+        };
+
+        fetchPrice();
+    }, [formErrors.ticker, addToast]);
     
     const _handleAddHoldingSubmit = async () => {
         if (!user || !validateForm()) return;

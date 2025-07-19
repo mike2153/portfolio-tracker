@@ -14,6 +14,8 @@ import asyncio
 import logging
 import math
 import pytz
+import json
+import hashlib
 from datetime import datetime, date, timedelta, timezone, time
 from typing import Dict, Any, List, Optional, Tuple, Set
 from decimal import Decimal
@@ -22,7 +24,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 
 from debug_logger import DebugLogger
-from supa_api.supa_api_historical_prices import supa_api_get_historical_prices, supa_api_store_historical_prices_batch
+from supa_api.supa_api_historical_prices import supa_api_get_historical_prices, supa_api_store_historical_prices_batch, supa_api_get_historical_prices_batch
 from supa_api.supa_api_client import get_supa_service_client
 from vantage_api.vantage_api_quotes import vantage_api_get_quote, vantage_api_get_daily_adjusted
 from vantage_api.vantage_api_client import get_vantage_client
@@ -122,7 +124,31 @@ class PriceManager:
         # Session management
         self._update_locks: Dict[str, asyncio.Lock] = {}
         
+        # Request-level cache for avoiding duplicate DB queries within same request
+        self._request_cache: Dict[str, Any] = {}
+        self._request_cache_enabled = False
+        
         logger.info("[PriceManager] Initialized unified price management service")
+    
+    # ========== Request-Level Cache Management ==========
+    
+    def enable_request_cache(self):
+        """Enable request-level caching for the current request"""
+        self._request_cache_enabled = True
+        self._request_cache.clear()
+        logger.debug("[PriceManager] Request cache enabled")
+    
+    def disable_request_cache(self):
+        """Disable request-level caching and clear cache"""
+        self._request_cache_enabled = False
+        self._request_cache.clear()
+        logger.debug("[PriceManager] Request cache disabled and cleared")
+    
+    def _get_request_cache_key(self, operation: str, **kwargs) -> str:
+        """Generate a cache key for request-level caching"""
+        # Create a deterministic key from operation and parameters
+        params_str = json.dumps(kwargs, sort_keys=True)
+        return f"{operation}:{hashlib.md5(params_str.encode()).hexdigest()}"
     
     # ========== Market Status Operations (from MarketStatusService) ==========
     
@@ -182,22 +208,7 @@ class PriceManager:
                 if (datetime.now() - cache_time).seconds < self.cache_config.market_info_timeout:
                     return cached_data
             
-            # Query database for market info
-            result = self.db_client.table('symbol_market_info') \
-                .select('*') \
-                .eq('symbol', symbol.upper()) \
-                .limit(1) \
-                .execute()
-            
-            if result.data and len(result.data) > 0:
-                market_data = result.data[0]
-                
-                # Cache the result
-                self._market_info_cache[cache_key] = (market_data, datetime.now())
-                
-                return market_data
-            
-            # Try to get from transactions as fallback
+            # Get market info from transactions table (which stores market data)
             result = self.db_client.table('transactions') \
                 .select('symbol, market_region, market_open, market_close, market_timezone, market_currency') \
                 .eq('symbol', symbol.upper()) \
@@ -670,7 +681,7 @@ class PriceManager:
         max_days_back: int = 7
     ) -> Dict[str, Dict[str, Any]]:
         """
-        Get latest prices for multiple symbols from database
+        Get latest prices for multiple symbols from database (batch optimized)
         
         Args:
             symbols: List of stock ticker symbols
@@ -679,6 +690,90 @@ class PriceManager:
             
         Returns:
             Dict mapping symbol to price data
+        """
+        if not symbols:
+            return {}
+        
+        # Check request cache if enabled
+        if self._request_cache_enabled:
+            cache_key = self._get_request_cache_key(
+                "batch_prices",
+                symbols=sorted(symbols),
+                max_days_back=max_days_back
+            )
+            if cache_key in self._request_cache:
+                logger.debug(f"[PriceManager] Request cache HIT for batch prices: {len(symbols)} symbols")
+                return self._request_cache[cache_key]
+            
+        try:
+            # Get prices from the last N days for all symbols in one query
+            end_date = date.today()
+            start_date = end_date - timedelta(days=max_days_back)
+            
+            # Convert symbols to uppercase
+            symbols_upper = [s.upper() for s in symbols]
+            
+            # Batch query all symbols at once
+            historical_prices = await supa_api_get_historical_prices_batch(
+                symbols=symbols_upper,
+                start_date=start_date.isoformat(),
+                end_date=end_date.isoformat(),
+                user_token=user_token
+            )
+            
+            if not historical_prices:
+                logger.warning(f"[PriceManager] No prices found for symbols in last {max_days_back} days")
+                return {}
+            
+            # Group prices by symbol and find latest for each
+            prices = {}
+            symbol_prices = defaultdict(list)
+            
+            for price_data in historical_prices:
+                symbol = price_data.get('symbol', '').upper()
+                if symbol in symbols_upper:
+                    symbol_prices[symbol].append(price_data)
+            
+            # Get the most recent price for each symbol
+            for symbol, price_list in symbol_prices.items():
+                if price_list:
+                    latest_price_data = max(price_list, key=lambda x: x['date'])
+                    prices[symbol] = {
+                        'symbol': symbol,
+                        'price': float(latest_price_data['close']),
+                        'date': latest_price_data['date'],
+                        'volume': int(latest_price_data.get('volume', 0)),
+                        'open': float(latest_price_data.get('open', latest_price_data['close'])),
+                        'high': float(latest_price_data.get('high', latest_price_data['close'])),
+                        'low': float(latest_price_data.get('low', latest_price_data['close'])),
+                        'close': float(latest_price_data['close'])
+                    }
+            
+            # Log any missing symbols
+            missing_symbols = set(symbols_upper) - set(prices.keys())
+            if missing_symbols:
+                logger.warning(f"[PriceManager] No price data for symbols: {missing_symbols}")
+            
+            # Store in request cache if enabled
+            if self._request_cache_enabled:
+                self._request_cache[cache_key] = prices
+                logger.debug(f"[PriceManager] Stored batch prices in request cache: {len(prices)} symbols")
+            
+            return prices
+            
+        except Exception as e:
+            logger.error(f"[PriceManager] Error getting batch prices from DB: {e}")
+            # Fall back to individual queries
+            return await self._get_prices_for_symbols_individually(symbols, user_token, max_days_back)
+    
+    async def _get_prices_for_symbols_individually(
+        self,
+        symbols: List[str],
+        user_token: str,
+        max_days_back: int = 7
+    ) -> Dict[str, Dict[str, Any]]:
+        """
+        Fallback method for getting prices individually
         """
         prices = {}
         
@@ -1513,25 +1608,14 @@ class PriceManager:
                     "data": []
                 }
             
-            # Try to get from database first
-            db_dividends = await self._get_db_dividend_history(symbol, start_date, end_date, user_token)
-            
-            # If we have recent data, return it
-            if db_dividends and self._has_recent_dividend_data(db_dividends):
-                return {
-                    "success": True,
-                    "data": db_dividends,
-                    "source": "database"
-                }
+            # Skip database lookup since dividend_history table doesn't exist
+            # Go directly to API fetch
             
             # Fetch from Alpha Vantage
             try:
                 api_dividends = await self._fetch_dividends_from_alpha_vantage(symbol)
                 
                 if api_dividends:
-                    # Store in database for future use
-                    await self._store_dividend_history(symbol, api_dividends, user_token)
-                    
                     # Filter by date range if specified
                     filtered = self._filter_dividends_by_date(api_dividends, start_date, end_date)
                     
@@ -1630,31 +1714,7 @@ class PriceManager:
                 "errors": [str(e)]
             }
     
-    async def _get_db_dividend_history(
-        self,
-        symbol: str,
-        start_date: Optional[date],
-        end_date: Optional[date],
-        user_token: Optional[str]
-    ) -> List[Dict[str, Any]]:
-        """Get dividend history from database"""
-        try:
-            # Note: This assumes a dividend_history table exists
-            # For now, we'll use the user_dividends table with a service account
-            query = self.db_client.table("dividend_history").select("*").eq("symbol", symbol)
-            
-            if start_date:
-                query = query.gte("ex_date", start_date.isoformat())
-            if end_date:
-                query = query.lte("ex_date", end_date.isoformat())
-            
-            response = query.order("ex_date", desc=True).execute()
-            return response.data if response else []
-            
-        except Exception as e:
-            # Table might not exist yet, return empty
-            logger.debug(f"[PriceManager] Database dividend fetch failed (expected if table doesn't exist): {e}")
-            return []
+    # Removed _get_db_dividend_history - dividend_history table doesn't exist
     
     async def _fetch_dividends_from_alpha_vantage(self, symbol: str) -> List[Dict[str, Any]]:
         """Fetch dividend history from Alpha Vantage"""
@@ -1673,55 +1733,9 @@ class PriceManager:
             logger.error(f"[PriceManager] Alpha Vantage dividend API error for {symbol}: {e}")
             raise
     
-    async def _store_dividend_history(
-        self,
-        symbol: str,
-        dividends: List[Dict[str, Any]],
-        user_token: Optional[str]
-    ) -> None:
-        """Store dividend history in database for future use"""
-        try:
-            # Note: This assumes a dividend_history table
-            # For now, we'll skip storage if table doesn't exist
-            for dividend in dividends:
-                dividend_record = {
-                    "symbol": symbol,
-                    "ex_date": dividend.get("ex_dividend_date"),
-                    "pay_date": dividend.get("payment_date"),
-                    "amount": float(dividend.get("amount", 0)),
-                    "currency": dividend.get("currency", "USD"),
-                    "updated_at": datetime.now(timezone.utc).isoformat()
-                }
-                
-                # Upsert to avoid duplicates
-                await self.db_client.table("dividend_history").upsert(
-                    dividend_record,
-                    on_conflict="symbol,ex_date"
-                ).execute()
-                
-        except Exception as e:
-            # Log but don't fail - storage is optional optimization
-            logger.debug(f"[PriceManager] Failed to store dividend history: {e}")
+    # Removed _store_dividend_history - dividend_history table doesn't exist
     
-    def _has_recent_dividend_data(self, dividends: List[Dict[str, Any]]) -> bool:
-        """Check if dividend data is recent enough to use"""
-        if not dividends:
-            return False
-        
-        # Check if we have data from the last 30 days
-        thirty_days_ago = date.today() - timedelta(days=30)
-        
-        for dividend in dividends:
-            try:
-                updated_str = dividend.get("updated_at")
-                if updated_str:
-                    updated_date = datetime.fromisoformat(updated_str.replace("Z", "+00:00")).date()
-                    if updated_date >= thirty_days_ago:
-                        return True
-            except:
-                continue
-        
-        return False
+    # Removed _has_recent_dividend_data - not needed without dividend_history table
     
     def _filter_dividends_by_date(
         self,

@@ -162,36 +162,37 @@ async def vantage_api_get_cash_flow(symbol: str) -> Dict[str, Any]:
         )
         raise
 
-def format_financial_statement(raw_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """
-    Format raw financial statement data from Alpha Vantage
-    
-    Args:
-        raw_data: Raw financial data from Alpha Vantage
-        
-    Returns:
-        Formatted financial data suitable for frontend consumption
-    """
-    formatted_data = []
-    
-    for report in raw_data[:8]:  # Limit to last 8 periods
-        formatted_report = {}
-        
-        # Add fiscal date
-        formatted_report["fiscalDateEnding"] = report.get("fiscalDateEnding", "")
-        formatted_report["reportedCurrency"] = report.get("reportedCurrency", "USD")
-        
-        # Convert all string numbers to proper format for charts
-        for key, value in report.items():
-            if key not in ["fiscalDateEnding", "reportedCurrency"]:
-                try:
-                    # Try to convert to float for numeric data
-                    numeric_value = float(value.replace(",", "") if isinstance(value, str) else value)
-                    formatted_report[key] = numeric_value
-                except (ValueError, AttributeError, TypeError):
-                    # Keep as string if conversion fails
-                    formatted_report[key] = value if value != "None" else 0
-        
-        formatted_data.append(formatted_report)
-    
-    return formatted_data
+# UNUSED FUNCTION - TO BE DELETED
+# def format_financial_statement(raw_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+#     """
+#     Format raw financial statement data from Alpha Vantage
+#     
+#     Args:
+#         raw_data: Raw financial data from Alpha Vantage
+#         
+#     Returns:
+#         Formatted financial data suitable for frontend consumption
+#     """
+#     formatted_data = []
+#     
+#     for report in raw_data[:8]:  # Limit to last 8 periods
+#         formatted_report = {}
+#         
+#         # Add fiscal date
+#         formatted_report["fiscalDateEnding"] = report.get("fiscalDateEnding", "")
+#         formatted_report["reportedCurrency"] = report.get("reportedCurrency", "USD")
+#         
+#         # Convert all string numbers to proper format for charts
+#         for key, value in report.items():
+#             if key not in ["fiscalDateEnding", "reportedCurrency"]:
+#                 try:
+#                     # Try to convert to float for numeric data
+#                     numeric_value = float(value.replace(",", "") if isinstance(value, str) else value)
+#                     formatted_report[key] = numeric_value
+#                 except (ValueError, AttributeError, TypeError):
+#                     # Keep as string if conversion fails
+#                     formatted_report[key] = value if value != "None" else 0
+#         
+#         formatted_data.append(formatted_report)
+#     
+#     return formatted_data

@@ -28,10 +28,17 @@
    - Confirm that type checking passes, tests (if available) pass, and the code is minimal, DRY, and clear.
 
 **Remember:**
-- All code must be type-checked (TypeScript for frontend, Pydantic/typed Python for backend).
+- **STRONG TYPING IS MANDATORY - ZERO LINTER ERRORS ALLOWED:**
+  - Python: Use explicit type hints for ALL function parameters and return values
+  - Never use `Any` unless absolutely necessary (document why)
+  - Never allow `Optional` types for required parameters (e.g., user_id should NEVER be Optional)
+  - Use type guards and validation at all API boundaries
+  - Financial calculations MUST use `Decimal` type - never mix with int/float
+  - Always use `extract_user_credentials()` helper for auth data extraction
+  - TypeScript: Enable strict mode, no implicit any, all variables must be typed
 - Avoid duplicate logic or overlapping modules.
 - Agents can be deployed to plan or review—collaborate and show your reasoning.
-- Never “just do it”—always show and explain before changing.
+- Never "just do it"—always show and explain before changing.
 - After any change, summarise what was done and why.
 
 ---
@@ -61,9 +68,15 @@ Frontend -> backend -> supabase -> supabase reply with request cant be completed
 
 ### Development Best Practices (Reinforced)
 
-- **Type Safety:** Use Python typing and Pydantic in backend, TypeScript in frontend.
+- **STRONG TYPE SAFETY (ZERO TOLERANCE FOR TYPE ERRORS):**
+  - Python: EVERY function must have complete type annotations (parameters AND returns)
+  - Use Pydantic models for all data structures
+  - Validate types at runtime for external inputs (API, database)
+  - Financial types: ALWAYS use `Decimal`, never float/int for money
+  - Authentication: ALWAYS validate user_id is non-None string
+  - Run mypy/pyright in strict mode - fix ALL type errors
 - **Code Minimization:** Always refactor/reuse before adding new modules or components.
-- **No Duplication:** If a utility or logic already exists, extend or improve it, don’t clone it.
+- **No Duplication:** If a utility or logic already exists, extend or improve it, don't clone it.
 - **Explain Choices:** Always compare your chosen approach to at least one alternative.
 - **Multi-Agent Planning:** When a feature is complex, agents may collaborate to propose and review plans.
 - **User is the Product Owner:** Always consult the user for input and approval between stages.
@@ -94,4 +107,59 @@ Frontend -> backend -> supabase -> supabase reply with request cant be completed
   - _Agent presents optimised code and gets final approval._
 
 - **Agent (Claude) Step 4: IMPLEMENTATION**
-  - _Implements code as approved, confirming type and test checks.
+  - _Implements code as approved, confirming type and test checks._
+
+---
+
+## Type Safety Patterns (MUST FOLLOW)
+
+### Python Backend:
+```python
+# ❌ BAD - No type hints, allows None
+def calculate_total(user_id, amount):
+    return amount * 2
+
+# ✅ GOOD - Fully typed, validates input
+def calculate_total(user_id: str, amount: Decimal) -> Decimal:
+    if not user_id:
+        raise ValueError("user_id cannot be empty")
+    return amount * Decimal("2")
+
+# ❌ BAD - Using Any, mixing number types
+def process_payment(data: Any) -> float:
+    return data.get("amount", 0) + 1.5
+
+# ✅ GOOD - Pydantic model, consistent Decimal usage
+def process_payment(data: PaymentData) -> Decimal:
+    return data.amount + Decimal("1.5")
+
+# ❌ BAD - Optional for required field
+def get_user_data(user_id: Optional[str]) -> Dict[str, Any]:
+    pass
+
+# ✅ GOOD - Required fields are non-optional
+def get_user_data(user_id: str) -> UserData:
+    pass
+
+# For API endpoints - ALWAYS use extract_user_credentials:
+# ✅ GOOD
+user_id, user_token = extract_user_credentials(user_data)
+```
+
+### TypeScript Frontend:
+```typescript
+// tsconfig.json must have:
+{
+  "compilerOptions": {
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true
+  }
+}
+
+// ❌ BAD
+const processData = (data) => data.value * 2
+
+// ✅ GOOD
+const processData = (data: DataModel): number => data.value * 2
+```

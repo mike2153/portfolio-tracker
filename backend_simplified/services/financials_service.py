@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, List
 import json
 
-from supabase import Client
+from supabase.client import Client
 from supabase.client import create_client
 from debug_logger import DebugLogger
 from vantage_api.vantage_api_quotes import vantage_api_get_overview
@@ -27,9 +27,9 @@ class FinancialsService:
     @staticmethod
     async def get_company_financials(
         symbol: str, 
+        user_token: str,
         data_type: str = 'overview',
-        force_refresh: bool = False,
-        user_token: str = None
+        force_refresh: bool = False
     ) -> Dict[str, Any]:
         """
         Get company financials with intelligent caching
@@ -38,11 +38,18 @@ class FinancialsService:
             symbol: Stock ticker symbol
             data_type: Type of financial data ('overview', 'income', 'balance', 'cashflow')
             force_refresh: Force API fetch even if cached data is fresh
-            user_token: User JWT token for database access
+            user_token: User JWT token for database access (REQUIRED)
             
         Returns:
             Financial data dictionary with metadata about cache status
+        
+        Raises:
+            ValueError: If user_token is not provided
         """
+        # Validate required parameters
+        if not user_token:
+            raise ValueError("user_token is required for accessing financial data")
+            
         symbol = symbol.upper().strip()
         
         try:
@@ -104,25 +111,21 @@ class FinancialsService:
         """Check database for fresh cached financials"""
         try:
             # Create authenticated client for RLS compliance
-            if user_token:
-                supabase = create_client(SUPA_API_URL, SUPA_API_ANON_KEY)
-                supabase.postgrest.auth(user_token)
-            else:
-                supabase = get_supa_client()
+            supabase = create_client(SUPA_API_URL, SUPA_API_ANON_KEY)
+            supabase.postgrest.auth(user_token)
             
-            # Query with freshness check
-            result = supabase.table('company_financials').select('*').eq(
-                'symbol', symbol
-            ).eq(
-                'data_type', data_type
+            # Query api_cache with freshness check
+            cache_key = f"financials:{symbol}:{data_type}"
+            result = supabase.table('api_cache').select('*').eq(
+                'cache_key', cache_key
             ).gte(
-                'last_updated', 
-                (datetime.utcnow() - timedelta(hours=freshness_hours)).isoformat()
+                'expires_at', 
+                datetime.utcnow().isoformat()
             ).execute()
             
             if result.data and len(result.data) > 0:
-                financial_record = result.data[0]
-                return financial_record['financial_data']
+                cache_record = result.data[0]
+                return cache_record['data'].get('financial_data', {})
             
             return None
             
@@ -154,18 +157,22 @@ class FinancialsService:
         """Store financial data in cache"""
         try:
             # Create authenticated client for RLS compliance
-            if user_token:
-                supabase = create_client(SUPA_API_URL, SUPA_API_ANON_KEY)
-                supabase.postgrest.auth(user_token)
-            else:
-                supabase = get_supa_client()
+            supabase = create_client(SUPA_API_URL, SUPA_API_ANON_KEY)
+            supabase.postgrest.auth(user_token)
             
-            # Upsert (insert or update) the financial data
-            result = supabase.table('company_financials').upsert({
-                'symbol': symbol,
-                'data_type': data_type,
-                'financial_data': financial_data,
-                'last_updated': datetime.utcnow().isoformat()
+            # Store in api_cache
+            cache_key = f"financials:{symbol}:{data_type}"
+            expires_at = datetime.utcnow() + timedelta(days=30)  # 30 days cache
+            
+            result = supabase.table('api_cache').upsert({
+                'cache_key': cache_key,
+                'data': {
+                    'symbol': symbol,
+                    'data_type': data_type,
+                    'financial_data': financial_data
+                },
+                'created_at': datetime.utcnow().isoformat(),
+                'expires_at': expires_at.isoformat()
             }).execute()
             
             logger.info(f"[FinancialsService] Cached {symbol}:{data_type} successfully")

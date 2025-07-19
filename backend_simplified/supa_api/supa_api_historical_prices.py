@@ -446,3 +446,60 @@ async def supa_api_store_historical_prices_batch(
             records_count=len(price_data) if price_data else 0
         )
         return False 
+
+@DebugLogger.log_api_call(api_name="SUPABASE", sender="BACKEND", receiver="SUPA_API", operation="GET_HISTORICAL_PRICES_BATCH")
+async def supa_api_get_historical_prices_batch(
+    symbols: List[str],
+    start_date: str,
+    end_date: str,
+    user_token: str,
+) -> List[Dict[str, Any]]:
+    """
+    Get historical price data from database for multiple symbols within date range (batch optimized)
+    
+    Args:
+        symbols: List of stock ticker symbols
+        start_date: Start date in YYYY-MM-DD format
+        end_date: End date in YYYY-MM-DD format
+        user_token: JWT token (not used for price data but kept for consistency)
+        
+    Returns:
+        List of price records for all symbols
+    """
+    #logger.info(f"[supa_api_historical_prices.py::supa_api_get_historical_prices_batch] Querying price data for {len(symbols)} symbols from {start_date} to {end_date}")
+    
+    if not symbols:
+        return []
+    
+    client = get_supa_service_client()
+    
+    try:
+        # Convert symbols to uppercase
+        symbols_upper = [s.upper() for s in symbols]
+        
+        # Query historical prices table for all symbols at once
+        response = client.table('historical_prices') \
+            .select('*') \
+            .in_('symbol', symbols_upper) \
+            .gte('date', start_date) \
+            .lte('date', end_date) \
+            .order('symbol,date', desc=True) \
+            .execute()
+            
+        if hasattr(response, 'data') and response.data:
+            #logger.info(f"[supa_api_historical_prices.py::supa_api_get_historical_prices_batch] Found {len(response.data)} price records for {len(symbols)} symbols")
+            return response.data
+        else:
+            #logger.info(f"[supa_api_historical_prices.py::supa_api_get_historical_prices_batch] No price data found for symbols in date range")
+            return []
+            
+    except Exception as e:
+        DebugLogger.log_error(
+            file_name="supa_api_historical_prices.py",
+            function_name="supa_api_get_historical_prices_batch",
+            error=e,
+            symbols=symbols,
+            start_date=start_date,
+            end_date=end_date
+        )
+        return []

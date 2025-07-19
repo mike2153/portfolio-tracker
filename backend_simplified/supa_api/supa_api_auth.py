@@ -73,8 +73,9 @@ async def require_authenticated_user(credentials: Optional[HTTPAuthorizationCred
         raise HTTPException(status_code=401, detail=f"Authentication error: {e}")
 
 # Helper functions for checking user permissions
-def check_user_owns_resource(user_id: str, resource_user_id: str) -> bool:
-    """Check if user owns a resource"""
-    owns = user_id == resource_user_id
-    logger.info(f"[supa_api_auth.py::check_user_owns_resource] User {user_id} owns resource: {owns}")
-    return owns 
+# UNUSED FUNCTION - TO BE DELETED
+# def check_user_owns_resource(user_id: str, resource_user_id: str) -> bool:
+#     """Check if user owns a resource"""
+#     owns = user_id == resource_user_id
+#     logger.info(f"[supa_api_auth.py::check_user_owns_resource] User {user_id} owns resource: {owns}")
+#     return owns 

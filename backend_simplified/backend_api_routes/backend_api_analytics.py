@@ -13,6 +13,7 @@ from supa_api.supa_api_auth import require_authenticated_user
 from services.dividend_service import dividend_service
 from services.portfolio_calculator import portfolio_calculator
 from services.portfolio_metrics_manager import portfolio_metrics_manager
+from utils.auth_helpers import extract_user_credentials
 
 logger = logging.getLogger(__name__)
 
@@ -29,8 +30,8 @@ async def backend_api_analytics_summary(
     Returns portfolio value, profit, IRR, passive income, and cash balance
     OPTIMIZED: Uses cached portfolio calculation to reduce redundant database calls
     """
-    user_id = user_data.get("id")  # Supabase user ID is under 'id' key
-    user_token = user_data.get("access_token")
+    # Extract and validate user credentials
+    user_id, user_token = extract_user_credentials(user_data)
     
     # Validate required authentication data
     if not user_id:
@@ -120,8 +121,8 @@ async def backend_api_analytics_holdings(
     Get detailed holdings data for analytics table
     Returns holdings with cost basis, value, dividends, gains, P&L, etc.
     """
-    user_id = user_data.get("id")  # Supabase user ID is under 'id' key
-    user_token = user_data.get("access_token")
+    # Extract and validate user credentials
+    user_id, user_token = extract_user_credentials(user_data)
     
     # Validate required authentication data
     if not user_id:
@@ -164,8 +165,8 @@ async def backend_api_analytics_dividends(
     REFACTORED: Get dividends with unified data model and transaction-based confirmation
     Fixes all data consistency and API contract issues
     """
-    user_id = user_data.get("id")
-    user_token = user_data.get("access_token")
+    # Extract and validate user credentials
+    user_id, user_token = extract_user_credentials(user_data)
     
     if not user_id:
         raise HTTPException(status_code=401, detail="User ID not found in authentication data")
@@ -216,8 +217,8 @@ async def backend_api_confirm_dividend(
     OPTIMIZED: Confirm dividend with proper validation and transaction creation
     NO PORTFOLIO RECALCULATION - Only dividend operations (uses Alpha Vantage dividend APIs)
     """
-    user_id = user_data.get("id")
-    user_token = user_data.get("access_token")
+    # Extract and validate user credentials
+    user_id, user_token = extract_user_credentials(user_data)
     
     body = await request.json()
     edited_amount = body.get('edited_amount')  # Optional float
@@ -250,8 +251,8 @@ async def backend_api_sync_dividends(
     """
     REFACTORED: Manually sync dividends with idempotent upserts
     """
-    user_id = user_data.get("id")
-    user_token = user_data.get("access_token")
+    # Extract and validate user credentials
+    user_id, user_token = extract_user_credentials(user_data)
     
     if not user_id:
         raise HTTPException(status_code=401, detail="User ID not found in authentication data")
@@ -289,8 +290,8 @@ async def backend_api_sync_all_dividends(
     Automatically sync dividends for all user's holdings
     OPTIMIZED: Includes rate limiting to prevent excessive syncing
     """
-    user_id = user_data.get("id")  # Supabase user ID is under 'id' key
-    user_token = user_data.get("access_token")
+    # Extract and validate user credentials
+    user_id, user_token = extract_user_credentials(user_data)
     
     # Validate required authentication data
     if not user_id:
@@ -387,10 +388,8 @@ async def backend_api_dividend_summary(
     Get lightweight dividend summary for dividend page cards only
     This is much faster than the full analytics summary
     """
-    user_id = user_data.get("id")
-    
-    if not user_id:
-        raise HTTPException(status_code=401, detail="User ID not found in authentication data")
+    # Extract and validate user credentials
+    user_id, user_token = extract_user_credentials(user_data)
     
     logger.info(f"[backend_api_analytics.py::backend_api_dividend_summary] Fast dividend summary for user: {user_id}")
     
@@ -423,8 +422,8 @@ async def backend_api_assign_dividends_simple(
     """
     NEW SIMPLE DIVIDEND ASSIGNMENT: Use loop-based approach to assign dividends to users
     """
-    user_id = user_data.get("id")
-    user_token = user_data.get("access_token")
+    # Extract and validate user credentials
+    user_id, user_token = extract_user_credentials(user_data)
     
     if not user_id:
         raise HTTPException(status_code=401, detail="User ID not found in authentication data")
@@ -460,8 +459,8 @@ async def backend_api_reject_dividend(
     """
     Reject a dividend - sets rejected=true, hiding it permanently from the user
     """
-    user_id = user_data.get("id")
-    user_token = user_data.get("access_token")
+    # Extract and validate user credentials
+    user_id, user_token = extract_user_credentials(user_data)
     
     if not user_id:
         raise HTTPException(status_code=401, detail="User ID not found in authentication data")
@@ -499,8 +498,8 @@ async def backend_api_edit_dividend(
     Edit a dividend by creating a new one and rejecting the original
     Handles both pending and confirmed dividends
     """
-    user_id = user_data.get("id")
-    user_token = user_data.get("access_token")
+    # Extract and validate user credentials
+    user_id, user_token = extract_user_credentials(user_data)
     
     if not user_id:
         raise HTTPException(status_code=401, detail="User ID not found in authentication data")

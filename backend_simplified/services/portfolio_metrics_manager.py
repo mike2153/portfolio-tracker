@@ -11,7 +11,7 @@ import logging
 import hashlib
 import json
 from datetime import datetime, timedelta, timezone, date
-from typing import Dict, Any, List, Optional, Tuple, Set
+from typing import Dict, Any, List, Optional, Tuple, Set, Union
 from decimal import Decimal
 from dataclasses import dataclass
 from enum import Enum
@@ -53,6 +53,7 @@ class PortfolioHolding(BaseModel):
     gain_loss: Decimal
     gain_loss_percent: float
     dividends_received: Decimal = Field(default=Decimal("0"))
+    realized_pnl: Decimal = Field(default=Decimal("0"))  # Realized profit/loss from sold positions
     price_date: Optional[datetime] = None
     allocation_percent: float = Field(ge=0, le=100)
     
@@ -324,39 +325,54 @@ class PortfolioMetricsManager:
         market_status = await self._get_market_status()
         data_completeness["market_status"] = True
         
-        # Fetch transactions once for reuse
-        transactions = await self._get_all_transactions(user_id, user_token)
+        # Enable request-level caching in PriceManager
+        price_manager.enable_request_cache()
         
-        # Stage 2: Parallel fetch of independent data
-        results = await asyncio.gather(
-            self._get_holdings_data(user_id, user_token, transactions),
-            self._get_dividend_summary(user_id, user_token, transactions),
-            self._get_time_series_data(user_id, user_token, params),
-            return_exceptions=True  # Don't fail everything if one service fails
-        )
+        try:
+            # Fetch transactions once for reuse
+            transactions = await self._get_all_transactions(user_id, user_token)
+            
+            # Stage 2: Parallel fetch of independent data
+            results: Tuple[
+                Union[List[PortfolioHolding], BaseException],
+                Union[DividendSummary, BaseException],
+                Union[List[TimeSeriesDataPoint], BaseException]
+            ] = await asyncio.gather(
+                self._get_holdings_data(user_id, user_token, transactions),
+                self._get_dividend_summary(user_id, user_token, transactions),
+                self._get_time_series_data(user_id, user_token, params, transactions),
+                return_exceptions=True  # Don't fail everything if one service fails
+            )
+        finally:
+            # Always disable request cache to prevent memory leaks
+            price_manager.disable_request_cache()
         
         holdings_result, dividend_result, time_series_result = results
         
-        # Handle partial failures
-        holdings = []
-        if not isinstance(holdings_result, Exception):
+        # Handle partial failures with proper typing
+        holdings: List[PortfolioHolding] = []
+        dividend_summary: DividendSummary = DividendSummary()
+        time_series: List[TimeSeriesDataPoint] = []
+        
+        # Process holdings result
+        if isinstance(holdings_result, list):
             holdings = holdings_result
             data_completeness["holdings"] = True
-        else:
+        elif isinstance(holdings_result, BaseException):
             logger.error(f"[PortfolioMetricsManager] Holdings fetch failed: {holdings_result}")
         
-        dividend_summary = DividendSummary()
-        if not isinstance(dividend_result, Exception):
+        # Process dividend result
+        if isinstance(dividend_result, DividendSummary):
             dividend_summary = dividend_result
             data_completeness["dividends"] = True
-        else:
+        elif isinstance(dividend_result, BaseException):
             logger.warning(f"[PortfolioMetricsManager] Dividend fetch failed: {dividend_result}")
         
-        time_series = []
-        if not isinstance(time_series_result, Exception):
+        # Process time series result
+        if isinstance(time_series_result, list):
             time_series = time_series_result
             data_completeness["time_series"] = True
-        else:
+        elif isinstance(time_series_result, BaseException):
             logger.warning(f"[PortfolioMetricsManager] Time series fetch failed: {time_series_result}")
         
         # Stage 3: Calculate derived metrics
@@ -393,27 +409,38 @@ class PortfolioMetricsManager:
             raise Exception("Holdings service is circuit broken")
         
         try:
-            holdings_data = await portfolio_calculator.calculate_holdings(user_id, user_token)
-            holdings = holdings_data.get("holdings", [])
-            total_value = holdings_data.get("total_value", 0)
+            holdings_data = await portfolio_calculator.calculate_holdings(user_id, user_token, transactions)
+            holdings_list = holdings_data.get("holdings", [])
+            total_value = float(holdings_data.get("total_value", 0))
             
             # Transform to our model and add allocation percentages
             result = []
-            for h in holdings:
-                holding = PortfolioHolding(
-                    symbol=h["symbol"],
-                    quantity=Decimal(str(h["quantity"])),
-                    avg_cost=Decimal(str(h["avg_cost"])),
-                    total_cost=Decimal(str(h["total_cost"])),
-                    current_price=Decimal(str(h["current_price"])),
-                    current_value=Decimal(str(h["current_value"])),
-                    gain_loss=Decimal(str(h["gain_loss"])),
-                    gain_loss_percent=h["gain_loss_percent"],
-                    dividends_received=Decimal(str(h.get("dividends_received", 0))),
-                    price_date=datetime.fromisoformat(h["price_date"]) if h.get("price_date") else None,
-                    allocation_percent=(h["current_value"] / total_value * 100) if total_value > 0 else 0
-                )
-                result.append(holding)
+            if not isinstance(holdings_list, list):
+                logger.warning(f"Holdings data from calculator is not a list: {type(holdings_list)}")
+                holdings_list = []
+
+            for h in holdings_list:
+                if not isinstance(h, dict): continue # Skip non-dict items
+                try:
+                    current_value = Decimal(str(h.get("current_value", 0)))
+                    holding = PortfolioHolding(
+                        symbol=h.get("symbol", "UNKNOWN"),
+                        quantity=Decimal(str(h.get("quantity", 0))),
+                        avg_cost=Decimal(str(h.get("avg_cost", 0))),
+                        total_cost=Decimal(str(h.get("total_cost", 0))),
+                        current_price=Decimal(str(h.get("current_price", 0))),
+                        current_value=current_value,
+                        gain_loss=Decimal(str(h.get("gain_loss", 0))),
+                        gain_loss_percent=float(h.get("gain_loss_percent", 0.0)),
+                        dividends_received=Decimal(str(h.get("dividends_received", 0))),
+                        realized_pnl=Decimal(str(h.get("realized_pnl", 0))),
+                        price_date=datetime.fromisoformat(h["price_date"]) if h.get("price_date") else None,
+                        allocation_percent=(float(current_value) / total_value * 100) if total_value > 0 else 0.0
+                    )
+                    result.append(holding)
+                except (ValueError, TypeError, KeyError) as e:
+                    logger.error(f"Could not parse holding data: {h}. Error: {e}")
+                    continue # Continue to next holding, don't let one bad record fail the whole process
             
             self._reset_service_failures("holdings")
             return result
@@ -428,38 +455,26 @@ class PortfolioMetricsManager:
             return DividendSummary()
         
         try:
-            # Import refactored service
-            from services.dividend_service_refactored import DividendServiceRefactored
-            refactored_dividend_service = DividendServiceRefactored()
+            # Use the main dividend service
+            from services.dividend_service import dividend_service
             
-            # Get user dividends from database
-            from supa_api.supa_api_client import get_supa_service_client
-            supa_client = get_supa_service_client()
+            # Get dividend summary
+            summary_result = await dividend_service.get_dividend_summary(user_id)
             
-            response = supa_client.table('user_dividends') \
-                .select('*') \
-                .eq('user_id', user_id) \
-                .eq('confirmed', True) \
-                .execute()
+            if not summary_result.get('success', False):
+                logger.warning(f"[PortfolioMetricsManager] Failed to get dividend summary: {summary_result.get('error')}")
+                return DividendSummary()
             
-            user_dividends = response.data if response else []
-            
-            # Use refactored service to calculate summary
-            summary_data = refactored_dividend_service.calculate_dividend_summary(user_dividends)
-            
-            # If transactions were provided, we can enrich the data
-            if transactions:
-                # Get portfolio symbols from transactions
-                symbols = refactored_dividend_service.get_portfolio_symbols(transactions)
+            summary_data = summary_result.get('summary', {})
             
             # Transform to our model
             self._reset_service_failures("dividends")
             return DividendSummary(
-                total_received=Decimal(str(summary_data['total_dividends'])),
-                ytd_received=Decimal(str(summary_data['total_dividends_ytd'])),
-                total_pending=Decimal("0"),  # Would need pending dividends query
-                count_received=summary_data['confirmed_count'],
-                count_pending=summary_data['pending_count']
+                total_received=Decimal(str(summary_data.get('total_dividends', 0))),
+                ytd_received=Decimal(str(summary_data.get('total_dividends_ytd', 0))),
+                total_pending=Decimal("0"),  # Pending dividends not tracked in current implementation
+                count_received=summary_data.get('confirmed_count', 0),
+                count_pending=0  # Pending count not tracked in current implementation
             )
         except Exception as e:
             self._record_service_failure("dividends")
@@ -470,7 +485,8 @@ class PortfolioMetricsManager:
         self, 
         user_id: str, 
         user_token: str,
-        params: Dict[str, Any]
+        params: Dict[str, Any],
+        transactions: Optional[List[Dict[str, Any]]] = None
     ) -> List[TimeSeriesDataPoint]:
         """Get portfolio time series data"""
         if not self._is_service_available("time_series"):
@@ -484,7 +500,8 @@ class PortfolioMetricsManager:
             time_series, metadata = await portfolio_calculator.calculate_portfolio_time_series(
                 user_id=user_id,
                 user_token=user_token,
-                range_key=range_key
+                range_key=range_key,
+                transactions=transactions
             )
             
             # Convert to TimeSeriesDataPoint objects
@@ -550,10 +567,10 @@ class PortfolioMetricsManager:
         dividend_summary: DividendSummary
     ) -> PortfolioPerformance:
         """Calculate aggregate performance metrics"""
-        total_value = sum(h.current_value for h in holdings)
-        total_cost = sum(h.total_cost for h in holdings)
+        total_value = sum((h.current_value for h in holdings), Decimal("0"))
+        total_cost = sum((h.total_cost for h in holdings), Decimal("0"))
         total_gain_loss = total_value - total_cost
-        total_gain_loss_percent = (total_gain_loss / total_cost * 100) if total_cost > 0 else 0
+        total_gain_loss_percent = (total_gain_loss / total_cost * 100) if total_cost > 0 else Decimal("0")
         
         return PortfolioPerformance(
             total_value=total_value,
@@ -581,7 +598,7 @@ class PortfolioMetricsManager:
             "Finance": 25.0,
             "Healthcare": 20.0,
             "Consumer": 10.0,
-            "Other": 5.0
+            "Other": 5.0    
         }
     
     def _get_top_performers(self, holdings: List[PortfolioHolding], limit: int = 5) -> List[Dict[str, Any]]:
@@ -636,7 +653,7 @@ class PortfolioMetricsManager:
             client = get_supa_service_client()
             
             # Query the cache table
-            result = client.table("portfolio_metrics_cache").select("*").eq(
+            result = client.table("portfolio_caches").select("*").eq(
                 "user_id", user_id
             ).eq(
                 "cache_key", cache_key
@@ -657,7 +674,7 @@ class PortfolioMetricsManager:
             metrics = PortfolioMetrics(**metrics_data)
             
             # Update hit count
-            client.table("portfolio_metrics_cache").update({
+            client.table("portfolio_caches").update({
                 "hit_count": cache_data["hit_count"] + 1,
                 "last_accessed": datetime.now(timezone.utc).isoformat()
             }).eq("user_id", user_id).eq("cache_key", cache_key).execute()
@@ -683,7 +700,7 @@ class PortfolioMetricsManager:
             dependencies = self._extract_dependencies(metrics)
             
             # Upsert to cache
-            client.table("portfolio_metrics_cache").upsert({
+            client.table("portfolio_caches").upsert({
                 "user_id": user_id,
                 "cache_key": cache_key,
                 "metrics_json": metrics_json,
@@ -774,14 +791,14 @@ class PortfolioMetricsManager:
             if metric_type:
                 # Invalidate specific metric type
                 cache_key = self._generate_cache_key(user_id, metric_type, {})
-                client.table("portfolio_metrics_cache").delete().eq(
+                client.table("portfolio_caches").delete().eq(
                     "user_id", user_id
                 ).eq(
                     "cache_key", cache_key
                 ).execute()
             else:
                 # Invalidate all cache entries for user
-                client.table("portfolio_metrics_cache").delete().eq(
+                client.table("portfolio_caches").delete().eq(
                     "user_id", user_id
                 ).execute()
             
@@ -795,7 +812,7 @@ class PortfolioMetricsManager:
             client = get_supa_service_client()
             
             # Delete entries where expires_at < now
-            client.table("portfolio_metrics_cache").delete().lt(
+            client.table("portfolio_caches").delete().lt(
                 "expires_at", datetime.now(timezone.utc).isoformat()
             ).execute()
             
