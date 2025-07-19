@@ -46,7 +46,7 @@ const FinancialsChart: React.FC<FinancialsChartProps> = ({
   // Chart configuration
   const chartOptions = useMemo(() => ({
     chart: {
-      type: 'line' as const,
+      type: 'bar' as const,
       height: 400,
       toolbar: {
         show: true,
@@ -192,9 +192,9 @@ const FinancialsChart: React.FC<FinancialsChartProps> = ({
       {/* Chart */}
       <div className="w-full">
         <ApexChart
-          type="line"
-          series={chartData}
-          options={chartOptions}
+          type="bar"
+          data={chartData}
+          additionalOptions={chartOptions}
           height={400}
         />
       </div>

@@ -147,7 +147,7 @@ const FinancialsTable: React.FC<FinancialsTableProps> = ({
                       {/* Metric Values for Each Year */}
                       {years.map((year) => (
                         <td key={year} className="text-right py-3 px-4">
-                          <span className={`text-sm font-mono ${
+                          <span className={`text-sm ${
                             isSelected ? 'text-blue-200' : 'text-gray-200'
                           }`}>
                             {formatValue(metric.values[year])}

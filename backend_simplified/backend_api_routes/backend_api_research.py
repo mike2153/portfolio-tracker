@@ -415,10 +415,10 @@ async def backend_api_stock_prices_handler(
         "success": True,
         "data": {
             "symbol": symbol,
-            "price_data": result["data"]["price_data"],
+            "price_data": result["data"],
             "start_date": str(start_date),
             "end_date": str(today),
-            "data_points": len(result["data"]["price_data"]) if result["data"]["price_data"] else 0
+            "data_points": len(result["data"]) if result["data"] else 0
         },
         "metadata": result.get("metadata", {})
     }

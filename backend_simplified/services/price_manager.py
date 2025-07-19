@@ -1254,7 +1254,7 @@ class PriceManager:
                 return None
             
             # Get quote from Alpha Vantage
-            quote_response = await vantage_api_get_quote(self.vantage_client, symbol)
+            quote_response = await vantage_api_get_quote(symbol)
             
             if not quote_response or quote_response.get('status') != 'success':
                 self._circuit_breaker.record_failure('alpha_vantage')

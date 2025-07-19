@@ -147,7 +147,7 @@ const FinancialSpreadsheetApex: React.FC<FinancialSpreadsheetApexProps> = ({
       label: report.fiscalDateEnding ? new Date(report.fiscalDateEnding).getFullYear().toString() : `Year ${index + 1}`,
       sortable: true,
       render: (value) => (
-        <span className="font-mono text-white">
+        <span className="text-white">
           {formatNumber(value || 0)}
         </span>
       ),

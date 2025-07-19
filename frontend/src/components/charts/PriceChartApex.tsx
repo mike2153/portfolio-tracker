@@ -92,18 +92,40 @@ export default function PriceChartApex({
       }];
     } else {
       // For line and mountain (area) charts, use close price
-      const priceData = data.map(point => {
-        const timestamp = new Date(point.time).getTime();
+      console.log('[PriceChartApex] Raw data point structure:', data[0]);
+      const priceData = data.map((point, index) => {
+        // Check different possible field names for the date
+        const dateValue = point.time || point.date || point.timestamp || point.x;
+        if (index === 0) {
+          console.log('[PriceChartApex] First point date field check:', {
+            time: point.time,
+            date: point.date,
+            timestamp: point.timestamp,
+            x: point.x,
+            allKeys: Object.keys(point)
+          });
+        }
+        const timestamp = dateValue ? new Date(dateValue).getTime() : null;
+        if (timestamp === null || isNaN(timestamp)) {
+          console.warn('[PriceChartApex] Invalid timestamp for point:', point);
+        }
         return [timestamp, point.close] as [number, number];
       });
 
-      return [{
+      const result = [{
         name: `${ticker} Price`,
         data: priceData,
         color: '#04B2F8'
       }];
+      console.log('[PriceChartApex] Line/Mountain chart data prepared:', {
+        seriesCount: result.length,
+        dataPointsInSeries: result[0].data.length,
+        firstDataPoint: result[0].data[0],
+        lastDataPoint: result[0].data[result[0].data.length - 1]
+      });
+      return result;
     }
-  }, [data, currentChartType, ticker, currentPrice, priceChange]);
+  }, [data, currentChartType, ticker]);
 
   // Prepare volume data if enabled
   const volumeData = useMemo(() => {
@@ -213,6 +235,14 @@ export default function PriceChartApex({
       {/* Chart Container */}
       <div className="relative">
         {/* Main Price Chart */}
+        {(() => {
+          console.log('[PriceChartApex] Passing to ApexChart:', {
+            chartDataLength: chartData.length,
+            chartDataFirstSeries: chartData[0],
+            chartType: getApexChartType()
+          });
+          return null;
+        })()}
         <ApexChart
           data={chartData}
           type={getApexChartType() as any}

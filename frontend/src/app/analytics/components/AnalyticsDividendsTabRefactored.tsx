@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from 'react';
+import { PlusCircle } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabaseClient';
 import ApexListView from '@/components/charts/ApexListView';
@@ -18,18 +19,7 @@ import {
   isDividendConfirmable,
   getCompanyDisplayName
 } from '@/types/dividend';
-
-/**
- * REFACTORED AnalyticsDividendsTab Component
- * 
- * Fixes ALL identified issues:
- * 1. Uses unified UserDividendData interface
- * 2. No frontend amount calculations (backend provides total_amount)
- * 3. Proper confirmed status based on transaction existence
- * 4. Consistent field mapping with no missing data
- * 5. Clean error handling and loading states
- * 6. Proper TypeScript typing throughout
- */
+import { AddDividendModal, ManualDividendFormState } from './AddDividendModal';
 
 interface DividendConfirmRequest {
   edited_amount?: number;
@@ -228,6 +218,7 @@ export default function AnalyticsDividendsTabRefactored() {
   const [showConfirmedOnly, setShowConfirmedOnly] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingDividend, setEditingDividend] = useState<UserDividendData | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
   const [confirmingDividendId, setConfirmingDividendId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
@@ -260,6 +251,20 @@ export default function AnalyticsDividendsTabRefactored() {
     }
   });
 
+  const addDividendMutation = useMutation({
+    mutationFn: async (formData: ManualDividendFormState) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error('Not authenticated');
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/analytics/dividends/manual-add`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+      });
+      
   // FIXED: Fetch dividends with unified data model
   const { data: dividendsData, isLoading: dividendsLoading, error: dividendsError } = useQuery<UserDividendData[], Error>({
     queryKey: ['analytics', 'dividends', showConfirmedOnly],
@@ -323,12 +328,9 @@ export default function AnalyticsDividendsTabRefactored() {
       }
 
       // FIXED: Backend now provides complete UserDividendData with all fields
-      const dividends: UserDividendData[] = result.data.map((item, index) => {
-        // Additional null check for each item
-        if (!item || typeof item !== 'object') {
-          console.log('[REFACTORED_FRONTEND] WARNING: Invalid dividend item:', item);
-          return null;
-        }
+      const dividends: UserDividendData[] = result.data
+        .filter((item): item is any => item !== null && typeof item === 'object')
+        .map((item, index) => {
         
         // DEBUG: Log the raw item to see what we're getting
         console.log(`[REFACTORED_FRONTEND] Mapping dividend ${index}:`, {
@@ -360,7 +362,7 @@ export default function AnalyticsDividendsTabRefactored() {
           created_at: item.created_at || '',
           updated_at: item.updated_at || ''
         };
-      }).filter(item => item !== null); // Remove any null items
+      });
 
       console.log(`[REFACTORED_FRONTEND] ✅ Successfully processed ${dividends.length} dividends with unified data model`);
       console.log('[REFACTORED_FRONTEND] Sample processed dividend:', dividends[0]);
@@ -927,17 +929,11 @@ export default function AnalyticsDividendsTabRefactored() {
         </div>
 
         <div className="p-6">
-          {console.log('[REFACTORED_FRONTEND] Data being passed to ApexListView:', {
-            listDataLength: listData.length,
-            firstItem: listData[0],
-            columnsCount: columns.length,
-            isLoading: dividendsLoading
-          })}
           <ApexListView
             data={listData}
             columns={columns as any}
             isLoading={dividendsLoading}
-            error={dividendsError?.message ?? ''}
+            error={dividendsError ? (dividendsError as Error).message : ''}
             showSearch={true}
             showPagination={true}
             itemsPerPage={15}
@@ -1009,4 +1005,4 @@ export default function AnalyticsDividendsTabRefactored() {
       )}
     </div>
   );
-}
+};      

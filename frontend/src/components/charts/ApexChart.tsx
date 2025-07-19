@@ -120,6 +120,7 @@ export default function ApexChart({
     },
     fill: {
       type: type === 'area' ? 'gradient' : 'solid',
+      opacity: type === 'bar' ? 1 : (type === 'area' ? 1 : 0.85),
       gradient: type === 'area' ? {
         shade: darkMode ? 'dark' : 'light',
         type: 'vertical',
@@ -129,6 +130,20 @@ export default function ApexChart({
         opacityTo: 0.1,
         stops: [0, 100]
       } : undefined
+    },
+    plotOptions: {
+      bar: {
+        horizontal: false,
+        columnWidth: '70%',
+        borderRadius: 4,
+        distributed: false
+      },
+      candlestick: {
+        colors: {
+          upward: '#10b981',
+          downward: '#ef4444'
+        }
+      }
     },
     grid: {
       borderColor: darkMode ? '#374151' : '#e5e7eb',
@@ -196,12 +211,20 @@ export default function ApexChart({
 
   const series = useMemo(() => {
     if (!data || data.length === 0) return [];
-    return data.map(item => ({
+    const mappedSeries = data.map(item => ({
       name: item.name,
       data: item.data,
-      color: item.color
+      color: item.color,
+      type: type // Explicitly set the chart type for each series
     }));
-  }, [data]);
+    console.log('[ApexChart] Series prepared:', {
+      seriesCount: mappedSeries.length,
+      firstSeriesName: mappedSeries[0]?.name,
+      firstSeriesDataLength: mappedSeries[0]?.data?.length,
+      firstSeriesType: mappedSeries[0]?.type
+    });
+    return mappedSeries;
+  }, [data, type]);
 
   // Loading state
   if (isLoading) {

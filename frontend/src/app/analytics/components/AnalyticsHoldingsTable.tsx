@@ -338,7 +338,7 @@ export default function AnalyticsHoldingsTable({
           data={listData}
           columns={columns}
           isLoading={isLoading}
-          error={error?.message || null}
+          error={error ? (error as Error).message : null}
           showSearch={true}
           showPagination={true}
           itemsPerPage={10}
