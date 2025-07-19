@@ -2,7 +2,7 @@
 Backend API routes for portfolio and transaction management
 Handles CRUD operations for transactions and portfolio calculations
 """
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException, Body, Query
 from typing import Dict, Any, List
 import logging
 from datetime import datetime
@@ -51,7 +51,8 @@ class TransactionUpdate(BaseModel):
 @portfolio_router.get("/portfolio")
 @DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="GET_PORTFOLIO")
 async def backend_api_get_portfolio(
-    user: Dict[str, Any] = Depends(require_authenticated_user)
+    user: Dict[str, Any] = Depends(require_authenticated_user),
+    force_refresh: bool = Query(False, description="Force refresh cache")
 ) -> Dict[str, Any]:
     """Get user's current portfolio holdings calculated from transactions"""
     logger.info(f"[backend_api_portfolio.py::backend_api_get_portfolio] Portfolio requested for user: {user['email']}")
@@ -60,12 +61,13 @@ async def backend_api_get_portfolio(
         # Use PortfolioMetricsManager for optimized portfolio data
         user_token = user.get("access_token")
         user_id = user["id"]
-        
+        if not user_token:
+            raise HTTPException(status_code=401, detail="Missing user token")
         metrics = await portfolio_metrics_manager.get_portfolio_metrics(
             user_id=user_id,
             user_token=user_token,
             metric_type="portfolio",
-            force_refresh=False
+            force_refresh=force_refresh
         )
         
         # Convert holdings to expected format
@@ -147,6 +149,34 @@ async def backend_api_get_transactions(
         DebugLogger.log_error(
             file_name="backend_api_portfolio.py",
             function_name="backend_api_get_transactions",
+            error=e,
+            user_id=user["id"]
+        )
+        raise HTTPException(status_code=500, detail=str(e))
+
+@portfolio_router.post("/cache/clear")
+@DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="CLEAR_CACHE")
+async def backend_api_clear_cache(
+    user: Dict[str, Any] = Depends(require_authenticated_user)
+) -> Dict[str, Any]:
+    """Clear the portfolio metrics cache for the current user"""
+    logger.info(f"[backend_api_portfolio.py::backend_api_clear_cache] Clearing cache for user: {user['email']}")
+    
+    try:
+        user_id = user["id"]
+        
+        # Invalidate all cache entries for the user
+        await portfolio_metrics_manager.invalidate_user_cache(user_id)
+        
+        return {
+            "success": True,
+            "message": "Portfolio cache cleared successfully"
+        }
+        
+    except Exception as e:
+        DebugLogger.log_error(
+            file_name="backend_api_portfolio.py",
+            function_name="backend_api_clear_cache",
             error=e,
             user_id=user["id"]
         )
@@ -292,6 +322,9 @@ async def backend_api_add_transaction(
         user_token = user.get("access_token")
         
         new_transaction = await supa_api_add_transaction(transaction_data, user_token, market_info)
+        
+        # Invalidate cache after adding transaction
+        await portfolio_metrics_manager.invalidate_user_cache(user["id"])
 
         # Sync dividends for this symbol after adding a BUY transaction
         if transaction.transaction_type == "Buy":
@@ -305,6 +338,9 @@ async def backend_api_add_transaction(
                 logger.info(f"[backend_api_portfolio.py] Syncing dividends for {transaction.symbol} from {transaction_date}")
                 
                 # Sync dividends from the transaction date onward
+                if not user_token:
+                    raise HTTPException(status_code=401, detail="Missing user token")
+                # Now safe to use user_token as str
                 dividend_sync_result = await dividend_service.sync_dividends_for_symbol(
                     user_id=user["id"],
                     symbol=transaction.symbol,
@@ -365,6 +401,8 @@ async def backend_api_update_transaction(
             user_token=user_token
         )
         
+        # Invalidate cache after updating transaction
+        await portfolio_metrics_manager.invalidate_user_cache(user["id"])
         
         return {
             "success": True,
@@ -403,6 +441,8 @@ async def backend_api_delete_transaction(
         )
         
         if success:
+            # Invalidate cache after deleting transaction
+            await portfolio_metrics_manager.invalidate_user_cache(user["id"])
             
             return {
                 "success": True,
@@ -424,7 +464,8 @@ async def backend_api_delete_transaction(
 @portfolio_router.get("/allocation")
 @DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="GET_ALLOCATION")
 async def backend_api_get_allocation(
-    user: Dict[str, Any] = Depends(require_authenticated_user)
+    user: Dict[str, Any] = Depends(require_authenticated_user),
+    force_refresh: bool = Query(False, description="Force refresh cache")
 ) -> Dict[str, Any]:
     """
     Unified allocation API endpoint for both dashboard and analytics pages
@@ -435,13 +476,15 @@ async def backend_api_get_allocation(
     try:
         user_token = user.get("access_token")
         user_id = user["id"]
+        if not user_token:
+            raise HTTPException(status_code=401, detail="Missing user token")
         
         # Use PortfolioMetricsManager for optimized allocation data
         metrics = await portfolio_metrics_manager.get_portfolio_metrics(
             user_id=user_id,
             user_token=user_token,
             metric_type="allocation",
-            force_refresh=False
+            force_refresh=force_refresh
         )
         
         # Convert allocations to expected format
@@ -471,7 +514,7 @@ async def backend_api_get_allocation(
                 "total_cost": float(metrics.performance.total_cost),
                 "total_gain_loss": float(metrics.performance.total_gain_loss),
                 "total_gain_loss_percent": metrics.performance.total_gain_loss_percent,
-                "total_dividends": float(metrics.performance.total_dividends),
+                "total_dividends": float(metrics.performance.dividends_total),
                 "cache_status": metrics.cache_status,
                 "computation_time_ms": metrics.computation_time_ms
             }
@@ -490,16 +533,9 @@ async def backend_api_get_allocation(
             error=e,
             user_id=user["id"]
         )
-        # Fallback to direct portfolio calculator call
-        try:
-            allocation_data = await portfolio_calculator.calculate_allocations(
-                user_id=user_id,
-                user_token=user_token
-            )
-            
-            return {
-                "success": True,
-                "data": allocation_data
-            }
-        except Exception as e2:
-            raise HTTPException(status_code=500, detail=str(e2)) 
+        # According to architecture, we should not have fallbacks that bypass PortfolioMetricsManager
+        logger.error(f"[backend_api_portfolio] Failed to get allocation data: {str(e)}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to retrieve portfolio allocation data: {str(e)}"
+        ) 

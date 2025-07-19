@@ -44,10 +44,10 @@ export function usePortfolioAllocation(): UsePortfolioAllocationResult {
   const query: UseQueryResult<AllocationData, Error> = useQuery({
     queryKey: ['portfolioAllocation'],
     queryFn: async (): Promise<AllocationData> => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) throw new Error('Not authenticated');
+      const { data } = await supabase.auth.getSession();
+      if (!data?.session?.access_token) throw new Error('Not authenticated');
       
-      const token = session.access_token;
+      const token = data.session.access_token;
       
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/allocation`, {
         method: 'GET',
@@ -70,7 +70,7 @@ export function usePortfolioAllocation(): UsePortfolioAllocationResult {
       return result.data;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes - data is relatively stable
-    cacheTime: 10 * 60 * 1000, // 10 minutes cache retention
+    gcTime: 10 * 60 * 1000, // 10 minutes garbage collection time (formerly cacheTime)
     refetchOnWindowFocus: false, // Don't refetch on window focus to reduce API calls
   });
 

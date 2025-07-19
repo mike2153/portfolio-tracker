@@ -1271,11 +1271,7 @@ class PriceManager:
                 return False
             
             # Get daily adjusted prices from Alpha Vantage
-            daily_response = await vantage_api_get_daily_adjusted(
-                self.vantage_client,
-                symbol,
-                full_size=True
-            )
+            daily_response = await vantage_api_get_daily_adjusted(symbol)
             
             if not daily_response or daily_response.get('status') != 'success':
                 self._circuit_breaker.record_failure('alpha_vantage')
@@ -1377,6 +1373,114 @@ class PriceManager:
         self._market_status_cache.clear()
         self._last_update_cache.clear()
         logger.info("[PriceManager] All caches cleared")
+    
+    async def get_market_status(self, symbol: str = "SPY") -> Dict[str, Any]:
+        """
+        Get current market status including open/closed state and session info
+        
+        Args:
+            symbol: Stock symbol to check market status for (default: SPY for US market)
+            
+        Returns:
+            Dict with market status information:
+            {
+                "is_open": bool,
+                "session": str,  # "pre", "regular", "after", "closed"
+                "next_open": str (ISO datetime),
+                "next_close": str (ISO datetime),
+                "timezone": str
+            }
+        """
+        try:
+            # Use existing is_market_open method
+            is_open, market_info = await self.is_market_open(symbol)
+            
+            # Get market hours from market_info
+            market_tz = market_info.get("timezone", "America/New_York")
+            tz = ZoneInfo(market_tz)
+            now = datetime.now(tz)
+            
+            # Determine session type
+            session = "closed"
+            if is_open:
+                # Check if in extended hours
+                market_open = datetime.strptime(market_info.get("market_open", "09:30"), "%H:%M").time()
+                market_close = datetime.strptime(market_info.get("market_close", "16:00"), "%H:%M").time()
+                extended_open = datetime.strptime(market_info.get("extended_open", "04:00"), "%H:%M").time()
+                extended_close = datetime.strptime(market_info.get("extended_close", "20:00"), "%H:%M").time()
+                
+                current_time = now.time()
+                
+                if extended_open <= current_time < market_open:
+                    session = "pre"
+                elif market_open <= current_time < market_close:
+                    session = "regular"
+                elif market_close <= current_time <= extended_close:
+                    session = "after"
+            
+            # Calculate next open/close times
+            next_open = None
+            next_close = None
+            
+            if is_open:
+                # Market is open, next close is today
+                close_time = datetime.strptime(market_info.get("market_close", "16:00"), "%H:%M").time()
+                next_close = now.replace(hour=close_time.hour, minute=close_time.minute, second=0, microsecond=0)
+                
+                # Next open is tomorrow
+                next_trading_day = await self.get_next_trading_day(now.date())
+                open_time = datetime.strptime(market_info.get("market_open", "09:30"), "%H:%M").time()
+                next_open = datetime.combine(next_trading_day, open_time).replace(tzinfo=tz)
+            else:
+                # Market is closed
+                if now.weekday() >= 5:  # Weekend
+                    # Next open is Monday
+                    next_trading_day = await self.get_next_trading_day(now.date())
+                    open_time = datetime.strptime(market_info.get("market_open", "09:30"), "%H:%M").time()
+                    next_open = datetime.combine(next_trading_day, open_time).replace(tzinfo=tz)
+                    
+                    # Next close is also Monday
+                    close_time = datetime.strptime(market_info.get("market_close", "16:00"), "%H:%M").time()
+                    next_close = datetime.combine(next_trading_day, close_time).replace(tzinfo=tz)
+                else:
+                    # Weekday after hours
+                    current_time = now.time()
+                    close_time = datetime.strptime(market_info.get("market_close", "16:00"), "%H:%M").time()
+                    
+                    if current_time > close_time:
+                        # After close, next open is tomorrow
+                        next_trading_day = await self.get_next_trading_day(now.date())
+                        open_time = datetime.strptime(market_info.get("market_open", "09:30"), "%H:%M").time()
+                        next_open = datetime.combine(next_trading_day, open_time).replace(tzinfo=tz)
+                        
+                        close_time = datetime.strptime(market_info.get("market_close", "16:00"), "%H:%M").time()
+                        next_close = datetime.combine(next_trading_day, close_time).replace(tzinfo=tz)
+                    else:
+                        # Before open, next open is today
+                        open_time = datetime.strptime(market_info.get("market_open", "09:30"), "%H:%M").time()
+                        next_open = now.replace(hour=open_time.hour, minute=open_time.minute, second=0, microsecond=0)
+                        
+                        close_time = datetime.strptime(market_info.get("market_close", "16:00"), "%H:%M").time()
+                        next_close = now.replace(hour=close_time.hour, minute=close_time.minute, second=0, microsecond=0)
+            
+            return {
+                "is_open": is_open,
+                "session": session,
+                "next_open": next_open.isoformat() if next_open else None,
+                "next_close": next_close.isoformat() if next_close else None,
+                "timezone": market_tz
+            }
+            
+        except Exception as e:
+            logger.error(f"[PriceManager] Error getting market status: {str(e)}")
+            # Return default closed status on error
+            return {
+                "is_open": False,
+                "session": "closed",
+                "next_open": None,
+                "next_close": None,
+                "timezone": "America/New_York"
+            }
     
     # ========== Dividend Operations ==========
     

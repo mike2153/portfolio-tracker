@@ -126,6 +126,20 @@ class DividendSummary(BaseModel):
         }
 
 
+class PortfolioSnapshot(BaseModel):
+    """Point-in-time snapshot of portfolio state"""
+    date: date
+    total_value: Decimal = Field(ge=0)
+    total_cost: Decimal = Field(ge=0)
+    holdings: List[PortfolioHolding] = []
+    cash_balance: Decimal = Field(default=Decimal("0"))
+    
+    @validator('holdings')
+    def validate_holdings(cls, v):
+        """Ensure holdings are valid"""
+        return v if v else []
+
+
 class PortfolioMetrics(BaseModel):
     """Complete portfolio metrics response"""
     # Meta information
@@ -445,9 +459,7 @@ class PortfolioMetricsManager:
                 ytd_received=Decimal(str(summary_data['total_dividends_ytd'])),
                 total_pending=Decimal("0"),  # Would need pending dividends query
                 count_received=summary_data['confirmed_count'],
-                count_pending=summary_data['pending_count'],
-                next_payment_date=None,  # Would need additional query
-                next_payment_amount=Decimal("0")
+                count_pending=summary_data['pending_count']
             )
         except Exception as e:
             self._record_service_failure("dividends")
@@ -747,6 +759,49 @@ class PortfolioMetricsManager:
         self._service_failures.clear()
         self._failure_reset_time.clear()
         logger.info("[PortfolioMetricsManager] All circuit breakers reset")
+    
+    async def invalidate_user_cache(self, user_id: str, metric_type: Optional[str] = None) -> None:
+        """
+        Invalidate cache for a specific user
+        
+        Args:
+            user_id: User's UUID
+            metric_type: Optional specific metric type to invalidate
+        """
+        try:
+            client = get_supa_service_client()
+            
+            if metric_type:
+                # Invalidate specific metric type
+                cache_key = self._generate_cache_key(user_id, metric_type, {})
+                client.table("portfolio_metrics_cache").delete().eq(
+                    "user_id", user_id
+                ).eq(
+                    "cache_key", cache_key
+                ).execute()
+            else:
+                # Invalidate all cache entries for user
+                client.table("portfolio_metrics_cache").delete().eq(
+                    "user_id", user_id
+                ).execute()
+            
+            logger.info(f"[PortfolioMetricsManager] Cache invalidated for user {user_id}")
+        except Exception as e:
+            logger.error(f"[PortfolioMetricsManager] Failed to invalidate cache: {str(e)}")
+    
+    async def cleanup_expired_cache(self) -> None:
+        """Clean up expired cache entries from database"""
+        try:
+            client = get_supa_service_client()
+            
+            # Delete entries where expires_at < now
+            client.table("portfolio_metrics_cache").delete().lt(
+                "expires_at", datetime.now(timezone.utc).isoformat()
+            ).execute()
+            
+            logger.info("[PortfolioMetricsManager] Expired cache entries cleaned up")
+        except Exception as e:
+            logger.error(f"[PortfolioMetricsManager] Failed to cleanup cache: {str(e)}")
 
 
 # ============================================================================

@@ -18,7 +18,23 @@
       "Bash(ls:*)",
       "Bash(pip3 install:*)",
       "Bash(pip install:*)",
-      "Bash(pkill:*)"
+      "Bash(pkill:*)",
+      "Bash(mkdir:*)",
+      "Bash(pip --version)",
+      "Bash(source:*)",
+      "Bash(docker run:*)",
+      "Bash(-e SUPA_API_URL=http://test.supabase.co )",
+      "Bash(-e SUPA_API_ANON_KEY=test_anon_key )",
+      "Bash(-e VANTAGE_API_KEY=test_api_key )",
+      "Bash(portfolio-backend-test:*)",
+      "Bash(-e SUPA_API_URL=http://test.supabase.co )",
+      "Bash(-e SUPA_API_ANON_KEY=test_anon_key )",
+      "Bash(-e VANTAGE_API_KEY=test_api_key )",
+      "Bash(-e SUPA_API_URL=http://test.supabase.co )",
+      "Bash(-e SUPA_API_ANON_KEY=test_anon_key )",
+      "Bash(-e VANTAGE_API_KEY=test_api_key )",
+      "Bash(docker build:*)",
+      "Bash(docker compose run:*)"
     ],
     "deny": []
   }

@@ -360,7 +360,6 @@ async def supa_api_get_historical_prices(
             .lte('date', end_date) \
             .order('date', desc=True) \
             .execute()
-        
         if hasattr(response, 'data') and response.data:
             #logger.info(f"[supa_api_historical_prices.py::supa_api_get_historical_prices] Found {len(response.data)} price records for {symbol}")
             return response.data

@@ -91,6 +91,7 @@ TOKEN: {access_token[:20]}...
                 }
                 if user_data["id"] and user_data["email"]:
                     logger.info(f"[supa_api_client.py::get_user_from_token] ✓ User decoded from JWT: {user_data['email']}")
+                    logger.info(f"[supa_api_client.py::get_user_from_token] ✓ JWT=======: {payload}")
                     return user_data
             except Exception as jwt_err:
                 logger.warning(f"[supa_api_client.py::get_user_from_token] Local JWT decode failed: {jwt_err}")
