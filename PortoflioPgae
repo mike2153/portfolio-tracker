@@ -1,0 +1,68 @@
+# Portfolio Page Diagnostic Report
+
+## Root Cause Analysis
+The portfolio page fails to build due to missing modules in `@/lib/*`. The `.gitignore` file globally ignores all `lib/` directories, which excludes `frontend/src/lib` from version control. This causes imports like the following to fail:
+
+```typescript
+import { front_api_get_portfolio, front_api_get_quote, front_api_search_symbols } from '@/lib/front_api_client';
+import { supabase } from '@/lib/supabaseClient';
+import { utils } from '@/lib/utils';
+```
+
+Build errors include:
+```
+Failed to compile.
+Module not found: Can't resolve '@/lib/front_api_client'
+Module not found: Can't resolve '@/lib/supabaseClient'
+Module not found: Can't resolve '@/lib/utils'
+```
+
+## Recommended Fixes
+
+1. **Fix .gitignore**
+   - Modify to allow `frontend/src/lib`:
+   ```
+   lib/
+   !frontend/src/lib/
+   ```
+
+2. **Ensure lib files are committed**
+   - Verify `front_api_client.ts`, `supabaseClient.ts`, and `utils.ts` are in version control
+
+3. **Implement missing functionality**
+   - Portfolio CRUD operations currently show "use Transactions page" messages
+   - Historical price lookup shows "Feature Temporarily Unavailable"
+   - These need proper API implementations
+
+4. **Fix Jest configuration**
+   - Update `moduleNameMapper` to resolve `@/lib/*` paths
+
+## Feature Enhancement Ideas
+
+- **Real-time Updates**: WebSocket integration for live price updates
+- **Performance Charts**: Interactive portfolio performance visualization over time (1M, 6M, 1Y, 5Y)
+- **Asset Allocation**: Donut/pie charts showing allocation by sector, asset class, or currency
+- **Advanced Metrics**: IRR, dividend yield, and other statistics per holding
+- **Import/Export**: CSV upload for bulk transactions and portfolio export
+- **Dark/Light Mode**: Theme toggle with Tailwind CSS
+
+## UI Modernization Suggestions
+
+- **Design Elements**:
+  - Glassmorphism effects with subtle shadows and blurs
+  - Gradient backgrounds for KPIs and totals
+  - Animated loading skeletons
+  - Hover effects and context menus for quick actions
+  - Consistent iconography (Lucide or Heroicons)
+
+- **Technical Improvements**:
+  - Responsive grid layouts for mobile/desktop
+  - Smooth transitions using React Spring or Framer Motion
+  - Accessibility compliance (ARIA roles, focus management)
+  - Modern component library integration (e.g., Radix UI)
+
+- **User Experience**:
+  - Optimistic UI updates for better perceived performance
+  - Inline editing for quick updates
+  - Mobile-first responsive design
+  - Micro-interactions for dynamic feel

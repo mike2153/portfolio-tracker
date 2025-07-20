@@ -40,7 +40,6 @@ const CompanyIcon = ({
           width={size}
           height={size}
           className="rounded"
-          onError={() => setError(true)}
         />
       </div>
     );

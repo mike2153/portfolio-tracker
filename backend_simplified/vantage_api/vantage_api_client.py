@@ -107,20 +107,30 @@ BASE_URL: {self.base_url}
         try:
             # Query cache table
             result = self.supa_client.table('api_cache') \
-                .select('data, created_at') \
+                .select('data, created_at, expires_at') \
                 .eq('cache_key', cache_key) \
                 .single() \
                 .execute()
             
             if result.data:
-                created_at = datetime.fromisoformat(result.data['created_at'].replace('Z', '+00:00'))
-                age_seconds = (datetime.now(created_at.tzinfo) - created_at).total_seconds()
-                
-                if age_seconds < CACHE_TTL_SECONDS:
-                    logger.info(f"[vantage_api_client.py::_get_from_cache] Cache hit! Age: {age_seconds:.0f}s")
-                    return result.data['data']
+                # Check expires_at if available, otherwise fall back to created_at check
+                if 'expires_at' in result.data and result.data['expires_at']:
+                    expires_at = datetime.fromisoformat(result.data['expires_at'].replace('Z', '+00:00'))
+                    if datetime.now(expires_at.tzinfo) < expires_at:
+                        logger.info(f"[vantage_api_client.py::_get_from_cache] Cache hit! Valid until: {expires_at}")
+                        return result.data['data']
+                    else:
+                        logger.info(f"[vantage_api_client.py::_get_from_cache] Cache expired at: {expires_at}")
                 else:
-                    logger.info(f"[vantage_api_client.py::_get_from_cache] Cache expired. Age: {age_seconds:.0f}s")
+                    # Fallback for old cache entries without expires_at
+                    created_at = datetime.fromisoformat(result.data['created_at'].replace('Z', '+00:00'))
+                    age_seconds = (datetime.now(created_at.tzinfo) - created_at).total_seconds()
+                    
+                    if age_seconds < CACHE_TTL_SECONDS:
+                        logger.info(f"[vantage_api_client.py::_get_from_cache] Cache hit! Age: {age_seconds:.0f}s")
+                        return result.data['data']
+                    else:
+                        logger.info(f"[vantage_api_client.py::_get_from_cache] Cache expired. Age: {age_seconds:.0f}s")
             else:
                 logger.info("[vantage_api_client.py::_get_from_cache] Cache miss")
             

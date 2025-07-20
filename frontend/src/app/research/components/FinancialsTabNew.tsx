@@ -26,230 +26,14 @@ const FinancialsTabNew: React.FC<TabContentProps> = ({ ticker, data, isLoading, 
   const [activeCurrency, setActiveCurrency] = useState<'USD' | 'EUR' | 'GBP'>('USD');
   
   // State for financial data
-  const [financialsData, setFinancialsData] = useState<any>(null);
+  const [financialsData, setFinancialsData] = useState<Record<string, any>>({});
   const [financialsLoading, setFinancialsLoading] = useState(false);
   const [financialsError, setFinancialsError] = useState<string | null>(null);
   
   // State for chart/table interaction
   const [selectedMetrics, setSelectedMetrics] = useState<string[]>([]);
 
-  // Sample financial data structure for demo (would come from API)
-  const generateSampleFinancialData = (): FinancialMetric[] => {
-    const currentYear = new Date().getFullYear();
-    const years = Array.from({ length: 5 }, (_, i) => currentYear - i).reverse();
-    
-    const incomeMetrics: FinancialMetric[] = [
-      {
-        key: 'total_revenue',
-        label: 'Total Revenue',
-        description: 'Total revenue from all business operations',
-        section: 'Revenue',
-        values: years.reduce((acc, year, index) => ({
-          ...acc,
-          [year]: 50000000000 + (index * 5000000000) + (Math.random() * 2000000000)
-        }), {})
-      },
-      {
-        key: 'cost_of_revenue',
-        label: 'Cost of Revenue',
-        description: 'Direct costs attributable to production of goods sold',
-        section: 'Revenue',
-        values: years.reduce((acc, year, index) => ({
-          ...acc,
-          [year]: 30000000000 + (index * 3000000000) + (Math.random() * 1000000000)
-        }), {})
-      },
-      {
-        key: 'gross_profit',
-        label: 'Gross Profit',
-        description: 'Revenue minus cost of goods sold',
-        section: 'Revenue',
-        values: years.reduce((acc, year, index) => ({
-          ...acc,
-          [year]: 20000000000 + (index * 2000000000) + (Math.random() * 1000000000)
-        }), {})
-      },
-      {
-        key: 'operating_income',
-        label: 'Operating Income',
-        description: 'Income from regular business operations',
-        section: 'Operating',
-        values: years.reduce((acc, year, index) => ({
-          ...acc,
-          [year]: 15000000000 + (index * 1500000000) + (Math.random() * 500000000)
-        }), {})
-      },
-      {
-        key: 'operating_expenses',
-        label: 'Operating Expenses',
-        description: 'Expenses required for normal business operations',
-        section: 'Operating',
-        values: years.reduce((acc, year, index) => ({
-          ...acc,
-          [year]: 5000000000 + (index * 500000000) + (Math.random() * 200000000)
-        }), {})
-      },
-      {
-        key: 'research_development',
-        label: 'Research & Development',
-        description: 'Investment in research and product development',
-        section: 'Operating',
-        values: years.reduce((acc, year, index) => ({
-          ...acc,
-          [year]: 2000000000 + (index * 200000000) + (Math.random() * 100000000)
-        }), {})
-      },
-      {
-        key: 'net_income',
-        label: 'Net Income',
-        description: 'Total earnings after all expenses and taxes',
-        section: 'Profit & Loss',
-        values: years.reduce((acc, year, index) => ({
-          ...acc,
-          [year]: 12000000000 + (index * 1200000000) + (Math.random() * 400000000)
-        }), {})
-      },
-      {
-        key: 'ebitda',
-        label: 'EBITDA',
-        description: 'Earnings before interest, taxes, depreciation, and amortization',
-        section: 'Profit & Loss',
-        values: years.reduce((acc, year, index) => ({
-          ...acc,
-          [year]: 18000000000 + (index * 1800000000) + (Math.random() * 600000000)
-        }), {})
-      }
-    ];
-
-    const balanceMetrics: FinancialMetric[] = [
-      {
-        key: 'total_assets',
-        label: 'Total Assets',
-        description: 'Sum of all assets owned by the company',
-        section: 'Assets',
-        values: years.reduce((acc, year, index) => ({
-          ...acc,
-          [year]: 150000000000 + (index * 15000000000) + (Math.random() * 5000000000)
-        }), {})
-      },
-      {
-        key: 'current_assets',
-        label: 'Current Assets',
-        description: 'Assets expected to be converted to cash within one year',
-        section: 'Assets',
-        values: years.reduce((acc, year, index) => ({
-          ...acc,
-          [year]: 80000000000 + (index * 8000000000) + (Math.random() * 3000000000)
-        }), {})
-      },
-      {
-        key: 'cash_equivalents',
-        label: 'Cash & Cash Equivalents',
-        description: 'Highly liquid investments readily convertible to cash',
-        section: 'Assets',
-        values: years.reduce((acc, year, index) => ({
-          ...acc,
-          [year]: 25000000000 + (index * 2500000000) + (Math.random() * 1000000000)
-        }), {})
-      },
-      {
-        key: 'total_liabilities',
-        label: 'Total Liabilities',
-        description: 'Sum of all debts and obligations',
-        section: 'Liabilities',
-        values: years.reduce((acc, year, index) => ({
-          ...acc,
-          [year]: 70000000000 + (index * 7000000000) + (Math.random() * 2000000000)
-        }), {})
-      },
-      {
-        key: 'current_liabilities',
-        label: 'Current Liabilities',
-        description: 'Debts and obligations due within one year',
-        section: 'Liabilities',
-        values: years.reduce((acc, year, index) => ({
-          ...acc,
-          [year]: 30000000000 + (index * 3000000000) + (Math.random() * 1000000000)
-        }), {})
-      },
-      {
-        key: 'shareholder_equity',
-        label: 'Shareholder Equity',
-        description: 'Net worth of the company belonging to shareholders',
-        section: 'Equity',
-        values: years.reduce((acc, year, index) => ({
-          ...acc,
-          [year]: 80000000000 + (index * 8000000000) + (Math.random() * 3000000000)
-        }), {})
-      }
-    ];
-
-    const cashflowMetrics: FinancialMetric[] = [
-      {
-        key: 'operating_cashflow',
-        label: 'Operating Cash Flow',
-        description: 'Cash generated from normal business operations',
-        section: 'Operating Activities',
-        values: years.reduce((acc, year, index) => ({
-          ...acc,
-          [year]: 20000000000 + (index * 2000000000) + (Math.random() * 800000000)
-        }), {})
-      },
-      {
-        key: 'investing_cashflow',
-        label: 'Investing Cash Flow',
-        description: 'Cash used for investments in assets and securities',
-        section: 'Investing Activities',
-        values: years.reduce((acc, year, index) => ({
-          ...acc,
-          [year]: -5000000000 - (index * 500000000) - (Math.random() * 200000000)
-        }), {})
-      },
-      {
-        key: 'financing_cashflow',
-        label: 'Financing Cash Flow',
-        description: 'Cash from financing activities like debt and equity',
-        section: 'Financing Activities',
-        values: years.reduce((acc, year, index) => ({
-          ...acc,
-          [year]: -8000000000 - (index * 800000000) - (Math.random() * 300000000)
-        }), {})
-      },
-      {
-        key: 'free_cashflow',
-        label: 'Free Cash Flow',
-        description: 'Operating cash flow minus capital expenditures',
-        section: 'Operating Activities',
-        values: years.reduce((acc, year, index) => ({
-          ...acc,
-          [year]: 15000000000 + (index * 1500000000) + (Math.random() * 600000000)
-        }), {})
-      },
-      {
-        key: 'capital_expenditures',
-        label: 'Capital Expenditures',
-        description: 'Money spent on acquiring or maintaining fixed assets',
-        section: 'Investing Activities',
-        values: years.reduce((acc, year, index) => ({
-          ...acc,
-          [year]: 3000000000 + (index * 300000000) + (Math.random() * 100000000)
-        }), {})
-      }
-    ];
-
-    switch (activeStatement) {
-      case 'income':
-        return incomeMetrics;
-      case 'balance':
-        return balanceMetrics;
-      case 'cashflow':
-        return cashflowMetrics;
-      default:
-        return incomeMetrics;
-    }
-  };
-
-  // Load financial data (placeholder for real API integration)
+  // Load financial data from API
   const loadFinancialData = async (statement: FinancialStatementType, forceRefresh: boolean = false) => {
     if (!ticker) return;
     
@@ -257,35 +41,24 @@ const FinancialsTabNew: React.FC<TabContentProps> = ({ ticker, data, isLoading, 
     setFinancialsError(null);
     
     try {
-      // For now, using sample data - replace with actual API call
-      setTimeout(() => {
-        setFinancialsData({
-          [statement]: {
-            annual: generateSampleFinancialData(),
-            quarterly: generateSampleFinancialData() // Would be different for quarterly
-          }
-        });
-        setFinancialsLoading(false);
-      }, 1000);
+      const result = await front_api_client.front_api_get_company_financials(
+        ticker,
+        statement,
+        forceRefresh
+      );
       
-      // Uncomment when real API is ready:
-      // const result = await front_api_client.front_api_get_company_financials(
-      //   ticker,
-      //   statement,
-      //   forceRefresh
-      // );
-      // 
-      // if (result.success) {
-      //   setFinancialsData((prev: any) => ({
-      //     ...prev,
-      //     [statement]: result.data
-      //   }));
-      // } else {
-      //   setFinancialsError(result.error || `Failed to load ${statement} data`);
-      // }
+      if (result.success && result.data) {
+        setFinancialsData((prev: any) => ({
+          ...prev,
+          [statement]: result.data
+        }));
+      } else {
+        setFinancialsError(result.error || `Failed to load ${statement} data`);
+      }
     } catch (error) {
       console.error(`Error loading ${statement} data:`, error);
       setFinancialsError(`Failed to load ${statement} data`);
+    } finally {
       setFinancialsLoading(false);
     }
   };
@@ -299,13 +72,12 @@ const FinancialsTabNew: React.FC<TabContentProps> = ({ ticker, data, isLoading, 
 
   // Auto-select first few metrics when data changes
   useEffect(() => {
-    const currentData = financialsData?.[activeStatement]?.[activePeriod];
-    if (currentData && currentData.length > 0) {
+    if (currentFinancialData.length > 0) {
       // Auto-select first 3 metrics for better UX
-      const firstThreeMetrics = currentData.slice(0, 3).map((metric: FinancialMetric) => metric.key);
+      const firstThreeMetrics = currentFinancialData.slice(0, 3).map((metric: FinancialMetric) => metric.key);
       setSelectedMetrics(firstThreeMetrics);
     }
-  }, [financialsData, activeStatement, activePeriod]);
+  }, [activeStatement, activePeriod, ticker]);
 
   // Handle metric selection toggle
   const handleMetricToggle = (metricKey: string) => {
@@ -316,12 +88,94 @@ const FinancialsTabNew: React.FC<TabContentProps> = ({ ticker, data, isLoading, 
     );
   };
 
-  // Get current financial data
-  const currentFinancialData = financialsData?.[activeStatement]?.[activePeriod] || [];
+  // Transform API data to component format
+  const transformFinancialData = (): FinancialMetric[] => {
+    const statementData = financialsData?.[activeStatement];
+    if (!statementData) return [];
+    
+    const reports = activePeriod === 'annual' 
+      ? statementData.annual_reports || [] 
+      : statementData.quarterly_reports || [];
+    
+    if (reports.length === 0) return [];
+    
+    // Get metric definitions based on statement type
+    const metricDefinitions = getMetricDefinitions(activeStatement);
+    
+    // Transform the data
+    return metricDefinitions.map(metric => {
+      const values: Record<string, number> = {};
+      
+      reports.forEach((report: any) => {
+        const period = activePeriod === 'annual' 
+          ? new Date(report.fiscalDateEnding).getFullYear().toString()
+          : formatQuarterlyPeriod(report.fiscalDateEnding);
+        
+        const value = parseFloat(report[metric.key] || '0');
+        values[period] = isNaN(value) ? 0 : value;
+      });
+      
+      return {
+        key: metric.key,
+        label: metric.label,
+        description: metric.description,
+        section: metric.section,
+        values
+      };
+    });
+  };
   
-  // Get available years
+  // Format quarterly period (e.g., "2023-12-31" -> "2023-Q4")
+  const formatQuarterlyPeriod = (fiscalDate: string): string => {
+    const date = new Date(fiscalDate);
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const quarter = Math.ceil(month / 3);
+    return `${year}-Q${quarter}`;
+  };
+  
+  // Get metric definitions for each statement type
+  const getMetricDefinitions = (statement: FinancialStatementType): Array<{key: string, label: string, description: string, section: string}> => {
+    switch (statement) {
+      case 'income':
+        return [
+          { key: 'totalRevenue', label: 'Total Revenue', description: 'Total revenue from all business operations', section: 'Revenue' },
+          { key: 'costOfRevenue', label: 'Cost of Revenue', description: 'Direct costs attributable to production', section: 'Revenue' },
+          { key: 'grossProfit', label: 'Gross Profit', description: 'Revenue minus cost of goods sold', section: 'Revenue' },
+          { key: 'operatingIncome', label: 'Operating Income', description: 'Income from regular business operations', section: 'Operating' },
+          { key: 'operatingExpenses', label: 'Operating Expenses', description: 'Expenses for normal business operations', section: 'Operating' },
+          { key: 'researchAndDevelopment', label: 'Research & Development', description: 'Investment in R&D', section: 'Operating' },
+          { key: 'netIncome', label: 'Net Income', description: 'Total earnings after all expenses', section: 'Profit & Loss' },
+          { key: 'ebitda', label: 'EBITDA', description: 'Earnings before interest, taxes, depreciation', section: 'Profit & Loss' }
+        ];
+      case 'balance':
+        return [
+          { key: 'totalAssets', label: 'Total Assets', description: 'Sum of all assets', section: 'Assets' },
+          { key: 'totalCurrentAssets', label: 'Current Assets', description: 'Assets convertible to cash within a year', section: 'Assets' },
+          { key: 'cashAndCashEquivalentsAtCarryingValue', label: 'Cash & Equivalents', description: 'Highly liquid investments', section: 'Assets' },
+          { key: 'totalLiabilities', label: 'Total Liabilities', description: 'Sum of all debts', section: 'Liabilities' },
+          { key: 'totalCurrentLiabilities', label: 'Current Liabilities', description: 'Debts due within one year', section: 'Liabilities' },
+          { key: 'totalShareholderEquity', label: 'Shareholder Equity', description: 'Net worth belonging to shareholders', section: 'Equity' }
+        ];
+      case 'cashflow':
+        return [
+          { key: 'operatingCashflow', label: 'Operating Cash Flow', description: 'Cash from operations', section: 'Operating Activities' },
+          { key: 'cashflowFromInvestment', label: 'Investing Cash Flow', description: 'Cash used for investments', section: 'Investing Activities' },
+          { key: 'cashflowFromFinancing', label: 'Financing Cash Flow', description: 'Cash from financing activities', section: 'Financing Activities' },
+          { key: 'freeCashFlow', label: 'Free Cash Flow', description: 'Operating cash minus capex', section: 'Operating Activities' },
+          { key: 'capitalExpenditures', label: 'Capital Expenditures', description: 'Money spent on fixed assets', section: 'Investing Activities' }
+        ];
+      default:
+        return [];
+    }
+  };
+  
+  // Get current financial data
+  const currentFinancialData = transformFinancialData();
+  
+  // Get available years/periods
   const availableYears = currentFinancialData.length > 0 
-    ? Object.keys(currentFinancialData[0]?.values || {}) 
+    ? Object.keys(currentFinancialData[0]?.values || {}).sort() 
     : [];
 
   // Prepare data for chart

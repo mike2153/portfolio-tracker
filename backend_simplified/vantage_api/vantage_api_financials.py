@@ -45,11 +45,11 @@ async def vantage_api_get_income_statement(symbol: str) -> Dict[str, Any]:
                     if "Note" in data:
                         raise ValueError(f"Alpha Vantage rate limit: {data['Note']}")
                     
-                    # Process and return the data
+                    # Process and return the data with 5-year limit
                     return {
                         "symbol": data.get("symbol", symbol),
-                        "annual_reports": data.get("annualReports", []),
-                        "quarterly_reports": data.get("quarterlyReports", []),
+                        "annual_reports": data.get("annualReports", [])[:5],  # Last 5 years
+                        "quarterly_reports": data.get("quarterlyReports", [])[:20],  # Last 20 quarters (5 years)
                         "last_updated": datetime.utcnow().isoformat()
                     }
                 else:
@@ -94,11 +94,11 @@ async def vantage_api_get_balance_sheet(symbol: str) -> Dict[str, Any]:
                     if "Note" in data:
                         raise ValueError(f"Alpha Vantage rate limit: {data['Note']}")
                     
-                    # Process and return the data
+                    # Process and return the data with 5-year limit
                     return {
                         "symbol": data.get("symbol", symbol),
-                        "annual_reports": data.get("annualReports", []),
-                        "quarterly_reports": data.get("quarterlyReports", []),
+                        "annual_reports": data.get("annualReports", [])[:5],  # Last 5 years
+                        "quarterly_reports": data.get("quarterlyReports", [])[:20],  # Last 20 quarters (5 years)
                         "last_updated": datetime.utcnow().isoformat()
                     }
                 else:
@@ -143,11 +143,11 @@ async def vantage_api_get_cash_flow(symbol: str) -> Dict[str, Any]:
                     if "Note" in data:
                         raise ValueError(f"Alpha Vantage rate limit: {data['Note']}")
                     
-                    # Process and return the data
+                    # Process and return the data with 5-year limit
                     return {
                         "symbol": data.get("symbol", symbol),
-                        "annual_reports": data.get("annualReports", []),
-                        "quarterly_reports": data.get("quarterlyReports", []),
+                        "annual_reports": data.get("annualReports", [])[:5],  # Last 5 years
+                        "quarterly_reports": data.get("quarterlyReports", [])[:20],  # Last 20 quarters (5 years)
                         "last_updated": datetime.utcnow().isoformat()
                     }
                 else:

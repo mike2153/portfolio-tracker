@@ -18,10 +18,7 @@ from supa_api.supa_api_transactions import supa_api_get_transaction_summary
 from services.price_manager import price_manager
 from services.portfolio_calculator import portfolio_calculator
 from services.portfolio_metrics_manager import portfolio_metrics_manager
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP  # local import
-
-# Lazy‑imported heavy modules (they load Supabase clients, etc.)
-# They must stay inside route bodies to avoid circular imports.
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP 
 
 logger = logging.getLogger(__name__)
 
@@ -48,9 +45,6 @@ def _assert_jwt(user: Dict[str, Any]) -> _AuthContext:  # pragma: no cover
     token: Optional[str] = user.get("access_token")
     uid: str = user["id"]
 
-    #logger.info("🔐 JWT token present: %s", bool(token))
-    #logger.info("🔐 User ID        : %s", uid)
-
     if not token:
         raise HTTPException(status_code=401, detail="Authentication token required")
 
@@ -73,8 +67,6 @@ async def backend_api_get_dashboard(
     force_refresh: bool = Query(False, description="Force refresh cache"),
 ) -> Dict[str, Any]:
     """Return portfolio snapshot + market blurb for the dashboard."""
-
-    #logger.info("📥 Dashboard requested for %s", user.get("email", "<unknown>"))
 
     # --- Auth --------------------------------------------------------------
     uid, jwt = _assert_jwt(user)
@@ -109,7 +101,9 @@ async def backend_api_get_dashboard(
         )
         
         # --- Build response for backward compatibility ---------------------
-        daily_change = daily_change_pct = 0.0  # TODO: derive from yesterday's prices.
+        daily_change, daily_change_pct = await portfolio_calculator.calculate_daily_change(
+            metrics.holdings, jwt
+        )
         
         # Transform holdings to match existing format
         holdings_with_allocation = []
@@ -190,7 +184,9 @@ async def backend_api_get_dashboard(
         summary_dict: Dict[str, Any] = cast(Dict[str, Any], summary)
 
         # --- Build response ----------------------------------------------------
-        daily_change = daily_change_pct = 0.0  # TODO: derive from yesterday's prices.
+        daily_change, daily_change_pct = await portfolio_calculator.calculate_daily_change(
+            portfolio_dict.get("holdings", []), jwt
+        )
         
         # Calculate holdings_count since portfolio_calculator doesn't provide it
         holdings_count = len(portfolio_dict.get("holdings", []))
@@ -220,10 +216,7 @@ async def backend_api_get_dashboard(
             "top_holdings": holdings_with_allocation[:5],
             "transaction_summary": summary_dict,
         }
-
-        #logger.info("✅ Dashboard payload ready")
         return resp
-
 
 # ---------------------------------------------------------------------------
 # /dashboard/performance – time-series comparison
@@ -243,11 +236,6 @@ async def backend_api_get_performance(
 ) -> Dict[str, Any]:
     """Return portfolio vs index performance for the requested period."""
 
-    #logger.info("📥 Performance period=%s benchmark=%s", period, benchmark)
-    #logger.info("🔐 User authenticated: %s", user.get("email", "<unknown>"))
-    
-    # The require_authenticated_user dependency already validates auth
-    # If we reach here, auth is valid - extract JWT
     uid, jwt = _assert_jwt(user)
         
     # --- Lazy imports (avoid circular deps) -------------------------------
@@ -264,7 +252,6 @@ async def backend_api_get_performance(
         
     # --- Resolve date range ----------------------------------------------
     start_date, end_date = portfolio_calculator._compute_date_range(period)
-    #logger.info("📅 Range: %s → %s", start_date, end_date)
     
     # --- Trigger background price update for user's portfolio -------------
     logger.info(f"[Performance] Triggering background price update for user {uid}")
@@ -278,7 +265,6 @@ async def backend_api_get_performance(
     )
         
     # --- Build rebalanced index series for this timeframe --------------
-    #logger.info(f"[backend_api_get_performance] 🎯 Using REBALANCED index simulation for accurate comparison")
     index_series: List[Tuple[date, Decimal]] = await ISS.get_index_sim_series(  # type: ignore[arg-type]
         user_id=uid,
         benchmark=benchmark,
@@ -301,8 +287,6 @@ async def backend_api_get_performance(
     # If no portfolio data, show index-only performance instead of empty response
     if portfolio_meta.get("no_data"):
         logger.warning("[backend_api_get_performance] No portfolio data for this period")
-        #logger.info("[backend_api_get_performance] 🎯 Activating INDEX-ONLY FALLBACK MODE")
-        #logger.info("[backend_api_get_performance] 📊 User will see benchmark performance instead of empty charts")
         
         # Get index-only series using the new method
         try:
@@ -334,27 +318,20 @@ async def backend_api_get_performance(
                     "performance_metrics": {},
                 }
             
-            # Format index-only data for chart display
-            #logger.info("[backend_api_get_performance] ✅ Index-only data retrieved: %d points", len(index_only_series))
-            
             # Convert to chart format
             index_only_chart_data = []
             for d, v in index_only_series:
                 chart_point = {"date": d.isoformat(), "value": float(v)}
                 index_only_chart_data.append(chart_point)
-    
-            
-            #logger.info("[backend_api_get_performance] 🎯 INDEX-ONLY MODE: Returning %d benchmark data points", len(index_only_chart_data))
-            
             return {
                 "success": True,
                 "period": period,
                 "benchmark": benchmark,
-                "portfolio_performance": [],  # Empty - no portfolio data
-                "benchmark_performance": index_only_chart_data,  # Show benchmark performance
+                "portfolio_performance": [],    
+                "benchmark_performance": index_only_chart_data, 
                 "metadata": {
-                    "no_data": False,  # We have data (benchmark data)
-                    "index_only": True,  # Signal this is index-only mode
+                    "no_data": False, 
+                    "index_only": True, 
                     "reason": portfolio_meta.get("reason", "no_portfolio_data"),
                     "user_guidance": portfolio_meta.get("user_guidance", "Add transactions to see portfolio comparison"),
                     "start_date": index_only_chart_data[0]["date"] if index_only_chart_data else start_date.isoformat(),
@@ -403,8 +380,6 @@ async def backend_api_get_performance(
             return Decimal("0").quantize(Decimal("1.00"), ROUND_HALF_UP)
 
     # 🔍 FILTER: Remove zero values and ensure only trading days with actual data
-   # logger.info("🔄 Filtering portfolio series - received %d data points", len(portfolio_series))
-    
     
     # Filter out zero values (non-trading days) and convert to Decimal
     portfolio_series_filtered = []
@@ -415,37 +390,15 @@ async def backend_api_get_performance(
             portfolio_series_filtered.append((d, decimal_value))
         else:
             zero_count += 1
-    
-    #logger.info("✅ Portfolio series filtered - %d trading days with actual values, %d zero values removed", 
-    #            len(portfolio_series_filtered), zero_count)
-    #logger.info("📊 Filtered series sample: %s", portfolio_series_filtered[:3] if len(portfolio_series_filtered) >= 3 else portfolio_series_filtered)
-    
-    # Log all filtered dates for debugging
-    #if portfolio_series_filtered:
-        #logger.info("📅 First trading day: %s = $%s", portfolio_series_filtered[0][0], portfolio_series_filtered[0][1])
-        #logger.info("📅 Last trading day: %s = $%s", portfolio_series_filtered[-1][0], portfolio_series_filtered[-1][1])
-    #else:
-        #logger.warning("⚠️ No trading days with portfolio values found!")
-    
     # Use filtered series for calculations
     portfolio_series_dec = portfolio_series_filtered
-    
-    # 🔍 DEBUG: Convert index series to Decimal type for precise calculations
-    #logger.info("🔄 Converting index series to Decimal - received %d data points", len(index_series))
-
     
     index_series_dec: List[Tuple[date, Decimal]] = [
         (d, _safe_decimal(v)) for d, v in index_series
     ]
-    #logger.info("✅ Index series converted to Decimal - %d points processed", len(index_series_dec))
 
-    #logger.info("🎯 REBALANCED INDEX: No normalization needed - index already starts at portfolio value")
-    #logger.info(f"📊 Portfolio start value: ${portfolio_series_dec[0][1] if portfolio_series_dec else 'N/A'}")
-    #logger.info(f"📊 Index start value: ${index_series_dec[0][1] if index_series_dec else 'N/A'}")
-    
     if portfolio_series_dec and index_series_dec:
         value_difference = abs(float(portfolio_series_dec[0][1]) - float(index_series_dec[0][1]))
-        #logger.info(f"📊 Start value difference: ${value_difference:.2f} (should be minimal)")
         
         if value_difference > 1.0:  # More than $1 difference suggests an issue
             logger.warning(f"⚠️ Large start value difference detected: ${value_difference:.2f}")
@@ -453,26 +406,9 @@ async def backend_api_get_performance(
     
     # Use index series as-is (no scaling needed)
     final_index_series_dec = index_series_dec
-
-    # --- Format & compute metrics ----------------------------------------
-    #logger.info("🔧 Formatting series for response...")
-
     
     formatted = portfolio_calculator.format_series_for_response(portfolio_series_dec, final_index_series_dec)
-    #logger.info("✅ Series formatted successfully")
-
-    
-    #logger.info("🧮 Calculating performance metrics...")
     metrics = ISU.calculate_performance_metrics(portfolio_series_dec, final_index_series_dec)
-    #logger.info("✅ Performance metrics calculated")
-
-
-    #logger.info("✅ Perf ready – %s portfolio pts | %s index pts", len(portfolio_series), len(final_index_series_dec))
-
-    # 🔍 CHART FORMAT: Create discrete data points for chart plotting (no time-series gaps)
-    #logger.info("🔧 Formatting data for discrete chart plotting...")
-    #logger.info("📊 Input portfolio series: %d points", len(portfolio_series_dec))
-    #logger.info("📊 Input index series: %d points", len(final_index_series_dec))
     
     # Create arrays of actual trading days only (no zero-value gaps)
     portfolio_chart_data = []
@@ -490,17 +426,6 @@ async def backend_api_get_performance(
         if d in portfolio_dates:
             chart_point = {"date": d.isoformat(), "value": float(v)}
             index_chart_data.append(chart_point)
-    
-    #logger.info("✅ Chart data formatted - %d portfolio points, %d index points", 
-    #            len(portfolio_chart_data), len(index_chart_data))
-    
-    # Log sample of final chart data
-   # if portfolio_chart_data:
-        #logger.info("📊 First portfolio chart point: %s", portfolio_chart_data[0])
-        #logger.info("📊 Last portfolio chart point: %s", portfolio_chart_data[-1])
-    #if index_chart_data:
-        #logger.info("📊 First index chart point: %s", index_chart_data[0])
-        #logger.info("📊 Last index chart point: %s", index_chart_data[-1])
     
     return {
         "success": True,
@@ -614,7 +539,7 @@ async def backend_api_get_gainers(
         for holding in gainers[:5]:
             top_gainers.append({
                 "ticker": holding.symbol,
-                "name": holding.symbol,  # We don't have company names yet
+                "name": holding.symbol, 
                 "value": float(holding.current_value),
                 "changePercent": holding.gain_loss_percent,
                 "changeValue": float(holding.gain_loss)
@@ -641,7 +566,6 @@ async def backend_api_get_gainers(
             
             holdings = portfolio["holdings"]
             
-            # Filter for positive gains and sort by gain percentage
             gainers = [
                 h for h in holdings 
                 if h.get("gain_loss_percent", 0) > 0 and h.get("quantity", 0) > 0
@@ -700,7 +624,6 @@ async def backend_api_get_losers(
                 "message": "No holdings found"
             }
         
-        # Filter for negative gains and sort by gain percentage (ascending for biggest losses)
         losers = [
             h for h in metrics.holdings 
             if h.gain_loss_percent < 0 and h.quantity > 0
@@ -712,10 +635,10 @@ async def backend_api_get_losers(
         for holding in losers[:5]:
             top_losers.append({
                 "ticker": holding.symbol,
-                "name": holding.symbol,  # We don't have company names yet
+                "name": holding.symbol, 
                 "value": float(holding.current_value),
-                "changePercent": abs(holding.gain_loss_percent),  # Show as positive for display
-                "changeValue": abs(float(holding.gain_loss))  # Show as positive for display
+                "changePercent": abs(holding.gain_loss_percent), 
+                "changeValue": abs(float(holding.gain_loss)) 
             })
         
         return {
@@ -739,14 +662,11 @@ async def backend_api_get_losers(
             
             holdings = portfolio["holdings"]
             
-            # Filter for negative gains and sort by gain percentage (ascending for biggest losses)
             losers = [
                 h for h in holdings 
                 if h.get("gain_loss_percent", 0) < 0 and h.get("quantity", 0) > 0
             ]
             losers.sort(key=lambda x: x.get("gain_loss_percent", 0))
-            
-            # Format top 5 losers
             top_losers = []
             for holding in losers[:5]:
                 top_losers.append({

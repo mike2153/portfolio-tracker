@@ -16,6 +16,18 @@ from supa_api.supa_api_jwt_helpers import create_authenticated_client
 logger = logging.getLogger(__name__)
 
 
+class PortfolioSummary:
+    """Data class for portfolio summary metrics."""
+    def __init__(self):
+        self.total_value: float = 0.0
+        self.total_cost: float = 0.0
+        self.total_gain_loss: float = 0.0
+        self.total_gain_loss_percent: float = 0.0
+        self.total_dividends: float = 0.0
+        self.daily_change: float = 0.0
+        self.daily_change_percent: float = 0.0
+
+
 class XIRRCalculator:
     """
     Calculator for Extended Internal Rate of Return (XIRR).
@@ -515,6 +527,53 @@ class PortfolioCalculator:
         
         return dict(holdings)
     
+    @staticmethod
+    async def calculate_daily_change(
+        holdings: List[Dict[str, Any]],
+        user_token: str
+    ) -> Tuple[float, float]:
+        """
+        Calculate portfolio's daily change based on previous day's closing prices.
+
+        Args:
+            holdings: List of current portfolio holdings.
+            user_token: JWT token for database access.
+
+        Returns:
+            Tuple containing daily change in value and percentage.
+        """
+        if not holdings:
+            return 0.0, 0.0
+
+        symbols = [h['symbol'] for h in holdings]
+        previous_day_prices = await price_manager.get_previous_day_prices(symbols, user_token)
+
+        total_previous_value = Decimal('0')
+        total_current_value = Decimal('0')
+
+        for holding in holdings:
+            symbol = holding['symbol']
+            quantity = Decimal(str(holding['quantity']))
+            current_value = Decimal(str(holding['current_value']))
+            
+            total_current_value += current_value
+
+            if symbol in previous_day_prices and previous_day_prices[symbol] is not None:
+                previous_price = Decimal(str(previous_day_prices[symbol]['close']))
+                total_previous_value += quantity * previous_price
+            else:
+                # Fallback: if no previous price, use current value for previous value
+                # to avoid skewing the daily change calculation.
+                total_previous_value += current_value
+
+        if total_previous_value == 0:
+            return 0.0, 0.0
+
+        daily_change_value = total_current_value - total_previous_value
+        daily_change_percent = (daily_change_value / total_previous_value) * 100
+
+        return float(daily_change_value), float(daily_change_percent)
+
     # ========================================================================
     # Time Series Calculations (Migrated from portfolio_service.py)
     # ========================================================================

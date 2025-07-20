@@ -45,7 +45,7 @@ async def vantage_api_get_quote(symbol: str) -> Dict[str, Any]:
             'symbol': quote.get('01. symbol', symbol),
             'price': float(quote.get('05. price', 0)),
             'change': float(quote.get('09. change', 0)),
-            'change_percent': quote.get('10. change percent', '0%').replace('%', ''),
+            'change_percent': float(quote.get('10. change percent', '0%').replace('%', '') or 0),
             'volume': int(quote.get('06. volume', 0)),
             'latest_trading_day': quote.get('07. latest trading day', ''),
             'previous_close': float(quote.get('08. previous close', 0)),

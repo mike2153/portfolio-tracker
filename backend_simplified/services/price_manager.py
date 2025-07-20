@@ -19,6 +19,7 @@ import hashlib
 from datetime import datetime, date, timedelta, timezone, time
 from typing import Dict, Any, List, Optional, Tuple, Set
 from decimal import Decimal
+import time as time_module
 from zoneinfo import ZoneInfo
 from collections import defaultdict
 from dataclasses import dataclass
@@ -134,6 +135,10 @@ class PriceManager:
         self._holidays_cache: Dict[str, Set[date]] = {}
         self._last_update_cache: Dict[str, datetime] = {}
         self._holidays_loaded = False
+        # Add cache for previous day prices
+        self._previous_day_cache: Dict[str, Dict[str, Dict[str, Any]]] = {}
+        self._previous_day_cache_timestamp: Dict[str, float] = {}
+        self._previous_day_cache_ttl = 3600  # 1 hour cache for previous day prices
         
         # Circuit breaker for API failures
         self._circuit_breaker = CircuitBreaker()
@@ -207,6 +212,84 @@ class PriceManager:
             # On error, assume market is open (fail-open)
             return True, {"error": str(e), "reason": "error_fail_open"}
     
+    def _get_cache_key_for_date(self, target_date: date) -> str:
+        """Generate a cache key for a specific date."""
+        return target_date.strftime('%Y-%m-%d')
+    
+    def _is_cache_valid(self, cache_timestamp: float, ttl: int) -> bool:
+        """Check if cached data is still valid based on TTL."""
+        return (time_module.time() - cache_timestamp) < ttl
+    
+    async def get_previous_day_prices(
+        self,
+        symbols: List[str],
+        user_token: str,
+        from_date: Optional[date] = None
+    ) -> Dict[str, Dict[str, Any]]:
+        """
+        Get the closing prices for a list of symbols from the last trading day.
+        Includes caching to minimize database calls.
+
+        Args:
+            symbols: List of stock ticker symbols.
+            user_token: JWT token for database access.
+            from_date: Optional date to start looking back from (defaults to today).
+
+        Returns:
+            Dictionary mapping symbols to their previous day's price data.
+        """
+        if not symbols:
+            return {}
+
+        last_trading_day = await self.get_last_trading_day(from_date)
+        cache_key = self._get_cache_key_for_date(last_trading_day)
+        
+        # Check cache first
+        if cache_key in self._previous_day_cache:
+            cache_timestamp = self._previous_day_cache_timestamp.get(cache_key, 0)
+            if self._is_cache_valid(cache_timestamp, self._previous_day_cache_ttl):
+                # Return cached prices for requested symbols
+                cached_data = self._previous_day_cache[cache_key]
+                return {symbol: cached_data[symbol] for symbol in symbols if symbol in cached_data}
+        
+        # Cache miss or expired - fetch from database
+        prices = await supa_api_get_prices_for_date_batch(
+            symbols=symbols,
+            target_date=last_trading_day,
+            user_token=user_token
+        )
+        
+        # Update cache
+        if cache_key not in self._previous_day_cache:
+            self._previous_day_cache[cache_key] = {}
+        
+        self._previous_day_cache[cache_key].update(prices)
+        self._previous_day_cache_timestamp[cache_key] = time_module.time()
+        
+        # Clean up old cache entries (keep only last 7 days)
+        self._cleanup_old_cache_entries()
+        
+        return prices
+    
+    def _cleanup_old_cache_entries(self):
+        """Remove cache entries older than 7 days to prevent memory bloat."""
+        current_date = date.today()
+        cutoff_date = current_date - timedelta(days=7)
+        
+        keys_to_remove = []
+        for cache_key in list(self._previous_day_cache.keys()):
+            try:
+                cache_date = datetime.strptime(cache_key, '%Y-%m-%d').date()
+                if cache_date < cutoff_date:
+                    keys_to_remove.append(cache_key)
+            except ValueError:
+                # Invalid date format, remove it
+                keys_to_remove.append(cache_key)
+        
+        for key in keys_to_remove:
+            self._previous_day_cache.pop(key, None)
+            self._previous_day_cache_timestamp.pop(key, None)
+
     async def get_market_info(self, symbol: str, user_token: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """
         Get market information for a symbol from the database

@@ -6,6 +6,12 @@ __pycache__/
 # C extensions
 *.so
 
+#Folders
+gm/
+e2e_test_suite/
+public/icons
+
+
 #Icons
 *.png 
 *.jpg

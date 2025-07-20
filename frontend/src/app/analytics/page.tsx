@@ -65,7 +65,9 @@ export default function AnalyticsPage() {
     realized_pnl: allocation.realized_pnl ?? 0,
     dividends_received: allocation.dividends_received ?? 0,
     total_profit: allocation.gain_loss + (allocation.dividends_received ?? 0) + (allocation.realized_pnl ?? 0),
-    total_profit_percent: ((allocation.gain_loss + (allocation.dividends_received ?? 0) + (allocation.realized_pnl ?? 0)) / allocation.cost_basis * 100) || 0,
+    total_profit_percent: allocation.cost_basis > 0 
+      ? ((allocation.gain_loss + (allocation.dividends_received ?? 0) + (allocation.realized_pnl ?? 0)) / allocation.cost_basis * 100) 
+      : 0,
     daily_change: 0, // TODO: Calculate daily change
     daily_change_percent: 0, // TODO: Calculate daily change percent
     irr_percent: 0 // TODO: Calculate IRR

@@ -3,21 +3,6 @@
   "version": "1.0.0",
   "description": "End-to-End tests for financial dashboard using real APIs and databases",
   "scripts": {
-    "test:e2e": "playwright test",
-    "test:e2e:headed": "playwright test --headed",
-    "test:e2e:debug": "playwright test --debug",
-    "test:e2e:ui": "playwright test --ui",
-    "test:e2e:setup": "node scripts/setup-test-environment.js",
-    "test:e2e:seed": "node scripts/seed-test-data.js",
-    "test:e2e:cleanup": "node scripts/cleanup-test-data.js",
-    "test:e2e:dashboard": "playwright test tests/dashboard",
-    "test:e2e:auth": "playwright test tests/auth",
-    "test:e2e:transactions": "playwright test tests/transactions",
-    "test:e2e:api": "playwright test tests/api",
-    "test:e2e:real-api": "cross-env REAL_API=true playwright test",
-    "test:e2e:ci": "playwright test --reporter=html,github",
-    "report": "playwright show-report",
-    "install:browsers": "playwright install"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.38.0",

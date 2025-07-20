@@ -17,6 +17,49 @@ const AllocationTableApex = () => {
   useDashboard();
   const { data: allocationData, isLoading, isError, error, refetch } = usePortfolioAllocation();
 
+  // Add defensive function to safely format allocation
+  const safeFormatAllocation = (allocation: any): string => {
+    //console.log('[AllocationTableApex] safeFormatAllocation called with:', allocation, 'type:', typeof allocation);
+    
+    // Handle null/undefined
+    if (allocation == null) {
+      //console.log('[AllocationTableApex] safeFormatAllocation: allocation is null/undefined, returning 0.00%');
+      return '0.00%';
+    }
+    
+    // If it's already a number, use toFixed
+    if (typeof allocation === 'number') {
+      //console.log('[AllocationTableApex] safeFormatAllocation: allocation is number, using toFixed');
+      return `${allocation.toFixed(2)}%`;
+    }
+    
+    // If it's a string, try to parse it
+    if (typeof allocation === 'string') {
+      //console.log('[AllocationTableApex] safeFormatAllocation: allocation is string, attempting to parse');
+      const parsed = parseFloat(allocation);
+      if (!isNaN(parsed)) {
+        //console.log('[AllocationTableApex] safeFormatAllocation: successfully parsed string to number:', parsed);
+        return `${parsed.toFixed(2)}%`;
+      } else {
+        //console.log('[AllocationTableApex] safeFormatAllocation: failed to parse string, returning raw value');
+        return allocation; // Return as-is if can't parse
+      }
+    }
+    
+    // Handle objects with value property (legacy format)
+    if (typeof allocation === 'object' && allocation !== null) {
+      //console.log('[AllocationTableApex] safeFormatAllocation: allocation is object, checking for value property');
+      if ('value' in allocation && typeof allocation.value === 'number') {
+        //console.log('[AllocationTableApex] safeFormatAllocation: found value property in object:', allocation.value);
+        return `${allocation.value.toFixed(2)}%`;
+      }
+    }
+    
+    // Fallback
+    //console.log('[AllocationTableApex] safeFormatAllocation: unhandled type, returning 0.00%');
+    return '0.00%';
+  };
+
   // Transform data for ApexListView
   const { listViewData, columns, actions } = useMemo(() => {
     if (!allocationData) {
@@ -137,39 +180,6 @@ const AllocationTableApex = () => {
       actions: tableActions
     };
   }, [allocationData]);
-
-  // Add defensive function to safely format allocation
-  const safeFormatAllocation = (allocation: any): string => {
-    //console.log('[AllocationTableApex] safeFormatAllocation called with:', allocation, 'type:', typeof allocation);
-    
-    // Handle null/undefined
-    if (allocation == null) {
-      //console.log('[AllocationTableApex] safeFormatAllocation: allocation is null/undefined, returning 0.00%');
-      return '0.00%';
-    }
-    
-    // If it's already a number
-    if (typeof allocation === 'number') {
-      //console.log('[AllocationTableApex] safeFormatAllocation: allocation is number, using toFixed');
-      return `${allocation.toFixed(2)}%`;
-    }
-    
-    // If it's a string, try to parse it
-    if (typeof allocation === 'string') {
-      //console.log('[AllocationTableApex] safeFormatAllocation: allocation is string, attempting to parse');
-      const parsed = parseFloat(allocation);
-      if (!isNaN(parsed)) {
-        //console.log('[AllocationTableApex] safeFormatAllocation: successfully parsed string to number:', parsed);
-        return `${parsed.toFixed(2)}%`;
-      } else {
-        //console.log('[AllocationTableApex] safeFormatAllocation: failed to parse string, returning raw value');
-        return `${allocation}%`;
-      }
-    }
-    
-    // Fallback for any other type
-    return `${String(allocation)}%`;
-  };
 
   return (
     <ApexListView

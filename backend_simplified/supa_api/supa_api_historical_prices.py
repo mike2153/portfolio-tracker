@@ -333,7 +333,7 @@ async def supa_api_get_historical_prices(
     symbol: str,
     start_date: str,
     end_date: str,
-    user_token: str,
+    _user_token: str,
 ) -> List[Dict[str, Any]]:
     """
     Get historical price data from database for a symbol within date range
@@ -452,17 +452,17 @@ async def supa_api_get_historical_prices_batch(
     symbols: List[str],
     start_date: str,
     end_date: str,
-    user_token: str,
+    _user_token: str,
 ) -> List[Dict[str, Any]]:
     """
     Get historical price data from database for multiple symbols within date range (batch optimized)
-    
+
     Args:
         symbols: List of stock ticker symbols
         start_date: Start date in YYYY-MM-DD format
         end_date: End date in YYYY-MM-DD format
         user_token: JWT token (not used for price data but kept for consistency)
-        
+
     Returns:
         List of price records for all symbols
     """
@@ -485,7 +485,7 @@ async def supa_api_get_historical_prices_batch(
             .lte('date', end_date) \
             .order('symbol,date', desc=True) \
             .execute()
-            
+
         if hasattr(response, 'data') and response.data:
             #logger.info(f"[supa_api_historical_prices.py::supa_api_get_historical_prices_batch] Found {len(response.data)} price records for {len(symbols)} symbols")
             return response.data
@@ -503,3 +503,44 @@ async def supa_api_get_historical_prices_batch(
             end_date=end_date
         )
         return []
+
+@DebugLogger.log_api_call(api_name="SUPABASE", sender="BACKEND", receiver="SUPA_API", operation="GET_PRICES_FOR_DATE_BATCH")
+async def supa_api_get_prices_for_date_batch(
+    symbols: List[str],
+    target_date: date,
+    _user_token: str,
+) -> Dict[str, Dict[str, Any]]:
+    """
+    Get historical prices for a batch of symbols on a specific date.
+
+    Args:
+        symbols: List of stock ticker symbols.
+        target_date: The specific date to fetch prices for.
+        user_token: JWT token for database access.
+
+    Returns:
+        A dictionary mapping symbols to their price data.
+    """
+    client = get_supa_service_client()
+    try:
+        response = client.table('historical_prices').select(
+            'symbol, close, date'
+        ).in_('symbol', symbols).eq('date', str(target_date)).execute()
+
+        prices = {}
+        if hasattr(response, 'data') and response.data:
+            for record in response.data:
+                prices[record['symbol']] = {
+                    'close': record['close'],
+                    'date': record['date']
+                }
+        return prices
+    except Exception as e:
+        DebugLogger.log_error(
+            file_name="supa_api_historical_prices.py",
+            function_name="supa_api_get_prices_for_date_batch",
+            error=e,
+            symbols=symbols,
+            target_date=str(target_date)
+        )
+        raise

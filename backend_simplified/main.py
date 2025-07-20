@@ -52,15 +52,6 @@ logging.getLogger("services.dividend_service").setLevel(logging.WARNING)
 async def lifespan(app: FastAPI):
     """Startup and shutdown events"""
     # Startup
-    logger.info("""
-========== APPLICATION STARTUP ==========
-FILE: main.py
-FUNCTION: lifespan
-API: BACKEND
-PORT: {BACKEND_API_PORT}
-HOST: {BACKEND_API_HOST}
-DEBUG: {BACKEND_API_DEBUG}
-=========================================""")
     
     DebugLogger.info_if_enabled("[main.py::lifespan] Startup: Initiating immediate dividend sync for all users", logger)
     
@@ -84,7 +75,7 @@ DEBUG: {BACKEND_API_DEBUG}
     
     DebugLogger.info_if_enabled("[main.py::lifespan] Startup sync and assignment completed", logger)
     
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     scheduler = AsyncIOScheduler(event_loop=loop)
     scheduler.add_job(
         dividend_service.background_dividend_sync_all_users,
@@ -100,7 +91,7 @@ DEBUG: {BACKEND_API_DEBUG}
     DebugLogger.info_if_enabled("[main.py::lifespan] Scheduler shutdown", logger)
     
     # Shutdown
-    logger.info("""
+    logger.info(f"""
 ========== APPLICATION SHUTDOWN ==========
 FILE: main.py
 FUNCTION: lifespan
@@ -176,26 +167,9 @@ app.include_router(analytics_router, prefix="/api/analytics", tags=["Analytics"]
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     """Log all incoming requests"""
-    logger.info(f"""
-========== INCOMING REQUEST ==========
-FILE: main.py
-FUNCTION: log_requests
-#METHOD: {request.method}
-#PATH: {request.url.path}
-#QUERY_PARAMS: {dict(request.query_params)}
-#CLIENT: {request.client.host if request.client else 'Unknown'}
-#=====================================""")
-    
+    #DebugLogger.info_if_enabled(f"[main.py::log_requests] Incoming request: {request.method} {request.url.path}", logger)
     response = await call_next(request)
-    
-    logger.info(f"""
-========== OUTGOING RESPONSE ==========
-FILE: main.py
-FUNCTION: log_requests
-STATUS_CODE: {response.status_code}
-PATH: {request.url.path}
-=======================================""")
-    
+   # DebugLogger.info_if_enabled(f"[main.py::log_requests] Outgoing response: {response.status_code} {request.url.path}", logger)
     return response
 
 if __name__ == "__main__":

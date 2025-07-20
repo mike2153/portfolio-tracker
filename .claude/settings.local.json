@@ -35,7 +35,8 @@
       "Bash(-e VANTAGE_API_KEY=test_api_key )",
       "Bash(docker build:*)",
       "Bash(docker compose run:*)",
-      "WebFetch(domain:www.alphavantage.co)"
+      "WebFetch(domain:www.alphavantage.co)",
+      "Bash(touch:*)"
     ],
     "deny": []
   }
