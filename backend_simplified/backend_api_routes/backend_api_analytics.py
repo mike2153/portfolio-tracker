@@ -761,3 +761,112 @@ async def _calculate_simple_irr(user_id: str, user_token: str) -> Dict[str, Any]
     except Exception as e:
         logger.error(f"Failed to calculate IRR: {e}")
         return {"irr_percent": 0}
+
+
+@analytics_router.post("/dividends/add-manual")
+@DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="ADD_MANUAL_DIVIDEND")
+async def backend_api_add_manual_dividend(
+    request: Request,
+    user_data: Dict[str, Any] = Depends(require_authenticated_user)
+) -> Dict[str, Any]:
+    """
+    Manually add a dividend entry
+    Creates both a user_dividend record and optionally a transaction if update_cash_balance is true
+    """
+    # Extract and validate user credentials
+    user_id, user_token = extract_user_credentials(user_data)
+    
+    if not user_id:
+        raise HTTPException(status_code=401, detail="User ID not found in authentication data")
+    if not user_token:
+        raise HTTPException(status_code=401, detail="Access token not found in authentication data")
+    
+    # Parse request body
+    body = await request.json()
+    
+    # Extract and validate required fields
+    ticker = body.get('ticker', '').strip().upper()
+    company_name = body.get('company_name', '').strip()
+    payment_date = body.get('payment_date')
+    total_received = body.get('total_received')
+    amount_per_share = body.get('amount_per_share', 0)
+    fee = float(body.get('fee', 0))
+    tax = float(body.get('tax', 0))
+    note = body.get('note', '')
+    update_cash_balance = body.get('update_cash_balance', True)
+    
+    # Validation
+    if not ticker:
+        raise HTTPException(status_code=400, detail="Ticker is required")
+    if not payment_date:
+        raise HTTPException(status_code=400, detail="Payment date is required")
+    if not total_received or float(total_received) <= 0:
+        raise HTTPException(status_code=400, detail="Total received must be greater than 0")
+    
+    try:
+        total_received = float(total_received)
+        amount_per_share = float(amount_per_share) if amount_per_share else 0
+        
+        # Calculate net amount after fees and taxes
+        net_amount = total_received - fee - tax
+        
+        logger.info(f"[backend_api_analytics.py::backend_api_add_manual_dividend] Adding manual dividend for {ticker} on {payment_date}, user: {user_id}")
+        
+        # Step 1: Create the dividend record in user_dividends
+        result = await dividend_service.add_manual_dividend(
+            user_id=user_id,
+            user_token=user_token,
+            ticker=ticker,
+            payment_date=payment_date,
+            total_amount=total_received,
+            amount_per_share=amount_per_share,
+            fee=fee,
+            tax=tax,
+            note=note,
+            company_name=company_name
+        )
+        
+        if not result["success"]:
+            raise HTTPException(status_code=500, detail=result.get("error", "Failed to add dividend"))
+        
+        dividend_id = result.get("dividend_id")
+        
+        # Step 2: If update_cash_balance is true, create a transaction
+        if update_cash_balance and dividend_id:
+            # Import transaction service
+            from supa_api.supa_api_transactions import create_cash_transaction
+            
+            # Create a dividend transaction
+            transaction_result = await create_cash_transaction(
+                user_id=user_id,
+                user_token=user_token,
+                transaction_type="dividend",
+                amount=net_amount,  # Use net amount after fees/taxes
+                description=f"Dividend from {ticker} - {company_name}" if company_name else f"Dividend from {ticker}",
+                transaction_date=payment_date,
+                dividend_id=dividend_id  # Link to the dividend record
+            )
+            
+            if not transaction_result.get("success"):
+                logger.warning(f"Failed to create transaction for dividend: {transaction_result.get('error')}")
+                # Don't fail the whole operation if transaction creation fails
+        
+        return {
+            "success": True,
+            "dividend_id": dividend_id,
+            "message": "Dividend added successfully",
+            "data": {
+                "ticker": ticker,
+                "payment_date": payment_date,
+                "total_amount": total_received,
+                "net_amount": net_amount,
+                "transaction_created": update_cash_balance
+            }
+        }
+        
+    except ValueError as e:
+        logger.error(f"Validation error adding manual dividend: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error adding manual dividend: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to add dividend: {str(e)}")

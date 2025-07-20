@@ -18,6 +18,10 @@ export interface AllocationItem {
   realized_pnl: number;
   allocation_percent: number;
   color: string;
+  daily_change: number;
+  daily_change_percent: number;
+  sector?: string;
+  region?: string;
 }
 
 export interface AllocationSummary {

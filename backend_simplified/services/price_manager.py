@@ -289,7 +289,7 @@ class PriceManager:
         for key in keys_to_remove:
             self._previous_day_cache.pop(key, None)
             self._previous_day_cache_timestamp.pop(key, None)
-
+    
     async def get_market_info(self, symbol: str, user_token: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """
         Get market information for a symbol from the database

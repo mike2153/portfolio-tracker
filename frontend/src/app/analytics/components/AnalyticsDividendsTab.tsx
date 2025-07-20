@@ -4,6 +4,8 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabaseClient';
 import ApexListView from '@/components/charts/ApexListView';
+import { Plus } from 'lucide-react';
+import { AddDividendModal, ManualDividendFormState } from './AddDividendModal';
 
 // Import unified types
 import {
@@ -39,6 +41,7 @@ interface DividendConfirmRequest {
 
 export default function AnalyticsDividendsTab() {
   const [showConfirmedOnly, setShowConfirmedOnly] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
   const queryClient = useQueryClient();
   const hasAutoSynced = useRef(false);
 
@@ -66,6 +69,55 @@ export default function AnalyticsDividendsTab() {
       console.error('❌ Dividend sync failed:', error);
     }
   });
+
+  // Add manual dividend mutation
+  const addManualDividendMutation = useMutation({
+    mutationFn: async (data: ManualDividendFormState) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error('Not authenticated');
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/analytics/dividends/add-manual`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Failed to add dividend');
+      }
+      
+      return response.json();
+    },
+    onSuccess: (data) => {
+      console.log('✅ Manual dividend added successfully:', data);
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['analytics', 'dividends'] });
+      queryClient.invalidateQueries({ queryKey: ['analytics', 'dividend-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['analytics', 'summary'] });
+      if (data.transaction_created) {
+        queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      }
+    },
+    onError: (error) => {
+      console.error('❌ Failed to add manual dividend:', error);
+    }
+  });
+
+  // Handle manual dividend save
+  const handleSaveManualDividend = async (data: ManualDividendFormState, saveAndNew: boolean) => {
+    try {
+      await addManualDividendMutation.mutateAsync(data);
+      if (!saveAndNew) {
+        setShowAddModal(false);
+      }
+    } catch (error) {
+      // Error is handled in mutation onError
+    }
+  };
 
   // FIXED: Fetch dividends with unified data model
   const { data: dividendsData, isLoading: dividendsLoading, error: dividendsError } = useQuery<UserDividendData[], Error>({
@@ -542,6 +594,13 @@ export default function AnalyticsDividendsTab() {
             </div>
             <div className="flex items-center space-x-4">
               <button
+                onClick={() => setShowAddModal(true)}
+                className="px-3 py-1 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center space-x-1"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add Dividend</span>
+              </button>
+              <button
                 onClick={() => {
                   console.log('REFACTORED manual dividend sync triggered');
                   syncDividendsMutation.mutate();
@@ -608,6 +667,14 @@ export default function AnalyticsDividendsTab() {
           </div>
         </div>
       </div>
+      
+      {/* Add Dividend Modal */}
+      <AddDividendModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onSave={handleSaveManualDividend}
+        isSubmitting={addManualDividendMutation.isPending}
+      />
     </div>
   );
 }

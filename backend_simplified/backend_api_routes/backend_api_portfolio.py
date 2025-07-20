@@ -491,11 +491,91 @@ async def backend_api_get_allocation(
         allocations = []
         colors = ['emerald', 'blue', 'purple', 'orange', 'red', 'yellow', 'pink', 'indigo', 'cyan', 'lime']
         
+        # Simple sector and region mappings (can be enhanced with external data later)
+        sector_mapping = {
+            # Technology
+            'AAPL': 'Technology', 'MSFT': 'Technology', 'GOOGL': 'Technology', 'GOOG': 'Technology',
+            'META': 'Technology', 'NVDA': 'Technology', 'AMD': 'Technology', 'INTC': 'Technology',
+            'ORCL': 'Technology', 'CRM': 'Technology', 'ADBE': 'Technology', 'CSCO': 'Technology',
+            'IBM': 'Technology', 'QCOM': 'Technology', 'TXN': 'Technology', 'AVGO': 'Technology',
+            'MU': 'Technology', 'AMAT': 'Technology', 'LRCX': 'Technology', 'KLAC': 'Technology',
+            'ASML': 'Technology', 'TSM': 'Technology', 'NXPI': 'Technology', 'MRVL': 'Technology',
+            
+            # Finance
+            'JPM': 'Finance', 'BAC': 'Finance', 'WFC': 'Finance', 'GS': 'Finance',
+            'MS': 'Finance', 'C': 'Finance', 'AXP': 'Finance', 'BLK': 'Finance',
+            'SCHW': 'Finance', 'BRK.B': 'Finance', 'BRK.A': 'Finance', 'V': 'Finance',
+            'MA': 'Finance', 'PYPL': 'Finance', 'SQ': 'Finance', 'COIN': 'Finance',
+            
+            # Healthcare
+            'JNJ': 'Healthcare', 'UNH': 'Healthcare', 'PFE': 'Healthcare', 'ABBV': 'Healthcare',
+            'LLY': 'Healthcare', 'MRK': 'Healthcare', 'CVS': 'Healthcare', 'MDT': 'Healthcare',
+            'BMY': 'Healthcare', 'AMGN': 'Healthcare', 'GILD': 'Healthcare', 'ISRG': 'Healthcare',
+            
+            # Consumer
+            'AMZN': 'Consumer', 'TSLA': 'Consumer', 'WMT': 'Consumer', 'HD': 'Consumer',
+            'DIS': 'Consumer', 'NKE': 'Consumer', 'MCD': 'Consumer', 'SBUX': 'Consumer',
+            'TGT': 'Consumer', 'COST': 'Consumer', 'PG': 'Consumer', 'KO': 'Consumer',
+            'PEP': 'Consumer', 'NFLX': 'Consumer', 'ABNB': 'Consumer', 'BKNG': 'Consumer',
+            
+            # Energy
+            'XOM': 'Energy', 'CVX': 'Energy', 'COP': 'Energy', 'SLB': 'Energy',
+            'EOG': 'Energy', 'PXD': 'Energy', 'MPC': 'Energy', 'PSX': 'Energy',
+            
+            # ETFs
+            'SPY': 'ETF', 'QQQ': 'ETF', 'VOO': 'ETF', 'VTI': 'ETF', 'IWM': 'ETF',
+            'DIA': 'ETF', 'ARKK': 'ETF', 'VUG': 'ETF', 'VTV': 'ETF', 'GLD': 'ETF',
+            'SLV': 'ETF', 'USO': 'ETF', 'JEPI': 'ETF', 'JEPQ': 'ETF', 'SCHD': 'ETF',
+            'VIG': 'ETF', 'VYM': 'ETF', 'VXUS': 'ETF', 'VEA': 'ETF', 'VWO': 'ETF',
+            
+            # Crypto/Blockchain
+            'WULF': 'Technology', 'MARA': 'Technology', 'RIOT': 'Technology', 'HIVE': 'Technology',
+            'BITF': 'Technology', 'HUT': 'Technology', 'CLSK': 'Technology',
+            
+            # Industrial
+            'BA': 'Industrial', 'CAT': 'Industrial', 'GE': 'Industrial', 'LMT': 'Industrial',
+            'RTX': 'Industrial', 'DE': 'Industrial', 'UPS': 'Industrial', 'FDX': 'Industrial',
+            
+            # Real Estate
+            'AMT': 'Real Estate', 'PLD': 'Real Estate', 'CCI': 'Real Estate', 'EQIX': 'Real Estate',
+            'PSA': 'Real Estate', 'O': 'Real Estate', 'WELL': 'Real Estate', 'AVB': 'Real Estate',
+        }
+        
+        region_mapping = {
+            # US Companies
+            'AAPL': 'US', 'MSFT': 'US', 'GOOGL': 'US', 'AMZN': 'US', 'META': 'US',
+            'TSLA': 'US', 'NVDA': 'US', 'JPM': 'US', 'JNJ': 'US', 'V': 'US',
+            'WMT': 'US', 'MA': 'US', 'PG': 'US', 'HD': 'US', 'DIS': 'US',
+            'BAC': 'US', 'XOM': 'US', 'CVX': 'US', 'ABBV': 'US', 'PFE': 'US',
+            'KO': 'US', 'PEP': 'US', 'MCD': 'US', 'NKE': 'US', 'VZ': 'US',
+            'INTC': 'US', 'CSCO': 'US', 'ORCL': 'US', 'IBM': 'US', 'GS': 'US',
+            'MS': 'US', 'WFC': 'US', 'C': 'US', 'AXP': 'US', 'BLK': 'US',
+            'WULF': 'US', 'MARA': 'US', 'RIOT': 'US', 'CLSK': 'US',
+            
+            # European Companies
+            'ASML': 'Europe', 'SAP': 'Europe', 'NESN': 'Europe', 'NOVN': 'Europe',
+            'ROG': 'Europe', 'AZN': 'Europe', 'SHEL': 'Europe', 'TTE': 'Europe',
+            'SAN': 'Europe', 'BCS': 'Europe', 'UBS': 'Europe', 'CS': 'Europe',
+            'BUBSF': 'Europe',
+            
+            # Asian Companies
+            'TSM': 'Asia', 'BABA': 'Asia', 'TCEHY': 'Asia', 'JD': 'Asia',
+            'BIDU': 'Asia', 'NIO': 'Asia', 'LI': 'Asia', 'XPEV': 'Asia',
+            'SONY': 'Asia', 'TM': 'Asia', 'HMC': 'Asia', 'HIVE': 'Canada',
+            'BITF': 'Canada', 'HUT': 'Canada',
+            
+            # ETFs are global
+            'SPY': 'US', 'QQQ': 'US', 'VOO': 'US', 'VTI': 'US', 'IWM': 'US',
+            'VXUS': 'International', 'VEA': 'International', 'VWO': 'Emerging Markets',
+            'EFA': 'International', 'IEMG': 'Emerging Markets',
+        }
+        
         for idx, holding in enumerate(metrics.holdings):
             if holding.quantity > 0:  # Only include current holdings
+                symbol = holding.symbol
                 allocations.append({
-                    'symbol': holding.symbol,
-                    'company_name': holding.symbol,  # We don't store company names
+                    'symbol': symbol,
+                    'company_name': symbol,  # We don't store company names
                     'quantity': float(holding.quantity),
                     'current_price': float(holding.current_price),
                     'cost_basis': float(holding.total_cost),
@@ -505,7 +585,9 @@ async def backend_api_get_allocation(
                     'dividends_received': float(holding.dividends_received) if hasattr(holding, 'dividends_received') else 0,
                     'realized_pnl': float(holding.realized_pnl) if hasattr(holding, 'realized_pnl') else 0,
                     'allocation_percent': holding.allocation_percent,
-                    'color': colors[idx % len(colors)]
+                    'color': colors[idx % len(colors)],
+                    'sector': sector_mapping.get(symbol, 'Other'),
+                    'region': region_mapping.get(symbol, 'US')  # Default to US if not found
                 })
         
         allocation_data = {

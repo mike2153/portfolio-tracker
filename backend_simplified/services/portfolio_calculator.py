@@ -263,54 +263,67 @@ class PortfolioCalculator:
             Dict with allocations and summary
         """
         try:
-            # Get holdings first
-            portfolio_data = await PortfolioCalculator.calculate_holdings(user_id, user_token)
-            
-            if not portfolio_data['holdings']:
+            holdings_result = await PortfolioCalculator.calculate_holdings(user_id, user_token)
+            holdings = holdings_result.get("holdings", [])
+            total_value = holdings_result.get("total_value", 0)
+
+            if not holdings:
                 return {
                     "allocations": [],
                     "summary": {
-                        "total_value": 0.0,
-                        "total_cost": 0.0,
-                        "total_gain_loss": 0.0,
-                        "total_gain_loss_percent": 0.0,
-                        "total_dividends": 0.0
+                        "total_value": 0,
+                        "total_cost": 0,
+                        "total_gain_loss": 0,
+                        "total_gain_loss_percent": 0,
+                        "total_dividends": 0
                     }
                 }
             
-            # Define colors for visualization
-            colors = ['emerald', 'blue', 'purple', 'orange', 'red', 'yellow', 'pink', 'indigo', 'cyan', 'lime']
-            
-            # Calculate allocations
+            symbols = [h['symbol'] for h in holdings]
+            previous_day_prices = await price_manager.get_previous_day_prices(symbols, user_token)
+
             allocations = []
-            total_value = portfolio_data['total_value']
+            colors = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#6366F1", "#D946EF", "#F472B6"]
             
-            for idx, holding in enumerate(portfolio_data['holdings']):
-                allocation_percent = (holding['current_value'] / total_value * 100) if total_value > 0 else 0
+            for i, holding in enumerate(holdings):
+                symbol = holding['symbol']
+                quantity = Decimal(str(holding['quantity']))
+                current_price = Decimal(str(holding.get('current_price', 0)))
                 
+                daily_change = Decimal('0')
+                previous_price_data = previous_day_prices.get(symbol)
+                if previous_price_data and previous_price_data.get('close') is not None:
+                    previous_close = Decimal(str(previous_price_data['close']))
+                    daily_change = (current_price - previous_close) * quantity
+
                 allocations.append({
-                    'symbol': holding['symbol'],
-                    'company_name': holding['symbol'],  # We don't store company names in price data
-                    'quantity': holding['quantity'],
-                    'current_price': holding['current_price'],
-                    'cost_basis': holding['total_cost'],
-                    'current_value': holding['current_value'],
-                    'gain_loss': holding['gain_loss'],
-                    'gain_loss_percent': holding['gain_loss_percent'],
-                    'dividends_received': holding['dividends_received'],
-                    'allocation_percent': allocation_percent,
-                    'color': colors[idx % len(colors)]
+                    "symbol": holding["symbol"],
+                    "company_name": holding.get("company_name", holding["symbol"]),
+                    "quantity": holding["quantity"],
+                    "current_price": holding["current_price"],
+                    "cost_basis": holding["total_cost"],
+                    "current_value": holding["current_value"],
+                    "gain_loss": holding["gain_loss"],
+                    "gain_loss_percent": holding["gain_loss_percent"],
+                    "dividends_received": holding.get("dividends_received", 0),
+                    "realized_pnl": holding.get("realized_pnl", 0),
+                    "allocation_percent": (holding["current_value"] / total_value * 100) if total_value > 0 else 0,
+                    "color": colors[i % len(colors)],
+                    "daily_change": float(daily_change),
+                    "daily_change_percent": float(daily_change / (Decimal(str(holding['current_value'])) - daily_change) * 100) if (Decimal(str(holding['current_value'])) - daily_change) != 0 else 0,
                 })
+            
+            summary = {
+                "total_value": holdings_result.get("total_value", 0),
+                    "total_cost": holdings_result.get("total_cost", 0),
+                    "total_gain_loss": holdings_result.get("total_gain_loss", 0),
+                    "total_gain_loss_percent": holdings_result.get("total_gain_loss_percent", 0),
+                    "total_dividends": holdings_result.get("total_dividends", 0)
+                }
             
             return {
                 "allocations": allocations,
-                "summary": {
-                    "total_value": portfolio_data['total_value'],
-                    "total_cost": portfolio_data['total_cost'],
-                    "total_gain_loss": portfolio_data['total_gain_loss'],
-                    "total_gain_loss_percent": portfolio_data['total_gain_loss_percent'],
-                    "total_dividends": portfolio_data['total_dividends']
-                }
+                "summary": summary
             }
             
         except Exception as e:

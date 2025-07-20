@@ -4,7 +4,7 @@ import { useAuth } from './AuthProvider'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import SidebarLink from './SidebarLink'
-import { Home, BarChart2, Briefcase, Wrench, Users, Plus, Search, PlusCircle } from 'lucide-react'
+import { Home, BarChart2, Briefcase, Wrench, Users, Plus, Search, PlusCircle, Star } from 'lucide-react'
 
 interface ConditionalLayoutProps {
   children: React.ReactNode
@@ -39,6 +39,7 @@ export default function ConditionalLayout({ children }: ConditionalLayoutProps) 
               <SidebarLink href="/dashboard" icon={<Home className="h-5 w-5" />}>Dashboard</SidebarLink>
               <SidebarLink href="/analytics" icon={<BarChart2 className="h-5 w-5" />}>Analytics</SidebarLink>
               <SidebarLink href="/portfolio" icon={<Briefcase className="h-5 w-5" />}>Portfolio</SidebarLink>
+              <SidebarLink href="/watchlist" icon={<Star className="h-5 w-5" />}>Watchlist</SidebarLink>
               <SidebarLink href="/transactions" icon={<PlusCircle className="h-5 w-5" />}>Transactions</SidebarLink>
               <SidebarLink href="/research" icon={<Search className="h-5 w-5" />}>Research</SidebarLink>
               <SidebarLink href="/tools" icon={<Wrench className="h-5 w-5" />}>Tools</SidebarLink>

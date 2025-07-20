@@ -14,8 +14,8 @@ export interface ListViewColumn<T> {
 }
 
 export interface ListViewAction<T> {
-  label: string;
-  icon?: React.ReactNode;
+  label: string | ((item: T) => string);
+  icon?: React.ReactNode | ((item: T) => React.ReactNode);
   onClick: (item: T) => void;
   className?: string;
   disabled?: (item: T) => boolean;
@@ -327,9 +327,9 @@ export default function ApexListView<T extends Record<string, any>>({
                                   className={`p-2 rounded-md transition-colors ${
                                     action.className || 'text-gray-400 hover:text-white hover:bg-gray-600'
                                   } ${action.disabled?.(item) ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                  title={action.label}
+                                  title={typeof action.label === 'function' ? action.label(item) : action.label}
                                 >
-                                  {action.icon || <MoreHorizontal className="w-4 h-4" />}
+                                  {typeof action.icon === 'function' ? action.icon(item) : (action.icon || <MoreHorizontal className="w-4 h-4" />)}
                                 </button>
                               ))}
                             </div>
@@ -367,7 +367,7 @@ export default function ApexListView<T extends Record<string, any>>({
                               action.className || 'bg-gray-600 text-white hover:bg-gray-500'
                             } ${action.disabled?.(item) ? 'opacity-50 cursor-not-allowed' : ''}`}
                           >
-                            {action.label}
+                            {typeof action.label === 'function' ? action.label(item) : action.label}
                           </button>
                         ))}
                       </div>

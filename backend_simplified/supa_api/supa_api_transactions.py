@@ -335,3 +335,72 @@ async def supa_api_get_transaction_summary(user_id: str, user_token: Optional[st
             user_id=user_id
         )
         raise 
+
+
+@DebugLogger.log_api_call(api_name="SUPABASE", sender="BACKEND", receiver="SUPA_API", operation="CREATE_CASH_TRANSACTION")
+async def create_cash_transaction(
+    user_id: str,
+    user_token: str,
+    transaction_type: str,
+    amount: float,
+    description: str,
+    transaction_date: str,
+    dividend_id: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Create a cash transaction (dividend, deposit, withdrawal)
+    Used for tracking cash movements that affect portfolio cash balance
+    """
+    logger.info(f"[supa_api_transactions.py::create_cash_transaction] Creating cash transaction for user: {user_id}")
+    
+    try:
+        # Prepare transaction data
+        transaction_data = {
+            'user_id': user_id,
+            'symbol': 'CASH',  # Use CASH as symbol for cash transactions
+            'transaction_type': transaction_type.upper(),  # DIVIDEND, DEPOSIT, WITHDRAWAL
+            'quantity': 1,  # Cash transactions always have quantity 1
+            'price': amount,  # Amount is stored in price field
+            'date': transaction_date,
+            'commission': 0,
+            'notes': description,
+            'dividend_id': dividend_id  # Link to dividend if applicable
+        }
+        
+        # Use authenticated client for security
+        if user_token:
+            client = create_client(SUPA_API_URL, SUPA_API_ANON_KEY)
+            client.postgrest.auth(user_token)
+        else:
+            raise ValueError("User token is required for cash transactions")
+        
+        # Insert transaction
+        result = client.table('transactions') \
+            .insert(transaction_data) \
+            .execute()
+        
+        if result.data and len(result.data) > 0:
+            logger.info(f"[supa_api_transactions.py::create_cash_transaction] Cash transaction created: {result.data[0]['id']}")
+            return {
+                "success": True,
+                "transaction_id": result.data[0]['id'],
+                "data": result.data[0]
+            }
+        else:
+            logger.error(f"[supa_api_transactions.py::create_cash_transaction] Failed to create cash transaction")
+            return {
+                "success": False,
+                "error": "Failed to create transaction"
+            }
+            
+    except Exception as e:
+        logger.error(f"[supa_api_transactions.py::create_cash_transaction] Error creating cash transaction: {e}")
+        DebugLogger.log_error(
+            file_name="supa_api_transactions.py",
+            function_name="create_cash_transaction",
+            error=e
+        )
+        return {
+            "success": False,
+            "error": str(e)
+        }

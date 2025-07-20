@@ -1,14 +1,16 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import ApexListView from '@/components/charts/ApexListView';
 import type { ListViewColumn, ListViewAction } from '@/components/charts/ApexListView';
-import { AllocationRow } from '@/types/api';
 import { cn } from '@/lib/utils';
 import { useDashboard } from '../contexts/DashboardContext';
-import { usePortfolioAllocation } from '@/hooks/usePortfolioAllocation';
+import { usePortfolioAllocation, AllocationItem } from '@/hooks/usePortfolioAllocation';
+import { Star, StarOff } from 'lucide-react';
+import { front_api_get_watchlist, front_api_add_to_watchlist, front_api_remove_from_watchlist } from '@/hooks/api/front_api_watchlist';
+import { useToast } from '@/components/ui/Toast';
 
-interface AllocationRowExtended extends AllocationRow {
+interface AllocationRowExtended extends AllocationItem {
   id: string;
   accentColorClass: string;
 }
@@ -16,48 +18,57 @@ interface AllocationRowExtended extends AllocationRow {
 const AllocationTableApex = () => {
   useDashboard();
   const { data: allocationData, isLoading, isError, error, refetch } = usePortfolioAllocation();
+  const [watchlistItems, setWatchlistItems] = useState<Set<string>>(new Set());
+  const { addToast } = useToast();
 
-  // Add defensive function to safely format allocation
-  const safeFormatAllocation = (allocation: any): string => {
-    //console.log('[AllocationTableApex] safeFormatAllocation called with:', allocation, 'type:', typeof allocation);
-    
-    // Handle null/undefined
-    if (allocation == null) {
-      //console.log('[AllocationTableApex] safeFormatAllocation: allocation is null/undefined, returning 0.00%');
-      return '0.00%';
+  // Load watchlist status on mount
+  useEffect(() => {
+    loadWatchlistStatus();
+  }, []);
+
+  const loadWatchlistStatus = async () => {
+    try {
+      const response = await front_api_get_watchlist(false);
+      if (response.success) {
+        const symbols = new Set(response.watchlist.map(item => item.symbol));
+        setWatchlistItems(symbols);
+      }
+    } catch (err) {
+      console.error('Failed to load watchlist status:', err);
     }
-    
-    // If it's already a number, use toFixed
-    if (typeof allocation === 'number') {
-      //console.log('[AllocationTableApex] safeFormatAllocation: allocation is number, using toFixed');
-      return `${allocation.toFixed(2)}%`;
-    }
-    
-    // If it's a string, try to parse it
-    if (typeof allocation === 'string') {
-      //console.log('[AllocationTableApex] safeFormatAllocation: allocation is string, attempting to parse');
-      const parsed = parseFloat(allocation);
-      if (!isNaN(parsed)) {
-        //console.log('[AllocationTableApex] safeFormatAllocation: successfully parsed string to number:', parsed);
-        return `${parsed.toFixed(2)}%`;
+  };
+
+  const handleWatchlistToggle = async (item: AllocationRowExtended) => {
+    try {
+      if (watchlistItems.has(item.symbol)) {
+        await front_api_remove_from_watchlist(item.symbol);
+        setWatchlistItems(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(item.symbol);
+          return newSet;
+        });
+        addToast({
+          type: 'success',
+          title: "Success",
+          message: `${item.symbol} removed from watchlist`
+        });
       } else {
-        //console.log('[AllocationTableApex] safeFormatAllocation: failed to parse string, returning raw value');
-        return allocation; // Return as-is if can't parse
+        await front_api_add_to_watchlist(item.symbol);
+        setWatchlistItems(prev => new Set(prev).add(item.symbol));
+        addToast({
+          type: 'success',
+          title: "Success",
+          message: `${item.symbol} added to watchlist`
+        });
       }
+    } catch (err) {
+      console.error('Failed to update watchlist:', err);
+      addToast({
+        type: 'error',
+        title: "Error",
+        message: "Failed to update watchlist"
+      });
     }
-    
-    // Handle objects with value property (legacy format)
-    if (typeof allocation === 'object' && allocation !== null) {
-      //console.log('[AllocationTableApex] safeFormatAllocation: allocation is object, checking for value property');
-      if ('value' in allocation && typeof allocation.value === 'number') {
-        //console.log('[AllocationTableApex] safeFormatAllocation: found value property in object:', allocation.value);
-        return `${allocation.value.toFixed(2)}%`;
-      }
-    }
-    
-    // Fallback
-    //console.log('[AllocationTableApex] safeFormatAllocation: unhandled type, returning 0.00%');
-    return '0.00%';
   };
 
   // Transform data for ApexListView
@@ -66,28 +77,17 @@ const AllocationTableApex = () => {
       return { listViewData: [], columns: [], actions: [] };
     }
     
-    // Transform allocations to AllocationRow format
-    const rows: AllocationRow[] = allocationData.allocations.map((allocation) => ({
-      groupKey: allocation.symbol,
-      value: allocation.current_value,
-      invested: allocation.cost_basis,
-      gainValue: allocation.gain_loss,
-      gainPercent: allocation.gain_loss_percent,
-      allocation: allocation.allocation_percent,
-      accentColor: allocation.color
-    }));
-
-    // Transform rows to extended format
-    const transformedData: AllocationRowExtended[] = rows.map((row: AllocationRow, index: number) => ({
-      ...row,
-      id: row.groupKey || `row_${index}`,
-      accentColorClass: `bg-${row.accentColor}-500`
+    // Transform allocations to extended format
+    const transformedData: AllocationRowExtended[] = allocationData.allocations.map((allocation, index) => ({
+      ...allocation,
+      id: allocation.symbol || `row_${index}`,
+      accentColorClass: `bg-${allocation.color}-500`
     }));
 
     // Define columns
     const tableColumns: ListViewColumn<AllocationRowExtended>[] = [
       {
-        key: 'groupKey',
+        key: 'symbol',
         label: 'Symbol',
         sortable: true,
         searchable: true,
@@ -100,7 +100,7 @@ const AllocationTableApex = () => {
         width: '150px'
       },
       {
-        key: 'value',
+        key: 'current_value',
         label: 'Current Value',
         sortable: true,
         render: (value) => (
@@ -111,7 +111,7 @@ const AllocationTableApex = () => {
         width: '130px'
       },
       {
-        key: 'invested',
+        key: 'cost_basis',
         label: 'Amount Invested',
         sortable: true,
         render: (value) => (
@@ -120,7 +120,7 @@ const AllocationTableApex = () => {
         width: '130px'
       },
       {
-        key: 'gainValue',
+        key: 'gain_loss',
         label: 'Gain/Loss ($)',
         sortable: true,
         render: (value) => (
@@ -131,7 +131,7 @@ const AllocationTableApex = () => {
         width: '120px'
       },
       {
-        key: 'gainPercent',
+        key: 'gain_loss_percent',
         label: 'Gain/Loss (%)',
         sortable: true,
         render: (value) => (
@@ -142,12 +142,12 @@ const AllocationTableApex = () => {
         width: '120px'
       },
       {
-        key: 'allocation',
+        key: 'allocation_percent',
         label: 'Allocation',
         sortable: true,
         render: (value) => (
           <div className="font-medium text-white">
-            {safeFormatAllocation(value)}
+            {Number(value).toFixed(2)}%
           </div>
         ),
         width: '100px'
@@ -157,9 +157,15 @@ const AllocationTableApex = () => {
     // Define actions
     const tableActions: ListViewAction<AllocationRowExtended>[] = [
       {
+        label: (item) => watchlistItems.has(item.symbol) ? 'Remove from Watchlist' : 'Add to Watchlist',
+        icon: (item) => watchlistItems.has(item.symbol) ? <StarOff className="h-4 w-4" /> : <Star className="h-4 w-4" />,
+        onClick: handleWatchlistToggle,
+        className: 'text-yellow-400 hover:text-yellow-300'
+      },
+      {
         label: 'View Details',
         onClick: (item) => {
-          //console.log('[AllocationTableApex] View details for:', item.groupKey);
+          //console.log('[AllocationTableApex] View details for:', item.symbol);
           // TODO: Navigate to stock details page
         },
         className: 'text-blue-400 hover:text-blue-300'
@@ -167,7 +173,7 @@ const AllocationTableApex = () => {
       {
         label: 'Add Transaction',
         onClick: (item) => {
-          //console.log('[AllocationTableApex] Add transaction for:', item.groupKey);
+          //console.log('[AllocationTableApex] Add transaction for:', item.symbol);
           // TODO: Open add transaction modal with pre-filled symbol
         },
         className: 'text-green-400 hover:text-green-300'
@@ -179,7 +185,7 @@ const AllocationTableApex = () => {
       columns: tableColumns,
       actions: tableActions
     };
-  }, [allocationData]);
+  }, [allocationData, watchlistItems, handleWatchlistToggle]);
 
   return (
     <ApexListView

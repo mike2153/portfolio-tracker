@@ -2211,5 +2211,88 @@ class DividendService:
             DebugLogger.log_error(file_name="dividend_service.py", function_name="full_dividend_sync_and_assignment", error=e)
             return {"success": False, "error": str(e)}
 
+    async def add_manual_dividend(
+        self,
+        user_id: str,
+        user_token: str,
+        ticker: str,
+        payment_date: str,
+        total_amount: float,
+        amount_per_share: float = 0,
+        fee: float = 0,
+        tax: float = 0,
+        note: str = "",
+        company_name: str = ""
+    ) -> Dict[str, Any]:
+        """
+        Add a manually entered dividend for a user
+        Creates a confirmed dividend record with all provided details
+        """
+        try:
+            logger.info(f"[DividendService] Adding manual dividend for user {user_id}, ticker {ticker}")
+            
+            # If no company name provided, try to get it
+            if not company_name:
+                company_name = self._get_company_name(ticker)
+            
+            # Calculate shares held if amount_per_share is provided
+            shares_held = None
+            if amount_per_share > 0:
+                shares_held = total_amount / amount_per_share
+            
+            # Prepare dividend data
+            dividend_data = {
+                'user_id': user_id,
+                'symbol': ticker,
+                'ex_date': payment_date,  # For manual dividends, use payment date as ex date
+                'pay_date': payment_date,
+                'amount': amount_per_share if amount_per_share > 0 else total_amount,  # Per-share amount
+                'total_amount': total_amount,
+                'shares_held_at_ex_date': shares_held,
+                'currency': 'USD',
+                'confirmed': True,  # Manual dividends are pre-confirmed
+                'status': 'paid',  # Manual dividends are already paid
+                'dividend_type': 'cash',
+                'source': 'manual',
+                'note': note,
+                'fee': fee,
+                'tax': tax,
+                'declaration_date': None,
+                'record_date': None
+            }
+            
+            # Insert into user_dividends table
+            result = self.supa_client.table('user_dividends') \
+                .insert(dividend_data) \
+                .execute()
+            
+            if result.data and len(result.data) > 0:
+                dividend_id = result.data[0].get('id')
+                logger.info(f"[DividendService] Successfully added manual dividend {dividend_id} for {ticker}")
+                
+                return {
+                    "success": True,
+                    "dividend_id": dividend_id,
+                    "data": result.data[0]
+                }
+            else:
+                logger.error(f"[DividendService] Failed to insert manual dividend for {ticker}")
+                return {
+                    "success": False,
+                    "error": "Failed to insert dividend record"
+                }
+                
+        except Exception as e:
+            logger.error(f"[DividendService] Error adding manual dividend: {e}")
+            DebugLogger.log_error(
+                file_name="dividend_service.py",
+                function_name="add_manual_dividend",
+                error=e
+            )
+            return {
+                "success": False,
+                "error": str(e)
+            }
+
 # Create singleton instance
 dividend_service = DividendService()

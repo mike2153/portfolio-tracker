@@ -4,6 +4,8 @@ import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Search, Star, StarOff, TrendingUp, BarChart3, DollarSign, FileText, GitCompare } from 'lucide-react';
 import { front_api_client } from '@/lib/front_api_client';
+import { front_api_add_to_watchlist, front_api_remove_from_watchlist, front_api_check_watchlist_status } from '@/hooks/api/front_api_watchlist';
+import { useToast } from '@/components/ui/Toast';
 import type { 
   StockResearchTab, 
   StockResearchData
@@ -33,6 +35,7 @@ const TABS: { id: StockResearchTab; label: string; icon: React.ReactNode }[] = [
 function StockResearchPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { addToast } = useToast();
   
   // State
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
@@ -113,6 +116,15 @@ function StockResearchPageContent() {
       const data = await front_api_client.front_api_get_stock_research_data(ticker);
       console.log(`[ResearchPage] Stock data received for ${ticker}:`, data);
       
+      // Check watchlist status
+      let isInWatchlist = false;
+      try {
+        const watchlistStatus = await front_api_check_watchlist_status(ticker);
+        isInWatchlist = watchlistStatus.is_in_watchlist;
+      } catch (err) {
+        console.error('[ResearchPage] Error checking watchlist status:', err);
+      }
+      
       if (data) {
         setStockData(prev => ({
           ...prev,
@@ -124,7 +136,7 @@ function StockResearchPageContent() {
             notes: data.notes || [],
             financials: data.financials || {},
             dividends: data.dividends || [],
-            isInWatchlist: Boolean(data.isInWatchlist)
+            isInWatchlist: isInWatchlist
           } as StockResearchData
         }));
         console.log(`[ResearchPage] Stock data set for ${ticker}, overview keys:`, Object.keys(data.fundamentals || {}));
@@ -153,18 +165,27 @@ function StockResearchPageContent() {
     if (!selectedTicker) return;
     
     try {
-      const isInWatchlist = watchlist.includes(selectedTicker);
+      const currentData = stockData[selectedTicker];
+      const isInWatchlist = currentData?.isInWatchlist || false;
       
       if (isInWatchlist) {
-        // Remove from watchlist - API not yet implemented
-        // console.log('[ResearchPage] Remove from watchlist - API not yet implemented');
-        alert('Remove from watchlist feature is being migrated and will be available soon.');
+        // Remove from watchlist
+        await front_api_remove_from_watchlist(selectedTicker);
         setWatchlist(prev => prev.filter(t => t !== selectedTicker));
+        addToast({
+          type: 'success',
+          title: "Success",
+          message: `${selectedTicker} removed from watchlist`
+        });
       } else {
-        // Add to watchlist - API not yet implemented
-        // console.log('[ResearchPage] Add to watchlist - API not yet implemented');
-        alert('Add to watchlist feature is being migrated and will be available soon.');
+        // Add to watchlist
+        await front_api_add_to_watchlist(selectedTicker);
         setWatchlist(prev => [...prev, selectedTicker]);
+        addToast({
+          type: 'success',
+          title: "Success",
+          message: `${selectedTicker} added to watchlist`
+        });
       }
       
       // Update stock data
@@ -177,6 +198,11 @@ function StockResearchPageContent() {
       }));
     } catch (error) {
       console.error('Error toggling watchlist:', error);
+      addToast({
+        type: 'error',
+        title: "Error",
+        message: "Failed to update watchlist"
+      });
     }
   };
 
@@ -187,7 +213,7 @@ function StockResearchPageContent() {
   };
 
   const currentData = selectedTicker ? stockData[selectedTicker] : undefined;
-  const isInWatchlist = selectedTicker ? watchlist.includes(selectedTicker) : false;
+  const isInWatchlist = currentData?.isInWatchlist || false;
 
   const renderTabContent = () => {
     if (!selectedTicker || !currentData) {

@@ -333,7 +333,7 @@ async def supa_api_get_historical_prices(
     symbol: str,
     start_date: str,
     end_date: str,
-    _user_token: str,
+    user_token: str,
 ) -> List[Dict[str, Any]]:
     """
     Get historical price data from database for a symbol within date range
@@ -452,7 +452,7 @@ async def supa_api_get_historical_prices_batch(
     symbols: List[str],
     start_date: str,
     end_date: str,
-    _user_token: str,
+    user_token: str,
 ) -> List[Dict[str, Any]]:
     """
     Get historical price data from database for multiple symbols within date range (batch optimized)
@@ -508,7 +508,7 @@ async def supa_api_get_historical_prices_batch(
 async def supa_api_get_prices_for_date_batch(
     symbols: List[str],
     target_date: date,
-    _user_token: str,
+    user_token: str,
 ) -> Dict[str, Dict[str, Any]]:
     """
     Get historical prices for a batch of symbols on a specific date.
