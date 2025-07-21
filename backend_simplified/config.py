@@ -24,11 +24,17 @@ BACKEND_API_DEBUG = os.getenv("BACKEND_API_DEBUG", "True").lower() == "true"
 
 # CORS Settings
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
-ALLOWED_ORIGINS = [
-    FRONTEND_URL,
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
+
+# During development, allow all origins for Expo Go testing
+# In production, restrict to specific origins
+if BACKEND_API_DEBUG:
+    ALLOWED_ORIGINS = ["*"]  # Allow all origins in debug mode for mobile testing
+else:
+    ALLOWED_ORIGINS = [
+        FRONTEND_URL,
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
 
 # Cache Settings
 CACHE_TTL_SECONDS = int(os.getenv("CACHE_TTL_SECONDS", "3600"))  # 1 hour default
