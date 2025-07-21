@@ -197,3 +197,159 @@ export interface DividendForecast {
   next12mTotal: number;
   monthlyAvg: number;
 }
+
+// =================
+// MOBILE APP TYPES
+// =================
+
+// Analytics Types
+export interface AnalyticsHolding {
+  symbol: string;
+  quantity: number;
+  current_price: number;
+  current_value: number;
+  cost_basis: number;
+  unrealized_gain: number;
+  unrealized_gain_percent: number;
+  realized_pnl: number;
+  dividends_received: number;
+  total_profit: number;
+  total_profit_percent: number;
+  daily_change: number;
+  daily_change_percent: number;
+  irr_percent: number;
+}
+
+export interface AnalyticsSummary {
+  portfolio_value: number;
+  total_profit: number;
+  total_profit_percent: number;
+  irr_percent: number;
+  passive_income_ytd: number;
+  cash_balance: number;
+  dividend_summary: {
+    total_received: number;
+    total_pending: number;
+    ytd_received: number;
+    confirmed_count: number;
+    pending_count: number;
+  };
+}
+
+export interface DividendData {
+  id: string;
+  symbol: string;
+  ex_date: string;
+  pay_date: string;
+  amount: number;
+  currency: string;
+  confirmed: boolean;
+  current_holdings: number;
+  projected_amount?: number;
+  created_at: string;
+}
+
+// Watchlist Types
+export interface WatchlistItem {
+  id: string;
+  ticker: string;
+  companyName: string;
+  price: number;
+  change: number;
+  changePercent: number;
+  volume: number;
+  dayHigh: number;
+  dayLow: number;
+  marketCap: string;
+  alert?: {
+    type: 'above' | 'below';
+    price: number;
+  };
+}
+
+export interface WatchlistGroup {
+  id: string;
+  name: string;
+  items: WatchlistItem[];
+}
+
+// Research Types
+export interface ResearchStockQuote {
+  ticker: string;
+  companyName: string;
+  price: number;
+  change: number;
+  changePercent: number;
+  volume: number;
+  marketCap: string;
+  pe: number;
+  dividend: number;
+  sector: string;
+}
+
+export interface NewsItem {
+  id: string;
+  title: string;
+  summary: string;
+  source: string;
+  time: string;
+  sentiment: 'positive' | 'negative' | 'neutral';
+}
+
+export interface MarketIndex {
+  name: string;
+  value: number;
+  change: number;
+  changePercent: number;
+}
+
+// Stock Price Data Types
+export interface StockPriceData {
+  time: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+export interface StockPricesResponse {
+  success: boolean;
+  data?: {
+    symbol: string;
+    price_data: StockPriceData[];
+    years_requested: number;
+    years_available: number;
+    data_points: number;
+  };
+  metadata?: {
+    cache_status: string;
+    data_sources: string[];
+    last_updated: string;
+    gaps_filled: number;
+    timestamp: string;
+  };
+  error?: string;
+}
+
+// News Response Types
+export interface NewsResponse {
+  success: boolean;
+  data?: {
+    articles: NewsItem[];
+  };
+  error?: string;
+}
+
+// Company Financials Types
+export interface FinancialsResponse {
+  success: boolean;
+  data?: any;
+  metadata?: {
+    symbol: string;
+    data_type: string;
+    cache_status: 'hit' | 'miss' | 'force_refresh' | 'error';
+    timestamp: string;
+  };
+  error?: string;
+}

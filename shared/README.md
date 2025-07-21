@@ -31,15 +31,52 @@ Required variables:
 
 ## Usage
 
-Import from the shared module in your Next.js or Expo app:
+### In Frontend (Next.js)
+
+The shared module is installed as a local dependency. Import like any npm package:
 
 ```typescript
-// Import API client
-import { front_api_client } from '../shared/api';
+// Import API client and functions
+import { front_api_client, front_api_get_dashboard } from '@portfolio-tracker/shared';
 
 // Import types
-import { ApiResponse, DashboardOverview } from '../shared/types';
+import { ApiResponse, DashboardOverview, AnalyticsSummary } from '@portfolio-tracker/shared';
+
+// Import utilities and constants
+import { supabase, formatCurrency, COLORS, API_ENDPOINTS } from '@portfolio-tracker/shared';
+```
+
+For backward compatibility, the frontend re-exports from `@/lib/front_api_client`.
+
+### In Mobile (React Native/Expo)
+
+Same import pattern:
+
+```typescript
+// Import API functions
+import { front_api_get_portfolio, authFetch } from '@portfolio-tracker/shared';
+
+// Import types
+import { WatchlistItem, NewsItem, ResearchStockQuote } from '@portfolio-tracker/shared';
 
 // Import utilities
-import { supabase, logger } from '../shared/utils';
+import { formatPercentage, formatLargeNumber, validateAddHoldingForm } from '@portfolio-tracker/shared';
 ```
+
+### Available Exports
+
+**API Functions:**
+- All `front_api_*` functions for backend communication
+- `authFetch` for custom authenticated requests
+- `supabase` client instance
+
+**Types:**
+- API response types: `ApiResponse`, `SymbolSearchResponse`, etc.
+- Business types: `Holding`, `Portfolio`, `StockQuote`, etc.
+- Mobile types: `WatchlistItem`, `NewsItem`, `MarketIndex`, etc.
+- Form types: `AddHoldingFormData`, `ValidationResult`, etc.
+
+**Utilities:**
+- Formatters: `formatCurrency`, `formatPercentage`, `formatDate`, etc.
+- Validators: `isValidEmail`, `isValidTicker`, `validateAddHoldingForm`, etc.
+- Constants: `COLORS`, `API_ENDPOINTS`, `TIME_PERIODS`, etc.

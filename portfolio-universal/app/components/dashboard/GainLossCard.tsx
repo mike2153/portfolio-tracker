@@ -2,9 +2,9 @@ import React from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
-import { useDashboard } from '../../../shared/contexts/DashboardContext';
-import { useAuth } from '../../../shared/components/AuthProvider';
-import { authFetch } from '../../../shared/api/client';
+import { useDashboard } from '../../contexts/DashboardContext';
+import { useAuth } from '../AuthProvider';
+import { authFetch } from '@portfolio-tracker/shared';
 
 interface GainerLoserRow {
   ticker: string;

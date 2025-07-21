@@ -1,44 +1,30 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
 // Environment variable names differ between Next.js and Expo
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL || ''
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || ''
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    'Supabase credentials are missing. Please set NEXT_PUBLIC_SUPABASE_URL/EXPO_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY/EXPO_PUBLIC_SUPABASE_ANON_KEY.'
-  )
-}
+// Create a lazy-initialized supabase client
+let supabaseInstance: SupabaseClient | null = null;
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const getSupabase = () => {
+  if (!supabaseInstance) {
+    if (!supabaseUrl || !supabaseAnonKey) {
+      throw new Error(
+        'Supabase credentials are missing. Please set NEXT_PUBLIC_SUPABASE_URL/EXPO_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY/EXPO_PUBLIC_SUPABASE_ANON_KEY.'
+      )
+    }
+    supabaseInstance = createClient(supabaseUrl, supabaseAnonKey);
+  }
+  return supabaseInstance;
+};
 
-// Type definitions for our database schema
-export interface Profile {
-  id: string
-  full_name: string | null
-  avatar_url: string | null
-  subscription_status: string | null
-  paddle_customer_id: string | null
-}
+// Export for backward compatibility
+export const supabase = new Proxy({} as SupabaseClient, {
+  get: (target, prop) => {
+    const instance = getSupabase();
+    return instance[prop as keyof SupabaseClient];
+  }
+});
 
-export interface Portfolio {
-  id: number
-  user_id: string
-  name: string
-  created_at: string
-}
-
-export interface Holding {
-  id: number
-  portfolio_id: number
-  user_id: string
-  ticker: string
-  company_name: string | null
-  exchange: string | null
-  shares: number
-  purchase_price: number
-  purchase_date: string
-  commission: number
-  created_at: string
-  updated_at: string
-}
+// Type definitions are imported from ../types/api.ts to avoid duplication

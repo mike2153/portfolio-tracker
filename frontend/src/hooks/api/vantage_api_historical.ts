@@ -1,7 +1,7 @@
 /**
  * Helper functions for historical price data calculations.
  */
-import { front_api_client } from "@/lib/front_api_client";
+import { front_api_client } from "@portfolio-tracker/shared";
 
 /**
  * Calculate Year-to-Date (YTD) return for a stock.

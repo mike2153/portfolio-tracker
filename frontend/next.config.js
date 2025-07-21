@@ -21,6 +21,8 @@ const nextConfig = {
     }
     return config
   },
+  // Transpile the shared module
+  transpilePackages: ['@portfolio-tracker/shared'],
 }
 
 module.exports = nextConfig 

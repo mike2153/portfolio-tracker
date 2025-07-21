@@ -38,7 +38,12 @@
       "WebFetch(domain:www.alphavantage.co)",
       "Bash(touch:*)",
       "Bash(npm install:*)",
-      "Bash(npx expo start:*)"
+      "Bash(npx expo start:*)",
+      "Bash(npm ls:*)",
+      "Bash(npx:*)",
+      "Bash(node:*)",
+      "Bash(wc:*)",
+      "Bash(docker exec:*)"
     ],
     "deny": []
   }

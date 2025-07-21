@@ -5,13 +5,15 @@
  * `import '@/lib/front_api_client'` errors across the codebase.
  */
 
-import { supabase } from '../utils/supabaseClient';
+import { getSupabase } from '../utils/supabaseClient';
 import { ApiResponse, DashboardOverview } from '../types/api';
 
 // Use appropriate environment variable based on platform
 const API_BASE = process.env.NEXT_PUBLIC_BACKEND_API_URL ?? 
                  process.env.EXPO_PUBLIC_BACKEND_API_URL ?? 
                  'http://localhost:8000';
+
+console.log('[front_api_client] API_BASE:', API_BASE);
 
 /**
  * A wrapper around fetch that automatically adds the Supabase auth token.
@@ -20,7 +22,7 @@ const API_BASE = process.env.NEXT_PUBLIC_BACKEND_API_URL ??
  * @param init The request init options (e.g., method, body)
  * @returns The fetch response
  */
-async function authFetch(path: string, init: RequestInit = {}) {
+export async function authFetch(path: string, init: RequestInit = {}) {
   // Helper function to make authenticated request
   const makeAuthenticatedRequest = async (token: string) => {
     const headers = new Headers(init.headers);
@@ -37,17 +39,18 @@ async function authFetch(path: string, init: RequestInit = {}) {
       headers,
     };
     
+    console.log('[front_api_client] Making request to:', fullUrl);
     return fetch(fullUrl, requestConfig);
   };
 
-  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  const { data: { session }, error: sessionError } = await getSupabase().auth.getSession();
   
   if (sessionError) {
   }
 
   if (!session?.access_token) {
     // Try to refresh the session
-    const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
+    const { data: { session: refreshedSession }, error: refreshError } = await getSupabase().auth.refreshSession();
     
     if (refreshError) {
       // Make unauthenticated request
@@ -435,7 +438,7 @@ export async function front_api_get_stock_prices(
   console.log(`[front_api_client] Getting price data for ${ticker} (${period})`);
   
   try {
-    const response = await authFetch(`/api/stock_prices/${ticker}${period}`);
+    const response = await authFetch(`/api/stock_prices/${ticker}?period=${period}`);
     const data = await response.json();
     console.log(`[front_api_client] Price data response for ${ticker}:`, {
       success: data.success,

@@ -2,9 +2,9 @@ import React from 'react';
 import { View, Text, ActivityIndicator } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import KPICard from './KPICard';
-import { useDashboard } from '../../../shared/contexts/DashboardContext';
-import { useAuth } from '../../../shared/components/AuthProvider';
-import { front_api_get_dashboard, front_api_get_analytics_summary } from '../../../shared/api/client';
+import { useDashboard } from '../../contexts/DashboardContext';
+import { useAuth } from '../AuthProvider';
+import { front_api_get_dashboard, front_api_get_analytics_summary } from '@portfolio-tracker/shared';
 
 interface KPIGridProps {
   initialData?: any;

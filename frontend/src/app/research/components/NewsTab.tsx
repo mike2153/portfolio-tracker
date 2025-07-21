@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { StockResearchData, NewsArticle } from '@/types/stock-research';
-import { front_api_client } from '@/lib/front_api_client';
+import { front_api_client } from '@portfolio-tracker/shared';
 import { RefreshCw, ExternalLink, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
 interface NewsTabProps {

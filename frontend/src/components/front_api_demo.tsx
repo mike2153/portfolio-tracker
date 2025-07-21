@@ -11,7 +11,7 @@ import {
   front_api_get_stock_overview,
   front_api_validate_auth_token,
   front_api_health_check
-} from '@/lib/front_api_client';
+} from '@portfolio-tracker/shared';
 
 export default function FrontApiDemo() {
   const [results, setResults] = useState<any>({});

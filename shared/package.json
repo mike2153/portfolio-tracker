@@ -1,0 +1,41 @@
+{
+  "name": "@portfolio-tracker/shared",
+  "version": "1.0.0",
+  "description": "Shared utilities, types, and API client for Portfolio Tracker web and mobile apps",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "files": [
+    "index.ts",
+    "api/**/*.ts",
+    "types/**/*.ts",
+    "utils/**/*.ts",
+    "dist/**/*"
+  ],
+  "keywords": [
+    "portfolio",
+    "stocks",
+    "trading",
+    "react",
+    "react-native",
+    "nextjs",
+    "expo"
+  ],
+  "author": "Portfolio Tracker Team",
+  "license": "MIT",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.52.0"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "typescript": ">=4.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}

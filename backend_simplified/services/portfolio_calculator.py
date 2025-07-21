@@ -189,7 +189,7 @@ class PortfolioCalculator:
             holdings_map = PortfolioCalculator._process_transactions_with_realized_gains(transactions)
             
             # Get current prices for all holdings
-            symbols = [h['symbol'] for h in holdings_map.values() if h['quantity'] > 0]
+            symbols = [h.symbol for h in holdings_map.values() if h.quantity > 0]
             current_prices = await price_manager.get_prices_for_symbols_from_db(symbols, user_token)
             
             # Calculate current values and gains
@@ -279,15 +279,15 @@ class PortfolioCalculator:
                     }
                 }
             
-            symbols = [h['symbol'] for h in holdings]
+            symbols = [h.symbol for h in holdings]
             previous_day_prices = await price_manager.get_previous_day_prices(symbols, user_token)
 
             allocations = []
             colors = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#6366F1", "#D946EF", "#F472B6"]
             
             for i, holding in enumerate(holdings):
-                symbol = holding['symbol']
-                quantity = Decimal(str(holding['quantity']))
+                symbol = holding.symbol
+                quantity = Decimal(str(holding.quantity))
                 current_price = Decimal(str(holding.get('current_price', 0)))
                 
                 daily_change = Decimal('0')
@@ -297,17 +297,17 @@ class PortfolioCalculator:
                     daily_change = (current_price - previous_close) * quantity
 
                 allocations.append({
-                    "symbol": holding["symbol"],
-                    "company_name": holding.get("company_name", holding["symbol"]),
-                    "quantity": holding["quantity"],
-                    "current_price": holding["current_price"],
-                    "cost_basis": holding["total_cost"],
-                    "current_value": holding["current_value"],
-                    "gain_loss": holding["gain_loss"],
-                    "gain_loss_percent": holding["gain_loss_percent"],
+                    "symbol": holding.symbol,
+                    "company_name": getattr(holding, 'company_name', holding.symbol),
+                    "quantity": holding.quantity,
+                    "current_price": holding.current_price,
+                    "cost_basis": holding.total_cost,
+                    "current_value": holding.current_value,
+                    "gain_loss": holding.gain_loss,
+                    "gain_loss_percent": holding.gain_loss_percent,
                     "dividends_received": holding.get("dividends_received", 0),
                     "realized_pnl": holding.get("realized_pnl", 0),
-                    "allocation_percent": (holding["current_value"] / total_value * 100) if total_value > 0 else 0,
+                    "allocation_percent": (holding.current_value / total_value * 100) if total_value > 0 else 0,
                     "color": colors[i % len(colors)],
                     "daily_change": float(daily_change),
                     "daily_change_percent": float(daily_change / (Decimal(str(holding['current_value'])) - daily_change) * 100) if (Decimal(str(holding['current_value'])) - daily_change) != 0 else 0,
@@ -359,7 +359,7 @@ class PortfolioCalculator:
             holdings_map = PortfolioCalculator._process_transactions_with_realized_gains(transactions)
             
             # Get current prices
-            symbols = [h['symbol'] for h in holdings_map.values() if h['quantity'] > 0]
+            symbols = [h.symbol for h in holdings_map.values() if h.quantity > 0]
             current_prices = await price_manager.get_prices_for_symbols_from_db(symbols, user_token)
             
             # Build detailed holdings list
@@ -558,15 +558,15 @@ class PortfolioCalculator:
         if not holdings:
             return 0.0, 0.0
 
-        symbols = [h['symbol'] for h in holdings]
+        symbols = [h.symbol for h in holdings]
         previous_day_prices = await price_manager.get_previous_day_prices(symbols, user_token)
 
         total_previous_value = Decimal('0')
         total_current_value = Decimal('0')
 
         for holding in holdings:
-            symbol = holding['symbol']
-            quantity = Decimal(str(holding['quantity']))
+            symbol = holding.symbol
+            quantity = Decimal(str(holding.quantity))
             current_value = Decimal(str(holding['current_value']))
             
             total_current_value += current_value
@@ -905,10 +905,10 @@ class PortfolioCalculator:
             # Calculate XIRR for each symbol
             symbol_xirrs = {}
             for holding in holdings_data['holdings']:
-                symbol = holding['symbol']
-                if holding['quantity'] > 0:
+                symbol = holding.symbol
+                if holding.quantity > 0:
                     symbol_xirr = await PortfolioCalculator._calculate_symbol_xirr(
-                        transactions, symbol, holding['current_price'], holding['quantity']
+                        transactions, symbol, holding['current_price'], holding.quantity
                     )
                     if symbol_xirr is not None:
                         symbol_xirrs[symbol] = {

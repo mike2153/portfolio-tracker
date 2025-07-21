@@ -3,7 +3,7 @@
  * Leverages existing front_api_client infrastructure with extensive debugging
  */
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
-import { front_api_client } from '@/lib/front_api_client';
+import { front_api_client } from '@portfolio-tracker/shared';
 import { useAuth } from '@/components/AuthProvider';
 
 // === TYPE DEFINITIONS ===

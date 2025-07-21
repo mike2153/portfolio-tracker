@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { front_api_client } from "@/lib/front_api_client";
+import { front_api_client } from "@portfolio-tracker/shared";
 import { Trash2, Edit, X, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 import { StockSymbol, AddHoldingFormData, FormErrors } from "@/types/api";

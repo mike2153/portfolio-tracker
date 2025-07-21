@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { StockResearchData, TimePeriod } from '@/types/stock-research';
-import PriceChartApex from '@/components/charts/PriceChartApex';
+import ResearchStockChart from '@/components/charts/ResearchStockChart';
 import { usePriceData } from '@/hooks/usePriceData';
 import StockHeader from './StockHeader';
 import MetricsSidebar from './MetricsSidebar';
@@ -122,14 +122,10 @@ const OverviewTabNew: React.FC<OverviewTabProps> = ({ ticker, data, isLoading, o
                 </button>
               </div>
             ) : priceData && priceData.length > 0 ? (
-              <PriceChartApex
-                data={priceData}
-                ticker={ticker}
-                period={selectedPeriod}
-                onPeriodChange={setSelectedPeriod}
+              <ResearchStockChart
+                symbol={ticker}
                 height={450}
-                isLoading={isPriceLoading}
-                chartType="mountain"
+                theme="dark"
                 showVolume={false}
               />
             ) : (

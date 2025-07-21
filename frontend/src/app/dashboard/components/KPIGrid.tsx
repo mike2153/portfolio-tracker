@@ -6,7 +6,7 @@ import KPICard from './KPICard';
 import { KPIGridSkeleton } from './Skeletons';
 import { useDashboard } from '../contexts/DashboardContext';
 import { useAuth } from '@/components/AuthProvider';
-import { front_api_get_dashboard, front_api_get_analytics_summary } from '@/lib/front_api_client';
+import { front_api_get_dashboard, front_api_get_analytics_summary } from '@portfolio-tracker/shared';
 
 interface KPIGridProps {
   initialData?: DashboardOverview;

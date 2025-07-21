@@ -5,7 +5,7 @@ import KPIGrid from './components/KPIGrid';
 import DailyMovers from './components/DailyMovers';
 import FxTicker from './components/FxTicker';
 import { ChartSkeleton, ListSkeleton, FxTickerSkeleton } from './components/Skeletons';
-import PortfolioChartApex from './components/PortfolioChartApex'
+import PortfolioPerformanceChart from '@/components/charts/PortfolioPerformanceChart'
 import AllocationTableApex from './components/AllocationTableApex'
 import DividendChartApex from './components/DividendChartApex'
 
@@ -32,7 +32,7 @@ export default function DashboardPage() {
         </Suspense>
         
         <Suspense fallback={<ChartSkeleton />}>
-          <PortfolioChartApex />
+          <PortfolioPerformanceChart theme="dark" />
         </Suspense>
 
         <Suspense fallback={<ListSkeleton title="Daily movers" />}>

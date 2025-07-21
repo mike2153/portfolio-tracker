@@ -17,7 +17,7 @@ class Logger {
   constructor() {
     // Check for development mode in both Next.js and React Native environments
     this.isDevelopment = process.env.NODE_ENV === 'development' || 
-                        (typeof __DEV__ !== 'undefined' && __DEV__);
+                        (typeof (global as any).__DEV__ !== 'undefined' && (global as any).__DEV__);
   }
 
   private log(level: LogLevel, message: string, context?: any) {
