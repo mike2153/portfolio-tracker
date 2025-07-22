@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { front_api_client } from '@portfolio-tracker/shared';
+import { front_api_client } from '@/lib/front_api_client';
 import { usePortfolioAllocation } from '@/hooks/usePortfolioAllocation';
 
 // Components

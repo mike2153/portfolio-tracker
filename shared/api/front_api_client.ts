@@ -46,6 +46,7 @@ export async function authFetch(path: string, init: RequestInit = {}) {
   const { data: { session }, error: sessionError } = await getSupabase().auth.getSession();
   
   if (sessionError) {
+    console.error('[authFetch] Session error:', sessionError);
   }
 
   if (!session?.access_token) {
@@ -108,7 +109,6 @@ async function getJSON<T>(path:string): Promise<T> {
     
     try {
       const jsonData = await res.json() as T;
-      
       return jsonData;
     } catch (jsonError) {
       throw new Error(`Failed to parse JSON response from ${path}`);
@@ -120,14 +120,7 @@ async function getJSON<T>(path:string): Promise<T> {
 
 // ───────────────────────────────── Dashboard ────────────────────────────────
 export const front_api_get_dashboard = (): Promise<ApiResponse<DashboardOverview>> => {
-  const result = getJSON<ApiResponse<DashboardOverview>>('/api/dashboard');
-  
-  // Add promise logging
-  result.then((data) => {
-  }).catch((error) => {
-  });
-  
-  return result;
+  return getJSON<ApiResponse<DashboardOverview>>('/api/dashboard');
 };
 
 export const front_api_get_performance = (period: string, benchmark: string = 'SPY') => {

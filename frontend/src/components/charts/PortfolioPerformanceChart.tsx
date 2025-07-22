@@ -2,9 +2,9 @@
 
 import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { front_api_get_performance, front_api_get_stock_prices } from '@portfolio-tracker/shared';
+import { front_api_get_performance, front_api_get_stock_prices } from '@/lib/front_api_client';
 import StockChart from './StockChart';
-import { formatCurrency, formatPercentage } from '@portfolio-tracker/shared';
+import { formatCurrency, formatPercentage } from '@/lib/front_api_client';
 
 interface PortfolioPerformanceChartProps {
   height?: number;

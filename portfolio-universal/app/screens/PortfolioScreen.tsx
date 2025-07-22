@@ -12,7 +12,8 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { MainTabScreenProps } from '../navigation/types';
 import { 
-  front_api_get_portfolio, 
+  front_api_get_portfolio,
+  front_api_get_transactions, 
   formatCurrency, 
   formatPercentage,
   COLORS 
@@ -94,21 +95,36 @@ export default function PortfolioScreen({ navigation }: Props): React.JSX.Elemen
     refetchInterval: 60000, // Refresh every minute
   });
 
+  // Fetch transactions data
+  const { data: transactionsData, refetch: refetchTransactions } = useQuery({
+    queryKey: ['transactions'],
+    queryFn: front_api_get_transactions,
+    refetchInterval: 60000,
+  });
+
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
-    await refetch();
+    await Promise.all([refetch(), refetchTransactions()]);
     setRefreshing(false);
-  }, [refetch]);
+  }, [refetch, refetchTransactions]);
 
-  const portfolio = portfolioData?.data;
+  // Extract data - the API returns the data directly, not wrapped in a 'data' field
+  const portfolio = portfolioData;
   const holdings = portfolio?.holdings || [];
+  const transactions = transactionsData?.transactions || transactionsData || [];
+
+  // Debug logging
+  console.log('[DEBUG PortfolioScreen] Portfolio data:', portfolio);
+  console.log('[DEBUG PortfolioScreen] Transactions data:', transactionsData);
+  console.log('[DEBUG PortfolioScreen] Holdings:', holdings);
+  console.log('[DEBUG PortfolioScreen] Transactions:', transactions);
 
   // Calculate portfolio metrics
   const totalValue = portfolio?.total_value || 0;
-  const totalGainLoss = portfolio?.total_pnl || 0;
-  const totalGainLossPercent = portfolio?.total_pnl_pct || 0;
-  const dailyChange = portfolio?.daily_pnl || 0;
-  const dailyChangePercent = portfolio?.daily_pnl_pct || 0;
+  const totalGainLoss = portfolio?.total_gain_loss || 0;
+  const totalGainLossPercent = portfolio?.total_gain_loss_percent || 0;
+  const dailyChange = portfolio?.daily_change || 0;
+  const dailyChangePercent = portfolio?.daily_change_percent || 0;
 
   // Find best performer
   const bestPerformer = useMemo(() => {
@@ -204,16 +220,51 @@ export default function PortfolioScreen({ navigation }: Props): React.JSX.Elemen
         </View>
 
         {/* Holdings List */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Holdings</Text>
-          {holdings.map((holding: Holding) => (
-            <HoldingCard
-              key={holding.symbol}
-              holding={holding}
-              onPress={() => handleHoldingPress(holding)}
-            />
-          ))}
-        </View>
+        {holdings.length > 0 ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Holdings</Text>
+            {holdings.map((holding: Holding) => (
+              <HoldingCard
+                key={holding.symbol}
+                holding={holding}
+                onPress={() => handleHoldingPress(holding)}
+              />
+            ))}
+          </View>
+        ) : transactions.length > 0 ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Recent Transactions</Text>
+            <Text style={styles.sectionSubtitle}>
+              Holdings are being calculated from your transactions...
+            </Text>
+            {transactions.slice(0, 5).map((transaction: any) => (
+              <View key={transaction.id} style={styles.transactionCard}>
+                <View style={styles.transactionHeader}>
+                  <Text style={styles.transactionType}>{transaction.transaction_type}</Text>
+                  <Text style={styles.transactionDate}>
+                    {new Date(transaction.transaction_date).toLocaleDateString()}
+                  </Text>
+                </View>
+                <View style={styles.transactionDetails}>
+                  <Text style={styles.transactionSymbol}>{transaction.ticker}</Text>
+                  <Text style={styles.transactionQuantity}>
+                    {transaction.quantity} shares @ {formatCurrency(transaction.price_per_share || transaction.price || 0)}
+                  </Text>
+                  <Text style={styles.transactionTotal}>
+                    Total: {formatCurrency(transaction.total_amount || (transaction.quantity * (transaction.price_per_share || transaction.price || 0)) || 0)}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>No Holdings</Text>
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyText}>Add your first transaction to start tracking</Text>
+            </View>
+          </View>
+        )}
 
         {/* Sector Allocation */}
         {sectorAllocation.length > 0 && (
@@ -440,6 +491,57 @@ const styles = StyleSheet.create({
   dailyValue: {
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    color: '#9ca3af',
+    marginBottom: 12,
+  },
+  transactionCard: {
+    backgroundColor: '#374151',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  transactionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  transactionType: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#10b981',
+  },
+  transactionDate: {
+    fontSize: 12,
+    color: '#9ca3af',
+  },
+  transactionDetails: {
+    gap: 4,
+  },
+  transactionSymbol: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  transactionQuantity: {
+    fontSize: 14,
+    color: '#d1d5db',
+  },
+  transactionTotal: {
+    fontSize: 14,
+    color: '#d1d5db',
+  },
+  emptyCard: {
+    backgroundColor: '#374151',
+    padding: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  emptyText: {
+    color: '#9ca3af',
+    fontSize: 16,
   },
   actionButtons: {
     flexDirection: 'row',

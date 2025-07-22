@@ -36,6 +36,7 @@ services:
     # 🔥 Enable hot reload by mounting source code as volume
     volumes:
       - ./frontend:/app
+      - ./shared:/shared   # Mount shared module
       - /app/node_modules  # Prevent overwriting node_modules
       - /app/.next         # Prevent overwriting Next.js build cache
     env_file:

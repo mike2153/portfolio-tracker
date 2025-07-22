@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { TabContentProps, FinancialStatementType, FinancialPeriodType } from '@/types/stock-research';
-import { front_api_client } from '@portfolio-tracker/shared';
+import { front_api_client } from '@/lib/front_api_client';
 import { DollarSign, TrendingUp, BarChart3, RefreshCw, ChevronDown } from 'lucide-react';
 import FinancialsChart from './FinancialsChart';
 import FinancialsTable from './FinancialsTable';

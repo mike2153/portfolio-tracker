@@ -2,9 +2,9 @@
 
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { front_api_get_stock_prices } from '@portfolio-tracker/shared';
+import { front_api_get_stock_prices } from '@/lib/front_api_client';
 import StockChart from './StockChart';
-import type { StockPriceData } from '@portfolio-tracker/shared';
+import type { StockPriceData } from '@/lib/front_api_client';
 
 interface ResearchStockChartProps {
   symbol: string;

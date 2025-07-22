@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { front_api_get_stock_prices } from '@portfolio-tracker/shared';
+import { front_api_get_stock_prices } from '@/lib/front_api_client';
 
 interface PriceDataPoint {
   time: string;

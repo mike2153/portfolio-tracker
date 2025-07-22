@@ -60,9 +60,10 @@ export default function ResearchScreen({ navigation }: Props): React.JSX.Element
     }
   };
 
-  const dashboard = dashboardData?.data;
-  const quote = quoteData?.data;
-  const news = newsData?.data?.items || [];
+  // Extract data - API returns data directly
+  const dashboard = dashboardData;
+  const quote = quoteData?.data || quoteData; // Handle both response formats
+  const news = newsData?.data?.items || newsData?.items || [];
 
   return (
     <ScrollView 
@@ -91,26 +92,7 @@ export default function ResearchScreen({ navigation }: Props): React.JSX.Element
           </TouchableOpacity>
         </View>
 
-        {/* Market Indices */}
-        {dashboard?.indices && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Market Overview</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {dashboard.indices.map((index: any) => {
-                const isPositive = index.change_pct >= 0;
-                return (
-                  <View key={index.symbol} style={styles.indexCard}>
-                    <Text style={styles.indexName}>{index.name}</Text>
-                    <Text style={styles.indexValue}>{formatCurrency(index.last)}</Text>
-                    <Text style={[styles.indexChange, isPositive ? styles.positive : styles.negative]}>
-                      {isPositive ? '+' : ''}{formatPercentage(index.change_pct)}
-                    </Text>
-                  </View>
-                );
-              })}
-            </ScrollView>
-          </View>
-        )}
+        {/* Market Indices - TODO: Add when available in API */}
 
         {/* Search Results */}
         {searchedSymbol && (

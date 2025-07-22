@@ -40,18 +40,20 @@ export default function DashboardScreen({ navigation }: Props): React.JSX.Elemen
   const [refreshing, setRefreshing] = useState(false);
 
   // Fetch dashboard data
-  const { data: dashboardData, isLoading: dashboardLoading, refetch: refetchDashboard } = useQuery({
+  const { data: dashboardData, isLoading: dashboardLoading, refetch: refetchDashboard, error: dashboardError } = useQuery({
     queryKey: ['dashboard'],
     queryFn: front_api_get_dashboard,
     refetchInterval: 60000, // Refresh every minute
   });
 
+
   // Fetch portfolio data for top holdings
-  const { data: portfolioData, refetch: refetchPortfolio } = useQuery({
+  const { data: portfolioData, refetch: refetchPortfolio, error: portfolioError } = useQuery({
     queryKey: ['portfolio'],
     queryFn: front_api_get_portfolio,
     refetchInterval: 60000,
   });
+
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
@@ -59,19 +61,31 @@ export default function DashboardScreen({ navigation }: Props): React.JSX.Elemen
     setRefreshing(false);
   }, [refetchDashboard, refetchPortfolio]);
 
-  const dashboard = dashboardData?.data;
-  const portfolio = portfolioData?.data;
+  // Extract data - the API returns the data directly, not wrapped in a 'data' field
+  const dashboard = dashboardData;
+  const portfolio = portfolioData;
+
+  // Temporary debug logging to understand the issue
+  console.log('[DEBUG] Dashboard data structure:', JSON.stringify(dashboard, null, 2));
+  console.log('[DEBUG] Portfolio data structure:', JSON.stringify(portfolio, null, 2));
+  console.log('[DEBUG] Calculated values:', {
+    totalValue: dashboard?.portfolio?.total_value,
+    dailyChange: dashboard?.portfolio?.daily_change,
+    totalGainLoss: dashboard?.portfolio?.total_gain_loss,
+    holdingsCount: dashboard?.portfolio?.holdings_count,
+    transactionSummary: dashboard?.transaction_summary
+  });
 
   // Calculate KPI values from dashboard data
-  const totalValue = dashboard?.total_value || 0;
-  const dailyChange = dashboard?.daily_pnl || 0;
-  const dailyChangePercent = dashboard?.daily_pnl_pct || 0;
-  const totalGainLoss = dashboard?.total_pnl || 0;
-  const totalGainLossPercent = dashboard?.total_pnl_pct || 0;
-  const holdingsCount = portfolio?.holdings?.length || 0;
+  const totalValue = dashboard?.portfolio?.total_value || 0;
+  const dailyChange = dashboard?.portfolio?.daily_change || 0;
+  const dailyChangePercent = dashboard?.portfolio?.daily_change_percent || 0;
+  const totalGainLoss = dashboard?.portfolio?.total_gain_loss || 0;
+  const totalGainLossPercent = dashboard?.portfolio?.total_gain_loss_percent || 0;
+  const holdingsCount = dashboard?.portfolio?.holdings_count || portfolio?.holdings?.length || 0;
 
   // Get top 3 holdings by value
-  const topHoldings = portfolio?.holdings
+  const topHoldings = dashboard?.top_holdings || portfolio?.holdings
     ?.sort((a: any, b: any) => b.current_value - a.current_value)
     ?.slice(0, 3) || [];
 
@@ -80,6 +94,24 @@ export default function DashboardScreen({ navigation }: Props): React.JSX.Elemen
       <View style={[styles.container, styles.loadingContainer]}>
         <ActivityIndicator size="large" color={COLORS.primary} />
         <Text style={styles.loadingText}>Loading dashboard...</Text>
+      </View>
+    );
+  }
+
+  if (dashboardError || portfolioError) {
+    console.error('[DashboardScreen] Errors:', { dashboardError, portfolioError });
+    return (
+      <View style={[styles.container, styles.loadingContainer]}>
+        <Text style={styles.errorText}>Error loading data</Text>
+        <Text style={styles.errorDetail}>
+          {(dashboardError as any)?.message || (portfolioError as any)?.message || 'Unknown error'}
+        </Text>
+        <TouchableOpacity style={styles.retryButton} onPress={() => {
+          refetchDashboard();
+          refetchPortfolio();
+        }}>
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -100,24 +132,23 @@ export default function DashboardScreen({ navigation }: Props): React.JSX.Elemen
         <View style={styles.kpiGrid}>
           <KPICard
             title="Total Value"
-            value={formatCurrency(totalValue)}
+            value={totalValue > 0 ? formatCurrency(totalValue) : (dashboard?.transaction_summary?.total_invested > 0 ? 'Pending' : '$0.00')}
           />
           <KPICard
-            title="Daily Change"
-            value={formatCurrency(Math.abs(dailyChange))}
-            subtitle={`${dailyChange >= 0 ? '+' : '-'}${formatPercentage(Math.abs(dailyChangePercent))}`}
-            isPositive={dailyChange >= 0}
+            title="Total Invested"
+            value={formatCurrency(dashboard?.transaction_summary?.total_invested || 0)}
+            subtitle={dashboard?.transaction_summary?.total_transactions ? `${dashboard.transaction_summary.total_transactions} transaction(s)` : 'No transactions'}
           />
           <KPICard
             title="Total Gain/Loss"
-            value={formatCurrency(Math.abs(totalGainLoss))}
-            subtitle={`${totalGainLoss >= 0 ? '+' : '-'}${formatPercentage(Math.abs(totalGainLossPercent))}`}
+            value={totalValue > 0 ? formatCurrency(Math.abs(totalGainLoss)) : '-'}
+            subtitle={totalValue > 0 ? `${totalGainLoss >= 0 ? '+' : '-'}${formatPercentage(Math.abs(totalGainLossPercent))}` : 'Awaiting prices'}
             isPositive={totalGainLoss >= 0}
           />
           <KPICard
             title="Holdings"
-            value={holdingsCount.toString()}
-            subtitle="Active Positions"
+            value={holdingsCount > 0 ? holdingsCount.toString() : (dashboard?.transaction_summary?.buy_count > 0 ? 'Processing' : '0')}
+            subtitle={holdingsCount > 0 ? 'Active Positions' : 'Pending calculation'}
           />
         </View>
 
@@ -129,7 +160,7 @@ export default function DashboardScreen({ navigation }: Props): React.JSX.Elemen
         />
 
         {/* TOP HOLDINGS */}
-        {topHoldings.length > 0 && (
+        {topHoldings.length > 0 ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>📈 Top Holdings</Text>
             <View style={styles.holdingsList}>
@@ -142,27 +173,42 @@ export default function DashboardScreen({ navigation }: Props): React.JSX.Elemen
               ))}
             </View>
           </View>
-        )}
-
-        {/* MARKET DATA */}
-        {dashboard?.indices && (
+        ) : dashboard?.transaction_summary?.total_transactions > 0 ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>📊 Market Overview</Text>
-            <View style={styles.marketList}>
-              {dashboard.indices.map((index: any) => {
-                const isPositive = index.change_pct >= 0;
-                return (
-                  <View key={index.symbol} style={styles.marketItem}>
-                    <Text style={styles.marketName}>{index.name}</Text>
-                    <Text style={[styles.marketValue, isPositive ? styles.positive : styles.negative]}>
-                      {formatCurrency(index.last)} ({isPositive ? '+' : ''}{formatPercentage(index.change_pct)})
-                    </Text>
-                  </View>
-                );
-              })}
+            <Text style={styles.sectionTitle}>📈 Transaction Summary</Text>
+            <View style={styles.transactionInfo}>
+              <Text style={styles.infoText}>
+                You have {dashboard.transaction_summary.total_transactions} transaction(s) recorded.
+              </Text>
+              <Text style={styles.infoText}>
+                Total invested: {formatCurrency(dashboard.transaction_summary.total_invested)}
+              </Text>
+              <Text style={styles.infoSubtext}>
+                Holdings will appear here once stock prices are fetched.{"\n"}
+                This may take a moment for the backend to process.
+              </Text>
+              <TouchableOpacity 
+                style={styles.refreshButton}
+                onPress={() => {
+                  refetchDashboard();
+                  refetchPortfolio();
+                }}
+              >
+                <Text style={styles.refreshButtonText}>Refresh</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>📈 Getting Started</Text>
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>No holdings yet</Text>
+              <Text style={styles.emptySubtext}>Add your first transaction to start tracking your portfolio</Text>
             </View>
           </View>
         )}
+
+        {/* MARKET DATA - TODO: Add market indices when available in API */}
 
         {/* TEST BUTTONS */}
         <View style={styles.section}>
@@ -188,6 +234,74 @@ const styles = StyleSheet.create({
     marginTop: 16,
     color: COLORS.textMuted,
     fontSize: 16,
+  },
+  errorText: {
+    color: COLORS.negative,
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  errorDetail: {
+    color: COLORS.textMuted,
+    fontSize: 14,
+    marginBottom: 16,
+    textAlign: 'center',
+    paddingHorizontal: 32,
+  },
+  retryButton: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  transactionInfo: {
+    backgroundColor: '#374151',
+    padding: 16,
+    borderRadius: 12,
+  },
+  infoText: {
+    color: COLORS.text,
+    fontSize: 16,
+    marginBottom: 8,
+  },
+  infoSubtext: {
+    color: COLORS.textMuted,
+    fontSize: 14,
+    marginTop: 8,
+  },
+  emptyState: {
+    backgroundColor: '#374151',
+    padding: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  emptyText: {
+    color: COLORS.text,
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    color: COLORS.textMuted,
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  refreshButton: {
+    marginTop: 16,
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 6,
+  },
+  refreshButtonText: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '600',
   },
   container: {
     flex: 1,

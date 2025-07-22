@@ -33,8 +33,9 @@ export default function AnalyticsScreen({ navigation }: Props): React.JSX.Elemen
     refetchInterval: 60000,
   });
 
-  const portfolio = portfolioData?.data;
-  const dashboard = dashboardData?.data;
+  // Extract data - the API returns the data directly
+  const portfolio = portfolioData;
+  const dashboard = dashboardData;
   const holdings = portfolio?.holdings || [];
 
   // Calculate portfolio metrics
@@ -48,9 +49,9 @@ export default function AnalyticsScreen({ navigation }: Props): React.JSX.Elemen
     const totalReturnPercent = totalCost > 0 ? (totalReturn / totalCost) * 100 : 0;
 
     // Calculate volatility (simplified - standard deviation of daily returns)
-    const dailyReturns = holdings.map((h: any) => h.daily_pnl_pct || 0);
-    const avgReturn = dailyReturns.reduce((a: number, b: number) => a + b, 0) / dailyReturns.length;
-    const variance = dailyReturns.reduce((sum: number, ret: number) => sum + Math.pow(ret - avgReturn, 2), 0) / dailyReturns.length;
+    const dailyReturns = holdings.map((h: any) => h.daily_change_percent || 0);
+    const avgReturn = dailyReturns.length > 0 ? dailyReturns.reduce((a: number, b: number) => a + b, 0) / dailyReturns.length : 0;
+    const variance = dailyReturns.length > 0 ? dailyReturns.reduce((sum: number, ret: number) => sum + Math.pow(ret - avgReturn, 2), 0) / dailyReturns.length : 0;
     const volatility = Math.sqrt(variance);
 
     // Risk metrics (simplified)

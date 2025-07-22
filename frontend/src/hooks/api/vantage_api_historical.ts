@@ -1,7 +1,7 @@
 /**
  * Helper functions for historical price data calculations.
  */
-import { front_api_client } from "@portfolio-tracker/shared";
+import { front_api_client } from "@/lib/front_api_client";
 
 /**
  * Calculate Year-to-Date (YTD) return for a stock.
@@ -14,11 +14,7 @@ export async function vantage_api_calculate_ytd_return(symbol: string): Promise<
     const jan1Date = `${currentYear}-01-01`;
     
     // Get historical prices including Jan 1st
-    const response = await front_api_client.get<{
-      success: boolean;
-      data?: Array<{ date: string; close: number }>;
-      error?: string;
-    }>(`/api/historical/${symbol}?outputsize=full`);
+    const response = await front_api_client.get(`/api/historical/${symbol}?outputsize=full`);
     
     if (!response.success || !response.data || response.data.length === 0) {
       console.error(`Failed to fetch historical data for ${symbol}`);

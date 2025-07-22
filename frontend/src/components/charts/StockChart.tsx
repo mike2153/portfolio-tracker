@@ -2,7 +2,7 @@
 
 import React, { useMemo } from 'react';
 import dynamic from 'next/dynamic';
-import { formatCurrency, formatPercentage, formatDate } from '@portfolio-tracker/shared';
+import { formatCurrency, formatPercentage, formatDate } from '@/lib/front_api_client';
 
 // Dynamically import ApexCharts to avoid SSR issues
 const Chart = dynamic(() => import('react-apexcharts'), { ssr: false });

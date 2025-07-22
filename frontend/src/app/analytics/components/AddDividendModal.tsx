@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, ChangeEvent } from 'react';
 import { Loader2 } from 'lucide-react';
-import { front_api_search_symbols, front_api_get_quote } from '@portfolio-tracker/shared';
+import { front_api_search_symbols, front_api_get_quote } from '@/lib/front_api_client';
 import { StockSymbol } from '@/types/api';
 import { useToast } from '@/components/ui/Toast';
 

@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Search, Star, StarOff, TrendingUp, BarChart3, DollarSign, FileText, GitCompare } from 'lucide-react';
-import { front_api_client } from '@portfolio-tracker/shared';
+import { front_api_client } from '@/lib/front_api_client';
 import { front_api_add_to_watchlist, front_api_remove_from_watchlist, front_api_check_watchlist_status } from '@/hooks/api/front_api_watchlist';
 import { useToast } from '@/components/ui/Toast';
 import type { 
