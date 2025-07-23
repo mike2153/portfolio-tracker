@@ -15,6 +15,8 @@ import {
   formatPercentage,
   COLORS 
 } from '@portfolio-tracker/shared';
+import GradientText from '../components/GradientText';
+import { colors } from '../theme/colors';
 
 type Props = MainTabScreenProps<'Analytics'>;
 
@@ -117,7 +119,7 @@ export default function AnalyticsScreen({ navigation }: Props): React.JSX.Elemen
   if (isLoading) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={colors.buttonBackground} />
         <Text style={styles.loadingText}>Loading analytics...</Text>
       </View>
     );
@@ -140,12 +142,12 @@ export default function AnalyticsScreen({ navigation }: Props): React.JSX.Elemen
       <View style={styles.content}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>📊 Portfolio Analytics</Text>
+          <GradientText style={styles.headerTitle}>📊 Portfolio Analytics</GradientText>
         </View>
 
         {/* Performance Overview */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Performance Overview</Text>
+          <GradientText style={styles.sectionTitle}>Performance Overview</GradientText>
           <View style={styles.metricsGrid}>
             <View style={styles.metricCard}>
               <Text style={styles.metricLabel}>Total Value</Text>
@@ -179,7 +181,7 @@ export default function AnalyticsScreen({ navigation }: Props): React.JSX.Elemen
 
         {/* Risk Metrics */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Risk Metrics</Text>
+          <GradientText style={styles.sectionTitle}>Risk Metrics</GradientText>
           <View style={styles.riskGrid}>
             <View style={styles.riskItem}>
               <Text style={styles.riskLabel}>Volatility</Text>
@@ -205,7 +207,7 @@ export default function AnalyticsScreen({ navigation }: Props): React.JSX.Elemen
         {/* Sector Allocation */}
         {sectorAllocation.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Sector Allocation</Text>
+            <GradientText style={styles.sectionTitle}>Sector Allocation</GradientText>
             {sectorAllocation.map(({ sector, value, percentage }) => (
               <View key={sector} style={styles.allocationItem}>
                 <View style={styles.allocationHeader}>
@@ -229,7 +231,7 @@ export default function AnalyticsScreen({ navigation }: Props): React.JSX.Elemen
         {/* Top Performers */}
         {topPerformers.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Top Performers</Text>
+            <GradientText style={styles.sectionTitle}>Top Performers</GradientText>
             {topPerformers.map((holding: any) => (
               <View key={holding.symbol} style={styles.performerItem}>
                 <View>
@@ -252,7 +254,7 @@ export default function AnalyticsScreen({ navigation }: Props): React.JSX.Elemen
         {/* Worst Performers */}
         {worstPerformers.length > 0 && worstPerformers.some((h: any) => h.total_pnl_pct < 0) && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Worst Performers</Text>
+            <GradientText style={styles.sectionTitle}>Worst Performers</GradientText>
             {worstPerformers.filter((h: any) => h.total_pnl_pct < 0).map((holding: any) => (
               <View key={holding.symbol} style={styles.performerItem}>
                 <View>
@@ -279,7 +281,7 @@ export default function AnalyticsScreen({ navigation }: Props): React.JSX.Elemen
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1f2937',
+    backgroundColor: colors.background,
   },
   loadingContainer: {
     justifyContent: 'center',
@@ -287,7 +289,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 16,
-    color: COLORS.textMuted,
+    color: colors.secondaryText,
     fontSize: 16,
   },
   emptyContainer: {
@@ -302,12 +304,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.primaryText,
     marginBottom: 8,
   },
   emptySubtitle: {
     fontSize: 16,
-    color: COLORS.textMuted,
+    color: colors.secondaryText,
     textAlign: 'center',
   },
   content: {
@@ -319,7 +321,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.primaryText,
   },
   section: {
     marginBottom: 32,
@@ -327,7 +329,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: COLORS.text,
+    color: colors.primaryText,
     marginBottom: 16,
   },
   metricsGrid: {
@@ -336,7 +338,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   metricCard: {
-    backgroundColor: '#374151',
+    backgroundColor: colors.border,
     padding: 16,
     borderRadius: 12,
     flex: 1,
@@ -344,13 +346,13 @@ const styles = StyleSheet.create({
   },
   metricLabel: {
     fontSize: 14,
-    color: COLORS.textMuted,
+    color: colors.secondaryText,
     marginBottom: 8,
   },
   metricValue: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.primaryText,
   },
   metricSubvalue: {
     fontSize: 14,
@@ -373,13 +375,13 @@ const styles = StyleSheet.create({
   },
   riskLabel: {
     fontSize: 14,
-    color: COLORS.textMuted,
+    color: colors.secondaryText,
     marginBottom: 4,
   },
   riskValue: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.text,
+    color: colors.primaryText,
   },
   allocationItem: {
     marginBottom: 16,
@@ -391,29 +393,29 @@ const styles = StyleSheet.create({
   },
   allocationSector: {
     fontSize: 16,
-    color: COLORS.text,
+    color: colors.primaryText,
   },
   allocationValue: {
     fontSize: 16,
-    color: COLORS.textSecondary,
+    color: colors.secondaryText,
   },
   allocationBar: {
     height: 8,
-    backgroundColor: '#374151',
+    backgroundColor: colors.border,
     borderRadius: 4,
     marginBottom: 4,
   },
   allocationFill: {
     height: '100%',
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.buttonBackground,
     borderRadius: 4,
   },
   allocationPercent: {
     fontSize: 14,
-    color: COLORS.textMuted,
+    color: colors.secondaryText,
   },
   performerItem: {
-    backgroundColor: '#374151',
+    backgroundColor: colors.border,
     padding: 16,
     borderRadius: 8,
     marginBottom: 12,
@@ -424,11 +426,11 @@ const styles = StyleSheet.create({
   performerSymbol: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.text,
+    color: colors.primaryText,
   },
   performerName: {
     fontSize: 14,
-    color: COLORS.textMuted,
+    color: colors.secondaryText,
     marginTop: 2,
   },
   performerMetrics: {

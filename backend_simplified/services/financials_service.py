@@ -114,18 +114,19 @@ class FinancialsService:
             supabase = create_client(SUPA_API_URL, SUPA_API_ANON_KEY)
             supabase.postgrest.auth(user_token)
             
-            # Query api_cache with freshness check
-            cache_key = f"financials:{symbol}:{data_type}"
-            result = supabase.table('api_cache').select('*').eq(
-                'cache_key', cache_key
+            # Query company_financials table
+            result = supabase.table('company_financials').select('*').eq(
+                'symbol', symbol
+            ).eq(
+                'data_type', data_type
             ).gte(
-                'expires_at', 
-                datetime.utcnow().isoformat()
+                'last_updated', 
+                (datetime.utcnow() - timedelta(hours=freshness_hours)).isoformat()
             ).execute()
             
             if result.data and len(result.data) > 0:
                 cache_record = result.data[0]
-                return cache_record['data'].get('financial_data', {})
+                return cache_record['financial_data']
             
             return None
             
@@ -136,13 +137,13 @@ class FinancialsService:
     @staticmethod
     async def _fetch_from_api(symbol: str, data_type: str) -> Dict[str, Any]:
         """Fetch financial data from external API"""
-        if data_type == 'overview':
+        if data_type == 'OVERVIEW':
             return await vantage_api_get_overview(symbol)
-        elif data_type == 'income':
+        elif data_type == 'INCOME_STATEMENT':
             return await vantage_api_get_income_statement(symbol)
-        elif data_type == 'balance':
+        elif data_type == 'BALANCE_SHEET':
             return await vantage_api_get_balance_sheet(symbol)
-        elif data_type == 'cashflow':
+        elif data_type == 'CASH_FLOW':
             return await vantage_api_get_cash_flow(symbol)
         else:
             raise ValueError(f"Unsupported data_type: {data_type}")
@@ -154,30 +155,24 @@ class FinancialsService:
         financial_data: Dict[str, Any], 
         user_token: str
     ) -> bool:
-        """Store financial data in cache"""
+        """Store financial data in company_financials table"""
         try:
             # Create authenticated client for RLS compliance
             supabase = create_client(SUPA_API_URL, SUPA_API_ANON_KEY)
             supabase.postgrest.auth(user_token)
             
-            # Store in api_cache
-            cache_key = f"financials:{symbol}:{data_type}"
-            expires_at = datetime.utcnow() + timedelta(days=30)  # 30 days cache
+            # Upsert into company_financials table
+            # Use upsert with on_conflict to handle duplicates
+            result = supabase.table('company_financials').upsert({
+                'symbol': symbol,
+                'data_type': data_type,
+                'financial_data': financial_data,
+                'last_updated': datetime.utcnow().isoformat()
+            }, on_conflict='symbol,data_type').execute()
             
-            result = supabase.table('api_cache').upsert({
-                'cache_key': cache_key,
-                'data': {
-                    'symbol': symbol,
-                    'data_type': data_type,
-                    'financial_data': financial_data
-                },
-                'created_at': datetime.utcnow().isoformat(),
-                'expires_at': expires_at.isoformat()
-            }).execute()
-            
-            logger.info(f"[FinancialsService] Cached {symbol}:{data_type} successfully")
+            logger.info(f"[FinancialsService] Stored {symbol}:{data_type} in company_financials successfully")
             return True
             
         except Exception as e:
-            logger.error(f"[FinancialsService] Cache storage error: {e}")
+            logger.error(f"[FinancialsService] Storage error: {e}")
             return False

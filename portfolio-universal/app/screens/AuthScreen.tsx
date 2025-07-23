@@ -13,6 +13,8 @@ import {
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { supabase } from '@portfolio-tracker/shared';
+import GradientText from '../components/GradientText';
+import { colors } from '../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Auth'>;
 
@@ -66,7 +68,7 @@ export default function AuthScreen({ navigation }: Props): React.JSX.Element {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.content}>
-        <Text style={styles.title}>Portfolio Tracker</Text>
+        <GradientText style={styles.title}>Portfolio Tracker</GradientText>
         <Text style={styles.subtitle}>
           {isLogin ? 'Welcome back!' : 'Create your account'}
         </Text>
@@ -75,7 +77,7 @@ export default function AuthScreen({ navigation }: Props): React.JSX.Element {
           <TextInput
             style={styles.input}
             placeholder="Email"
-            placeholderTextColor="#999"
+            placeholderTextColor={colors.secondaryText}
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
@@ -86,7 +88,7 @@ export default function AuthScreen({ navigation }: Props): React.JSX.Element {
           <TextInput
             style={styles.input}
             placeholder="Password"
-            placeholderTextColor="#999"
+            placeholderTextColor={colors.secondaryText}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
@@ -99,7 +101,7 @@ export default function AuthScreen({ navigation }: Props): React.JSX.Element {
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={colors.primaryText} />
             ) : (
               <Text style={styles.buttonText}>
                 {isLogin ? 'Login' : 'Sign Up'}
@@ -124,7 +126,7 @@ export default function AuthScreen({ navigation }: Props): React.JSX.Element {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1f2937',
+    backgroundColor: colors.background,
   },
   content: {
     flex: 1,
@@ -135,12 +137,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#fff',
+    color: colors.primaryText,
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: '#9ca3af',
+    color: colors.secondaryText,
     marginBottom: 40,
   },
   form: {
@@ -148,25 +150,25 @@ const styles = StyleSheet.create({
     maxWidth: 300,
   },
   input: {
-    backgroundColor: '#374151',
+    backgroundColor: colors.border,
     borderRadius: 8,
     padding: 16,
     marginBottom: 16,
-    color: '#fff',
+    color: colors.primaryText,
     fontSize: 16,
   },
   button: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: colors.buttonBackground,
     borderRadius: 8,
     padding: 16,
     alignItems: 'center',
     marginBottom: 16,
   },
   buttonDisabled: {
-    backgroundColor: '#6b7280',
+    backgroundColor: colors.secondaryText,
   },
   buttonText: {
-    color: '#fff',
+    color: colors.buttonText,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -174,7 +176,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   switchText: {
-    color: '#3b82f6',
+    color: colors.buttonBackground,
     fontSize: 14,
   },
 });

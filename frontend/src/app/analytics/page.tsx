@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
+import GradientText from '@/components/ui/GradientText';
 import { useQuery } from '@tanstack/react-query';
 import { front_api_client } from '@/lib/front_api_client';
 import { usePortfolioAllocation } from '@/hooks/usePortfolioAllocation';
@@ -115,9 +116,9 @@ export default function AnalyticsPage() {
       
       case 'general':
         return (
-          <div className="bg-gray-800/50 rounded-xl p-8 text-center">
+          <div className="bg-[#0D1117] border border-[#30363D] rounded-xl p-8 text-center">
             <h3 className="text-xl font-semibold text-white mb-4">General Analytics</h3>
-            <p className="text-gray-400">Coming soon - General analytics and insights</p>
+            <p className="text-[#8B949E]">Coming soon - General analytics and insights</p>
           </div>
         );
       
@@ -127,12 +128,12 @@ export default function AnalyticsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div className="min-h-screen bg-[#0D1117] text-white">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Analytics</h1>
-          <p className="text-gray-400">Comprehensive portfolio analysis and dividend tracking</p>
+          <GradientText className="text-3xl font-bold mb-2">Analytics</GradientText>
+          <p className="text-[#8B949E]">Comprehensive portfolio analysis and dividend tracking</p>
         </div>
 
         {/* KPI Cards - Only show for non-dividend tabs */}
@@ -148,7 +149,7 @@ export default function AnalyticsPage() {
 
         {/* Tab Navigation */}
         <div className="mb-6">
-          <div className="border-b border-gray-700">
+          <div className="border-b border-[#30363D]">
             <nav className="-mb-px flex space-x-8">
               {[
                 { id: 'holdings', label: 'My Holdings', icon: '📊' },
@@ -162,7 +163,7 @@ export default function AnalyticsPage() {
                   className={`py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors duration-200 ${
                     activeTab === tab.id
                       ? 'border-blue-500 text-blue-400'
-                      : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-600'
+                      : 'border-transparent text-[#8B949E] hover:text-white hover:border-[#30363D]'
                   }`}
                 >
                   <span className="mr-2">{tab.icon}</span>

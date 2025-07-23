@@ -19,6 +19,8 @@ import {
   COLORS 
 } from '@portfolio-tracker/shared';
 import StockChartKit from '../components/charts/StockChartKit';
+import GradientText from '../components/GradientText';
+import { colors } from '../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'StockDetail'>;
 
@@ -54,7 +56,7 @@ export default function StockDetailScreen({ route }: Props): React.JSX.Element {
   if (isLoading && !refreshing) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={colors.buttonBackground} />
         <Text style={styles.loadingText}>Loading {symbol} data...</Text>
       </View>
     );
@@ -70,8 +72,8 @@ export default function StockDetailScreen({ route }: Props): React.JSX.Element {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.symbol}>{symbol}</Text>
-          <Text style={styles.companyName}>{overview?.Name || 'Loading...'}</Text>
+          <GradientText style={styles.symbol}>{symbol}</GradientText>
+          <GradientText style={styles.companyName}>{overview?.Name || 'Loading...'}</GradientText>
         </View>
         <View style={styles.priceInfo}>
           <Text style={styles.price}>
@@ -125,7 +127,7 @@ export default function StockDetailScreen({ route }: Props): React.JSX.Element {
       {/* Key Stats */}
       {overview && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Key Statistics</Text>
+          <GradientText style={styles.sectionTitle}>Key Statistics</GradientText>
           <View style={styles.statsGrid}>
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>Market Cap</Text>
@@ -164,7 +166,7 @@ export default function StockDetailScreen({ route }: Props): React.JSX.Element {
       {/* Company Info */}
       {overview && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Company Information</Text>
+          <GradientText style={styles.sectionTitle}>Company Information</GradientText>
           <View style={styles.infoItem}>
             <Text style={styles.infoLabel}>Sector</Text>
             <Text style={styles.infoValue}>{overview.Sector || '--'}</Text>
@@ -202,33 +204,33 @@ export default function StockDetailScreen({ route }: Props): React.JSX.Element {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
   },
   loadingText: {
     marginTop: 16,
-    color: COLORS.textMuted,
+    color: colors.secondaryText,
     fontSize: 16,
   },
   header: {
     padding: 16,
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.border,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: colors.border,
   },
   symbol: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.primaryText,
   },
   companyName: {
     fontSize: 16,
-    color: COLORS.textSecondary,
+    color: colors.secondaryText,
     marginTop: 4,
   },
   priceInfo: {
@@ -237,7 +239,7 @@ const styles = StyleSheet.create({
   price: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.primaryText,
   },
   change: {
     fontSize: 18,
@@ -260,29 +262,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 6,
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.border,
     marginRight: 8,
   },
   chartTypeButtonActive: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.buttonBackground,
   },
   chartTypeButtonText: {
-    color: COLORS.textSecondary,
+    color: colors.secondaryText,
     fontSize: 14,
     fontWeight: '500',
   },
   chartTypeButtonTextActive: {
-    color: COLORS.text,
+    color: colors.buttonText,
   },
   section: {
     padding: 16,
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.border,
     marginTop: 16,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.text,
+    color: colors.primaryText,
     marginBottom: 16,
   },
   statsGrid: {
@@ -297,28 +299,28 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 14,
-    color: COLORS.textMuted,
+    color: colors.secondaryText,
     marginBottom: 4,
   },
   statValue: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.text,
+    color: colors.primaryText,
   },
   infoItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: colors.border,
   },
   infoLabel: {
     fontSize: 14,
-    color: COLORS.textMuted,
+    color: colors.secondaryText,
   },
   infoValue: {
     fontSize: 14,
-    color: COLORS.text,
+    color: colors.primaryText,
     fontWeight: '500',
   },
   descriptionContainer: {
@@ -326,7 +328,7 @@ const styles = StyleSheet.create({
   },
   description: {
     fontSize: 14,
-    color: COLORS.textSecondary,
+    color: colors.secondaryText,
     lineHeight: 20,
     marginTop: 8,
   },
@@ -342,20 +344,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   buyButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.buttonBackground,
   },
   buyButtonText: {
-    color: COLORS.text,
+    color: colors.buttonText,
     fontSize: 16,
     fontWeight: '600',
   },
   watchlistButton: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.border,
     borderWidth: 1,
-    borderColor: COLORS.primary,
+    borderColor: colors.buttonBackground,
   },
   watchlistButtonText: {
-    color: COLORS.primary,
+    color: colors.buttonBackground,
     fontSize: 16,
     fontWeight: '600',
   },

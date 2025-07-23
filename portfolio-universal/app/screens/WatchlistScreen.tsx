@@ -7,6 +7,8 @@ import {
 } from 'react-native';
 import { MainTabScreenProps } from '../navigation/types';
 import { COLORS } from '@portfolio-tracker/shared';
+import GradientText from '../components/GradientText';
+import { colors } from '../theme/colors';
 
 type Props = MainTabScreenProps<'Watchlist'>;
 
@@ -17,7 +19,7 @@ export default function WatchlistScreen({ navigation }: Props): React.JSX.Elemen
     <View style={styles.container}>
       <View style={styles.comingSoonContainer}>
         <Text style={styles.comingSoonIcon}>👀</Text>
-        <Text style={styles.comingSoonTitle}>Watchlist Coming Soon</Text>
+        <GradientText style={styles.comingSoonTitle}>Watchlist Coming Soon</GradientText>
         <Text style={styles.comingSoonSubtitle}>
           Track your favorite stocks and set price alerts.
           This feature will be available once the watchlist API is implemented.
@@ -36,7 +38,7 @@ export default function WatchlistScreen({ navigation }: Props): React.JSX.Elemen
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1f2937',
+    backgroundColor: colors.background,
   },
   comingSoonContainer: {
     flex: 1,
@@ -51,24 +53,24 @@ const styles = StyleSheet.create({
   comingSoonTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.primaryText,
     marginBottom: 16,
   },
   comingSoonSubtitle: {
     fontSize: 16,
-    color: COLORS.textMuted,
+    color: colors.secondaryText,
     textAlign: 'center',
     marginBottom: 32,
     lineHeight: 24,
   },
   backButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.buttonBackground,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
   },
   backButtonText: {
-    color: COLORS.text,
+    color: colors.buttonText,
     fontSize: 16,
     fontWeight: '600',
   },

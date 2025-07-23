@@ -2,6 +2,8 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
+import GradientText from '../components/GradientText';
+import { colors } from '../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TransactionForm'>;
 
@@ -11,9 +13,9 @@ export default function TransactionFormScreen({ route }: Props): React.JSX.Eleme
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>
+        <GradientText style={styles.title}>
           {transactionType === 'buy' ? 'Buy' : 'Sell'} Transaction
-        </Text>
+        </GradientText>
       </View>
       <View style={styles.content}>
         <Text style={styles.placeholder}>
@@ -27,23 +29,24 @@ export default function TransactionFormScreen({ route }: Props): React.JSX.Eleme
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.background,
   },
   header: {
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: colors.border,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
+    color: colors.primaryText,
   },
   content: {
     padding: 20,
   },
   placeholder: {
     fontSize: 16,
-    color: '#999',
+    color: colors.secondaryText,
     textAlign: 'center',
     marginTop: 40,
   },

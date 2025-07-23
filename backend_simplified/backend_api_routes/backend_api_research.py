@@ -245,7 +245,7 @@ async def backend_api_historical_price_handler(
 @DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="FINANCIALS")
 async def backend_api_financials_handler(
     symbol: str,
-    data_type: str = Query('overview', description="Type of financial data: overview, income, balance, cashflow"),
+    data_type: str = Query('OVERVIEW', description="Type of financial data: OVERVIEW, INCOME_STATEMENT, BALANCE_SHEET, CASH_FLOW"),
     force_refresh: bool = Query(False, description="Force refresh from API even if cached"),
     user_data: Dict[str, Any] = Depends(require_authenticated_user)
 ) -> Dict[str, Any]:
@@ -301,7 +301,7 @@ async def backend_api_financials_handler(
 @research_router.post("/financials/force-refresh")
 async def backend_api_force_refresh_financials_handler(
     symbol: str = Query(..., description="Stock symbol to refresh"),
-    data_type: str = Query('overview', description="Type of financial data to refresh"),
+    data_type: str = Query('OVERVIEW', description="Type of financial data to refresh: OVERVIEW, INCOME_STATEMENT, BALANCE_SHEET, CASH_FLOW"),
     user_data: Dict[str, Any] = Depends(require_authenticated_user)
 ) -> Dict[str, Any]:
     """

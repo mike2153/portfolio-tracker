@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { BarChart3, PieChart, Calculator, List, Loader2 } from 'lucide-react';
+import GradientText from '@/components/ui/GradientText';
 import PortfolioSummary from './components/PortfolioSummary';
 import HoldingsTable from './components/HoldingsTable';
 import AllocationCharts from './components/AllocationCharts';
@@ -22,11 +23,11 @@ export default function PortfolioPage() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gray-900 text-white">
+      <div className="min-h-screen bg-[#0D1117] text-white">
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
             <Loader2 className="animate-spin h-8 w-8 mx-auto mb-4 text-blue-600" />
-            <p className="text-gray-400">Loading...</p>
+            <p className="text-[#8B949E]">Loading...</p>
           </div>
         </div>
       </div>
@@ -35,11 +36,11 @@ export default function PortfolioPage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-900 text-white">
+      <div className="min-h-screen bg-[#0D1117] text-white">
         <div className="container mx-auto px-4 py-8">
           <div className="text-center">
-            <h1 className="text-2xl font-bold mb-4">Please Log In</h1>
-            <p className="text-gray-400">You need to be logged in to view your portfolio.</p>
+            <GradientText className="text-2xl font-bold mb-4">Please Log In</GradientText>
+            <p className="text-[#8B949E]">You need to be logged in to view your portfolio.</p>
           </div>
         </div>
       </div>
@@ -51,13 +52,13 @@ export default function PortfolioPage() {
       <div className="container mx-auto px-4 py-6 max-w-7xl">
         {/* Page Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Portfolio Manager</h1>
-          <p className="text-gray-400">Track, analyze, and optimize your investments</p>
+          <GradientText className="text-3xl font-bold mb-2">Portfolio Manager</GradientText>
+          <p className="text-[#8B949E]">Track, analyze, and optimize your investments</p>
         </div>
 
         {/* Tab Navigation - Mobile Optimized */}
         <div className="mb-6">
-          <div className="border-b border-gray-700">
+          <div className="border-b border-[#30363D]">
             <nav className="-mb-px flex space-x-1 overflow-x-auto scrollbar-hide">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
@@ -70,7 +71,7 @@ export default function PortfolioPage() {
                       border-b-2 transition-colors duration-200
                       ${activeTab === tab.id
                         ? 'border-blue-500 text-blue-500'
-                        : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-600'
+                        : 'border-transparent text-[#8B949E] hover:text-white hover:border-[#30363D]'
                       }
                     `}
                   >
@@ -103,9 +104,9 @@ export default function PortfolioPage() {
 
           {activeTab === 'performance' && (
             <div className="animate-fadeIn">
-              <div className="rounded-xl bg-gray-800/50 p-6 shadow-lg mb-6">
+              <div className="rounded-xl bg-[#0D1117] border border-[#30363D] p-6 shadow-lg mb-6">
                 <h2 className="text-xl font-semibold text-white mb-4">Performance Analysis</h2>
-                <p className="text-gray-400">
+                <p className="text-[#8B949E]">
                   For detailed performance analysis and portfolio vs benchmark comparison, 
                   please visit the <a href="/dashboard" className="text-blue-500 hover:text-blue-400">Dashboard</a> page.
                 </p>
@@ -122,7 +123,7 @@ export default function PortfolioPage() {
         </div>
 
         {/* Mobile-friendly info message */}
-        <div className="mt-8 p-4 bg-gray-800/50 rounded-lg text-sm text-gray-400 sm:hidden">
+        <div className="mt-8 p-4 bg-[#0D1117] border border-[#30363D] rounded-lg text-sm text-[#8B949E] sm:hidden">
           <p>Swipe or scroll horizontally to see all tabs</p>
         </div>
       </div>

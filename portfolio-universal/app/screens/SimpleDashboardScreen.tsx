@@ -1,27 +1,29 @@
 import React from 'react';
 import { View, Text, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
+import GradientText from '../components/GradientText';
+import { colors } from '../theme/colors';
 
 export default function SimpleDashboardScreen() {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Dashboard</Text>
+        <GradientText style={styles.title}>Dashboard</GradientText>
       </View>
       
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Portfolio Value</Text>
+        <GradientText style={styles.cardTitle}>Portfolio Value</GradientText>
         <Text style={styles.cardValue}>$125,432.10</Text>
       </View>
       
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Today's Change</Text>
+        <GradientText style={styles.cardTitle}>Today's Change</GradientText>
         <Text style={[styles.cardValue, styles.positive]}>+$1,234.56 (+0.99%)</Text>
       </View>
       
       <View style={styles.chartCard}>
         <Text style={styles.cardTitle}>Portfolio Performance</Text>
         <View style={styles.chartPlaceholder}>
-          <ActivityIndicator size="large" color="#3B82F6" />
+          <ActivityIndicator size="large" color={colors.buttonBackground} />
         </View>
       </View>
     </ScrollView>
@@ -31,7 +33,7 @@ export default function SimpleDashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#111827',
+    backgroundColor: colors.background,
   },
   header: {
     padding: 20,
@@ -40,16 +42,16 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: 'white',
+    color: colors.primaryText,
   },
   card: {
-    backgroundColor: 'rgba(31, 41, 55, 0.8)',
+    backgroundColor: colors.border,
     margin: 10,
     padding: 20,
     borderRadius: 12,
   },
   chartCard: {
-    backgroundColor: 'rgba(31, 41, 55, 0.8)',
+    backgroundColor: colors.border,
     margin: 10,
     padding: 20,
     borderRadius: 12,
@@ -57,13 +59,13 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 16,
-    color: '#9CA3AF',
+    color: colors.secondaryText,
     marginBottom: 8,
   },
   cardValue: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: 'white',
+    color: colors.primaryText,
   },
   positive: {
     color: '#10B981',

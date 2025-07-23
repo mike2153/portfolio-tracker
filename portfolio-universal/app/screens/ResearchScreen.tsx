@@ -16,9 +16,10 @@ import {
   front_api_get_quote,
   front_api_get_news,
   formatCurrency,
-  formatPercentage,
-  COLORS 
+  formatPercentage
 } from '@portfolio-tracker/shared';
+import GradientText from '../components/GradientText';
+import { colors } from '../theme/colors';
 
 type Props = MainTabScreenProps<'Research'>;
 
@@ -73,7 +74,7 @@ export default function ResearchScreen({ navigation }: Props): React.JSX.Element
       <View style={styles.content}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>📊 Research</Text>
+          <GradientText style={styles.headerTitle}>📊 Research</GradientText>
         </View>
 
         {/* Search Bar */}
@@ -81,7 +82,7 @@ export default function ResearchScreen({ navigation }: Props): React.JSX.Element
           <TextInput
             style={styles.searchInput}
             placeholder="Search stocks (e.g., AAPL)"
-            placeholderTextColor={COLORS.textMuted}
+            placeholderTextColor={colors.secondaryText}
             value={searchQuery}
             onChangeText={setSearchQuery}
             onSubmitEditing={handleSearch}
@@ -99,12 +100,12 @@ export default function ResearchScreen({ navigation }: Props): React.JSX.Element
           <>
             {quoteLoading ? (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={COLORS.primary} />
+                <ActivityIndicator size="large" color={colors.buttonBackground} />
                 <Text style={styles.loadingText}>Searching for {searchedSymbol}...</Text>
               </View>
             ) : quote ? (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Quote: {searchedSymbol}</Text>
+                <GradientText style={styles.sectionTitle}>Quote: {searchedSymbol}</GradientText>
                 <TouchableOpacity 
                   style={styles.quoteCard}
                   onPress={() => navigation.navigate('StockDetail', { symbol: searchedSymbol })}
@@ -143,7 +144,7 @@ export default function ResearchScreen({ navigation }: Props): React.JSX.Element
             {/* News */}
             {news.length > 0 && (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Latest News</Text>
+                <GradientText style={styles.sectionTitle}>Latest News</GradientText>
                 {news.slice(0, 5).map((item: any, index: number) => (
                   <View key={index} style={styles.newsItem}>
                     <Text style={styles.newsTitle}>{item.title}</Text>
@@ -183,7 +184,7 @@ export default function ResearchScreen({ navigation }: Props): React.JSX.Element
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1f2937',
+    backgroundColor: colors.background,
   },
   content: {
     padding: 16,
@@ -194,7 +195,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.primaryText,
   },
   searchSection: {
     flexDirection: 'row',
@@ -203,20 +204,20 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    backgroundColor: '#374151',
+    backgroundColor: colors.border,
     borderRadius: 8,
     padding: 12,
-    color: COLORS.text,
+    color: colors.primaryText,
     fontSize: 16,
   },
   searchButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.buttonBackground,
     borderRadius: 8,
     paddingHorizontal: 20,
     justifyContent: 'center',
   },
   searchButtonText: {
-    color: COLORS.text,
+    color: colors.buttonText,
     fontWeight: '600',
   },
   section: {
@@ -225,11 +226,11 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.text,
+    color: colors.primaryText,
     marginBottom: 16,
   },
   indexCard: {
-    backgroundColor: '#374151',
+    backgroundColor: colors.border,
     padding: 16,
     borderRadius: 8,
     marginRight: 12,
@@ -237,13 +238,13 @@ const styles = StyleSheet.create({
   },
   indexName: {
     fontSize: 14,
-    color: COLORS.textMuted,
+    color: colors.secondaryText,
     marginBottom: 4,
   },
   indexValue: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.primaryText,
     marginBottom: 4,
   },
   indexChange: {
@@ -251,10 +252,10 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   positive: {
-    color: COLORS.positive,
+    color: colors.greenAccent,
   },
   negative: {
-    color: COLORS.negative,
+    color: '#ef4444', // Keep red for negative values
   },
   loadingContainer: {
     padding: 32,
@@ -262,10 +263,10 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 16,
-    color: COLORS.textMuted,
+    color: colors.secondaryText,
   },
   quoteCard: {
-    backgroundColor: '#374151',
+    backgroundColor: colors.border,
     padding: 16,
     borderRadius: 12,
   },
@@ -275,11 +276,11 @@ const styles = StyleSheet.create({
   quoteName: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.text,
+    color: colors.primaryText,
   },
   quoteSymbol: {
     fontSize: 14,
-    color: COLORS.textMuted,
+    color: colors.secondaryText,
   },
   quoteDetails: {
     flexDirection: 'row',
@@ -290,7 +291,7 @@ const styles = StyleSheet.create({
   quotePrice: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: colors.primaryText,
   },
   quoteChange: {
     fontSize: 16,
@@ -305,12 +306,12 @@ const styles = StyleSheet.create({
   },
   metricLabel: {
     fontSize: 12,
-    color: COLORS.textMuted,
+    color: colors.secondaryText,
     marginBottom: 4,
   },
   metricValue: {
     fontSize: 14,
-    color: COLORS.text,
+    color: colors.primaryText,
     fontWeight: '500',
   },
   noResults: {
@@ -318,11 +319,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   noResultsText: {
-    color: COLORS.textMuted,
+    color: colors.secondaryText,
     fontSize: 16,
   },
   newsItem: {
-    backgroundColor: '#374151',
+    backgroundColor: colors.border,
     padding: 16,
     borderRadius: 8,
     marginBottom: 12,
@@ -330,12 +331,12 @@ const styles = StyleSheet.create({
   newsTitle: {
     fontSize: 14,
     fontWeight: '500',
-    color: COLORS.text,
+    color: colors.primaryText,
     marginBottom: 8,
   },
   newsSource: {
     fontSize: 12,
-    color: COLORS.textMuted,
+    color: colors.secondaryText,
   },
   sentimentBadge: {
     alignSelf: 'flex-start',
@@ -345,17 +346,17 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   positiveSentiment: {
-    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    backgroundColor: `${colors.greenAccent}33`, // 20% opacity
   },
   negativeSentiment: {
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    backgroundColor: 'rgba(239, 68, 68, 0.2)', // Keep red for negative
   },
   neutralSentiment: {
-    backgroundColor: 'rgba(156, 163, 175, 0.2)',
+    backgroundColor: `${colors.secondaryText}33`, // 20% opacity
   },
   sentimentText: {
     fontSize: 12,
-    color: COLORS.text,
+    color: colors.primaryText,
     textTransform: 'capitalize',
   },
   infoSection: {
@@ -369,12 +370,12 @@ const styles = StyleSheet.create({
   infoTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: COLORS.text,
+    color: colors.primaryText,
     marginBottom: 8,
   },
   infoText: {
     fontSize: 16,
-    color: COLORS.textMuted,
+    color: colors.secondaryText,
     textAlign: 'center',
   },
 });

@@ -298,7 +298,7 @@ export const front_api_get_stock_research_data = (ticker: string) => {
 // ───────────────────────────────── Financial Data ──────────────────────────────
 export const front_api_get_company_financials = (
   symbol: string, 
-  dataType: 'overview' | 'income' | 'balance' | 'cashflow' = 'overview',
+  dataType: 'OVERVIEW' | 'INCOME_STATEMENT' | 'BALANCE_SHEET' | 'CASH_FLOW' = 'OVERVIEW',
   forceRefresh: boolean = false
 ) => {
   const encodedSymbol = encodeURIComponent(symbol);

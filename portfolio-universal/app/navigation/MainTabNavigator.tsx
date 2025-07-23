@@ -1,7 +1,9 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'react-native';
 import { MainTabParamList } from './types';
+import { colors } from '../theme/colors';
 import DashboardScreen from '../screens/DashboardScreen';
 // import DashboardScreen from '../screens/SimpleDashboardScreen';
 import PortfolioScreen from '../screens/PortfolioScreen';
@@ -16,16 +18,22 @@ export default function MainTabNavigator() {
     <Tab.Navigator
       screenOptions={{
         tabBarStyle: {
-          backgroundColor: '#1f2937',
-          borderTopColor: '#374151',
+          backgroundColor: colors.background,
+          borderTopColor: colors.border,
         },
-        tabBarActiveTintColor: '#10b981',
-        tabBarInactiveTintColor: '#9ca3af',
+        tabBarActiveTintColor: colors.greenAccent,
+        tabBarInactiveTintColor: colors.secondaryText,
         headerStyle: {
-          backgroundColor: '#1f2937',
-          borderBottomColor: '#374151',
+          backgroundColor: colors.background,
+          borderBottomColor: colors.border,
         },
-        headerTintColor: '#fff',
+        headerTintColor: colors.primaryText,
+        headerLeft: () => (
+          <Image 
+            source={require('../../assets/logo.png')} 
+            style={{ width: 36, height: 36, marginLeft: 16, borderRadius: 8 }}
+          />
+        ),
       }}
     >
       <Tab.Screen

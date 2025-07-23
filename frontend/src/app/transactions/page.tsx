@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import GradientText from '@/components/ui/GradientText';
 import { useQueryClient } from "@tanstack/react-query";
 import { front_api_client } from "@/lib/front_api_client";
 import { Trash2, Edit, X, Loader2 } from "lucide-react";
@@ -10,6 +11,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { User } from "@/types";
 import { StockSearchInput } from "@/components/StockSearchInput";
 import CompanyIcon from "@/components/ui/CompanyIcon";
+import { useSearchParams } from 'next/navigation';
 
 /* ------------------------------------------------------------------
  * Types
@@ -100,6 +102,7 @@ function debounce(func: (...args: any[]) => void, delay: number) {
 
 const TransactionsPage = () => {
   /* ---------------- state ----------------*/
+  const searchParams = useSearchParams();
   const [rawTransactions, setRawTransactions] = useState<BackendTx[]>([]);
   const [summary, setSummary] = useState<TransactionSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -325,7 +328,8 @@ const TransactionsPage = () => {
 
     const transactionData = {
         transaction_type: form.transaction_type === 'BUY' ? 'Buy' as const : 
-                         form.transaction_type === 'SELL' ? 'Sell' as const : 'Buy' as const, // Defaulting DIVIDEND to BUY for now
+                         form.transaction_type === 'SELL' ? 'Sell' as const : 
+                         form.transaction_type === 'DIVIDEND' ? 'Buy' as const : 'Buy' as const, // DIVIDEND handled as BUY in backend
         symbol: form.ticker.toUpperCase(),
         quantity: parseFloat(form.shares),
         price: parseFloat(form.purchase_price),
@@ -434,6 +438,19 @@ const TransactionsPage = () => {
     }
   }, [user, transactions, fetchSummary]);
 
+  // Handle URL parameters for opening form
+  useEffect(() => {
+    const shouldAdd = searchParams.get('add') === 'true';
+    const type = searchParams.get('type');
+    
+    if (shouldAdd) {
+      setShowAddForm(true);
+      if (type === 'dividend') {
+        setForm(prev => ({ ...prev, transaction_type: 'DIVIDEND' }));
+      }
+    }
+  }, [searchParams]);
+
   const filteredTransactions = useMemo(() => transactions.filter(transaction => {
     const matchesSearch = searchQuery === '' || 
       transaction.ticker.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -455,13 +472,13 @@ const TransactionsPage = () => {
    * ----------------------------------------------------------------*/
 
   return (
-    <div className="min-h-screen bg-gray-900 p-6 text-gray-100">
+    <div className="min-h-screen bg-[#0D1117] p-6 text-white">
       <div className="max-w-7xl mx-auto">
-        <div className="bg-gray-900 rounded-lg shadow-sm p-6 mb-6 text-gray-100 border border-gray-700">
+        <div className="bg-[#0D1117] rounded-lg shadow-sm p-6 mb-6 text-white border border-[#30363D]">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-bold text-white">Transactions</h1>
-              <p className="text-gray-400">Track your investment activities and performance</p>
+              <GradientText className="text-3xl font-bold">Transactions</GradientText>
+              <p className="text-[#8B949E]">Track your investment activities and performance</p>
             </div>
             <div className="flex items-center gap-4">
               <button
@@ -482,27 +499,27 @@ const TransactionsPage = () => {
               placeholder="Search by ticker or company name..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full max-w-md px-4 py-2 border border-gray-600 bg-gray-800 text-white rounded-lg focus:ring-blue-500 focus:border-blue-500"
+              className="w-full max-w-md px-4 py-2 border border-[#30363D] bg-[#0D1117] text-white rounded-lg focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
         </div>
 
         {summary && (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div className="bg-gray-800/50 border border-gray-700 p-4 rounded-lg shadow-sm">
-              <h3 className="text-sm font-medium text-gray-400">Total Invested</h3>
+            <div className="bg-[#0D1117] border border-[#30363D] p-4 rounded-lg shadow-sm">
+              <h3 className="text-sm font-medium text-[#8B949E]">Total Invested</h3>
               <p className="text-2xl font-bold text-green-400">{formatCurrency(summary.total_invested)}</p>
             </div>
-            <div className="bg-gray-800/50 border border-gray-700 p-4 rounded-lg shadow-sm">
-              <h3 className="text-sm font-medium text-gray-400">Total Transactions</h3>
+            <div className="bg-[#0D1117] border border-[#30363D] p-4 rounded-lg shadow-sm">
+              <h3 className="text-sm font-medium text-[#8B949E]">Total Transactions</h3>
               <p className="text-2xl font-bold text-blue-400">{summary.total_transactions}</p>
             </div>
-            <div className="bg-gray-800/50 border border-gray-700 p-4 rounded-lg shadow-sm">
-              <h3 className="text-sm font-medium text-gray-400">Unique Stocks</h3>
+            <div className="bg-[#0D1117] border border-[#30363D] p-4 rounded-lg shadow-sm">
+              <h3 className="text-sm font-medium text-[#8B949E]">Unique Stocks</h3>
               <p className="text-2xl font-bold text-purple-400">{summary.unique_tickers}</p>
             </div>
-            <div className="bg-gray-800/50 border border-gray-700 p-4 rounded-lg shadow-sm">
-              <h3 className="text-sm font-medium text-gray-400">Net Invested</h3>
+            <div className="bg-[#0D1117] border border-[#30363D] p-4 rounded-lg shadow-sm">
+              <h3 className="text-sm font-medium text-[#8B949E]">Net Invested</h3>
               <p className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
                 {formatCurrency(summary.net_invested)}
               </p>
@@ -510,23 +527,23 @@ const TransactionsPage = () => {
           </div>
         )}
         
-        <div className="bg-gray-800/50 rounded-lg shadow-sm text-gray-100 border border-gray-700">
+        <div className="bg-[#0D1117] rounded-lg shadow-sm text-white border border-[#30363D]">
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-800/80">
+                <thead className="bg-[#0D1117]">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Holding</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Type</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Shares</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Price</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Total Amount</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Date</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Actions</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-[#8B949E] uppercase tracking-wider">Holding</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-[#8B949E] uppercase tracking-wider">Type</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-[#8B949E] uppercase tracking-wider">Shares</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-[#8B949E] uppercase tracking-wider">Price</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-[#8B949E] uppercase tracking-wider">Total Amount</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-[#8B949E] uppercase tracking-wider">Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-[#8B949E] uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="bg-gray-900 divide-y divide-gray-700 text-gray-100">
+                <tbody className="bg-[#0D1117] divide-y divide-[#30363D] text-white">
                   {filteredTransactions.map((t) => (
-                    <tr key={t.id} className="hover:bg-gray-700/50">
+                    <tr key={t.id} className="hover:bg-[#30363D]/50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center space-x-3">
                           <CompanyIcon 
@@ -536,19 +553,19 @@ const TransactionsPage = () => {
                             className="flex-shrink-0"
                           />
                           <div>
-                            <div className="text-sm font-medium text-gray-100">{t.ticker}</div>
-                            <div className="text-sm text-gray-400">{t.company_name || 'N/A'}</div>
+                            <div className="text-sm font-medium text-white">{t.ticker}</div>
+                            <div className="text-sm text-[#8B949E]">{t.company_name || 'N/A'}</div>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap"><span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${t.transaction_type === 'BUY' ? 'bg-green-900 text-green-300' : t.transaction_type === 'SELL' ? 'bg-red-900 text-red-300' : 'bg-blue-900 text-blue-300'}`}>{t.transaction_type}</span></td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-100">{Math.round(t.shares).toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-100">{formatCurrency(t.price_per_share, t.transaction_currency)}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-100">{formatCurrency(t.total_amount, t.transaction_currency)}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-100">{formatDate(t.transaction_date)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{Math.round(t.shares).toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(t.price_per_share, t.transaction_currency)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(t.total_amount, t.transaction_currency)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatDate(t.transaction_date)}</td>
                       <td className="px-6 py-4 whitespace-nowrap flex space-x-2">
-                        <Edit onClick={() => handleEditClick(t)} className="h-5 w-5 cursor-pointer text-gray-400 hover:text-white" />
-                        <Trash2 onClick={() => handleDeleteClick(t.id)} className="h-5 w-5 cursor-pointer text-gray-400 hover:text-white" />
+                        <Edit onClick={() => handleEditClick(t)} className="h-5 w-5 cursor-pointer text-[#8B949E] hover:text-white" />
+                        <Trash2 onClick={() => handleDeleteClick(t.id)} className="h-5 w-5 cursor-pointer text-[#8B949E] hover:text-white" />
                       </td>
                     </tr>
                   ))}
@@ -560,22 +577,22 @@ const TransactionsPage = () => {
 
       {showAddForm && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50">
-          <div className="bg-gray-900 rounded-lg max-w-md w-full p-6 text-gray-100 border border-gray-700 shadow-xl">
+          <div className="bg-[#0D1117] rounded-lg max-w-md w-full p-6 text-white border border-[#30363D] shadow-xl">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">{editingTransaction ? 'Edit' : 'Add'} Transaction</h3>
-              <button onClick={() => { setShowAddForm(false); setEditingTransaction(null); }} className="text-gray-400 hover:text-white"><X size={24} /></button>
+              <button onClick={() => { setShowAddForm(false); setEditingTransaction(null); }} className="text-[#8B949E] hover:text-white"><X size={24} /></button>
             </div>
             <form onSubmit={handleAddTransactionSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Transaction Type</label>
-                <select name="transaction_type" value={form.transaction_type} onChange={handleFormChange} className="w-full p-2 bg-gray-800 border border-gray-600 rounded-lg" required>
+                <label className="block text-sm font-medium text-[#8B949E] mb-1">Transaction Type</label>
+                <select name="transaction_type" value={form.transaction_type} onChange={handleFormChange} className="w-full p-2 bg-[#0D1117] border border-[#30363D] rounded-lg" required>
                   <option value="BUY">Buy</option>
                   <option value="SELL">Sell</option>
                   <option value="DIVIDEND">Dividend</option>
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Ticker Symbol</label>
+                <label className="block text-sm font-medium text-[#8B949E] mb-1">Ticker Symbol</label>
                 <StockSearchInput
                   value={form.ticker}
                   onChange={(value) => setForm(prev => ({ ...prev, ticker: value }))}
@@ -597,13 +614,15 @@ const TransactionsPage = () => {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-1">Number of Shares</label>
-                  <input type="number" name="shares" step="1" min="0" value={form.shares} onChange={handleFormChange} className={`w-full p-2 bg-gray-800 border ${formErrors.shares ? 'border-red-500' : 'border-gray-600'} rounded-lg`} required />
+                  <label className="block text-sm font-medium text-[#8B949E] mb-1">
+                    {form.transaction_type === 'DIVIDEND' ? 'Total Shares Owned' : 'Number of Shares'}
+                  </label>
+                  <input type="number" name="shares" step="1" min="0" value={form.shares} onChange={handleFormChange} className={`w-full p-2 bg-[#0D1117] border ${formErrors.shares ? 'border-red-500' : 'border-[#30363D]'} rounded-lg`} required />
                   {formErrors.shares && <p className="text-red-500 text-xs mt-1">{formErrors.shares}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-1">
-                    Price per Share
+                  <label className="block text-sm font-medium text-[#8B949E] mb-1">
+                    {form.transaction_type === 'DIVIDEND' ? 'Dividend per Share' : 'Price per Share'}
                     {loadingPrice && <span className="text-blue-400 text-xs ml-2">(fetching...)</span>}
                   </label>
                   <div className="relative">
@@ -614,7 +633,7 @@ const TransactionsPage = () => {
                       min="0" 
                       value={form.purchase_price} 
                       onChange={handleFormChange} 
-                      className={`w-full p-2 bg-gray-800 border ${formErrors.purchase_price ? 'border-red-500' : 'border-gray-600'} rounded-lg ${loadingPrice ? 'opacity-50' : ''}`} 
+                      className={`w-full p-2 bg-[#0D1117] border ${formErrors.purchase_price ? 'border-red-500' : 'border-[#30363D]'} rounded-lg ${loadingPrice ? 'opacity-50' : ''}`} 
                       disabled={loadingPrice}
                       required 
                     />
@@ -629,26 +648,28 @@ const TransactionsPage = () => {
               </div>
               {/* Amount Invested (read-only) */}
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Amount Invested</label>
+                <label className="block text-sm font-medium text-[#8B949E] mb-1">
+                  {form.transaction_type === 'DIVIDEND' ? 'Total Dividend' : 'Amount Invested'}
+                </label>
                 <input
                   type="text"
                   value={formatCurrency(amountInvested, form.currency || 'USD')}
                   readOnly
                   tabIndex={-1}
-                  className="w-full p-2 bg-gray-800 border border-gray-600 rounded-lg text-gray-300 opacity-80 cursor-not-allowed"
+                  className="w-full p-2 bg-[#0D1117] border border-[#30363D] rounded-lg text-[#8B949E] opacity-80 cursor-not-allowed"
                   aria-readonly="true"
                 />
-                <p className="text-xs text-gray-500 mt-1">Calculated as shares × price per share. This value is sent to the backend for accurate record-keeping.</p>
+                <p className="text-xs text-[#8B949E] mt-1">Calculated as shares × price per share. This value is sent to the backend for accurate record-keeping.</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Transaction Date</label>
-                <input type="date" name="purchase_date" value={form.purchase_date} onChange={handleFormChange} onBlur={handleDateBlur} className={`w-full p-2 bg-gray-800 border ${formErrors.purchase_date ? 'border-red-500' : 'border-gray-600'} rounded-lg`} required />
+                <label className="block text-sm font-medium text-[#8B949E] mb-1">Transaction Date</label>
+                <input type="date" name="purchase_date" value={form.purchase_date} onChange={handleFormChange} onBlur={handleDateBlur} className={`w-full p-2 bg-[#0D1117] border ${formErrors.purchase_date ? 'border-red-500' : 'border-[#30363D]'} rounded-lg`} required />
                 {formErrors.purchase_date && <p className="text-red-500 text-xs mt-1">{formErrors.purchase_date}</p>}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-1">Currency</label>
-                    <select name="currency" value={form.currency} onChange={handleFormChange} className="w-full p-2 bg-gray-800 border border-gray-600 rounded-lg">
+                    <label className="block text-sm font-medium text-[#8B949E] mb-1">Currency</label>
+                    <select name="currency" value={form.currency} onChange={handleFormChange} className="w-full p-2 bg-[#0D1117] border border-[#30363D] rounded-lg">
                         <option value="USD">USD</option>
                         <option value="EUR">EUR</option>
                         <option value="GBP">GBP</option>
@@ -660,17 +681,17 @@ const TransactionsPage = () => {
                     </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-1">Commission</label>
-                  <input type="number" name="commission" step="0.01" min="0" value={form.commission} onChange={handleFormChange} className={`w-full p-2 bg-gray-800 border ${formErrors.commission ? 'border-red-500' : 'border-gray-600'} rounded-lg`} placeholder="0.00" />
+                  <label className="block text-sm font-medium text-[#8B949E] mb-1">Commission</label>
+                  <input type="number" name="commission" step="0.01" min="0" value={form.commission} onChange={handleFormChange} className={`w-full p-2 bg-[#0D1117] border ${formErrors.commission ? 'border-red-500' : 'border-[#30363D]'} rounded-lg`} placeholder="0.00" />
                   {formErrors.commission && <p className="text-red-500 text-xs mt-1">{formErrors.commission}</p>}
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Notes</label>
-                <textarea name="notes" value={form.notes} onChange={handleFormChange} className="w-full p-2 bg-gray-800 border border-gray-600 rounded-lg" rows={2} placeholder="e.g., Bought on market dip" />
+                <label className="block text-sm font-medium text-[#8B949E] mb-1">Notes</label>
+                <textarea name="notes" value={form.notes} onChange={handleFormChange} className="w-full p-2 bg-[#0D1117] border border-[#30363D] rounded-lg" rows={2} placeholder="e.g., Bought on market dip" />
               </div>
               <div className="flex gap-4 pt-4">
-                <button type="button" onClick={() => { setShowAddForm(false); setEditingTransaction(null); }} className="flex-1 px-4 py-2 border border-gray-600 rounded-lg text-gray-300 hover:bg-gray-700 font-medium">Cancel</button>
+                <button type="button" onClick={() => { setShowAddForm(false); setEditingTransaction(null); }} className="flex-1 px-4 py-2 border border-[#30363D] rounded-lg text-[#8B949E] hover:bg-[#30363D] font-medium">Cancel</button>
                 <button type="submit" disabled={isSubmitting || loadingPrice} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center font-medium">
                   {isSubmitting ? <Loader2 className="animate-spin mr-2" /> : null}
                   {isSubmitting ? (editingTransaction ? 'Updating...' : 'Adding...') : (editingTransaction ? 'Update Transaction' : 'Add Transaction')}

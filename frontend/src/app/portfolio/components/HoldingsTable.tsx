@@ -25,7 +25,7 @@ export default function HoldingsTable() {
       label: 'Shares',
       sortable: true,
       render: (value) => (
-        <span className="text-gray-300">{value.toLocaleString()}</span>
+        <span className="text-[#8B949E]">{value.toLocaleString()}</span>
       ),
     },
     {
@@ -33,7 +33,7 @@ export default function HoldingsTable() {
       label: 'Price',
       sortable: true,
       render: (value) => (
-        <span className="text-gray-300">${value.toFixed(2)}</span>
+        <span className="text-[#8B949E]">${value.toFixed(2)}</span>
       ),
     },
     {
@@ -49,7 +49,7 @@ export default function HoldingsTable() {
       label: 'Cost Basis',
       sortable: true,
       render: (value) => (
-        <span className="text-gray-300">${value.toLocaleString()}</span>
+        <span className="text-[#8B949E]">${value.toLocaleString()}</span>
       ),
     },
     {
@@ -91,13 +91,13 @@ export default function HoldingsTable() {
       sortable: true,
       render: (value) => (
         <div className="flex items-center gap-2">
-          <div className="w-16 bg-gray-700 rounded-full h-2">
+          <div className="w-16 bg-[#30363D] rounded-full h-2">
             <div
-              className="bg-blue-500 h-2 rounded-full"
+              className="bg-white h-2 rounded-full"
               style={{ width: `${Math.min(value, 100)}%` }}
             />
           </div>
-          <span className="text-gray-300 text-sm">{value.toFixed(1)}%</span>
+          <span className="text-[#8B949E] text-sm">{value.toFixed(1)}%</span>
         </div>
       ),
     },
@@ -106,7 +106,7 @@ export default function HoldingsTable() {
       label: 'Dividends',
       sortable: true,
       render: (value) => (
-        <span className="text-gray-300">${value.toFixed(2)}</span>
+        <span className="text-[#8B949E]">${value.toFixed(2)}</span>
       ),
     },
   ];
@@ -134,7 +134,7 @@ export default function HoldingsTable() {
         showSearch={true}
         showPagination={true}
         itemsPerPage={20}
-        className="bg-gray-800/50"
+        className="bg-[#161B22]/50"
       />
     </div>
   );

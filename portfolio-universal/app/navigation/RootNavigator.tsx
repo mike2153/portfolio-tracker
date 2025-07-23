@@ -2,6 +2,7 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../components/AuthProvider';
 import { RootStackParamList } from './types';
+import { colors } from '../theme/colors';
 import AuthScreen from '../screens/AuthScreen';
 import MainTabNavigator from './MainTabNavigator';
 import StockDetailScreen from '../screens/StockDetailScreen';
@@ -25,8 +26,8 @@ export default function RootNavigator() {
             options={{
               headerShown: true,
               headerTitle: 'Stock Details',
-              headerStyle: { backgroundColor: '#1f2937' },
-              headerTintColor: '#fff',
+              headerStyle: { backgroundColor: colors.background },
+              headerTintColor: colors.primaryText,
             }}
           />
           <Stack.Screen 
@@ -36,8 +37,8 @@ export default function RootNavigator() {
               headerShown: true,
               headerTitle: 'Add Transaction',
               presentation: 'modal',
-              headerStyle: { backgroundColor: '#1f2937' },
-              headerTintColor: '#fff',
+              headerStyle: { backgroundColor: colors.background },
+              headerTintColor: colors.primaryText,
             }}
           />
         </>

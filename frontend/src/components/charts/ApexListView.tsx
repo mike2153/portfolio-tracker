@@ -138,14 +138,14 @@ export default function ApexListView<T extends Record<string, any>>({
   // Loading state
   if (isLoading) {
     return (
-      <div className={`rounded-xl bg-gray-800/80 p-6 shadow-lg ${className}`}>
+      <div className={`rounded-xl bg-[#0D1117] border border-[#30363D] p-6 shadow-lg ${className}`}>
         {title && (
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-white">{title}</h3>
           </div>
         )}
         <div className="flex items-center justify-center py-12">
-          <div className="flex items-center gap-2 text-gray-300">
+          <div className="flex items-center gap-2 text-[#8B949E]">
             <Loader2 className="w-5 h-5 animate-spin" />
             Loading data...
           </div>
@@ -157,7 +157,7 @@ export default function ApexListView<T extends Record<string, any>>({
   // Error state
   if (error) {
     return (
-      <div className={`rounded-xl bg-gray-800/80 p-6 shadow-lg ${className}`}>
+      <div className={`rounded-xl bg-[#0D1117] border border-[#30363D] p-6 shadow-lg ${className}`}>
         {title && (
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-white">{title}</h3>
@@ -170,7 +170,7 @@ export default function ApexListView<T extends Record<string, any>>({
             {onRetry && (
               <button 
                 onClick={onRetry}
-                className="mt-4 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+                className="mt-4 px-4 py-2 bg-white text-[#0D1117] rounded-md hover:bg-[#8B949E] transition-colors"
               >
                 Retry
               </button>
@@ -209,21 +209,21 @@ export default function ApexListView<T extends Record<string, any>>({
     }
     
     if (value === null || value === undefined) {
-      return <span className="text-gray-500">—</span>;
+      return <span className="text-[#8B949E]">—</span>;
     }
     
     return String(value);
   };
 
   return (
-    <div className={`rounded-xl bg-gray-800/80 p-6 shadow-lg ${className}`}>
+    <div className={`rounded-xl bg-[#161B22] p-6 shadow-lg ${className}`}>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
         <div className="flex items-center gap-4">
           {title && (
             <h3 className="text-lg font-semibold text-white">{title}</h3>
           )}
-          <span className="text-sm text-gray-400">
+          <span className="text-sm text-[#8B949E]">
             {sortedData.length} {sortedData.length === 1 ? 'item' : 'items'}
           </span>
         </div>
@@ -231,13 +231,13 @@ export default function ApexListView<T extends Record<string, any>>({
         <div className="flex items-center gap-2 mt-4 sm:mt-0">
           {showSearch && (
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#8B949E]" />
               <input
                 type="text"
                 placeholder={searchPlaceholder}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-blue-500 focus:outline-none text-sm"
+                className="pl-10 pr-4 py-2 bg-[#0D1117] border border-[#30363D] rounded-lg text-white placeholder-[#8B949E] focus:border-white focus:outline-none text-sm"
               />
             </div>
           )}
@@ -245,7 +245,7 @@ export default function ApexListView<T extends Record<string, any>>({
           {onRefresh && (
             <button
               onClick={onRefresh}
-              className="px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white text-sm transition-colors"
+              className="px-3 py-2 bg-[#0D1117] border border-[#30363D] hover:bg-[#30363D] rounded-lg text-white text-sm transition-colors"
             >
               Refresh
             </button>
@@ -255,7 +255,7 @@ export default function ApexListView<T extends Record<string, any>>({
 
       {/* Content */}
       {sortedData.length === 0 ? (
-        <div className="text-center py-12 text-gray-400">
+        <div className="text-center py-12 text-[#8B949E]">
           <p className="text-lg font-medium">{emptyMessage}</p>
           {searchTerm && (
             <p className="text-sm mt-2">
@@ -269,7 +269,7 @@ export default function ApexListView<T extends Record<string, any>>({
             <div key={group.key}>
               {group.label && (
                 <div className="mb-4">
-                  <h4 className="text-sm font-semibold text-blue-400 uppercase tracking-wide">
+                  <h4 className="text-sm font-semibold text-white uppercase tracking-wide">
                     {group.label}
                   </h4>
                 </div>
@@ -279,11 +279,11 @@ export default function ApexListView<T extends Record<string, any>>({
               <div className="hidden md:block overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-gray-700">
+                    <tr className="border-b border-[#30363D]">
                       {columns.map(column => (
                         <th
                           key={String(column.key)}
-                          className={`text-left py-3 px-4 text-sm font-medium text-gray-400 ${
+                          className={`text-left py-3 px-4 text-sm font-medium text-[#8B949E] ${
                             column.sortable ? 'cursor-pointer hover:text-white' : ''
                           } ${column.className || ''}`}
                           style={{ width: column.width }}
@@ -296,7 +296,7 @@ export default function ApexListView<T extends Record<string, any>>({
                         </th>
                       ))}
                       {actions.length > 0 && (
-                        <th className="text-right py-3 px-4 text-sm font-medium text-gray-400">
+                        <th className="text-right py-3 px-4 text-sm font-medium text-[#8B949E]">
                           Actions
                         </th>
                       )}
@@ -306,7 +306,7 @@ export default function ApexListView<T extends Record<string, any>>({
                     {group.items.map((item, index) => (
                       <tr
                         key={getItemKey(item, index)}
-                        className="border-b border-gray-700/50 hover:bg-gray-700/30 transition-colors"
+                        className="border-b border-[#30363D]/50 hover:bg-[#30363D]/30 transition-colors"
                       >
                         {columns.map(column => (
                           <td
@@ -325,7 +325,7 @@ export default function ApexListView<T extends Record<string, any>>({
                                   onClick={() => action.onClick(item)}
                                   disabled={action.disabled?.(item)}
                                   className={`p-2 rounded-md transition-colors ${
-                                    action.className || 'text-gray-400 hover:text-white hover:bg-gray-600'
+                                    action.className || 'text-[#8B949E] hover:text-white hover:bg-[#30363D]'
                                   } ${action.disabled?.(item) ? 'opacity-50 cursor-not-allowed' : ''}`}
                                   title={typeof action.label === 'function' ? action.label(item) : action.label}
                                 >
@@ -346,25 +346,25 @@ export default function ApexListView<T extends Record<string, any>>({
                 {group.items.map((item, index) => (
                   <div
                     key={getItemKey(item, index)}
-                    className="bg-gray-700/50 rounded-lg p-4"
+                    className="bg-[#0D1117] border border-[#30363D] rounded-lg p-4"
                   >
                     {columns.map(column => (
                       <div key={String(column.key)} className="flex justify-between items-center py-1">
-                        <span className="text-sm text-gray-400">{column.label}:</span>
+                        <span className="text-sm text-[#8B949E]">{column.label}:</span>
                         <span className="text-sm text-white font-medium">
                           {formatCellValue(column, item)}
                         </span>
                       </div>
                     ))}
                     {actions.length > 0 && (
-                      <div className="flex gap-2 mt-3 pt-3 border-t border-gray-600">
+                      <div className="flex gap-2 mt-3 pt-3 border-t border-[#30363D]">
                         {actions.map((action, actionIndex) => (
                           <button
                             key={actionIndex}
                             onClick={() => action.onClick(item)}
                             disabled={action.disabled?.(item)}
                             className={`px-3 py-1 text-xs rounded-md transition-colors ${
-                              action.className || 'bg-gray-600 text-white hover:bg-gray-500'
+                              action.className || 'bg-white text-[#0D1117] hover:bg-[#8B949E]'
                             } ${action.disabled?.(item) ? 'opacity-50 cursor-not-allowed' : ''}`}
                           >
                             {typeof action.label === 'function' ? action.label(item) : action.label}
@@ -382,25 +382,25 @@ export default function ApexListView<T extends Record<string, any>>({
 
       {/* Pagination */}
       {showPagination && totalPages > 1 && (
-        <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-700">
-          <div className="text-sm text-gray-400">
+        <div className="flex items-center justify-between mt-6 pt-4 border-t border-[#30363D]">
+          <div className="text-sm text-[#8B949E]">
             Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, sortedData.length)} of {sortedData.length} results
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
-              className="px-3 py-2 text-sm bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-md text-white transition-colors"
+              className="px-3 py-2 text-sm bg-[#0D1117] border border-[#30363D] hover:bg-[#30363D] disabled:opacity-50 disabled:cursor-not-allowed rounded-md text-white transition-colors"
             >
               Previous
             </button>
-            <span className="text-sm text-gray-400">
+            <span className="text-sm text-[#8B949E]">
               Page {currentPage} of {totalPages}
             </span>
             <button
               onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
               disabled={currentPage === totalPages}
-              className="px-3 py-2 text-sm bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-md text-white transition-colors"
+              className="px-3 py-2 text-sm bg-[#0D1117] border border-[#30363D] hover:bg-[#30363D] disabled:opacity-50 disabled:cursor-not-allowed rounded-md text-white transition-colors"
             >
               Next
             </button>
@@ -410,7 +410,7 @@ export default function ApexListView<T extends Record<string, any>>({
 
       {/* Debug info in development */}
       {process.env.NODE_ENV === 'development' && (
-        <div className="mt-4 text-xs text-gray-500 border-t border-gray-700 pt-2">
+        <div className="mt-4 text-xs text-[#8B949E] border-t border-[#30363D] pt-2">
           Debug: {paginatedData.length} items displayed, {totalPages} pages, Search: "{searchTerm}", Sort: {sortConfig.key ? `${String(sortConfig.key)} ${sortConfig.direction}` : 'none'}
         </div>
       )}

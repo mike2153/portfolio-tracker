@@ -187,7 +187,7 @@ export function StockSearchInput({
         onFocus={() => setShowSuggestions(true)}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
-        className={`w-full p-2 border ${error ? 'border-red-500' : 'border-gray-600'} rounded-lg ${inputClassName}`}
+        className={`w-full p-2 border ${error ? 'border-red-500' : 'border-[#30363D]'} rounded-lg ${inputClassName}`}
         autoComplete="off"
         autoFocus={autoFocus}
         required={required}
@@ -198,10 +198,10 @@ export function StockSearchInput({
       )}
 
       {showSuggestions && (searchQuery.length > 0 || suggestions.length > 0) && (
-        <div className="absolute z-50 w-full bg-gray-900 border border-gray-700 rounded-lg mt-1 shadow-lg max-h-96 overflow-y-auto">
+        <div className="absolute z-50 w-full bg-[#0D1117] border border-[#30363D] rounded-lg mt-1 shadow-lg max-h-96 overflow-y-auto">
           {isLoading ? (
-            <div className="p-4 text-center text-gray-400">
-              <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-gray-400"></div>
+            <div className="p-4 text-center text-[#8B949E]">
+              <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-[#8B949E]"></div>
               <span className="ml-2">Searching...</span>
             </div>
           ) : suggestions.length > 0 ? (
@@ -228,29 +228,29 @@ export function StockSearchInput({
                       <div className="font-semibold text-sm">
                         {symbol.symbol}
                         {symbol.region && (
-                          <span className="ml-2 text-xs text-gray-500 font-normal">
+                          <span className="ml-2 text-xs text-[#8B949E] font-normal">
                             {symbol.region}
                           </span>
                         )}
                       </div>
-                      <div className="text-xs text-gray-400 mt-0.5 line-clamp-1">
+                      <div className="text-xs text-[#8B949E] mt-0.5 line-clamp-1">
                         {symbol.name}
                       </div>
                     </div>
                     {symbol.currency && symbol.currency !== 'USD' && (
-                      <span className="text-xs text-gray-500 bg-gray-800 px-1.5 py-0.5 rounded ml-2">
+                      <span className="text-xs text-[#8B949E] bg-[#0D1117] border border-[#30363D] px-1.5 py-0.5 rounded ml-2">
                         {symbol.currency}
                       </span>
                     )}
                   </div>
                 </div>
               ))}
-              <div className="px-3 py-2 text-xs text-gray-500 border-t border-gray-800">
+              <div className="px-3 py-2 text-xs text-[#8B949E] border-t border-[#30363D]">
                 Showing top {suggestions.length} results
               </div>
             </div>
           ) : searchQuery.length > 0 ? (
-            <div className="p-4 text-center text-gray-500">
+            <div className="p-4 text-center text-[#8B949E]">
               No results found for "{searchQuery}"
             </div>
           ) : null}

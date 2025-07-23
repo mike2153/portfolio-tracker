@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import dynamic from 'next/dynamic'
+import GradientText from '@/components/ui/GradientText'
 import { 
   PortfolioOptimizationAnalysis
 } from '@/types'
@@ -159,7 +160,7 @@ export default function PortfolioOptimization({ userId }: PortfolioOptimizationP
     <div className="space-y-6">
       {/* Header */}
       <div className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg p-6 text-white">
-        <h2 className="text-2xl font-bold mb-2">Portfolio Optimization Analysis</h2>
+        <GradientText className="text-2xl font-bold mb-2">Portfolio Optimization Analysis</GradientText>
         <p className="text-purple-100">Advanced analytics and recommendations for your portfolio</p>
         <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
           <div>

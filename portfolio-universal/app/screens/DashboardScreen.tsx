@@ -18,6 +18,8 @@ import {
   formatPercentage,
   COLORS 
 } from '@portfolio-tracker/shared';
+import GradientText from '../components/GradientText';
+import { colors } from '../theme/colors';
 
 type Props = MainTabScreenProps<'Dashboard'>;
 
@@ -28,7 +30,7 @@ const KPICard = ({ title, value, subtitle, isPositive }: {
   isPositive?: boolean;
 }) => (
   <View style={styles.kpiCard}>
-    <Text style={styles.kpiTitle}>{title}</Text>
+    <GradientText style={styles.kpiTitle}>{title}</GradientText>
     <Text style={[styles.kpiValue, isPositive !== undefined && (isPositive ? styles.positive : styles.negative)]}>
       {value}
     </Text>
@@ -124,8 +126,8 @@ export default function DashboardScreen({ navigation }: Props): React.JSX.Elemen
       <View style={styles.content}>
         {/* HEADER */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>📱 NEW DASHBOARD 📱</Text>
-          <Text style={styles.headerSubtitle}>iOS Portfolio Tracker</Text>
+          <GradientText style={styles.headerTitle}>📱 NEW DASHBOARD 📱</GradientText>
+          <GradientText style={styles.headerSubtitle}>iOS Portfolio Tracker</GradientText>
         </View>
 
         {/* KPI CARDS */}
@@ -162,7 +164,7 @@ export default function DashboardScreen({ navigation }: Props): React.JSX.Elemen
         {/* TOP HOLDINGS */}
         {topHoldings.length > 0 ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>📈 Top Holdings</Text>
+            <GradientText style={styles.sectionTitle}>📈 Top Holdings</GradientText>
             <View style={styles.holdingsList}>
               {topHoldings.map((holding: any) => (
                 <View key={holding.symbol} style={styles.holdingItem}>
@@ -175,7 +177,7 @@ export default function DashboardScreen({ navigation }: Props): React.JSX.Elemen
           </View>
         ) : dashboard?.transaction_summary?.total_transactions > 0 ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>📈 Transaction Summary</Text>
+            <GradientText style={styles.sectionTitle}>📈 Transaction Summary</GradientText>
             <View style={styles.transactionInfo}>
               <Text style={styles.infoText}>
                 You have {dashboard.transaction_summary.total_transactions} transaction(s) recorded.
@@ -200,7 +202,7 @@ export default function DashboardScreen({ navigation }: Props): React.JSX.Elemen
           </View>
         ) : (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>📈 Getting Started</Text>
+            <GradientText style={styles.sectionTitle}>📈 Getting Started</GradientText>
             <View style={styles.emptyState}>
               <Text style={styles.emptyText}>No holdings yet</Text>
               <Text style={styles.emptySubtext}>Add your first transaction to start tracking your portfolio</Text>
@@ -232,7 +234,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 16,
-    color: COLORS.textMuted,
+    color: colors.secondaryText,
     fontSize: 16,
   },
   errorText: {
@@ -242,7 +244,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   errorDetail: {
-    color: COLORS.textMuted,
+    color: colors.secondaryText,
     fontSize: 14,
     marginBottom: 16,
     textAlign: 'center',
@@ -255,39 +257,39 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   retryButtonText: {
-    color: COLORS.text,
+    color: colors.primaryText,
     fontSize: 16,
     fontWeight: '600',
   },
   transactionInfo: {
-    backgroundColor: '#374151',
+    backgroundColor: colors.background,
     padding: 16,
     borderRadius: 12,
   },
   infoText: {
-    color: COLORS.text,
+    color: colors.primaryText,
     fontSize: 16,
     marginBottom: 8,
   },
   infoSubtext: {
-    color: COLORS.textMuted,
+    color: colors.secondaryText,
     fontSize: 14,
     marginTop: 8,
   },
   emptyState: {
-    backgroundColor: '#374151',
+    backgroundColor: colors.background,
     padding: 24,
     borderRadius: 12,
     alignItems: 'center',
   },
   emptyText: {
-    color: COLORS.text,
+    color: colors.primaryText,
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 8,
   },
   emptySubtext: {
-    color: COLORS.textMuted,
+    color: colors.secondaryText,
     fontSize: 14,
     textAlign: 'center',
   },
@@ -299,13 +301,13 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   refreshButtonText: {
-    color: COLORS.text,
+    color: colors.primaryText,
     fontSize: 14,
     fontWeight: '600',
   },
   container: {
     flex: 1,
-    backgroundColor: '#1f2937',
+    backgroundColor: colors.background,
   },
   content: {
     padding: 16,
@@ -318,12 +320,12 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#fff',
+    color: colors.primaryText,
     marginBottom: 8,
   },
   headerSubtitle: {
     fontSize: 16,
-    color: '#9ca3af',
+    color: colors.secondaryText,
   },
   kpiGrid: {
     flexDirection: 'row',
@@ -332,7 +334,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   kpiCard: {
-    backgroundColor: '#374151',
+    backgroundColor: colors.background,
     borderRadius: 12,
     padding: 16,
     width: '48%',
@@ -340,18 +342,18 @@ const styles = StyleSheet.create({
   },
   kpiTitle: {
     fontSize: 14,
-    color: '#9ca3af',
+    color: colors.secondaryText,
     marginBottom: 4,
   },
   kpiValue: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#fff',
+    color: colors.primaryText,
     marginBottom: 4,
   },
   kpiSubtitle: {
     fontSize: 12,
-    color: '#6b7280',
+    color: colors.secondaryText,
   },
   positive: {
     color: '#10b981',
@@ -365,11 +367,11 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.primaryText,
     marginBottom: 16,
   },
   holdingsList: {
-    backgroundColor: '#374151',
+    backgroundColor: colors.background,
     borderRadius: 12,
     padding: 16,
   },
@@ -384,22 +386,22 @@ const styles = StyleSheet.create({
   holdingTicker: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#3b82f6',
+    color: colors.buttonBackground,
     width: 60,
   },
   holdingName: {
     fontSize: 14,
-    color: '#d1d5db',
+    color: colors.secondaryText,
     flex: 1,
     marginLeft: 12,
   },
   holdingValue: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.primaryText,
   },
   marketList: {
-    backgroundColor: '#374151',
+    backgroundColor: colors.background,
     borderRadius: 12,
     padding: 16,
   },
@@ -413,20 +415,20 @@ const styles = StyleSheet.create({
   },
   marketName: {
     fontSize: 16,
-    color: '#d1d5db',
+    color: colors.secondaryText,
   },
   marketValue: {
     fontSize: 16,
     fontWeight: '600',
   },
   button: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: colors.buttonBackground,
     borderRadius: 8,
     padding: 16,
     alignItems: 'center',
   },
   buttonText: {
-    color: '#fff',
+    color: colors.primaryText,
     fontSize: 16,
     fontWeight: '600',
   },

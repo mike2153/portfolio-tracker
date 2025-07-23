@@ -15,27 +15,27 @@ export const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
 
 // UI Constants
 export const COLORS = {
-  primary: '#3b82f6',
-  secondary: '#10b981',
-  danger: '#ef4444',
-  warning: '#f59e0b',
-  success: '#10b981',
-  positive: '#10b981',
-  negative: '#ef4444',
-  neutral: '#6b7280',
+  primary: '#FFFFFF',
+  secondary: '#238636',
+  danger: '#F85149',
+  warning: '#F0883E',
+  success: '#238636',
+  positive: '#238636',
+  negative: '#F85149',
+  neutral: '#8B949E',
   
   // Background colors
-  background: '#1f2937',
-  surface: '#374151',
-  card: '#374151',
+  background: '#0D1117',
+  surface: '#161B22',
+  card: '#161B22',
   
   // Text colors
-  text: '#fff',
-  textSecondary: '#d1d5db',
-  textMuted: '#9ca3af',
+  text: '#FFFFFF',
+  textSecondary: '#8B949E',
+  textMuted: '#8B949E',
   
   // Border colors
-  border: '#4b5563',
+  border: '#30363D',
 } as const;
 
 export const FONT_SIZES = {

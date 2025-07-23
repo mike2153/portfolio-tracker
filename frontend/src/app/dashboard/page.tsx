@@ -1,5 +1,6 @@
 import { Suspense } from 'react';
 import { DashboardProvider } from './contexts/DashboardContext';
+import GradientText from '@/components/ui/GradientText';
 
 import KPIGrid from './components/KPIGrid';
 import DailyMovers from './components/DailyMovers';
@@ -17,7 +18,7 @@ export default function DashboardPage() {
     <DashboardProvider>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">My Portfolio</h1>
+          <GradientText className="text-2xl font-bold tracking-tight">My Portfolio</GradientText>
           {/* Add top right controls here */}
         </div>
 

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import GradientText from '@/components/ui/GradientText'
 
 // Debug helper function (disabled for production)
 const debugLog = (context: string, data: any) => {
@@ -142,9 +143,9 @@ export default function AuthPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-900 py-12 px-4 sm:px-6 lg:px-8 text-gray-100">
       <div className="max-w-md w-full space-y-8">
         <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+          <GradientText className="mt-6 text-center text-3xl font-extrabold block">
             {isSignUp ? 'Create your account' : 'Sign in to your account'}
-          </h2>
+          </GradientText>
           <p className="mt-2 text-center text-sm text-gray-600">
             Professional portfolio analytics platform
           </p>
