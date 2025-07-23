@@ -56,17 +56,27 @@ async def backend_api_get_portfolio(
     force_refresh: bool = Query(False, description="Force refresh cache")
 ) -> Dict[str, Any]:
     """Get user's current portfolio holdings calculated from transactions"""
-    logger.info(f"[backend_api_portfolio.py::backend_api_get_portfolio] Portfolio requested for user: {user.get('email', 'unknown')}")
+    # Comprehensive logging for incoming request
+    logger.info(f"[backend_api_portfolio.py::backend_api_get_portfolio] === GET PORTFOLIO REQUEST START ===")
+    logger.info(f"[backend_api_portfolio.py::backend_api_get_portfolio] User email: {user.get('email', 'unknown')}")
+    logger.info(f"[backend_api_portfolio.py::backend_api_get_portfolio] User ID: {user.get('id', 'unknown')}")
+    logger.info(f"[backend_api_portfolio.py::backend_api_get_portfolio] Force refresh: {force_refresh}")
+    logger.info(f"[backend_api_portfolio.py::backend_api_get_portfolio] Auth headers present: {bool(user.get('access_token'))}")
     
     try:
         # Use PortfolioMetricsManager for optimized portfolio data
         user_id, user_token = extract_user_credentials(user)
+        logger.info(f"[backend_api_portfolio.py::backend_api_get_portfolio] Extracted user_id: {user_id}")
+        logger.info(f"[backend_api_portfolio.py::backend_api_get_portfolio] Token length: {len(user_token) if user_token else 0}")
         metrics = await portfolio_metrics_manager.get_portfolio_metrics(
             user_id=user_id,
             user_token=user_token,
             metric_type="portfolio",
             force_refresh=force_refresh
         )
+        logger.info(f"[backend_api_portfolio.py::backend_api_get_portfolio] Metrics retrieved, cache status: {metrics.cache_status}")
+        logger.info(f"[backend_api_portfolio.py::backend_api_get_portfolio] Holdings count: {len(metrics.holdings)}")
+        logger.info(f"[backend_api_portfolio.py::backend_api_get_portfolio] Computation time: {metrics.computation_time_ms}ms")
         
         # Convert holdings to expected format
         holdings_list = []
@@ -84,7 +94,7 @@ async def backend_api_get_portfolio(
                 "price_date": holding.price_date
             })
         
-        return {
+        response_data = {
             "success": True,
             "holdings": holdings_list,
             "total_value": float(metrics.performance.total_value),
@@ -95,19 +105,26 @@ async def backend_api_get_portfolio(
             "computation_time_ms": metrics.computation_time_ms
         }
         
+        logger.info(f"[backend_api_portfolio.py::backend_api_get_portfolio] Response data structure: {list(response_data.keys())}")
+        logger.info(f"[backend_api_portfolio.py::backend_api_get_portfolio] === GET PORTFOLIO REQUEST END (SUCCESS) ===")
+        return response_data
+        
     except Exception as e:
+        logger.error(f"[backend_api_portfolio.py::backend_api_get_portfolio] ERROR: {type(e).__name__}: {str(e)}")
+        logger.error(f"[backend_api_portfolio.py::backend_api_get_portfolio] Full stack trace:", exc_info=True)
         DebugLogger.log_error(
             file_name="backend_api_portfolio.py",
             function_name="backend_api_get_portfolio",
             error=e,
-            user_id=user_id
+            user_id=user_id if 'user_id' in locals() else 'unknown'
         )
         # Fallback to direct API call if metrics manager fails
         try:
+            logger.info(f"[backend_api_portfolio.py::backend_api_get_portfolio] Attempting fallback to direct API call")
             # Reuse already extracted credentials
             portfolio_data = await supa_api_calculate_portfolio(user_id, user_token=user_token)
             
-            return {
+            response_data = {
                 "success": True,
                 "holdings": portfolio_data["holdings"],
                 "total_value": portfolio_data["total_value"],
@@ -115,7 +132,12 @@ async def backend_api_get_portfolio(
                 "total_gain_loss": portfolio_data["total_gain_loss"],
                 "total_gain_loss_percent": portfolio_data["total_gain_loss_percent"]
             }
+            logger.info(f"[backend_api_portfolio.py::backend_api_get_portfolio] Fallback successful")
+            logger.info(f"[backend_api_portfolio.py::backend_api_get_portfolio] === GET PORTFOLIO REQUEST END (FALLBACK SUCCESS) ===")
+            return response_data
         except Exception as e2:
+            logger.error(f"[backend_api_portfolio.py::backend_api_get_portfolio] Fallback failed: {type(e2).__name__}: {str(e2)}")
+            logger.info(f"[backend_api_portfolio.py::backend_api_get_portfolio] === GET PORTFOLIO REQUEST END (ERROR) ===")
             raise HTTPException(status_code=500, detail=str(e2))
 
 @portfolio_router.get("/transactions")
@@ -126,30 +148,40 @@ async def backend_api_get_transactions(
     offset: int = 0
 ) -> Dict[str, Any]:
     """Get user's transaction history"""
-    logger.info(f"[backend_api_portfolio.py::backend_api_get_transactions] Transactions requested for user: {user['email']}")
+    logger.info(f"[backend_api_portfolio.py::backend_api_get_transactions] === GET TRANSACTIONS REQUEST START ===")
+    logger.info(f"[backend_api_portfolio.py::backend_api_get_transactions] User email: {user.get('email', 'unknown')}")
+    logger.info(f"[backend_api_portfolio.py::backend_api_get_transactions] Limit: {limit}, Offset: {offset}")
     
     try:
-        user_token = user.get("access_token")
+        user_id, user_token = extract_user_credentials(user)
+        logger.info(f"[backend_api_portfolio.py::backend_api_get_transactions] Extracted user_id: {user_id}")
+        
         transactions = await supa_api_get_user_transactions(
             user_id=user_id,
             limit=limit,
             offset=offset,
             user_token=user_token
         )
+        logger.info(f"[backend_api_portfolio.py::backend_api_get_transactions] Retrieved {len(transactions)} transactions")
         
-        return {
+        response_data = {
             "success": True,
             "transactions": transactions,
             "count": len(transactions)
         }
+        logger.info(f"[backend_api_portfolio.py::backend_api_get_transactions] === GET TRANSACTIONS REQUEST END (SUCCESS) ===")
+        return response_data
         
     except Exception as e:
+        logger.error(f"[backend_api_portfolio.py::backend_api_get_transactions] ERROR: {type(e).__name__}: {str(e)}")
+        logger.error(f"[backend_api_portfolio.py::backend_api_get_transactions] Full stack trace:", exc_info=True)
         DebugLogger.log_error(
             file_name="backend_api_portfolio.py",
             function_name="backend_api_get_transactions",
             error=e,
-            user_id=user_id
+            user_id=user_id if 'user_id' in locals() else 'unknown'
         )
+        logger.info(f"[backend_api_portfolio.py::backend_api_get_transactions] === GET TRANSACTIONS REQUEST END (ERROR) ===")
         raise HTTPException(status_code=500, detail=str(e))
 
 @portfolio_router.post("/cache/clear")
@@ -473,10 +505,13 @@ async def backend_api_get_allocation(
     Unified allocation API endpoint for both dashboard and analytics pages
     Returns comprehensive portfolio allocation data with all calculations
     """
-    logger.info(f"[backend_api_portfolio.py::backend_api_get_allocation] Allocation requested for user: {user.get('email', 'unknown')}")
+    logger.info(f"[backend_api_portfolio.py::backend_api_get_allocation] === GET ALLOCATION REQUEST START ===")
+    logger.info(f"[backend_api_portfolio.py::backend_api_get_allocation] User email: {user.get('email', 'unknown')}")
+    logger.info(f"[backend_api_portfolio.py::backend_api_get_allocation] Force refresh: {force_refresh}")
     
     try:
         user_id, user_token = extract_user_credentials(user)
+        logger.info(f"[backend_api_portfolio.py::backend_api_get_allocation] Extracted user_id: {user_id}")
         
         # Use PortfolioMetricsManager for optimized allocation data
         metrics = await portfolio_metrics_manager.get_portfolio_metrics(
@@ -485,6 +520,8 @@ async def backend_api_get_allocation(
             metric_type="allocation",
             force_refresh=force_refresh
         )
+        logger.info(f"[backend_api_portfolio.py::backend_api_get_allocation] Metrics retrieved, cache status: {metrics.cache_status}")
+        logger.info(f"[backend_api_portfolio.py::backend_api_get_allocation] Holdings count: {len(metrics.holdings)}")
         
         # Convert allocations to expected format
         allocations = []
@@ -602,21 +639,29 @@ async def backend_api_get_allocation(
             }
         }
         
+        logger.info(f"[backend_api_portfolio.py::backend_api_get_allocation] Allocations count: {len(allocations)}")
+        logger.info(f"[backend_api_portfolio.py::backend_api_get_allocation] Total portfolio value: ${allocation_data['summary']['total_value']:.2f}")
+        
         # Return in the expected format
-        return {
+        response_data = {
             "success": True,
             "data": allocation_data
         }
+        logger.info(f"[backend_api_portfolio.py::backend_api_get_allocation] === GET ALLOCATION REQUEST END (SUCCESS) ===")
+        return response_data
         
     except Exception as e:
+        logger.error(f"[backend_api_portfolio.py::backend_api_get_allocation] ERROR: {type(e).__name__}: {str(e)}")
+        logger.error(f"[backend_api_portfolio.py::backend_api_get_allocation] Full stack trace:", exc_info=True)
         DebugLogger.log_error(
             file_name="backend_api_portfolio.py",
             function_name="backend_api_get_allocation",
             error=e,
-            user_id=user_id
+            user_id=user_id if 'user_id' in locals() else 'unknown'
         )
         # According to architecture, we should not have fallbacks that bypass PortfolioMetricsManager
         logger.error(f"[backend_api_portfolio] Failed to get allocation data: {str(e)}")
+        logger.info(f"[backend_api_portfolio.py::backend_api_get_allocation] === GET ALLOCATION REQUEST END (ERROR) ===")
         raise HTTPException(
             status_code=500, 
             detail=f"Failed to retrieve portfolio allocation data: {str(e)}"

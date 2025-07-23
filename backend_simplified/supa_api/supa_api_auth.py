@@ -20,6 +20,10 @@ async def require_authenticated_user(credentials: Optional[HTTPAuthorizationCred
     FastAPI dependency to protect routes by requiring a valid Supabase JWT.
     Extracts user data from the token.
     """
+    logger.info(f"[supa_api_auth.py::require_authenticated_user] === AUTHENTICATION CHECK START ===")
+    logger.info(f"[supa_api_auth.py::require_authenticated_user] Credentials present: {bool(credentials)}")
+    logger.info(f"[supa_api_auth.py::require_authenticated_user] Auth scheme: {credentials.scheme if credentials else 'None'}")
+    
     DebugLogger.log_api_call(
         api_name="AUTH_MIDDLEWARE",
         sender="CLIENT",
@@ -29,10 +33,12 @@ async def require_authenticated_user(credentials: Optional[HTTPAuthorizationCred
     
     if not credentials:
         logger.warning("[supa_api_auth.py::require_authenticated_user] No Authorization credentials provided.")
+        logger.info(f"[supa_api_auth.py::require_authenticated_user] === AUTHENTICATION CHECK END (NO CREDENTIALS) ===")
         raise HTTPException(status_code=401, detail="No credentials provided")
     
     token = credentials.credentials
     logger.info(f"[supa_api_auth.py::require_authenticated_user] Token extracted: {token[:20]}...")
+    logger.info(f"[supa_api_auth.py::require_authenticated_user] Token length: {len(token)}")
     
     # Debug: Check token structure
     token_parts = token.split('.')
@@ -52,24 +58,31 @@ async def require_authenticated_user(credentials: Optional[HTTPAuthorizationCred
     try:
         
         # Validate the token with Supabase
+        logger.info(f"[supa_api_auth.py::require_authenticated_user] Validating token with Supabase...")
         user_response = supa_api_client.client.auth.get_user(token)
         
         if user_response and user_response.user:
             user_data = user_response.user.dict()
             user_data["access_token"] = token
+            logger.info(f"[supa_api_auth.py::require_authenticated_user] ✅ Authentication successful")
+            logger.info(f"[supa_api_auth.py::require_authenticated_user] User ID: {user_data.get('id', 'unknown')}")
+            logger.info(f"[supa_api_auth.py::require_authenticated_user] User email: {user_data.get('email', 'unknown')}")
+            logger.info(f"[supa_api_auth.py::require_authenticated_user] === AUTHENTICATION CHECK END (SUCCESS) ===")
             return user_data
         else:
             logger.warning("[supa_api_auth.py::require_authenticated_user] ❌ Token validation failed.")
+            logger.info(f"[supa_api_auth.py::require_authenticated_user] === AUTHENTICATION CHECK END (INVALID TOKEN) ===")
             raise HTTPException(status_code=401, detail="Invalid or expired token")
 
     except Exception as e:
+        logger.error(f"[supa_api_auth.py::require_authenticated_user] Auth error: {type(e).__name__}: {str(e)}")
+        logger.info(f"[supa_api_auth.py::require_authenticated_user] === AUTHENTICATION CHECK END (ERROR) ===")
         DebugLogger.log_error(
             file_name="supa_api_auth.py",
             function_name="require_authenticated_user",
             error=e,
             token_present=bool(token)
         )
-        logger.error(f"[supa_api_auth.py::require_authenticated_user] Auth error: {e}")
         raise HTTPException(status_code=401, detail=f"Authentication error: {e}")
 
 # Helper functions for checking user permissions

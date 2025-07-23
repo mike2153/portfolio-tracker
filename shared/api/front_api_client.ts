@@ -23,6 +23,10 @@ console.log('[front_api_client] API_BASE:', API_BASE);
  * @returns The fetch response
  */
 export async function authFetch(path: string, init: RequestInit = {}) {
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] [authFetch] Starting request to: ${path}`);
+  console.log(`[${timestamp}] [authFetch] Method: ${init.method || 'GET'}`);
+  
   // Helper function to make authenticated request
   const makeAuthenticatedRequest = async (token: string) => {
     const headers = new Headers(init.headers);
@@ -39,48 +43,77 @@ export async function authFetch(path: string, init: RequestInit = {}) {
       headers,
     };
     
-    console.log('[front_api_client] Making request to:', fullUrl);
+    console.log(`[${timestamp}] [authFetch] Full URL: ${fullUrl}`);
+    if (init.body) {
+      console.log(`[${timestamp}] [authFetch] Request body:`, typeof init.body === 'string' ? JSON.parse(init.body) : init.body);
+    }
+    
     return fetch(fullUrl, requestConfig);
   };
 
   const { data: { session }, error: sessionError } = await getSupabase().auth.getSession();
   
   if (sessionError) {
-    console.error('[authFetch] Session error:', sessionError);
+    console.error(`[${timestamp}] [authFetch] Session error:`, sessionError);
   }
 
+  console.log(`[${timestamp}] [authFetch] Session status:`, {
+    hasSession: !!session,
+    hasToken: !!session?.access_token,
+    userEmail: session?.user?.email,
+    userId: session?.user?.id,
+    tokenExpiry: session?.expires_at ? new Date(session.expires_at * 1000).toISOString() : 'N/A'
+  });
+
   if (!session?.access_token) {
+    console.log(`[${timestamp}] [authFetch] No access token, attempting to refresh session...`);
     // Try to refresh the session
     const { data: { session: refreshedSession }, error: refreshError } = await getSupabase().auth.refreshSession();
     
     if (refreshError) {
+      console.error(`[${timestamp}] [authFetch] Session refresh failed:`, refreshError);
       // Make unauthenticated request
       const headers = new Headers(init.headers);
       if ((init.method === 'POST' || init.method === 'PUT') && !headers.has('Content-Type')) {
         headers.set('Content-Type', 'application/json');
       }
       
+      console.warn(`[${timestamp}] [authFetch] Making UNAUTHENTICATED request to ${path}`);
       const response = await fetch(`${API_BASE}${path}`, {
         credentials: 'include' as RequestCredentials,
         ...init,
         headers,
       });
       
+      console.log(`[${timestamp}] [authFetch] Unauthenticated response status: ${response.status} ${response.statusText}`);
       return response;
     }
     
     if (!refreshedSession?.access_token) {
-      throw new Error('Authentication failed: no access token after refresh');
+      const error = new Error('Authentication failed: no access token after refresh');
+      console.error(`[${timestamp}] [authFetch] ${error.message}`);
+      throw error;
     }
     
+    console.log(`[${timestamp}] [authFetch] Session refreshed successfully, new token obtained`);
     return makeAuthenticatedRequest(refreshedSession.access_token);
   }
   
   try {
+    const startTime = performance.now();
     const response = await makeAuthenticatedRequest(session.access_token);
+    const endTime = performance.now();
+    
+    console.log(`[${timestamp}] [authFetch] Response received:`, {
+      status: response.status,
+      statusText: response.statusText,
+      contentType: response.headers.get('content-type'),
+      duration: `${(endTime - startTime).toFixed(2)}ms`
+    });
     
     return response;
   } catch (fetchError) {
+    console.error(`[${timestamp}] [authFetch] Request failed:`, fetchError);
     throw fetchError;
   }
 }
@@ -92,6 +125,9 @@ export async function authFetch(path: string, init: RequestInit = {}) {
  * @returns The parsed JSON data
  */
 async function getJSON<T>(path:string): Promise<T> {
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] [getJSON] Fetching: ${path}`);
+  
   try {
     const res = await authFetch(path); // Uses the authorized fetch
     
@@ -99,21 +135,31 @@ async function getJSON<T>(path:string): Promise<T> {
       let errorBody;
       try {
         errorBody = await res.text();
+        console.error(`[${timestamp}] [getJSON] Error response body:`, errorBody);
       } catch (textError) {
         errorBody = 'Could not read error response';
+        console.error(`[${timestamp}] [getJSON] Could not read error response:`, textError);
       }
       
       const errorMessage = `GET ${path} → ${res.status} ${res.statusText}`;
+      console.error(`[${timestamp}] [getJSON] Request failed: ${errorMessage}`);
       throw new Error(errorMessage);
     }
     
     try {
       const jsonData = await res.json() as T;
+      console.log(`[${timestamp}] [getJSON] Success:`, {
+        path,
+        dataKeys: jsonData && typeof jsonData === 'object' ? Object.keys(jsonData) : 'N/A',
+        success: (jsonData as any)?.success
+      });
       return jsonData;
     } catch (jsonError) {
+      console.error(`[${timestamp}] [getJSON] JSON parse error:`, jsonError);
       throw new Error(`Failed to parse JSON response from ${path}`);
     }
   } catch (error) {
+    console.error(`[${timestamp}] [getJSON] Error for ${path}:`, error);
     throw error;
   }
 }

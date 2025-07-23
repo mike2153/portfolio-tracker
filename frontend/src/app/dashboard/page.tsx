@@ -8,7 +8,7 @@ import { ChartSkeleton, ListSkeleton, FxTickerSkeleton } from './components/Skel
 import PortfolioPerformanceChart from '@/components/charts/PortfolioPerformanceChart'
 import AllocationTableApex from './components/AllocationTableApex'
 import DividendChartApex from './components/DividendChartApex'
-
+import PortfolioChartApex from './components/PortfolioChartApex'
 export const revalidate = 60; // Revalidate data every 60 seconds
 
 export default function DashboardPage() {
@@ -32,7 +32,7 @@ export default function DashboardPage() {
         </Suspense>
         
         <Suspense fallback={<ChartSkeleton />}>
-          <PortfolioPerformanceChart theme="dark" />
+        <PortfolioChartApex />
         </Suspense>
 
         <Suspense fallback={<ListSkeleton title="Daily movers" />}>

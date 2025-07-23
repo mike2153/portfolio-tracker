@@ -67,9 +67,16 @@ async def backend_api_get_dashboard(
     force_refresh: bool = Query(False, description="Force refresh cache"),
 ) -> Dict[str, Any]:
     """Return portfolio snapshot + market blurb for the dashboard."""
+    logger.info(f"[backend_api_dashboard.py::backend_api_get_dashboard] === GET DASHBOARD REQUEST START ===")
+    logger.info(f"[backend_api_dashboard.py::backend_api_get_dashboard] User email: {user.get('email', 'unknown')}")
+    logger.info(f"[backend_api_dashboard.py::backend_api_get_dashboard] User ID: {user.get('id', 'unknown')}")
+    logger.info(f"[backend_api_dashboard.py::backend_api_get_dashboard] Force refresh: {force_refresh}")
+    logger.info(f"[backend_api_dashboard.py::backend_api_get_dashboard] Auth headers present: {bool(user.get('access_token'))}")
 
     # --- Auth --------------------------------------------------------------
     uid, jwt = _assert_jwt(user)
+    logger.info(f"[backend_api_dashboard.py::backend_api_get_dashboard] Extracted user_id: {uid}")
+    logger.info(f"[backend_api_dashboard.py::backend_api_get_dashboard] JWT token length: {len(jwt) if jwt else 0}")
     
     try:
         # --- Use PortfolioMetricsManager for simplified data fetching -------
@@ -79,11 +86,16 @@ async def backend_api_get_dashboard(
             metric_type="dashboard",
             force_refresh=force_refresh
         )
+        logger.info(f"[backend_api_dashboard.py::backend_api_get_dashboard] Metrics retrieved, cache status: {metrics.cache_status}")
+        logger.info(f"[backend_api_dashboard.py::backend_api_get_dashboard] Holdings count: {len(metrics.holdings)}")
+        logger.info(f"[backend_api_dashboard.py::backend_api_get_dashboard] Computation time: {metrics.computation_time_ms}ms")
         
         # --- Get transaction summary separately (not yet in metrics manager) --
         try:
             summary = await supa_api_get_transaction_summary(uid, user_token=jwt)
+            logger.info(f"[backend_api_dashboard.py::backend_api_get_dashboard] Transaction summary retrieved successfully")
         except Exception as e:
+            logger.error(f"[backend_api_dashboard.py::backend_api_get_dashboard] Failed to get transaction summary: {str(e)}")
             DebugLogger.log_error(__file__, "backend_api_get_dashboard/summary", e, user_id=uid)
             summary = {
                 "total_invested": 0,
@@ -101,8 +113,10 @@ async def backend_api_get_dashboard(
         )
         
         # --- Build response for backward compatibility ---------------------
+        # Convert Pydantic models to dictionaries as per BACKEND_GUIDE.md
+        holdings_dicts = [holding.dict() for holding in metrics.holdings]
         daily_change, daily_change_pct = await portfolio_calculator.calculate_daily_change(
-            metrics.holdings, jwt
+            holdings_dicts, jwt
         )
         
         # Transform holdings to match existing format
@@ -140,12 +154,17 @@ async def backend_api_get_dashboard(
             "computation_time_ms": metrics.computation_time_ms,
         }
         
-        #logger.info("✅ Dashboard payload ready (cache: %s)", metrics.cache_status)
+        logger.info(f"[backend_api_dashboard.py::backend_api_get_dashboard] Response structure: {list(resp.keys())}")
+        logger.info(f"[backend_api_dashboard.py::backend_api_get_dashboard] Portfolio value: ${resp['portfolio']['total_value']:.2f}")
+        logger.info(f"[backend_api_dashboard.py::backend_api_get_dashboard] Top holdings count: {len(resp['top_holdings'])}")
+        logger.info(f"[backend_api_dashboard.py::backend_api_get_dashboard] === GET DASHBOARD REQUEST END (SUCCESS) ===")
         return resp
         
     except Exception as e:
         # Fallback to old method if metrics manager fails
-        logger.error(f"PortfolioMetricsManager failed, falling back to direct calls: {e}")
+        logger.error(f"[backend_api_dashboard.py::backend_api_get_dashboard] ERROR: {type(e).__name__}: {str(e)}")
+        logger.error(f"[backend_api_dashboard.py::backend_api_get_dashboard] Full stack trace:", exc_info=True)
+        logger.error(f"[backend_api_dashboard.py::backend_api_get_dashboard] PortfolioMetricsManager failed, falling back to direct calls")
         
         # --- Launch parallel data fetches -------------------------------------
         portfolio_task = asyncio.create_task(portfolio_calculator.calculate_holdings(uid, user_token=jwt))
@@ -235,8 +254,12 @@ async def backend_api_get_performance(
     benchmark: str = Query("SPY", regex=r"^[A-Z]{1,5}$"),
 ) -> Dict[str, Any]:
     """Return portfolio vs index performance for the requested period."""
+    logger.info(f"[backend_api_dashboard.py::backend_api_get_performance] === GET PERFORMANCE REQUEST START ===")
+    logger.info(f"[backend_api_dashboard.py::backend_api_get_performance] User email: {user.get('email', 'unknown')}")
+    logger.info(f"[backend_api_dashboard.py::backend_api_get_performance] Period: {period}, Benchmark: {benchmark}")
 
     uid, jwt = _assert_jwt(user)
+    logger.info(f"[backend_api_dashboard.py::backend_api_get_performance] Extracted user_id: {uid}")
         
     # --- Lazy imports (avoid circular deps) -------------------------------
     from services.portfolio_calculator import portfolio_calculator

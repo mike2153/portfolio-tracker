@@ -4,6 +4,8 @@
 
 **You are acting as a planning and coding agent for the Portfolio Tracker project. You must always follow these steps for any requested change, feature, or fix:**
 
+- NOTE: Do not touch the backend. Without explictily asking me. It is working. Dont touch it!
+
 1. **PLAN**  
    - Break down the feature/fix into clear steps.
    - Describe the intended approach and why it’s optimal.

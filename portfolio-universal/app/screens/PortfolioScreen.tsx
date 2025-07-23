@@ -89,22 +89,59 @@ export default function PortfolioScreen({ navigation }: Props): React.JSX.Elemen
   const [refreshing, setRefreshing] = useState(false);
   
   // Fetch portfolio data
-  const { data: portfolioData, isLoading, refetch } = useQuery({
+  const { data: portfolioData, isLoading, refetch, error: portfolioError } = useQuery({
     queryKey: ['portfolio'],
-    queryFn: front_api_get_portfolio,
+    queryFn: async () => {
+      const timestamp = new Date().toISOString();
+      console.log(`[${timestamp}] [PortfolioScreen] Starting portfolio fetch...`);
+      try {
+        const result = await front_api_get_portfolio();
+        console.log(`[${timestamp}] [PortfolioScreen] Portfolio fetch successful:`, {
+          hasData: !!result,
+          dataKeys: result ? Object.keys(result) : [],
+          holdingsCount: result?.holdings?.length || 0
+        });
+        return result;
+      } catch (error) {
+        console.error(`[${timestamp}] [PortfolioScreen] Portfolio fetch error:`, error);
+        throw error;
+      }
+    },
     refetchInterval: 60000, // Refresh every minute
   });
 
   // Fetch transactions data
-  const { data: transactionsData, refetch: refetchTransactions } = useQuery({
+  const { data: transactionsData, refetch: refetchTransactions, error: transactionsError } = useQuery({
     queryKey: ['transactions'],
-    queryFn: front_api_get_transactions,
+    queryFn: async () => {
+      const timestamp = new Date().toISOString();
+      console.log(`[${timestamp}] [PortfolioScreen] Starting transactions fetch...`);
+      try {
+        const result = await front_api_get_transactions();
+        console.log(`[${timestamp}] [PortfolioScreen] Transactions fetch successful:`, {
+          hasData: !!result,
+          dataKeys: result ? Object.keys(result) : [],
+          transactionsCount: result?.transactions?.length || result?.length || 0
+        });
+        return result;
+      } catch (error) {
+        console.error(`[${timestamp}] [PortfolioScreen] Transactions fetch error:`, error);
+        throw error;
+      }
+    },
     refetchInterval: 60000,
   });
 
   const onRefresh = React.useCallback(async () => {
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] [PortfolioScreen] Manual refresh triggered`);
     setRefreshing(true);
-    await Promise.all([refetch(), refetchTransactions()]);
+    try {
+      await Promise.all([refetch(), refetchTransactions()]);
+      console.log(`[${timestamp}] [PortfolioScreen] Refresh completed successfully`);
+    } catch (error) {
+      console.error(`[${timestamp}] [PortfolioScreen] Refresh error:`, error);
+    }
     setRefreshing(false);
   }, [refetch, refetchTransactions]);
 
@@ -113,11 +150,31 @@ export default function PortfolioScreen({ navigation }: Props): React.JSX.Elemen
   const holdings = portfolio?.holdings || [];
   const transactions = transactionsData?.transactions || transactionsData || [];
 
-  // Debug logging
-  console.log('[DEBUG PortfolioScreen] Portfolio data:', portfolio);
-  console.log('[DEBUG PortfolioScreen] Transactions data:', transactionsData);
-  console.log('[DEBUG PortfolioScreen] Holdings:', holdings);
-  console.log('[DEBUG PortfolioScreen] Transactions:', transactions);
+  // Enhanced debug logging
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] [PortfolioScreen] Current state:`, {
+    portfolioData: {
+      hasData: !!portfolio,
+      totalValue: portfolio?.total_value,
+      holdingsCount: holdings.length,
+      error: portfolioError
+    },
+    transactionsData: {
+      hasData: !!transactionsData,
+      transactionsCount: transactions.length,
+      error: transactionsError
+    },
+    apiBase: process.env.EXPO_PUBLIC_BACKEND_API_URL,
+    isLoading,
+    refreshing
+  });
+  
+  if (holdings.length > 0) {
+    console.log(`[${timestamp}] [PortfolioScreen] Sample holding:`, holdings[0]);
+  }
+  if (transactions.length > 0) {
+    console.log(`[${timestamp}] [PortfolioScreen] Sample transaction:`, transactions[0]);
+  }
 
   // Calculate portfolio metrics
   const totalValue = portfolio?.total_value || 0;
@@ -159,6 +216,23 @@ export default function PortfolioScreen({ navigation }: Props): React.JSX.Elemen
       <View style={[styles.container, styles.loadingContainer]}>
         <ActivityIndicator size="large" color={COLORS.primary} />
         <Text style={styles.loadingText}>Loading portfolio...</Text>
+      </View>
+    );
+  }
+  
+  // Show error state if both portfolio and transactions failed
+  if (portfolioError && transactionsError) {
+    console.error(`[${timestamp}] [PortfolioScreen] Both API calls failed:`, {
+      portfolioError,
+      transactionsError
+    });
+    return (
+      <View style={[styles.container, styles.loadingContainer]}>
+        <Text style={styles.errorText}>Failed to load portfolio data</Text>
+        <Text style={styles.errorSubtext}>{portfolioError?.message || 'Unknown error'}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={onRefresh}>
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -567,5 +641,26 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: {
     color: '#3b82f6',
+  },
+  errorText: {
+    color: '#ef4444',
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  errorSubtext: {
+    color: '#9ca3af',
+    fontSize: 14,
+    marginBottom: 16,
+  },
+  retryButton: {
+    backgroundColor: '#3b82f6',
+    borderRadius: 8,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontWeight: '600',
   },
 });
