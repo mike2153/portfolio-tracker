@@ -173,10 +173,11 @@ async def backend_api_quote_handler(
             "metadata": {}
         }
 
-@research_router.get("/historical_price/{symbol}", dependencies=[Depends(require_authenticated_user)])
+@research_router.get("/historical_price/{symbol}")
 async def backend_api_historical_price_handler(
     symbol: str,
-    date: str = Query(..., description="Date in YYYY-MM-DD format for historical price lookup")
+    date: str = Query(..., description="Date in YYYY-MM-DD format for historical price lookup"),
+    user_data: Dict[str, Any] = Depends(require_authenticated_user)
 ) -> Dict[str, Any]:
     logger.info(f"[backend_api_research.py::backend_api_historical_price_handler] Historical price request: {symbol} on {date}")
     

@@ -152,7 +152,7 @@ const TransactionsPage = () => {
     exchange: "",
     shares: "",
     purchase_price: "",
-    purchase_date: new Date().toISOString().split("T")[0],
+    purchase_date: "",  // Start with empty date
     commission: "0",
     currency: "USD",
     fx_rate: "1.0",
@@ -577,6 +577,8 @@ const TransactionsPage = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-400 mb-1">Ticker Symbol</label>
                 <StockSearchInput
+                  value={form.ticker}
+                  onChange={(value) => setForm(prev => ({ ...prev, ticker: value }))}
                   onSelectSymbol={(symbol) => {
                     setForm(prev => ({
                       ...prev,
@@ -585,10 +587,7 @@ const TransactionsPage = () => {
                       currency: symbol.currency || 'USD',
                       exchange: symbol.region || '',
                     }));
-                    const hasValidDate = form.purchase_date && form.purchase_date.trim() !== '';
-                    if (hasValidDate) {
-                      fetchClosingPriceForDate(symbol.symbol, form.purchase_date);
-                    }
+                    // Don't automatically fetch price - wait for user to select date
                   }}
                   placeholder="e.g., AAPL"
                   inputClassName={`w-full p-2 bg-gray-800 border rounded-lg ${formErrors.ticker ? 'border-red-500' : 'border-gray-600'}`}

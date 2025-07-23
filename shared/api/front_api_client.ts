@@ -477,13 +477,21 @@ export async function front_api_get_stock_prices(
   console.log(`[front_api_client] Getting price data for ${ticker} (${period})`);
   
   try {
-    const response = await authFetch(`/api/stock_prices/${ticker}?period=${period}`);
+    // Remove the leading '?' from period if it exists since we're adding it ourselves
+    const cleanPeriod = period.startsWith('?') ? period.substring(1) : period;
+    const url = `/api/stock_prices/${ticker}${cleanPeriod ? '?' + cleanPeriod : ''}`;
+    console.log(`[front_api_client] Fetching URL: ${url}`);
+    const response = await authFetch(url);
     const data = await response.json();
     console.log(`[front_api_client] Price data response for ${ticker}:`, {
       success: data.success,
       dataPoints: data.data?.data_points || 0,
       cacheStatus: data.metadata?.cache_status,
-      dataSources: data.metadata?.data_sources
+      dataSources: data.metadata?.data_sources,
+      startDate: data.data?.start_date,
+      endDate: data.data?.end_date,
+      firstDataPoint: data.data?.price_data?.[0],
+      lastDataPoint: data.data?.price_data?.[data.data?.price_data?.length - 1]
     });
     return data;
   } catch (error) {

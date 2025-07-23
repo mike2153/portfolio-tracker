@@ -18,7 +18,7 @@ from supa_api.supa_api_watchlist import (
     supa_api_update_watchlist_item,
     supa_api_check_watchlist_status
 )
-from vantage_api.vantage_api_quotes import vantage_api_get_quote
+from services.price_manager import price_manager
 from debug_logger import DebugLogger
 
 logger = logging.getLogger(__name__)
@@ -62,21 +62,21 @@ async def backend_api_get_watchlist(
         
         # If quotes requested, fetch current prices
         if include_quotes and watchlist_items:
-            # Fetch quotes in parallel for all symbols
+            # Use PriceManager to get current quotes
             symbols = [item['symbol'] for item in watchlist_items]
-            quote_tasks = [vantage_api_get_quote(symbol) for symbol in symbols]
-            quotes = await asyncio.gather(*quote_tasks, return_exceptions=True)
+            quotes = await price_manager.get_latest_quotes(symbols, user_token)
             
             # Merge quote data with watchlist items
-            for i, item in enumerate(watchlist_items):
-                if not isinstance(quotes[i], Exception) and quotes[i]:
-                    quote = quotes[i]
+            for item in watchlist_items:
+                symbol = item['symbol']
+                if symbol in quotes and quotes[symbol]:
+                    quote = quotes[symbol]
                     item['current_price'] = float(quote.get('price', 0))
                     item['change'] = float(quote.get('change', 0))
-                    item['change_percent'] = float(quote.get('changePercent', 0))
+                    item['change_percent'] = float(quote.get('change_percent', 0))
                     item['volume'] = int(quote.get('volume', 0))
                 else:
-                    # Default values if quote fetch failed
+                    # Default values if quote not available
                     item['current_price'] = 0
                     item['change'] = 0
                     item['change_percent'] = 0

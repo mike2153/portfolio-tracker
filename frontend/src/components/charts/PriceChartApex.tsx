@@ -51,7 +51,9 @@ export default function PriceChartApex({
     ticker,
     period,
     isLoading,
-    chartType: currentChartType
+    chartType: currentChartType,
+    firstDataPoint: data?.[0],
+    lastDataPoint: data?.[data.length - 1]
   });
 
   // Calculate price change
@@ -199,26 +201,9 @@ export default function PriceChartApex({
             <button
               key={value}
               onClick={() => {
-                // Update period state
+                // Update period state - this will trigger a new data fetch with the correct date range
                 onPeriodChange(value);
-                // Compute zoom window
-                const end = new Date(data[data.length - 1].time).getTime();
-                let start = end;
-                switch (value) {
-                  case '7d': start = end - 7*24*3600*1000; break;
-                  case '1m': start = end - 30*24*3600*1000; break;
-                  case '3m': start = end - 90*24*3600*1000; break;
-                  case '6m': start = end - 180*24*3600*1000; break;
-                  case 'ytd': {
-                    const now = new Date();
-                    start = new Date(now.getFullYear(),0,1).getTime();
-                  } break;
-                  case '1y': start = end - 365*24*3600*1000; break;
-                  case '3y': start = end - 3*365*24*3600*1000; break;
-                  case '5y': start = end - 5*365*24*3600*1000; break;
-                  case 'max': start = data[0] && new Date(data[0].time).getTime(); break;
-                }
-                ApexCharts.exec(chartId, 'zoomX', start, end);
+                console.log('[PriceChartApex] Period changed to:', value);
               }}
               className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
                 period === value
@@ -247,7 +232,15 @@ export default function PriceChartApex({
           data={chartData}
           type={getApexChartType() as any}
           height={height}
-          additionalOptions={{ chart: { id: chartId, background: background } }}
+          additionalOptions={{ 
+            chart: { 
+              id: chartId, 
+              background: background,
+              zoom: {
+                enabled: false  // Disable zoom since data is already filtered by date range
+              }
+            }
+          }}
           yAxisFormatter={(value) => formatPrice(value)}
           tooltipFormatter={(value) => formatPrice(value)}
           showLegend={false}

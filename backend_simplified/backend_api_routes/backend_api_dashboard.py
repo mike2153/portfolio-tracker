@@ -161,81 +161,14 @@ async def backend_api_get_dashboard(
         return resp
         
     except Exception as e:
-        # Fallback to old method if metrics manager fails
+        # Log the error and let it propagate - no fallback
         logger.error(f"[backend_api_dashboard.py::backend_api_get_dashboard] ERROR: {type(e).__name__}: {str(e)}")
         logger.error(f"[backend_api_dashboard.py::backend_api_get_dashboard] Full stack trace:", exc_info=True)
-        logger.error(f"[backend_api_dashboard.py::backend_api_get_dashboard] PortfolioMetricsManager failed, falling back to direct calls")
-        
-        # --- Launch parallel data fetches -------------------------------------
-        portfolio_task = asyncio.create_task(portfolio_calculator.calculate_holdings(uid, user_token=jwt))
-        summary_task   = asyncio.create_task(supa_api_get_transaction_summary(uid, user_token=jwt))
-            
-        portfolio, summary = await asyncio.gather(
-                portfolio_task,
-                summary_task,
-            return_exceptions=True,
-            )
-            
-        # --- Error handling ----------------------------------------------------
-        if isinstance(portfolio, Exception):
-            DebugLogger.log_error(__file__, "backend_api_get_dashboard/portfolio", portfolio, user_id=uid)
-            portfolio = {
-                "holdings": [],
-                    "total_value": 0,
-                    "total_cost": 0,
-                    "total_gain_loss": 0,
-                    "total_gain_loss_percent": 0,
-                "holdings_count": 0,
-            }
-
-        if isinstance(summary, Exception):
-            DebugLogger.log_error(__file__, "backend_api_get_dashboard/summary", summary, user_id=uid)
-            summary = {
-                    "total_invested": 0,
-                    "total_sold": 0,
-                    "net_invested": 0,
-                "total_transactions": 0,
-            }
-
-
-        # Coerce to dictionaries for static typing
-        portfolio_dict: Dict[str, Any] = cast(Dict[str, Any], portfolio)
-        summary_dict: Dict[str, Any] = cast(Dict[str, Any], summary)
-
-        # --- Build response ----------------------------------------------------
-        daily_change, daily_change_pct = await portfolio_calculator.calculate_daily_change(
-            portfolio_dict.get("holdings", []), jwt
+        DebugLogger.log_error(__file__, "backend_api_get_dashboard", e, user_id=uid)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve dashboard data: {str(e)}"
         )
-        
-        # Calculate holdings_count since portfolio_calculator doesn't provide it
-        holdings_count = len(portfolio_dict.get("holdings", []))
-        
-        # Add allocation to each holding for compatibility
-        total_value = portfolio_dict.get("total_value", 0)
-        holdings_with_allocation = []
-        for holding in portfolio_dict.get("holdings", []):
-            holding_with_allocation = holding.copy()
-            holding_with_allocation["allocation"] = (holding["current_value"] / total_value * 100) if total_value > 0 else 0
-            # Rename fields for compatibility
-            holding_with_allocation["total_gain_loss"] = holding.get("gain_loss", 0)
-            holding_with_allocation["total_gain_loss_percent"] = holding.get("gain_loss_percent", 0)
-            holdings_with_allocation.append(holding_with_allocation)
-
-        resp = {
-            "success": True,
-            "portfolio": {
-                "total_value": portfolio_dict.get("total_value", 0),
-                "total_cost": portfolio_dict.get("total_cost", 0),
-                "total_gain_loss": portfolio_dict.get("total_gain_loss", 0),
-                "total_gain_loss_percent": portfolio_dict.get("total_gain_loss_percent", 0),
-                "daily_change": daily_change,
-                "daily_change_percent": daily_change_pct,
-                "holdings_count": holdings_count,
-            },
-            "top_holdings": holdings_with_allocation[:5],
-            "transaction_summary": summary_dict,
-        }
-        return resp
 
 # ---------------------------------------------------------------------------
 # /dashboard/performance – time-series comparison
@@ -262,7 +195,6 @@ async def backend_api_get_performance(
     logger.info(f"[backend_api_dashboard.py::backend_api_get_performance] Extracted user_id: {uid}")
         
     # --- Lazy imports (avoid circular deps) -------------------------------
-    from services.portfolio_calculator import portfolio_calculator
     from services.index_sim_service import (
         IndexSimulationService as ISS,
         IndexSimulationUtils as ISU,
@@ -576,46 +508,10 @@ async def backend_api_get_gainers(
         
     except Exception as e:
         DebugLogger.log_error(__file__, "backend_api_get_gainers", e, user_id=uid)
-        # Fallback to direct call
-        try:
-            portfolio = await portfolio_calculator.calculate_holdings(uid, jwt)
-            
-            if not portfolio or not portfolio.get("holdings"):
-                return {
-                    "success": True,
-                    "data": {"items": []},
-                    "message": "No holdings found"
-                }
-            
-            holdings = portfolio["holdings"]
-            
-            gainers = [
-                h for h in holdings 
-                if h.get("gain_loss_percent", 0) > 0 and h.get("quantity", 0) > 0
-            ]
-            gainers.sort(key=lambda x: x.get("gain_loss_percent", 0), reverse=True)
-            
-            # Format top 5 gainers
-            top_gainers = []
-            for holding in gainers[:5]:
-                top_gainers.append({
-                    "ticker": holding["symbol"],
-                    "name": holding.get("name", holding["symbol"]),
-                    "value": holding.get("current_value", 0),
-                    "changePercent": holding.get("gain_loss_percent", 0),
-                    "changeValue": holding.get("gain_loss", 0)
-                })
-            
-            return {
-                "success": True,
-                "data": {"items": top_gainers}
-            }
-        except Exception as e2:
-            return {
-                "success": False,
-                "error": str(e2),
-                "data": {"items": []}
-            }
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve top gainers: {str(e)}"
+        )
 
 @dashboard_router.get("/dashboard/losers")
 @DebugLogger.log_api_call(
@@ -672,41 +568,7 @@ async def backend_api_get_losers(
         
     except Exception as e:
         DebugLogger.log_error(__file__, "backend_api_get_losers", e, user_id=uid)
-        # Fallback to direct call
-        try:
-            portfolio = await portfolio_calculator.calculate_holdings(uid, jwt)
-            
-            if not portfolio or not portfolio.get("holdings"):
-                return {
-                    "success": True,
-                    "data": {"items": []},
-                    "message": "No holdings found"
-                }
-            
-            holdings = portfolio["holdings"]
-            
-            losers = [
-                h for h in holdings 
-                if h.get("gain_loss_percent", 0) < 0 and h.get("quantity", 0) > 0
-            ]
-            losers.sort(key=lambda x: x.get("gain_loss_percent", 0))
-            top_losers = []
-            for holding in losers[:5]:
-                top_losers.append({
-                    "ticker": holding["symbol"],
-                    "name": holding.get("name", holding["symbol"]),
-                    "value": holding.get("current_value", 0),
-                    "changePercent": abs(holding.get("gain_loss_percent", 0)),  # Show as positive for display
-                    "changeValue": abs(holding.get("gain_loss", 0))  # Show as positive for display
-                })
-            
-            return {
-                "success": True,
-                "data": {"items": top_losers}
-            }
-        except Exception as e2:
-            return {
-                "success": False,
-                "error": str(e2),
-                "data": {"items": []}
-            }
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve top losers: {str(e)}"
+        )

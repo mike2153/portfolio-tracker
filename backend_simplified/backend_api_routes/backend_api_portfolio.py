@@ -118,27 +118,11 @@ async def backend_api_get_portfolio(
             error=e,
             user_id=user_id if 'user_id' in locals() else 'unknown'
         )
-        # Fallback to direct API call if metrics manager fails
-        try:
-            logger.info(f"[backend_api_portfolio.py::backend_api_get_portfolio] Attempting fallback to direct API call")
-            # Reuse already extracted credentials
-            portfolio_data = await supa_api_calculate_portfolio(user_id, user_token=user_token)
-            
-            response_data = {
-                "success": True,
-                "holdings": portfolio_data["holdings"],
-                "total_value": portfolio_data["total_value"],
-                "total_cost": portfolio_data["total_cost"],
-                "total_gain_loss": portfolio_data["total_gain_loss"],
-                "total_gain_loss_percent": portfolio_data["total_gain_loss_percent"]
-            }
-            logger.info(f"[backend_api_portfolio.py::backend_api_get_portfolio] Fallback successful")
-            logger.info(f"[backend_api_portfolio.py::backend_api_get_portfolio] === GET PORTFOLIO REQUEST END (FALLBACK SUCCESS) ===")
-            return response_data
-        except Exception as e2:
-            logger.error(f"[backend_api_portfolio.py::backend_api_get_portfolio] Fallback failed: {type(e2).__name__}: {str(e2)}")
-            logger.info(f"[backend_api_portfolio.py::backend_api_get_portfolio] === GET PORTFOLIO REQUEST END (ERROR) ===")
-            raise HTTPException(status_code=500, detail=str(e2))
+        logger.info(f"[backend_api_portfolio.py::backend_api_get_portfolio] === GET PORTFOLIO REQUEST END (ERROR) ===")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve portfolio data: {str(e)}"
+        )
 
 @portfolio_router.get("/transactions")
 @DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="GET_TRANSACTIONS")

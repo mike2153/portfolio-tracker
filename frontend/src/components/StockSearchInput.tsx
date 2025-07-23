@@ -33,6 +33,7 @@ export function StockSearchInput({
   const {
     searchQuery,
     suggestions,
+    setSuggestions,
     isLoading,
     showSuggestions,
     setShowSuggestions,
@@ -45,17 +46,31 @@ export function StockSearchInput({
 
   // Handle input change
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.toUpperCase();
-    handleSearch(value);
+    const newValue = e.target.value.toUpperCase();
+    
+    // In controlled mode, just notify parent
     if (onChange) {
-      onChange(value);
+      onChange(newValue);
     }
+    
+    // Always perform search regardless of controlled/uncontrolled mode
+    handleSearch(newValue);
   };
 
   // Handle suggestion selection
   const handleSuggestionClick = (symbol: StockSymbol) => {
     onSelectSymbol(symbol);
-    clearSuggestions();
+    
+    // In controlled mode, don't clear internal state
+    if (value === undefined) {
+      // Uncontrolled mode - clear everything
+      clearSuggestions();
+    } else {
+      // Controlled mode - just hide suggestions
+      setShowSuggestions(false);
+      setSuggestions([]);
+    }
+    
     if (onChange) {
       onChange(symbol.symbol);
     }
@@ -112,6 +127,13 @@ export function StockSearchInput({
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [setShowSuggestions]);
+
+  // When in controlled mode and value changes externally, update search
+  useEffect(() => {
+    if (value !== undefined && value !== searchQuery) {
+      handleSearch(value);
+    }
+  }, [value]);
 
   // 🔥 DEBUGGING - Log state changes
   useEffect(() => {
