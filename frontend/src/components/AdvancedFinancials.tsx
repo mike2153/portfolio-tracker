@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import { AdvancedFinancials } from '@/types'
 import { TrendingUp, TrendingDown, AlertCircle, DollarSign, BarChart3, PieChart, Activity, Shield } from 'lucide-react'
+import GradientText from '@/components/ui/GradientText'
 
 // Dynamically import ApexChart
 const ApexChart = dynamic(() => import('@/components/charts/ApexChart'), { ssr: false })
@@ -171,7 +172,7 @@ export default function AdvancedFinancialsComponent({ symbol }: AdvancedFinancia
     <div className="space-y-8">
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg p-6 text-white">
-        <h2 className="text-2xl font-bold mb-2">Advanced Financial Analysis</h2>
+        <GradientText className="text-2xl font-bold mb-2">Advanced Financial Analysis</GradientText>
         <p className="text-blue-100">Comprehensive financial metrics for {symbol}</p>
         {financials.source && (
           <div className="mt-4 flex items-center space-x-2 text-sm">

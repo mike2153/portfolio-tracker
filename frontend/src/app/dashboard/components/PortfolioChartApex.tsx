@@ -166,7 +166,7 @@ export default function PortfolioChartApex({
       result.push({
         name: 'Your Portfolio',
         data: portfolioSeries,
-        color: '#10b981'
+        color: '#238636'
       });
     }
     
@@ -182,7 +182,7 @@ export default function PortfolioChartApex({
       result.push({
         name: `${selectedBenchmark} Index`,
         data: benchmarkSeries,
-        color: '#9ca3af'
+        color: '#58A6FF'
       });
     }
     
@@ -229,13 +229,13 @@ export default function PortfolioChartApex({
   
   // === RENDER ===
   return (
-    <div className="rounded-xl bg-gray-800/80 p-6 shadow-lg">
+    <div className="rounded-xl bg-[#0D1117] border border-[#30363D] p-6 shadow-lg">
       {/* Header with title and range selection */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-lg font-semibold text-white">Portfolio vs Benchmark</h3>
+          <h3 className="text-lg font-semibold text-[#FFFFFF]">Portfolio vs Benchmark</h3>
           {metrics && (
-            <div className="text-sm text-gray-400 mt-1">
+            <div className="text-sm text-[#8B949E] mt-1">
               Portfolio: {formatPercentage(metrics.portfolio_return_pct)} | 
               {' '}{selectedBenchmark}: {formatPercentage(metrics.index_return_pct)} | 
               {' '}Outperformance: {formatPercentage(metrics.outperformance_pct)}
@@ -249,8 +249,8 @@ export default function PortfolioChartApex({
               onClick={() => handleRangeChange(range)}
               className={`px-2 py-1 text-xs rounded-md transition-colors ${
                 selectedRange === range 
-                  ? 'bg-emerald-600 text-white' 
-                  : 'text-gray-300 hover:text-white hover:bg-gray-700'
+                  ? 'bg-[#238636] text-white' 
+                  : 'text-[#8B949E] hover:text-white hover:bg-[#30363D]'
               }`}
             >
               {range}
@@ -263,11 +263,11 @@ export default function PortfolioChartApex({
       <div className="flex items-center justify-between mb-4">
         {/* Benchmark selection */}
         <div className="flex items-center space-x-2">
-          <label className="text-sm text-gray-400">Benchmark:</label>
+          <label className="text-sm text-[#8B949E]">Benchmark:</label>
           <select
             value={selectedBenchmark}
             onChange={e => handleBenchmarkChange(e.target.value)}
-            className="px-2 py-1 text-xs rounded-md bg-gray-700 text-white border border-gray-600 focus:border-blue-500 focus:outline-none"
+            className="px-2 py-1 text-xs rounded-md bg-[#0D1117] text-white border border-[#30363D] focus:border-[#58A6FF] focus:outline-none"
           >
             {benchmarks.map(benchmark => (
               <option key={benchmark.symbol} value={benchmark.symbol}>
@@ -283,8 +283,8 @@ export default function PortfolioChartApex({
             onClick={() => handleDisplayModeChange('value')}
             className={`px-3 py-1 text-xs rounded-md transition-colors ${
               displayMode === 'value' 
-                ? 'bg-purple-600 text-white' 
-                : 'text-gray-300 hover:text-white hover:bg-gray-700'
+                ? 'bg-[#F0883E] text-white' 
+                : 'text-[#8B949E] hover:text-white hover:bg-[#30363D]'
             }`}
           >
             $ Value
@@ -293,8 +293,8 @@ export default function PortfolioChartApex({
             onClick={() => handleDisplayModeChange('percentage')}
             className={`px-3 py-1 text-xs rounded-md transition-colors ${
               displayMode === 'percentage' 
-                ? 'bg-purple-600 text-white' 
-                : 'text-gray-300 hover:text-white hover:bg-gray-700'
+                ? 'bg-[#F0883E] text-white' 
+                : 'text-[#8B949E] hover:text-white hover:bg-[#30363D]'
             }`}
           >
             % Return
@@ -306,11 +306,11 @@ export default function PortfolioChartApex({
       {isIndexOnly ? (
         // === INDEX-ONLY MODE DISPLAY ===
         <div>
-          <div className="mb-4 p-3 bg-blue-900/30 border border-blue-500/30 rounded-lg">
-            <p className="text-sm text-blue-300">
+          <div className="mb-4 p-3 bg-[#58A6FF]/10 border border-[#58A6FF]/30 rounded-lg">
+            <p className="text-sm text-[#58A6FF]">
               <strong>Showing {selectedBenchmark} Performance Only</strong>
             </p>
-            <p className="text-xs text-blue-400 mt-1">
+            <p className="text-xs text-[#58A6FF] mt-1">
               {userGuidance}
             </p>
           </div>
@@ -324,7 +324,7 @@ export default function PortfolioChartApex({
                   const value = point.value ?? point.total_value ?? 0;
                   return [timestamp, value];
                 }) || [],
-                color: '#10b981'
+                color: '#238636'
               }
             ]}
             type="area"
@@ -342,27 +342,27 @@ export default function PortfolioChartApex({
           />
         </div>
       ) : alignedPortfolio.length === 0 ? (
-        <div className="flex items-center justify-center h-96 text-gray-400">
+        <div className="flex items-center justify-center h-96 text-[#8B949E]">
           <div className="text-center">
             <p className="text-lg font-semibold">No portfolio data available</p>
             {performanceData?.metadata?.no_data ? (
               <div className="text-sm mt-2 space-y-1">
                 <p>No portfolio data found for the selected period.</p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-[#8B949E]">
                   This could mean:
                 </p>
-                <ul className="text-xs text-gray-500 list-disc list-inside space-y-1">
+                <ul className="text-xs text-[#8B949E] list-disc list-inside space-y-1">
                   <li>No transactions exist for this time period</li>
                   <li>No historical price data available</li>
                   <li>Portfolio calculation returned empty results</li>
                 </ul>
                 <div className="mt-3 space-y-2">
-                  <p className="text-xs text-blue-400">Try these solutions:</p>
+                  <p className="text-xs text-[#58A6FF]">Try these solutions:</p>
                   <div className="flex flex-wrap gap-2">
                     {selectedRange !== 'MAX' && (
                       <button
                         onClick={() => handleRangeChange('MAX')}
-                        className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                        className="px-2 py-1 text-xs bg-[#58A6FF] text-white rounded hover:bg-[#388BFD] transition-colors"
                       >
                         Show All Data
                       </button>
@@ -370,7 +370,7 @@ export default function PortfolioChartApex({
                     {selectedRange !== '3M' && (
                       <button
                         onClick={() => handleRangeChange('3M')}
-                        className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+                        className="px-2 py-1 text-xs bg-[#238636] text-white rounded hover:bg-[#2EA043] transition-colors"
                       >
                         Try 3 Months
                       </button>
@@ -378,7 +378,7 @@ export default function PortfolioChartApex({
                     {selectedRange !== '1M' && (
                       <button
                         onClick={() => handleRangeChange('1M')}
-                        className="px-2 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+                        className="px-2 py-1 text-xs bg-[#F0883E] text-white rounded hover:bg-[#FB8532] transition-colors"
                       >
                         Try 1 Month
                       </button>
@@ -389,7 +389,7 @@ export default function PortfolioChartApex({
             ) : (
               <div className="text-sm mt-2 space-y-2">
                 <p>Add some transactions to see your portfolio performance</p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-[#8B949E]">
                   Once you add transactions, your portfolio chart will show here automatically.
                 </p>
               </div>
@@ -408,7 +408,7 @@ export default function PortfolioChartApex({
             (value) => `$${value.toLocaleString()}` : 
             (value) => `${value.toFixed(2)}%`}
           showLegend={true}
-          colors={['#10b981', '#9ca3af']}
+          colors={['#238636', '#58A6FF']}
           isLoading={isLoading}
           error={isError ? error?.message || 'Unknown error occurred' : null}
           onRetry={refetch}
@@ -417,7 +417,7 @@ export default function PortfolioChartApex({
       
       {/* Debug info in development */}
       {process.env.NODE_ENV === 'development' && (
-        <div className="mt-2 text-xs text-gray-500">
+        <div className="mt-2 text-xs text-[#8B949E]">
           Debug: {alignedPortfolio.length} aligned portfolio points, {alignedBenchmark.length} aligned benchmark points, 
           Range: {selectedRange}, Benchmark: {selectedBenchmark}, Mode: {displayMode}
         </div>

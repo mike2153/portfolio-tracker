@@ -7,6 +7,8 @@ import { ArrowUp, ArrowDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useDashboard } from '../contexts/DashboardContext';
 import { useAuth } from '@/components/AuthProvider';
+import GradientText from '@/components/ui/GradientText';
+import CompanyIcon from '@/components/ui/CompanyIcon';
 
 interface GainLossCardProps {
     type: 'gainers' | 'losers';
@@ -109,23 +111,25 @@ const GainLossCard = ({ type, title }: GainLossCardProps) => {
     };
 
     return (
-        <div className="rounded-xl bg-gray-800/80 p-6 shadow-lg">
+        <div className="rounded-xl bg-[#161B22] p-6 shadow-lg">
             <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-white">{title}</h3>
-                <button className="text-sm text-blue-400 hover:underline">See all</button>
+                <GradientText className="text-lg font-semibold">{title}</GradientText>
+                <button className="text-sm text-white hover:bg-white hover:text-[#0D1117] px-3 py-1 rounded transition-colors">See all</button>
             </div>
             <ul className="space-y-4">
                 {items.map((item: GainerLoserRow) => (
                     <li key={item.ticker} className="flex items-center space-x-4">
                         <div className="flex-shrink-0">
-                            {/* Using a placeholder for logo */}
-                            <div className="h-10 w-10 rounded-full bg-gray-700 flex items-center justify-center font-bold text-white">
-                                {item.ticker.charAt(0)}
-                            </div>
+                            <CompanyIcon 
+                                symbol={item.ticker} 
+                                size={40}
+                                className="rounded-full"
+                                fallback="initials"
+                            />
                         </div>
                         <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-white truncate">{item.name}</p>
-                            <p className="text-sm text-gray-400 truncate">{item.ticker}</p>
+                            <p className="text-sm text-[#8B949E] truncate">{item.ticker}</p>
                         </div>
                         <div className="text-right">
                             <p className="text-sm font-semibold text-white">${safeFormatCurrency(item.value)}</p>

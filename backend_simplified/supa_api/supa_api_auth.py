@@ -20,6 +20,7 @@ async def require_authenticated_user(credentials: Optional[HTTPAuthorizationCred
     FastAPI dependency to protect routes by requiring a valid Supabase JWT.
     Extracts user data from the token.
     """
+     
     DebugLogger.log_api_call(
         api_name="AUTH_MIDDLEWARE",
         sender="CLIENT",
@@ -29,15 +30,14 @@ async def require_authenticated_user(credentials: Optional[HTTPAuthorizationCred
     
     if not credentials:
         logger.warning("[supa_api_auth.py::require_authenticated_user] No Authorization credentials provided.")
+        logger.info(f"[supa_api_auth.py::require_authenticated_user] === AUTHENTICATION CHECK END (NO CREDENTIALS) ===")
         raise HTTPException(status_code=401, detail="No credentials provided")
     
     token = credentials.credentials
-    logger.info(f"[supa_api_auth.py::require_authenticated_user] Token extracted: {token[:20]}...")
-    
+  
     # Debug: Check token structure
     token_parts = token.split('.')
-    logger.info(f"[supa_api_auth.py::require_authenticated_user] Token parts count: {len(token_parts)}")
-    
+  
     if len(token_parts) != 3:
         logger.error(f"[supa_api_auth.py::require_authenticated_user] Invalid JWT structure - expected 3 parts, got {len(token_parts)}")
         logger.error(f"[supa_api_auth.py::require_authenticated_user] Token preview: {token[:100]}...")
@@ -52,6 +52,7 @@ async def require_authenticated_user(credentials: Optional[HTTPAuthorizationCred
     try:
         
         # Validate the token with Supabase
+    
         user_response = supa_api_client.client.auth.get_user(token)
         
         if user_response and user_response.user:
@@ -60,16 +61,18 @@ async def require_authenticated_user(credentials: Optional[HTTPAuthorizationCred
             return user_data
         else:
             logger.warning("[supa_api_auth.py::require_authenticated_user] ❌ Token validation failed.")
+            logger.info(f"[supa_api_auth.py::require_authenticated_user] === AUTHENTICATION CHECK END (INVALID TOKEN) ===")
             raise HTTPException(status_code=401, detail="Invalid or expired token")
 
     except Exception as e:
+        logger.error(f"[supa_api_auth.py::require_authenticated_user] Auth error: {type(e).__name__}: {str(e)}")
+        logger.info(f"[supa_api_auth.py::require_authenticated_user] === AUTHENTICATION CHECK END (ERROR) ===")
         DebugLogger.log_error(
             file_name="supa_api_auth.py",
             function_name="require_authenticated_user",
             error=e,
             token_present=bool(token)
         )
-        logger.error(f"[supa_api_auth.py::require_authenticated_user] Auth error: {e}")
         raise HTTPException(status_code=401, detail=f"Authentication error: {e}")
 
 # Helper functions for checking user permissions

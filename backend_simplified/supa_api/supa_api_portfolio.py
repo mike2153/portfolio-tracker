@@ -257,4 +257,36 @@ async def supa_api_get_holdings_by_symbol(user_id: str, symbol: str, user_token:
             user_id=user_id,
             symbol=symbol
         )
+        raise
+
+
+async def supa_api_get_user_symbols(user_id: str, user_token: Optional[str] = None) -> List[str]:
+    """
+    Get list of unique symbols in user's portfolio.
+    
+    Returns only symbols with positive holdings (quantity > 0).
+    """
+    logger.info(f"[supa_api_portfolio.py::supa_api_get_user_symbols] Getting symbols for user: {user_id}")
+    
+    try:
+        # Get full portfolio data
+        portfolio_data = await supa_api_calculate_portfolio(user_id, user_token)
+        
+        # Extract symbols from holdings with positive quantity
+        symbols = [
+            holding['symbol'] 
+            for holding in portfolio_data['holdings'] 
+            if holding['quantity'] > 0
+        ]
+        
+        logger.info(f"[supa_api_portfolio.py::supa_api_get_user_symbols] Found {len(symbols)} symbols for user {user_id}")
+        return symbols
+        
+    except Exception as e:
+        DebugLogger.log_error(
+            file_name="supa_api_portfolio.py",
+            function_name="supa_api_get_user_symbols",
+            error=e,
+            user_id=user_id
+        )
         raise 

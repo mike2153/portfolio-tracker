@@ -103,7 +103,7 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
 
   if (isError) {
     return (
-      <div className="rounded-xl bg-red-800/50 p-6 shadow-lg">
+      <div className="rounded-xl bg-red-900/20 border border-red-800 p-6 shadow-lg">
         <h3 className="text-lg font-semibold text-red-400">Error Loading KPI Data</h3>
         <p className="text-sm text-red-300 mt-2">{error?.message || 'Failed to load dashboard data'}</p>
         <p className="text-xs text-red-400 mt-1">Check browser console for detailed debugging info</p>

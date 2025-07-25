@@ -12,7 +12,7 @@ services:
     volumes:
       - ./backend_simplified:/app
     env_file:
-      - env.test
+      - .env
     environment:
       - SUPA_API_URL=${SUPA_API_URL}
       - SUPA_API_ANON_KEY=${SUPA_API_ANON_KEY}
@@ -36,10 +36,11 @@ services:
     # 🔥 Enable hot reload by mounting source code as volume
     volumes:
       - ./frontend:/app
+      - ./shared:/shared   # Mount shared module
       - /app/node_modules  # Prevent overwriting node_modules
       - /app/.next         # Prevent overwriting Next.js build cache
     env_file:
-      - env.test
+      - .env
     environment:
       - NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
       - NEXT_PUBLIC_SUPABASE_URL=${SUPA_API_URL}

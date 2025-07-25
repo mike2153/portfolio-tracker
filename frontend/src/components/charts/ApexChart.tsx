@@ -55,7 +55,7 @@ export default function ApexChart({
   timeRanges = defaultTimeRanges,
   selectedRange,
   onRangeChange,
-  colors = ['#10b981', '#6b7280'],
+  colors = ['#58A6FF', '#238636', '#F0883E', '#F85149'],
   isLoading = false,
   error = null,
   onRetry,
@@ -94,7 +94,7 @@ export default function ApexChart({
     const firstValue = getValue(seriesData[0]);
     const lastValue = getValue(seriesData[seriesData.length - 1]);
     const isPositive = lastValue >= firstValue;
-    const primaryColor = isPositive ? '#10b981' : '#ef4444';
+    const primaryColor = isPositive ? '#238636' : '#F85149';
     return [primaryColor, ...colors.slice(1)];
   }, [data, colors]);
 
@@ -103,7 +103,7 @@ export default function ApexChart({
       id: `apex-chart-${type}`,
       type: type as any,
       height,
-      background: darkMode ? '#1f2937' : '#ffffff',
+      background: darkMode ? 'transparent' : '#ffffff',
       toolbar: { show: showToolbar },
       fontFamily: 'Inter, sans-serif',
       animations: {
@@ -125,7 +125,7 @@ export default function ApexChart({
         shade: darkMode ? 'dark' : 'light',
         type: 'vertical',
         shadeIntensity: 0.3,
-        gradientToColors: [darkMode ? '#1f2937' : '#f9fafb'],
+        gradientToColors: [darkMode ? '#0D1117' : '#f9fafb'],
         opacityFrom: 0.6,
         opacityTo: 0.1,
         stops: [0, 100]
@@ -140,13 +140,13 @@ export default function ApexChart({
       },
       candlestick: {
         colors: {
-          upward: '#10b981',
-          downward: '#ef4444'
+          upward: '#238636',
+          downward: '#F85149'
         }
       }
     },
     grid: {
-      borderColor: darkMode ? '#374151' : '#e5e7eb',
+      borderColor: darkMode ? '#30363D' : '#e5e7eb',
       strokeDashArray: 3,
       xaxis: { lines: { show: false } },
       yaxis: { lines: { show: true } }
@@ -155,36 +155,37 @@ export default function ApexChart({
       type: xAxisType,
       labels: { 
         style: { 
-          colors: darkMode ? '#9ca3af' : '#6b7280',
+          colors: darkMode ? '#8B949E' : '#6b7280',
           fontSize: '12px' 
         },
         datetimeUTC: false
       },
-      axisBorder: { color: darkMode ? '#374151' : '#e5e7eb' },
-      axisTicks: { color: darkMode ? '#374151' : '#e5e7eb' },
+      axisBorder: { color: darkMode ? '#30363D' : '#e5e7eb' },
+      axisTicks: { color: darkMode ? '#30363D' : '#e5e7eb' },
       title: {
-        style: { color: darkMode ? '#9ca3af' : '#6b7280' }
+        style: { color: darkMode ? '#8B949E' : '#6b7280' }
       }
     },
     yaxis: {
       labels: {
         formatter: yAxisFormatter,
         style: { 
-          colors: darkMode ? '#9ca3af' : '#6b7280',
+          colors: darkMode ? '#8B949E' : '#6b7280',
           fontSize: '12px' 
         }
       },
-      axisBorder: { color: darkMode ? '#374151' : '#e5e7eb' },
-      axisTicks: { color: darkMode ? '#374151' : '#e5e7eb' },
+      axisBorder: { color: darkMode ? '#30363D' : '#e5e7eb' },
+      axisTicks: { color: darkMode ? '#30363D' : '#e5e7eb' },
       title: {
-        style: { color: darkMode ? '#9ca3af' : '#6b7280' }
+        style: { color: darkMode ? '#8B949E' : '#6b7280' }
       }
     },
     legend: { 
       show: showLegend,
-      labels: { colors: darkMode ? '#d1d5db' : '#374151' }
+      labels: { colors: darkMode ? '#FFFFFF' : '#374151' }
     },
     tooltip: {
+      enabled: true,
       theme: darkMode ? 'dark' : 'light',
       x: {
         format: xAxisType === 'datetime' ? 'dd MMM yyyy' : undefined
@@ -199,7 +200,7 @@ export default function ApexChart({
     },
     markers: {
       size: 0,
-      strokeColors: darkMode ? '#1f2937' : '#ffffff',
+      strokeColors: darkMode ? '#0D1117' : '#ffffff',
       strokeWidth: 2,
       hover: { size: 6 }
     },
@@ -229,15 +230,15 @@ export default function ApexChart({
   // Loading state
   if (isLoading) {
     return (
-      <div className={`rounded-xl bg-gray-800/80 p-6 shadow-lg ${className}`}>
+      <div className={`rounded-xl bg-[#0D1117] border border-[#30363D] p-6 shadow-lg ${className}`}>
         {title && (
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-white">{title}</h3>
           </div>
         )}
         <div className="flex items-center justify-center h-96">
-          <div className="flex items-center gap-2 text-gray-300">
-            <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+          <div className="flex items-center gap-2 text-[#8B949E]">
+            <div className="w-6 h-6 border-2 border-[#58A6FF] border-t-transparent rounded-full animate-spin"></div>
             Loading chart data...
           </div>
         </div>
@@ -248,20 +249,20 @@ export default function ApexChart({
   // Error state
   if (error) {
     return (
-      <div className={`rounded-xl bg-gray-800/80 p-6 shadow-lg ${className}`}>
+      <div className={`rounded-xl bg-[#0D1117] border border-[#30363D] p-6 shadow-lg ${className}`}>
         {title && (
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-white">{title}</h3>
           </div>
         )}
-        <div className="flex items-center justify-center h-96 text-red-400">
+        <div className="flex items-center justify-center h-96 text-[#F85149]">
           <div className="text-center">
             <p className="text-lg font-semibold">Failed to load chart data</p>
             <p className="text-sm mt-2">{error}</p>
             {onRetry && (
               <button 
                 onClick={onRetry}
-                className="mt-4 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+                className="mt-4 px-4 py-2 bg-[#F85149] text-white rounded-md hover:bg-[#DA3633] transition-colors"
               >
                 Retry
               </button>
@@ -273,7 +274,7 @@ export default function ApexChart({
   }
 
   return (
-    <div className={`rounded-xl bg-gray-800/80 p-6 shadow-lg ${className}`}>
+    <div className={`rounded-xl bg-[#0D1117] border border-[#30363D] p-6 shadow-lg ${className}`}>
       {/* Header with title and time range controls */}
       <div className="flex items-center justify-between mb-4">
         {title && (
@@ -288,8 +289,8 @@ export default function ApexChart({
                 onClick={() => onRangeChange(range.id)}
                 className={`px-3 py-1 text-xs rounded-md transition-colors ${
                   selectedRange === range.id 
-                    ? 'bg-emerald-600 text-white' 
-                    : 'text-gray-300 hover:text-white hover:bg-gray-700'
+                    ? 'bg-[#238636] text-white' 
+                    : 'text-[#8B949E] hover:text-white hover:bg-[#30363D]'
                 }`}
               >
                 {range.label}
@@ -311,7 +312,7 @@ export default function ApexChart({
 
       {/* Debug info in development */}
       {process.env.NODE_ENV === 'development' && (
-        <div className="mt-2 text-xs text-gray-500">
+        <div className="mt-2 text-xs text-[#8B949E]">
           Debug: {series.length} series, Type: {type}, Height: {height}px
         </div>
       )}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import GradientText from '@/components/ui/GradientText';
 import { useRouter } from 'next/navigation';
 import { Eye, Trash2, TrendingUp, TrendingDown } from 'lucide-react';
 import ApexListView, { ListViewColumn, ListViewAction } from '@/components/charts/ApexListView';
@@ -142,7 +143,7 @@ export default function WatchlistPage() {
       label: 'YTD Return',
       sortable: true,
       render: (value: number | undefined) => {
-        if (value === undefined) return <span className="text-gray-400">—</span>;
+        if (value === undefined) return <span className="text-[#8B949E]">—</span>;
         const isPositive = value >= 0;
         return (
           <span className={`font-mono ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
@@ -163,7 +164,7 @@ export default function WatchlistPage() {
       key: 'notes',
       label: 'Notes',
       render: (value: string | undefined) => (
-        <span className="text-sm text-gray-600 truncate max-w-xs" title={value}>
+        <span className="text-sm text-[#8B949E] truncate max-w-xs" title={value}>
           {value || '—'}
         </span>
       )
@@ -187,8 +188,8 @@ export default function WatchlistPage() {
   return (
     <div className="p-6">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold">Watchlist</h1>
-        <p className="text-gray-600 mt-2">Track stocks you're interested in</p>
+        <GradientText className="text-3xl font-bold">Watchlist</GradientText>
+        <p className="text-[#8B949E] mt-2">Track stocks you're interested in</p>
       </div>
 
       <ApexListView

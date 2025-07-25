@@ -1,362 +1,186 @@
--- Supabase handles users via auth.users, no need for custom table
--- But we'll create a profiles table for additional user data if needed
-
-create table if not exists profiles (
-  id uuid primary key references auth.users(id) on delete cascade,
-  email text unique not null,
-  display_name text,
-  created_at timestamp with time zone default now(),
-  updated_at timestamp with time zone default now()
+CREATE TABLE public.api_cache (
+  cache_key text NOT NULL,
+  data jsonb NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  expires_at timestamp with time zone NOT NULL,
+  CONSTRAINT api_cache_pkey PRIMARY KEY (cache_key)
 );
-
--- Main transactions table with all form fields
-create table if not exists transactions (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users(id) on delete cascade not null,
-  transaction_type text not null check (transaction_type in ('Buy', 'Sell')),
-  symbol text not null,
-  quantity numeric not null check (quantity > 0),
-  price numeric not null check (price > 0),
-  date date not null,
-  currency text not null default 'USD',
-  commission numeric default 0 check (commission >= 0),
+CREATE TABLE public.company_financials (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  symbol character varying NOT NULL,
+  data_type character varying NOT NULL,
+  financial_data jsonb NOT NULL,
+  last_updated timestamp without time zone DEFAULT now(),
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT company_financials_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.historical_prices (
+  id bigint NOT NULL DEFAULT nextval('historical_prices_id_seq'::regclass),
+  symbol character varying NOT NULL,
+  date date NOT NULL,
+  open numeric NOT NULL,
+  high numeric NOT NULL,
+  low numeric NOT NULL,
+  close numeric NOT NULL,
+  adjusted_close numeric NOT NULL,
+  volume bigint NOT NULL DEFAULT 0,
+  dividend_amount numeric DEFAULT 0,
+  split_coefficient numeric DEFAULT 1,
+  created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  updated_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  CONSTRAINT historical_prices_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.market_holidays (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  exchange character varying NOT NULL,
+  holiday_date date NOT NULL,
+  holiday_name character varying,
+  market_status character varying DEFAULT 'closed'::character varying,
+  early_close_time time without time zone,
+  late_open_time time without time zone,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT market_holidays_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.portfolio_caches (
+  user_id uuid NOT NULL,
+  benchmark text NOT NULL DEFAULT 'SPY'::text,
+  range text DEFAULT 'N/A'::text,
+  as_of_date date DEFAULT CURRENT_DATE,
+  portfolio_values jsonb DEFAULT '[]'::jsonb,
+  index_values jsonb DEFAULT '[]'::jsonb,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  cache_key character varying,
+  metrics_json jsonb,
+  expires_at timestamp with time zone,
+  hit_count integer DEFAULT 0,
+  computation_time_ms integer,
+  last_accessed timestamp with time zone,
+  dependencies jsonb,
+  cache_version integer DEFAULT 1,
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  CONSTRAINT portfolio_caches_pkey PRIMARY KEY (id),
+  CONSTRAINT portfolio_caches_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.portfolio_metrics_cache (
+  user_id uuid NOT NULL,
+  cache_key character varying NOT NULL,
+  cache_version integer DEFAULT 1,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  expires_at timestamp with time zone NOT NULL,
+  last_accessed timestamp with time zone DEFAULT now(),
+  hit_count integer DEFAULT 0 CHECK (hit_count >= 0),
+  metrics_json jsonb NOT NULL,
+  computation_metadata jsonb DEFAULT '{}'::jsonb,
+  dependencies jsonb DEFAULT '[]'::jsonb,
+  invalidated_at timestamp with time zone,
+  invalidation_reason text,
+  computation_time_ms integer CHECK (computation_time_ms IS NULL OR computation_time_ms >= 0),
+  cache_size_bytes integer,
+  CONSTRAINT portfolio_metrics_cache_pkey PRIMARY KEY (user_id, cache_key),
+  CONSTRAINT portfolio_metrics_cache_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.price_update_log (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  symbol character varying NOT NULL UNIQUE,
+  exchange character varying,
+  last_update_time timestamp with time zone NOT NULL,
+  last_session_date date,
+  update_trigger character varying,
+  sessions_updated integer DEFAULT 0,
+  api_calls_made integer DEFAULT 0,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT price_update_log_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.price_update_sessions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  symbol character varying NOT NULL,
+  session_date date NOT NULL,
+  session_type character varying NOT NULL CHECK (session_type::text = ANY (ARRAY['regular'::character varying, 'pre_market'::character varying, 'after_hours'::character varying, 'closing'::character varying]::text[])),
+  session_start timestamp with time zone NOT NULL,
+  session_end timestamp with time zone NOT NULL,
+  open_price numeric,
+  high_price numeric,
+  low_price numeric,
+  close_price numeric,
+  volume bigint,
+  data_source character varying,
+  updated_at timestamp with time zone DEFAULT now(),
+  update_count integer DEFAULT 1,
+  is_complete boolean DEFAULT false,
+  has_gaps boolean DEFAULT false,
+  gap_details jsonb,
+  CONSTRAINT price_update_sessions_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.symbol_exchanges (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  symbol character varying NOT NULL UNIQUE,
+  exchange character varying NOT NULL,
+  exchange_timezone character varying,
+  market_open_time time without time zone DEFAULT '09:30:00'::time without time zone,
+  market_close_time time without time zone DEFAULT '16:00:00'::time without time zone,
+  has_pre_market boolean DEFAULT true,
+  has_after_hours boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT symbol_exchanges_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.transactions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  transaction_type text NOT NULL CHECK (upper(transaction_type) = ANY (ARRAY['BUY'::text, 'SELL'::text, 'DEPOSIT'::text, 'WITHDRAWAL'::text, 'DIVIDEND'::text])),
+  symbol text NOT NULL,
+  quantity numeric NOT NULL CHECK (quantity > 0::numeric),
+  price numeric NOT NULL CHECK (price > 0::numeric),
+  date date NOT NULL,
+  currency text NOT NULL DEFAULT 'USD'::text,
+  commission numeric DEFAULT 0 CHECK (commission >= 0::numeric),
   notes text,
-  created_at timestamp with time zone default now(),
-  updated_at timestamp with time zone default now()
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  amount_invested numeric,
+  market_region character varying DEFAULT 'United States'::character varying,
+  market_open time without time zone DEFAULT '09:30:00'::time without time zone,
+  market_close time without time zone DEFAULT '16:00:00'::time without time zone,
+  market_timezone character varying DEFAULT 'UTC-05'::character varying,
+  market_currency character varying DEFAULT 'USD'::character varying,
+  CONSTRAINT transactions_pkey PRIMARY KEY (id),
+  CONSTRAINT transactions_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
-
--- Enable RLS for transactions table
-ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
-
--- RLS Policies for transactions table
--- Allow users to read only their own transactions
-CREATE POLICY "Users can read own transactions" ON transactions
-    FOR SELECT TO authenticated
-    USING (auth.uid() = user_id);
-
--- Allow users to insert only their own transactions  
-CREATE POLICY "Users can insert own transactions" ON transactions
-    FOR INSERT TO authenticated
-    WITH CHECK (auth.uid() = user_id);
-
--- Allow users to update only their own transactions
-CREATE POLICY "Users can update own transactions" ON transactions
-    FOR UPDATE TO authenticated
-    USING (auth.uid() = user_id)
-    WITH CHECK (auth.uid() = user_id);
-
--- Allow users to delete only their own transactions
-CREATE POLICY "Users can delete own transactions" ON transactions
-    FOR DELETE TO authenticated
-    USING (auth.uid() = user_id);
-
--- Allow service role full access (for admin operations)
-CREATE POLICY "Service role full access to transactions" ON transactions
-    FOR ALL TO service_role
-    USING (true)
-    WITH CHECK (true);
-
--- Stock symbols cache for autocomplete
-create table if not exists stock_symbols (
-  symbol text primary key,
-  name text not null,
-  exchange text,
-  currency text default 'USD',
-  type text default 'Equity',
-  market_cap numeric,
-  sector text,
-  updated_at timestamp with time zone default now()
+CREATE TABLE public.user_dividends (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  symbol character varying NOT NULL,
+  user_id uuid,
+  ex_date date NOT NULL,
+  pay_date date,
+  declaration_date date,
+  record_date date,
+  amount numeric NOT NULL CHECK (amount > 0::numeric),
+  currency character varying DEFAULT 'USD'::character varying CHECK (currency::text = ANY (ARRAY['USD'::character varying, 'EUR'::character varying, 'GBP'::character varying, 'CAD'::character varying, 'AUD'::character varying]::text[])),
+  shares_held_at_ex_date numeric CHECK (shares_held_at_ex_date IS NULL OR shares_held_at_ex_date >= 0::numeric),
+  current_holdings numeric CHECK (current_holdings IS NULL OR current_holdings >= 0::numeric),
+  total_amount numeric CHECK (total_amount IS NULL OR total_amount >= 0::numeric),
+  confirmed boolean DEFAULT false,
+  status character varying DEFAULT 'pending'::character varying CHECK (status::text = ANY (ARRAY['pending'::character varying, 'confirmed'::character varying, 'edited'::character varying]::text[])),
+  dividend_type character varying DEFAULT 'cash'::character varying CHECK (dividend_type::text = ANY (ARRAY['cash'::character varying, 'stock'::character varying, 'drp'::character varying]::text[])),
+  source character varying DEFAULT 'alpha_vantage'::character varying CHECK (source::text = ANY (ARRAY['alpha_vantage'::character varying, 'manual'::character varying, 'broker'::character varying]::text[])),
+  notes text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  rejected boolean DEFAULT false,
+  CONSTRAINT user_dividends_pkey PRIMARY KEY (id),
+  CONSTRAINT user_dividends_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
-
--- Alpha Vantage API cache to avoid rate limits
-create table if not exists api_cache (
-  cache_key text primary key,
-  data jsonb not null,
-  created_at timestamp with time zone default now(),
-  expires_at timestamp with time zone not null
+CREATE TABLE public.watchlist (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  symbol character varying NOT NULL,
+  notes text,
+  target_price numeric,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT watchlist_pkey PRIMARY KEY (id),
+  CONSTRAINT watchlist_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
-
--- Historical Stock Prices Table
--- Stores daily historical price data for all stocks that users have transactions in
--- This data is essential for portfolio calculations and transaction price lookups
-CREATE TABLE IF NOT EXISTS historical_prices (
-    id BIGSERIAL PRIMARY KEY,
-    symbol VARCHAR(10) NOT NULL,
-    date DATE NOT NULL,
-    open DECIMAL(12, 4) NOT NULL,
-    high DECIMAL(12, 4) NOT NULL,
-    low DECIMAL(12, 4) NOT NULL,
-    close DECIMAL(12, 4) NOT NULL,
-    adjusted_close DECIMAL(12, 4) NOT NULL,
-    volume BIGINT NOT NULL DEFAULT 0,
-    dividend_amount DECIMAL(10, 4) DEFAULT 0,
-    split_coefficient DECIMAL(10, 4) DEFAULT 1,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
-    
-    -- Ensure no duplicate entries for same symbol/date
-    UNIQUE(symbol, date)
-);
-
--- Index for fast lookups by symbol and date range
-CREATE INDEX IF NOT EXISTS idx_historical_prices_symbol_date ON historical_prices(symbol, date DESC);
-
--- Index for fast lookups by date for portfolio calculations
-CREATE INDEX IF NOT EXISTS idx_historical_prices_date ON historical_prices(date DESC);
-
--- Index for fast symbol lookups
-CREATE INDEX IF NOT EXISTS idx_historical_prices_symbol ON historical_prices(symbol);
-
--- RLS policies for historical_prices
-ALTER TABLE historical_prices ENABLE ROW LEVEL SECURITY;
-
--- Allow read access to all authenticated users (historical prices are public data)
-CREATE POLICY "Allow read access to historical prices" ON historical_prices
-    FOR SELECT TO authenticated
-    USING (true);
-
--- Allow insert/update only to service role (for data seeding)
-CREATE POLICY "Allow service role to manage historical prices" ON historical_prices
-    FOR ALL TO service_role
-    USING (true);
-
--- Function to update the updated_at timestamp
-CREATE OR REPLACE FUNCTION update_historical_prices_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = TIMEZONE('utc'::text, NOW());
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
-
--- Trigger to automatically update updated_at
-CREATE TRIGGER update_historical_prices_updated_at
-    BEFORE UPDATE ON historical_prices
-    FOR EACH ROW
-    EXECUTE PROCEDURE update_historical_prices_updated_at();
-
--- Function to get price data for a symbol on a specific date (or closest trading day)
-CREATE OR REPLACE FUNCTION get_historical_price_for_date(
-    p_symbol TEXT,
-    p_date DATE
-)
-RETURNS TABLE (
-    symbol TEXT,
-    date DATE,
-    open DECIMAL,
-    high DECIMAL,
-    low DECIMAL,
-    close DECIMAL,
-    adjusted_close DECIMAL,
-    volume BIGINT,
-    is_exact_date BOOLEAN
-) AS $$
-DECLARE
-    exact_match historical_prices%ROWTYPE;
-    closest_match historical_prices%ROWTYPE;
-BEGIN
-    -- First try to find exact date match
-    SELECT * INTO exact_match
-    FROM historical_prices hp
-    WHERE hp.symbol = p_symbol 
-    AND hp.date = p_date;
-    
-    IF FOUND THEN
-        -- Return exact match
-        RETURN QUERY SELECT 
-            exact_match.symbol::TEXT,
-            exact_match.date,
-            exact_match.open,
-            exact_match.high,
-            exact_match.low,
-            exact_match.close,
-            exact_match.adjusted_close,
-            exact_match.volume,
-            true as is_exact_date;
-        RETURN;
-    END IF;
-    
-    -- If no exact match, find closest previous trading day (within 7 days)
-    SELECT * INTO closest_match
-    FROM historical_prices hp
-    WHERE hp.symbol = p_symbol 
-    AND hp.date <= p_date
-    AND hp.date >= (p_date - INTERVAL '7 days')
-    ORDER BY hp.date DESC
-    LIMIT 1;
-    
-    IF FOUND THEN
-        -- Return closest match
-        RETURN QUERY SELECT 
-            closest_match.symbol::TEXT,
-            closest_match.date,
-            closest_match.open,
-            closest_match.high,
-            closest_match.low,
-            closest_match.close,
-            closest_match.adjusted_close,
-            closest_match.volume,
-            false as is_exact_date;
-        RETURN;
-    END IF;
-    
-    -- No data found
-    RETURN;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Create indexes for performance
-create index idx_transactions_user_id on transactions(user_id);
-create index idx_transactions_symbol on transactions(symbol);
-create index idx_transactions_date on transactions(date desc);
-create index idx_stock_symbols_name on stock_symbols(name);
-create index idx_api_cache_expires on api_cache(expires_at);
-
--- Function to update updated_at timestamp
-create or replace function update_updated_at()
-returns trigger as $$
-begin
-  new.updated_at = now();
-  return new;
-end;
-$$ language plpgsql;
-
--- Triggers for updated_at
-create trigger update_profiles_updated_at before update on profiles
-  for each row execute function update_updated_at();
-
-create trigger update_transactions_updated_at before update on transactions
-  for each row execute function update_updated_at(); 
-
-  -- Migration: Add Historical Prices Table and Functions
--- Created: 2025-01-02
--- Description: Adds historical_prices table for storing stock price data and supporting functions
-
--- Historical Stock Prices Table
--- Stores daily historical price data for all stocks that users have transactions in
--- This data is essential for portfolio calculations and transaction price lookups
-CREATE TABLE IF NOT EXISTS historical_prices (
-    id BIGSERIAL PRIMARY KEY,
-    symbol VARCHAR(10) NOT NULL,
-    date DATE NOT NULL,
-    open DECIMAL(12, 4) NOT NULL,
-    high DECIMAL(12, 4) NOT NULL,
-    low DECIMAL(12, 4) NOT NULL,
-    close DECIMAL(12, 4) NOT NULL,
-    adjusted_close DECIMAL(12, 4) NOT NULL,
-    volume BIGINT NOT NULL DEFAULT 0,
-    dividend_amount DECIMAL(10, 4) DEFAULT 0,
-    split_coefficient DECIMAL(10, 4) DEFAULT 1,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
-    
-    -- Ensure no duplicate entries for same symbol/date
-    UNIQUE(symbol, date)
-);
-
--- Index for fast lookups by symbol and date range
-CREATE INDEX IF NOT EXISTS idx_historical_prices_symbol_date ON historical_prices(symbol, date DESC);
-
--- Index for fast lookups by date for portfolio calculations
-CREATE INDEX IF NOT EXISTS idx_historical_prices_date ON historical_prices(date DESC);
-
--- Index for fast symbol lookups
-CREATE INDEX IF NOT EXISTS idx_historical_prices_symbol ON historical_prices(symbol);
-
--- RLS policies for historical_prices
-ALTER TABLE historical_prices ENABLE ROW LEVEL SECURITY;
-
--- Allow read access to all authenticated users (historical prices are public data)
-CREATE POLICY "Allow read access to historical prices" ON historical_prices
-    FOR SELECT TO authenticated
-    USING (true);
-
--- Allow insert/update only to service role (for data seeding)
-CREATE POLICY "Allow service role to manage historical prices" ON historical_prices
-    FOR ALL TO service_role
-    USING (true);
-
--- Function to update the updated_at timestamp
-CREATE OR REPLACE FUNCTION update_historical_prices_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = TIMEZONE('utc'::text, NOW());
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
-
--- Trigger to automatically update updated_at
-CREATE TRIGGER update_historical_prices_updated_at
-    BEFORE UPDATE ON historical_prices
-    FOR EACH ROW
-    EXECUTE PROCEDURE update_historical_prices_updated_at();
-
--- Function to get price data for a symbol on a specific date (or closest trading day)
-CREATE OR REPLACE FUNCTION get_historical_price_for_date(
-    p_symbol TEXT,
-    p_date DATE
-)
-RETURNS TABLE (
-    symbol TEXT,
-    date DATE,
-    open DECIMAL,
-    high DECIMAL,
-    low DECIMAL,
-    close DECIMAL,
-    adjusted_close DECIMAL,
-    volume BIGINT,
-    is_exact_date BOOLEAN
-) AS $$
-DECLARE
-    exact_match historical_prices%ROWTYPE;
-    closest_match historical_prices%ROWTYPE;
-BEGIN
-    -- First try to find exact date match
-    SELECT * INTO exact_match
-    FROM historical_prices hp
-    WHERE hp.symbol = p_symbol 
-    AND hp.date = p_date;
-    
-    IF FOUND THEN
-        -- Return exact match
-        RETURN QUERY SELECT 
-            exact_match.symbol::TEXT,
-            exact_match.date,
-            exact_match.open,
-            exact_match.high,
-            exact_match.low,
-            exact_match.close,
-            exact_match.adjusted_close,
-            exact_match.volume,
-            true as is_exact_date;
-        RETURN;
-    END IF;
-    
-    -- If no exact match, find closest previous trading day (within 7 days)
-    SELECT * INTO closest_match
-    FROM historical_prices hp
-    WHERE hp.symbol = p_symbol 
-    AND hp.date <= p_date
-    AND hp.date >= (p_date - INTERVAL '7 days')
-    ORDER BY hp.date DESC
-    LIMIT 1;
-    
-    IF FOUND THEN
-        -- Return closest match
-        RETURN QUERY SELECT 
-            closest_match.symbol::TEXT,
-            closest_match.date,
-            closest_match.open,
-            closest_match.high,
-            closest_match.low,
-            closest_match.close,
-            closest_match.adjusted_close,
-            closest_match.volume,
-            false as is_exact_date;
-        RETURN;
-    END IF;
-    
-    -- No data found
-    RETURN;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER; 

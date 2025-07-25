@@ -271,29 +271,44 @@ class PortfolioMetricsManager:
             if not force_refresh:
                 cached_metrics = await self._get_cached_metrics(user_id, cache_key)
                 if cached_metrics:
-                    logger.info(f"[PortfolioMetricsManager] Cache hit for user {user_id}")
+                    logger.info(f"[PortfolioMetricsManager] === CACHE HIT ===")
+                    logger.info(f"[PortfolioMetricsManager] User ID: {user_id}")
+                    logger.info(f"[PortfolioMetricsManager] Metric type: {metric_type}")
+                    logger.info(f"[PortfolioMetricsManager] Cache key: {cache_key}")
+                    logger.info(f"[PortfolioMetricsManager] Cached at: {cached_metrics.calculated_at}")
                     cached_metrics.cache_status = MetricsCacheStatus.HIT
                     return cached_metrics
             
             # Step 2: Calculate fresh metrics
-            logger.info(f"[PortfolioMetricsManager] Cache miss, calculating for user {user_id}")
+            logger.info(f"[PortfolioMetricsManager] === CACHE MISS ===")
+            logger.info(f"[PortfolioMetricsManager] User ID: {user_id}")
+            logger.info(f"[PortfolioMetricsManager] Metric type: {metric_type}")
+            logger.info(f"[PortfolioMetricsManager] Force refresh: {force_refresh}")
+            logger.info(f"[PortfolioMetricsManager] Calculating fresh metrics...")
             metrics = await self._calculate_metrics(user_id, user_token, metric_type, params)
             
             # Add computation time
             computation_time = datetime.now() - start_time
             metrics.computation_time_ms = int(computation_time.total_seconds() * 1000)
+            logger.info(f"[PortfolioMetricsManager] Metrics calculation completed in {metrics.computation_time_ms}ms")
             
             # Step 3: Cache the results
+            logger.info(f"[PortfolioMetricsManager] Caching metrics for user {user_id}")
             await self._cache_metrics(user_id, cache_key, metrics)
             
             return metrics
             
         except Exception as e:
-            logger.error(f"[PortfolioMetricsManager] Error getting metrics: {str(e)}")
+            logger.error(f"[PortfolioMetricsManager] === ERROR ===")
+            logger.error(f"[PortfolioMetricsManager] Error type: {type(e).__name__}")
+            logger.error(f"[PortfolioMetricsManager] Error message: {str(e)}")
+            logger.error(f"[PortfolioMetricsManager] Full stack trace:", exc_info=True)
             # Try to return partial cached data on error
             if not force_refresh:
+                logger.info(f"[PortfolioMetricsManager] Attempting to retrieve stale cache data...")
                 stale_metrics = await self._get_cached_metrics(user_id, cache_key, allow_stale=True)
                 if stale_metrics:
+                    logger.info(f"[PortfolioMetricsManager] Returning stale cache data from {stale_metrics.calculated_at}")
                     stale_metrics.cache_status = MetricsCacheStatus.STALE
                     return stale_metrics
             raise HTTPException(status_code=500, detail=f"Failed to get portfolio metrics: {str(e)}")
@@ -313,6 +328,10 @@ class PortfolioMetricsManager:
         Calculate all portfolio metrics by orchestrating multiple services.
         Uses asyncio.gather for parallel execution where possible.
         """
+        logger.info(f"[PortfolioMetricsManager] === METRICS CALCULATION START ===")
+        logger.info(f"[PortfolioMetricsManager] User ID: {user_id}")
+        logger.info(f"[PortfolioMetricsManager] Metric type: {metric_type}")
+        
         # Track data completeness
         data_completeness = {
             "holdings": False,
@@ -322,6 +341,7 @@ class PortfolioMetricsManager:
         }
         
         # Stage 1: Parallel fetch of ALL independent data
+        logger.info(f"[PortfolioMetricsManager] Stage 1: Fetching independent data...")
         stage1_results = await asyncio.gather(
             self._get_market_status(),
             self._get_all_transactions(user_id, user_token),
@@ -333,6 +353,8 @@ class PortfolioMetricsManager:
         market_status = stage1_results[0] if isinstance(stage1_results[0], MarketStatus) else MarketStatus(is_open=False)
         transactions = stage1_results[1] if isinstance(stage1_results[1], list) else []
         prefetch_count = stage1_results[2] if isinstance(stage1_results[2], int) else 0
+        
+        logger.info(f"[PortfolioMetricsManager] Stage 1 results: Market status: {market_status.is_open}, Transactions: {len(transactions)}, Prefetched symbols: {prefetch_count}")
         
         # Log any failures
         for i, result in enumerate(stage1_results):
@@ -346,6 +368,7 @@ class PortfolioMetricsManager:
         
         try:
             # Stage 2: Parallel fetch of dependent data
+            logger.info(f"[PortfolioMetricsManager] Stage 2: Fetching dependent data (holdings, dividends, time series)...")
             results: Tuple[
                 Union[List[PortfolioHolding], BaseException],
                 Union[DividendSummary, BaseException],
@@ -371,6 +394,7 @@ class PortfolioMetricsManager:
         if isinstance(holdings_result, list):
             holdings = holdings_result
             data_completeness["holdings"] = True
+            logger.info(f"[PortfolioMetricsManager] Holdings fetched successfully: {len(holdings)} holdings")
         elif isinstance(holdings_result, BaseException):
             logger.error(f"[PortfolioMetricsManager] Holdings fetch failed: {holdings_result}")
         
@@ -378,6 +402,7 @@ class PortfolioMetricsManager:
         if isinstance(dividend_result, DividendSummary):
             dividend_summary = dividend_result
             data_completeness["dividends"] = True
+            logger.info(f"[PortfolioMetricsManager] Dividends fetched successfully: ${float(dividend_summary.total_received):.2f} total")
         elif isinstance(dividend_result, BaseException):
             logger.warning(f"[PortfolioMetricsManager] Dividend fetch failed: {dividend_result}")
         
@@ -385,10 +410,12 @@ class PortfolioMetricsManager:
         if isinstance(time_series_result, list):
             time_series = time_series_result
             data_completeness["time_series"] = True
+            logger.info(f"[PortfolioMetricsManager] Time series fetched successfully: {len(time_series)} data points")
         elif isinstance(time_series_result, BaseException):
             logger.warning(f"[PortfolioMetricsManager] Time series fetch failed: {time_series_result}")
         
         # Stage 3: Calculate derived metrics
+        logger.info(f"[PortfolioMetricsManager] Stage 3: Calculating derived metrics...")
         performance = self._calculate_performance(holdings, dividend_summary)
         sector_allocation = self._calculate_sector_allocation(holdings)
         top_performers = self._get_top_performers(holdings)
@@ -397,6 +424,11 @@ class PortfolioMetricsManager:
         cache_status = MetricsCacheStatus.MISS
         if any(isinstance(r, Exception) for r in results):
             cache_status = MetricsCacheStatus.PARTIAL
+        
+        logger.info(f"[PortfolioMetricsManager] === METRICS CALCULATION COMPLETE ===")
+        logger.info(f"[PortfolioMetricsManager] Data completeness: {data_completeness}")
+        logger.info(f"[PortfolioMetricsManager] Total portfolio value: ${float(performance.total_value):.2f}")
+        logger.info(f"[PortfolioMetricsManager] Cache status: {cache_status}")
         
         return PortfolioMetrics(
             user_id=user_id,
@@ -822,26 +854,35 @@ class PortfolioMetricsManager:
             user_id: User's UUID
             metric_type: Optional specific metric type to invalidate
         """
+        logger.info(f"[PortfolioMetricsManager] === CACHE INVALIDATION ===")
+        logger.info(f"[PortfolioMetricsManager] User ID: {user_id}")
+        logger.info(f"[PortfolioMetricsManager] Metric type: {metric_type if metric_type else 'ALL'}")
+        
         try:
             client = get_supa_service_client()
             
             if metric_type:
                 # Invalidate specific metric type
                 cache_key = self._generate_cache_key(user_id, metric_type, {})
-                client.table("portfolio_caches").delete().eq(
+                logger.info(f"[PortfolioMetricsManager] Invalidating cache key: {cache_key}")
+                result = client.table("portfolio_caches").delete().eq(
                     "user_id", user_id
                 ).eq(
                     "cache_key", cache_key
                 ).execute()
+                logger.info(f"[PortfolioMetricsManager] Deleted {len(result.data) if result.data else 0} cache entries")
             else:
                 # Invalidate all cache entries for user
-                client.table("portfolio_caches").delete().eq(
+                logger.info(f"[PortfolioMetricsManager] Invalidating ALL cache entries for user")
+                result = client.table("portfolio_caches").delete().eq(
                     "user_id", user_id
                 ).execute()
+                logger.info(f"[PortfolioMetricsManager] Deleted {len(result.data) if result.data else 0} cache entries")
             
-            logger.info(f"[PortfolioMetricsManager] Cache invalidated for user {user_id}")
+            logger.info(f"[PortfolioMetricsManager] Cache invalidation completed successfully")
         except Exception as e:
-            logger.error(f"[PortfolioMetricsManager] Failed to invalidate cache: {str(e)}")
+            logger.error(f"[PortfolioMetricsManager] Failed to invalidate cache: {type(e).__name__}: {str(e)}")
+            logger.error(f"[PortfolioMetricsManager] Stack trace:", exc_info=True)
     
     async def cleanup_expired_cache(self) -> None:
         """Clean up expired cache entries from database"""

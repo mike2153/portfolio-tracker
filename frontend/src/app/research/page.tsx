@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
+import GradientText from '@/components/ui/GradientText';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Search, Star, StarOff, TrendingUp, BarChart3, DollarSign, FileText, GitCompare } from 'lucide-react';
 import { front_api_client } from '@/lib/front_api_client';
@@ -19,7 +20,7 @@ import NewsTab from './components/NewsTab';
 import NotesTab from './components/NotesTab';
 import ComparisonTab from './components/ComparisonTab';
 import { StockSearchInput } from '@/components/StockSearchInput';
-import PriceChartApex from '@/components/charts/PriceChartApex'
+import ResearchStockChart from '@/components/charts/ResearchStockChart'
 import FinancialSpreadsheetApex from '@/components/charts/FinancialSpreadsheetApex'
 
 
@@ -219,7 +220,7 @@ function StockResearchPageContent() {
     if (!selectedTicker || !currentData) {
       return (
         <div className="flex-1 flex items-center justify-center">
-          <div className="text-center text-gray-400">
+          <div className="text-center text-[#8B949E]">
             <Search size={48} className="mx-auto mb-4 opacity-50" />
             <h3 className="text-lg font-medium mb-2">Search for a stock to begin</h3>
             <p className="text-sm">Use the search bar above to find and analyze stocks</p>
@@ -261,11 +262,11 @@ function StockResearchPageContent() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div className="min-h-screen bg-[#0D1117] text-white">
       <div className="container mx-auto px-4 py-6">
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold mb-4">Stock Research</h1>
+          <GradientText className="text-2xl font-bold mb-8">Stock Research</GradientText>
           
           {/* Search Bar */}
           <div className="max-w-md">
@@ -282,14 +283,14 @@ function StockResearchPageContent() {
 
         {/* Stock Header */}
         {selectedTicker && currentData && (
-          <div className="bg-gray-800 rounded-lg p-4 mb-6">
+          <div className="bg-[#0D1117] border border-[#30363D] rounded-lg p-4 mb-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-4 mb-4 sm:mb-0">
                 <div>
                   <h2 className="text-xl font-bold">
                     {currentData.overview?.name || selectedTicker}
                   </h2>
-                  <div className="flex items-center gap-2 text-sm text-gray-400">
+                  <div className="flex items-center gap-2 text-sm text-[#8B949E]">
                     <span>{selectedTicker}</span>
                     {currentData.overview?.exchange && (
                       <>
@@ -326,7 +327,7 @@ function StockResearchPageContent() {
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
                     isInWatchlist
                       ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
-                      : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                      : 'bg-[#0D1117] border border-[#30363D] hover:bg-[#30363D] text-[#8B949E]'
                   }`}
                 >
                   {isInWatchlist ? <Star size={16} /> : <StarOff size={16} />}
@@ -347,7 +348,7 @@ function StockResearchPageContent() {
         {/* Tabs */}
         {selectedTicker && (
           <div className="mb-6">
-            <div className="border-b border-gray-700">
+            <div className="border-b border-[#30363D]">
               <nav className="flex space-x-8 overflow-x-auto">
                 {TABS.map(tab => (
                   <button
@@ -356,7 +357,7 @@ function StockResearchPageContent() {
                     className={`flex items-center gap-2 py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${
                       activeTab === tab.id
                         ? 'border-blue-500 text-blue-400'
-                        : 'border-transparent text-gray-400 hover:text-gray-300'
+                        : 'border-transparent text-[#8B949E] hover:text-white'
                     }`}
                   >
                     {tab.icon}
@@ -384,7 +385,7 @@ function StockResearchPageContent() {
 
 export default function StockResearchPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">Loading...</div>}>
+    <Suspense fallback={<div className="min-h-screen bg-[#0D1117] text-white flex items-center justify-center">Loading...</div>}>
       <StockResearchPageContent />
     </Suspense>
   );

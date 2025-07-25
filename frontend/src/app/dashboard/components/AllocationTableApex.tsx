@@ -115,7 +115,7 @@ const AllocationTableApex = () => {
         label: 'Amount Invested',
         sortable: true,
         render: (value) => (
-          <div className="text-sm text-gray-400">${Number(value).toLocaleString()}</div>
+          <div className="text-sm text-[#8B949E]">${Number(value).toLocaleString()}</div>
         ),
         width: '130px'
       },
@@ -168,7 +168,7 @@ const AllocationTableApex = () => {
           //console.log('[AllocationTableApex] View details for:', item.symbol);
           // TODO: Navigate to stock details page
         },
-        className: 'text-blue-400 hover:text-blue-300'
+        className: 'text-white hover:text-[#8B949E]'
       },
       {
         label: 'Add Transaction',
@@ -201,7 +201,7 @@ const AllocationTableApex = () => {
       showPagination={false}
       searchPlaceholder="Search holdings..."
       getItemKey={(item) => item.id}
-      className="rounded-xl bg-gray-800/80 shadow-lg"
+      className="rounded-xl bg-[#161B22] shadow-lg"
     />
   );
 };

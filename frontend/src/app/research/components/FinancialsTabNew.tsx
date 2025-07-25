@@ -9,7 +9,7 @@ interface FinancialMetric {
   key: string;
   label: string;
   description: string;
-  values: Record<string, number>;
+  values: Record<string, number | string>;
   section: string;
 }
 
@@ -21,7 +21,7 @@ interface FinancialMetric {
  */
 const FinancialsTabNew: React.FC<TabContentProps> = ({ ticker, data, isLoading, onRefresh }) => {
   // State for tab navigation and controls
-  const [activeStatement, setActiveStatement] = useState<FinancialStatementType>('income');
+  const [activeStatement, setActiveStatement] = useState<'INCOME_STATEMENT' | 'BALANCE_SHEET' | 'CASH_FLOW'>('INCOME_STATEMENT');
   const [activePeriod, setActivePeriod] = useState<FinancialPeriodType>('annual');
   const [activeCurrency, setActiveCurrency] = useState<'USD' | 'EUR' | 'GBP'>('USD');
   
@@ -34,7 +34,7 @@ const FinancialsTabNew: React.FC<TabContentProps> = ({ ticker, data, isLoading, 
   const [selectedMetrics, setSelectedMetrics] = useState<string[]>([]);
 
   // Load financial data from API
-  const loadFinancialData = async (statement: FinancialStatementType, forceRefresh: boolean = false) => {
+  const loadFinancialData = async (statement: 'INCOME_STATEMENT' | 'BALANCE_SHEET' | 'CASH_FLOW', forceRefresh: boolean = false) => {
     if (!ticker) return;
     
     setFinancialsLoading(true);
@@ -48,11 +48,13 @@ const FinancialsTabNew: React.FC<TabContentProps> = ({ ticker, data, isLoading, 
       );
       
       if (result.success && result.data) {
+        console.log(`[FinancialsTabNew] Loaded ${statement} data:`, result.data);
         setFinancialsData((prev: any) => ({
           ...prev,
           [statement]: result.data
         }));
       } else {
+        console.error(`[FinancialsTabNew] Failed to load ${statement}:`, result);
         setFinancialsError(result.error || `Failed to load ${statement} data`);
       }
     } catch (error) {
@@ -63,39 +65,18 @@ const FinancialsTabNew: React.FC<TabContentProps> = ({ ticker, data, isLoading, 
     }
   };
 
-  // Load data when ticker or statement changes
-  useEffect(() => {
-    if (ticker) {
-      loadFinancialData(activeStatement);
-    }
-  }, [ticker, activeStatement]);
-
-  // Auto-select first few metrics when data changes
-  useEffect(() => {
-    if (currentFinancialData.length > 0) {
-      // Auto-select first 3 metrics for better UX
-      const firstThreeMetrics = currentFinancialData.slice(0, 3).map((metric: FinancialMetric) => metric.key);
-      setSelectedMetrics(firstThreeMetrics);
-    }
-  }, [activeStatement, activePeriod, ticker]);
-
-  // Handle metric selection toggle
-  const handleMetricToggle = (metricKey: string) => {
-    setSelectedMetrics(prev => 
-      prev.includes(metricKey) 
-        ? prev.filter(key => key !== metricKey)
-        : [...prev, metricKey]
-    );
-  };
-
   // Transform API data to component format
   const transformFinancialData = (): FinancialMetric[] => {
     const statementData = financialsData?.[activeStatement];
+    console.log(`[FinancialsTabNew] Transforming data for ${activeStatement}:`, statementData);
+    
     if (!statementData) return [];
     
     const reports = activePeriod === 'annual' 
       ? statementData.annual_reports || [] 
       : statementData.quarterly_reports || [];
+    
+    console.log(`[FinancialsTabNew] Reports (${activePeriod}):`, reports);
     
     if (reports.length === 0) return [];
     
@@ -103,6 +84,9 @@ const FinancialsTabNew: React.FC<TabContentProps> = ({ ticker, data, isLoading, 
     const metricDefinitions = getMetricDefinitions(activeStatement);
     
     // Transform the data
+    console.log(`[FinancialsTabNew] Metric definitions:`, metricDefinitions);
+    console.log(`[FinancialsTabNew] First report sample:`, reports[0]);
+    
     return metricDefinitions.map(metric => {
       const values: Record<string, number> = {};
       
@@ -111,9 +95,25 @@ const FinancialsTabNew: React.FC<TabContentProps> = ({ ticker, data, isLoading, 
           ? new Date(report.fiscalDateEnding).getFullYear().toString()
           : formatQuarterlyPeriod(report.fiscalDateEnding);
         
-        const value = parseFloat(report[metric.key] || '0');
+        let value = 0;
+        
+        // Calculate free cash flow if needed
+        if (metric.key === 'freeCashFlow' && activeStatement === 'CASH_FLOW') {
+          const operatingCashflow = parseFloat(report.operatingCashflow || '0');
+          const capitalExpenditures = parseFloat(report.capitalExpenditures || '0');
+          value = operatingCashflow - Math.abs(capitalExpenditures); // CapEx is usually negative
+        } else {
+          // Handle "None" values from Alpha Vantage
+          const rawValue = report[metric.key];
+          value = rawValue === 'None' || rawValue === null || rawValue === undefined 
+            ? 0 
+            : parseFloat(rawValue);
+        }
+        
         values[period] = isNaN(value) ? 0 : value;
       });
+      
+      console.log(`[FinancialsTabNew] Metric ${metric.key} values:`, values);
       
       return {
         key: metric.key,
@@ -135,43 +135,139 @@ const FinancialsTabNew: React.FC<TabContentProps> = ({ ticker, data, isLoading, 
   };
   
   // Get metric definitions for each statement type
-  const getMetricDefinitions = (statement: FinancialStatementType): Array<{key: string, label: string, description: string, section: string}> => {
+  const getMetricDefinitions = (statement: 'INCOME_STATEMENT' | 'BALANCE_SHEET' | 'CASH_FLOW'): Array<{key: string, label: string, description: string, section: string}> => {
     switch (statement) {
-      case 'income':
+      case 'INCOME_STATEMENT':
         return [
+          // Revenue Section
           { key: 'totalRevenue', label: 'Total Revenue', description: 'Total revenue from all business operations', section: 'Revenue' },
           { key: 'costOfRevenue', label: 'Cost of Revenue', description: 'Direct costs attributable to production', section: 'Revenue' },
+          { key: 'costofGoodsAndServicesSold', label: 'Cost of Goods & Services Sold', description: 'Direct costs of producing goods/services', section: 'Revenue' },
           { key: 'grossProfit', label: 'Gross Profit', description: 'Revenue minus cost of goods sold', section: 'Revenue' },
+          
+          // Operating Section
           { key: 'operatingIncome', label: 'Operating Income', description: 'Income from regular business operations', section: 'Operating' },
           { key: 'operatingExpenses', label: 'Operating Expenses', description: 'Expenses for normal business operations', section: 'Operating' },
+          { key: 'sellingGeneralAndAdministrative', label: 'Selling, General & Admin', description: 'SG&A expenses', section: 'Operating' },
           { key: 'researchAndDevelopment', label: 'Research & Development', description: 'Investment in R&D', section: 'Operating' },
+          { key: 'depreciationAndAmortization', label: 'Depreciation & Amortization', description: 'Non-cash expenses', section: 'Operating' },
+          
+          // Interest & Tax Section
+          { key: 'interestIncome', label: 'Interest Income', description: 'Income from interest-bearing investments', section: 'Interest & Tax' },
+          { key: 'interestExpense', label: 'Interest Expense', description: 'Cost of borrowed funds', section: 'Interest & Tax' },
+          { key: 'netInterestIncome', label: 'Net Interest Income', description: 'Interest income minus interest expense', section: 'Interest & Tax' },
+          { key: 'incomeBeforeTax', label: 'Income Before Tax', description: 'Earnings before income taxes', section: 'Interest & Tax' },
+          { key: 'incomeTaxExpense', label: 'Income Tax Expense', description: 'Taxes on earnings', section: 'Interest & Tax' },
+          
+          // Profit & Loss Section
           { key: 'netIncome', label: 'Net Income', description: 'Total earnings after all expenses', section: 'Profit & Loss' },
-          { key: 'ebitda', label: 'EBITDA', description: 'Earnings before interest, taxes, depreciation', section: 'Profit & Loss' }
+          { key: 'netIncomeFromContinuingOperations', label: 'Net Income from Continuing Ops', description: 'Income from ongoing operations', section: 'Profit & Loss' },
+          { key: 'ebit', label: 'EBIT', description: 'Earnings before interest and taxes', section: 'Profit & Loss' },
+          { key: 'ebitda', label: 'EBITDA', description: 'Earnings before interest, taxes, depreciation, and amortization', section: 'Profit & Loss' }
         ];
-      case 'balance':
+      case 'BALANCE_SHEET':
         return [
+          // Assets Section
           { key: 'totalAssets', label: 'Total Assets', description: 'Sum of all assets', section: 'Assets' },
           { key: 'totalCurrentAssets', label: 'Current Assets', description: 'Assets convertible to cash within a year', section: 'Assets' },
           { key: 'cashAndCashEquivalentsAtCarryingValue', label: 'Cash & Equivalents', description: 'Highly liquid investments', section: 'Assets' },
+          { key: 'cashAndShortTermInvestments', label: 'Cash & Short Term Investments', description: 'Cash plus short-term marketable securities', section: 'Assets' },
+          { key: 'inventory', label: 'Inventory', description: 'Goods available for sale', section: 'Assets' },
+          { key: 'currentNetReceivables', label: 'Net Receivables', description: 'Money owed by customers', section: 'Assets' },
+          { key: 'totalNonCurrentAssets', label: 'Non-Current Assets', description: 'Long-term assets', section: 'Assets' },
+          { key: 'propertyPlantEquipment', label: 'Property, Plant & Equipment', description: 'Physical assets (net of depreciation)', section: 'Assets' },
+          { key: 'goodwill', label: 'Goodwill', description: 'Premium paid for acquisitions', section: 'Assets' },
+          { key: 'intangibleAssets', label: 'Intangible Assets', description: 'Non-physical assets', section: 'Assets' },
+          { key: 'intangibleAssetsExcludingGoodwill', label: 'Intangible Assets (ex. Goodwill)', description: 'Patents, trademarks, etc.', section: 'Assets' },
+          { key: 'longTermInvestments', label: 'Long Term Investments', description: 'Investments held for over a year', section: 'Assets' },
+          
+          // Liabilities Section
           { key: 'totalLiabilities', label: 'Total Liabilities', description: 'Sum of all debts', section: 'Liabilities' },
           { key: 'totalCurrentLiabilities', label: 'Current Liabilities', description: 'Debts due within one year', section: 'Liabilities' },
-          { key: 'totalShareholderEquity', label: 'Shareholder Equity', description: 'Net worth belonging to shareholders', section: 'Equity' }
+          { key: 'currentAccountsPayable', label: 'Accounts Payable', description: 'Money owed to suppliers', section: 'Liabilities' },
+          { key: 'currentDebt', label: 'Current Debt', description: 'Short-term borrowings', section: 'Liabilities' },
+          { key: 'shortTermDebt', label: 'Short Term Debt', description: 'Debt due within one year', section: 'Liabilities' },
+          { key: 'totalNonCurrentLiabilities', label: 'Non-Current Liabilities', description: 'Long-term obligations', section: 'Liabilities' },
+          { key: 'longTermDebt', label: 'Long Term Debt', description: 'Debt due after one year', section: 'Liabilities' },
+          { key: 'longTermDebtNoncurrent', label: 'Long Term Debt (Non-current)', description: 'Non-current portion of long-term debt', section: 'Liabilities' },
+          
+          // Equity Section
+          { key: 'totalShareholderEquity', label: 'Total Shareholder Equity', description: 'Net worth belonging to shareholders', section: 'Equity' },
+          { key: 'retainedEarnings', label: 'Retained Earnings', description: 'Accumulated profits not distributed', section: 'Equity' },
+          { key: 'commonStock', label: 'Common Stock', description: 'Par value of common shares', section: 'Equity' },
+          { key: 'commonStockSharesOutstanding', label: 'Shares Outstanding', description: 'Number of shares held by investors', section: 'Equity' },
+          { key: 'treasuryStock', label: 'Treasury Stock', description: 'Company\'s own repurchased shares', section: 'Equity' }
         ];
-      case 'cashflow':
+      case 'CASH_FLOW':
         return [
-          { key: 'operatingCashflow', label: 'Operating Cash Flow', description: 'Cash from operations', section: 'Operating Activities' },
-          { key: 'cashflowFromInvestment', label: 'Investing Cash Flow', description: 'Cash used for investments', section: 'Investing Activities' },
-          { key: 'cashflowFromFinancing', label: 'Financing Cash Flow', description: 'Cash from financing activities', section: 'Financing Activities' },
-          { key: 'freeCashFlow', label: 'Free Cash Flow', description: 'Operating cash minus capex', section: 'Operating Activities' },
-          { key: 'capitalExpenditures', label: 'Capital Expenditures', description: 'Money spent on fixed assets', section: 'Investing Activities' }
+          // Operating Activities Section
+          { key: 'operatingCashflow', label: 'Operating Cash Flow', description: 'Cash generated from operations', section: 'Operating Activities' },
+          { key: 'depreciationDepletionAndAmortization', label: 'Depreciation & Amortization', description: 'Non-cash charges', section: 'Operating Activities' },
+          { key: 'changeInReceivables', label: 'Change in Receivables', description: 'Change in money owed by customers', section: 'Operating Activities' },
+          { key: 'changeInInventory', label: 'Change in Inventory', description: 'Change in goods held for sale', section: 'Operating Activities' },
+          { key: 'profitLoss', label: 'Profit/Loss', description: 'Net earnings', section: 'Operating Activities' },
+          { key: 'freeCashFlow', label: 'Free Cash Flow', description: 'Operating cash minus capital expenditures', section: 'Operating Activities' },
+          
+          // Investing Activities Section
+          { key: 'cashflowFromInvestment', label: 'Cash Flow from Investment', description: 'Net cash used in investing activities', section: 'Investing Activities' },
+          { key: 'capitalExpenditures', label: 'Capital Expenditures', description: 'Money spent on property, plant, and equipment', section: 'Investing Activities' },
+          
+          // Financing Activities Section
+          { key: 'cashflowFromFinancing', label: 'Cash Flow from Financing', description: 'Net cash from financing activities', section: 'Financing Activities' },
+          { key: 'dividendPayout', label: 'Total Dividend Payout', description: 'Total dividends paid to shareholders', section: 'Financing Activities' },
+          { key: 'dividendPayoutCommonStock', label: 'Common Stock Dividends', description: 'Dividends paid on common shares', section: 'Financing Activities' },
+          { key: 'dividendPayoutPreferredStock', label: 'Preferred Stock Dividends', description: 'Dividends paid on preferred shares', section: 'Financing Activities' },
+          { key: 'proceedsFromIssuanceOfCommonStock', label: 'Proceeds from Common Stock', description: 'Cash from issuing new common shares', section: 'Financing Activities' },
+          { key: 'proceedsFromIssuanceOfPreferredStock', label: 'Proceeds from Preferred Stock', description: 'Cash from issuing new preferred shares', section: 'Financing Activities' },
+          { key: 'proceedsFromRepurchaseOfEquity', label: 'Stock Repurchase', description: 'Cash used to buy back shares', section: 'Financing Activities' },
+          { key: 'proceedsFromIssuanceOfLongTermDebtAndCapitalSecuritiesNet', label: 'Debt Issuance', description: 'Net proceeds from issuing debt', section: 'Financing Activities' },
+          
+          // Summary Section
+          { key: 'changeInCashAndCashEquivalents', label: 'Change in Cash', description: 'Net change in cash position', section: 'Summary' },
+          { key: 'netIncome', label: 'Net Income', description: 'Total earnings', section: 'Summary' }
         ];
       default:
         return [];
     }
   };
+
+  // Load all financial statements when ticker changes
+  useEffect(() => {
+    if (ticker) {
+      // Load all three statements
+      loadFinancialData('INCOME_STATEMENT');
+      loadFinancialData('BALANCE_SHEET');
+      loadFinancialData('CASH_FLOW');
+    }
+  }, [ticker]);
+
+  // Handle metric selection toggle
+  const handleMetricToggle = (metricKey: string) => {
+    setSelectedMetrics(prev => 
+      prev.includes(metricKey) 
+        ? prev.filter(key => key !== metricKey)
+        : [...prev, metricKey]
+    );
+  };
   
   // Get current financial data
   const currentFinancialData = transformFinancialData();
+
+  // Auto-select default metrics when statement changes
+  useEffect(() => {
+    // Define default metrics for each statement type
+    const defaultMetrics: Record<string, string[]> = {
+      'INCOME_STATEMENT': ['netIncome', 'totalRevenue', 'grossProfit'],
+      'BALANCE_SHEET': ['totalAssets', 'totalLiabilities', 'totalShareholderEquity'],
+      'CASH_FLOW': ['netIncome', 'operatingCashflow', 'freeCashFlow']
+    };
+    
+    // Set default metrics for the current statement
+    const defaults = defaultMetrics[activeStatement] || [];
+    setSelectedMetrics(defaults);
+    
+    console.log(`[FinancialsTabNew] Setting default metrics for ${activeStatement}:`, defaults);
+  }, [activeStatement]);
   
   // Get available years/periods
   const availableYears = currentFinancialData.length > 0 
@@ -205,9 +301,9 @@ const FinancialsTabNew: React.FC<TabContentProps> = ({ ticker, data, isLoading, 
         {/* Statement Tabs */}
         <div className="flex gap-2">
           {[
-            { key: 'income', label: 'Income Statement', icon: DollarSign },
-            { key: 'balance', label: 'Balance Sheet', icon: BarChart3 },
-            { key: 'cashflow', label: 'Cash Flow', icon: TrendingUp }
+            { key: 'INCOME_STATEMENT', label: 'Income Statement', icon: DollarSign },
+            { key: 'BALANCE_SHEET', label: 'Balance Sheet', icon: BarChart3 },
+            { key: 'CASH_FLOW', label: 'Cash Flow', icon: TrendingUp }
           ].map(tab => (
             <button
               key={tab.key}
@@ -216,7 +312,7 @@ const FinancialsTabNew: React.FC<TabContentProps> = ({ ticker, data, isLoading, 
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700'
               }`}
-              onClick={() => setActiveStatement(tab.key as FinancialStatementType)}
+              onClick={() => setActiveStatement(tab.key as 'INCOME_STATEMENT' | 'BALANCE_SHEET' | 'CASH_FLOW')}
             >
               <tab.icon className="w-4 h-4" />
               {tab.label}
@@ -273,6 +369,7 @@ const FinancialsTabNew: React.FC<TabContentProps> = ({ ticker, data, isLoading, 
 
       {/* Interactive Chart */}
       <FinancialsChart
+        key={`${activeStatement}-${activePeriod}`}
         selectedMetrics={selectedMetrics}
         financialData={chartFinancialData}
         metricLabels={chartMetricLabels}
@@ -293,8 +390,8 @@ const FinancialsTabNew: React.FC<TabContentProps> = ({ ticker, data, isLoading, 
           <span className="font-medium">Data Period:</span> {activePeriod === 'annual' ? 'Annual' : 'Quarterly'} • 
           <span className="font-medium ml-2">Currency:</span> {activeCurrency} • 
           <span className="font-medium ml-2">Statement:</span> {
-            activeStatement === 'income' ? 'Income Statement' :
-            activeStatement === 'balance' ? 'Balance Sheet' : 'Cash Flow Statement'
+            activeStatement === 'INCOME_STATEMENT' ? 'Income Statement' :
+            activeStatement === 'BALANCE_SHEET' ? 'Balance Sheet' : 'Cash Flow Statement'
           }
         </div>
       </div>

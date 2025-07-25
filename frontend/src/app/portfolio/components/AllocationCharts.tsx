@@ -94,13 +94,13 @@ export default function AllocationCharts() {
               show: true,
               fontSize: '14px',
               fontWeight: 600,
-              color: '#e5e7eb'
+              color: '#ffffff'
             },
             value: {
               show: true,
               fontSize: '16px',
               fontWeight: 700,
-              color: '#e5e7eb',
+              color: '#ffffff',
               formatter: (val: string) => `$${parseFloat(val).toLocaleString()}`
             },
             total: {
@@ -108,7 +108,7 @@ export default function AllocationCharts() {
               label: 'Total',
               fontSize: '14px',
               fontWeight: 600,
-              color: '#9ca3af',
+              color: '#8B949E',
               formatter: (w: any) => {
                 const total = w.globals.seriesTotals.reduce((a: number, b: number) => a + b, 0);
                 return `$${total.toLocaleString()}`;
@@ -121,7 +121,7 @@ export default function AllocationCharts() {
     legend: {
       position: 'bottom',
       labels: {
-        colors: '#e5e7eb'
+        colors: '#ffffff'
       },
       formatter: (seriesName: string, opts: any) => {
         const percent = data[opts.seriesIndex]?.percent || 0;
@@ -153,9 +153,9 @@ export default function AllocationCharts() {
         <h2 className="text-xl font-semibold text-white mb-4">Portfolio Allocation</h2>
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="rounded-xl bg-gray-800/50 p-6 shadow-lg">
+            <div key={i} className="rounded-xl bg-[#161B22]/50 p-6 shadow-lg">
               <div className="flex items-center justify-center h-80">
-                <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+                <Loader2 className="w-8 h-8 animate-spin text-[#8B949E]" />
               </div>
             </div>
           ))}
@@ -180,8 +180,8 @@ export default function AllocationCharts() {
       <h2 className="text-xl font-semibold text-white mb-4">Portfolio Allocation</h2>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Asset Allocation Chart */}
-        <div className="rounded-xl bg-gray-800/50 p-6 shadow-lg">
-          <h3 className="text-lg font-medium text-gray-300 mb-4">Top Holdings</h3>
+        <div className="rounded-xl bg-[#161B22]/50 p-6 shadow-lg">
+          <h3 className="text-lg font-medium text-[#8B949E] mb-4">Top Holdings</h3>
           {assetData.length > 0 ? (
             <ReactApexChart
               options={createChartOptions('Asset Allocation', assetData)}
@@ -190,15 +190,15 @@ export default function AllocationCharts() {
               height={320}
             />
           ) : (
-            <div className="flex items-center justify-center h-80 text-gray-500">
+            <div className="flex items-center justify-center h-80 text-[#8B949E]">
               No holdings data available
             </div>
           )}
         </div>
 
         {/* Sector Allocation Chart */}
-        <div className="rounded-xl bg-gray-800/50 p-6 shadow-lg">
-          <h3 className="text-lg font-medium text-gray-300 mb-4">Sector Allocation</h3>
+        <div className="rounded-xl bg-[#161B22]/50 p-6 shadow-lg">
+          <h3 className="text-lg font-medium text-[#8B949E] mb-4">Sector Allocation</h3>
           {sectorData.length > 0 ? (
             <ReactApexChart
               options={createChartOptions('Sector Allocation', sectorData)}
@@ -207,15 +207,15 @@ export default function AllocationCharts() {
               height={320}
             />
           ) : (
-            <div className="flex items-center justify-center h-80 text-gray-500">
+            <div className="flex items-center justify-center h-80 text-[#8B949E]">
               No sector data available
             </div>
           )}
         </div>
 
         {/* Region Allocation Chart */}
-        <div className="rounded-xl bg-gray-800/50 p-6 shadow-lg">
-          <h3 className="text-lg font-medium text-gray-300 mb-4">Geographic Allocation</h3>
+        <div className="rounded-xl bg-[#161B22]/50 p-6 shadow-lg">
+          <h3 className="text-lg font-medium text-[#8B949E] mb-4">Geographic Allocation</h3>
           {regionData.length > 0 ? (
             <ReactApexChart
               options={createChartOptions('Region Allocation', regionData)}
@@ -224,7 +224,7 @@ export default function AllocationCharts() {
               height={320}
             />
           ) : (
-            <div className="flex items-center justify-center h-80 text-gray-500">
+            <div className="flex items-center justify-center h-80 text-[#8B949E]">
               No region data available
             </div>
           )}

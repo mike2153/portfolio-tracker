@@ -9,7 +9,7 @@ import ConditionalLayout from '@/components/ConditionalLayout'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata = {
-  title: 'FinSoft Portfolio-Tracker',
+  title: 'Portfolio Tracker',
   description: 'A premium financial analytics platform for investment portfolio management',
 }
 

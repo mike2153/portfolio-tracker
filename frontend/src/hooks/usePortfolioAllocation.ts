@@ -49,14 +49,35 @@ export function usePortfolioAllocation(): UsePortfolioAllocationResult {
   const query: UseQueryResult<AllocationData, Error> = useQuery({
     queryKey: ['portfolioAllocation'],
     queryFn: async (): Promise<AllocationData> => {
-      console.log('[usePortfolioAllocation] Fetching allocation data...');
-      const { data } = await supabase.auth.getSession();
-      if (!data?.session?.access_token) throw new Error('Not authenticated');
+      const timestamp = new Date().toISOString();
+      console.log(`[${timestamp}] [usePortfolioAllocation] Starting allocation data fetch...`);
+      
+      const { data, error: sessionError } = await supabase.auth.getSession();
+      console.log(`[${timestamp}] [usePortfolioAllocation] Session status:`, {
+        hasSession: !!data?.session,
+        hasToken: !!data?.session?.access_token,
+        userEmail: data?.session?.user?.email,
+        userId: data?.session?.user?.id,
+        sessionError: sessionError
+      });
+      
+      if (!data?.session?.access_token) {
+        const error = new Error('Not authenticated');
+        console.error(`[${timestamp}] [usePortfolioAllocation] Authentication error:`, error);
+        throw error;
+      }
       
       const token = data.session.access_token;
+      console.log(`[${timestamp}] [usePortfolioAllocation] Using token:`, token.substring(0, 20) + '...');
       
       const url = `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/allocation?t=${Date.now()}`;
-      console.log('[usePortfolioAllocation] Making API request to:', url);
+      console.log(`[${timestamp}] [usePortfolioAllocation] Request URL:`, url);
+      console.log(`[${timestamp}] [usePortfolioAllocation] Request headers:`, {
+        'Authorization': `Bearer ${token.substring(0, 20)}...`,
+        'Content-Type': 'application/json'
+      });
+      
+      const startTime = performance.now();
       const response = await fetch(url, {
         method: 'GET',
         headers: {
@@ -64,20 +85,45 @@ export function usePortfolioAllocation(): UsePortfolioAllocationResult {
           'Content-Type': 'application/json',
         },
       });
+      const endTime = performance.now();
+      
+      console.log(`[${timestamp}] [usePortfolioAllocation] Response received:`, {
+        status: response.status,
+        statusText: response.statusText,
+        duration: `${(endTime - startTime).toFixed(2)}ms`,
+        headers: Object.fromEntries(response.headers.entries())
+      });
       
       if (!response.ok) {
-        throw new Error(`Failed to fetch allocation data: ${response.statusText}`);
+        let errorBody;
+        try {
+          errorBody = await response.text();
+          console.error(`[${timestamp}] [usePortfolioAllocation] Error response body:`, errorBody);
+        } catch (e) {
+          console.error(`[${timestamp}] [usePortfolioAllocation] Could not read error body:`, e);
+        }
+        const error = new Error(`Failed to fetch allocation data: ${response.status} ${response.statusText}`);
+        console.error(`[${timestamp}] [usePortfolioAllocation] Request failed:`, error);
+        throw error;
       }
       
       const result = await response.json();
-      console.log('[usePortfolioAllocation] API Response:', result);
+      console.log(`[${timestamp}] [usePortfolioAllocation] API Response:`, {
+        success: result.success,
+        hasData: !!result.data,
+        allocationsCount: result.data?.allocations?.length || 0,
+        summary: result.data?.summary
+      });
       
       if (!result.success || !result.data) {
-        console.error('[usePortfolioAllocation] Invalid response format:', result);
+        console.error(`[${timestamp}] [usePortfolioAllocation] Invalid response format:`, result);
         throw new Error('Invalid response format');
       }
       
-      console.log('[usePortfolioAllocation] Returning data with', result.data.allocations?.length || 0, 'allocations');
+      console.log(`[${timestamp}] [usePortfolioAllocation] Success! Returning data with ${result.data.allocations?.length || 0} allocations`);
+      if (result.data.allocations?.length > 0) {
+        console.log(`[${timestamp}] [usePortfolioAllocation] Sample allocation:`, result.data.allocations[0]);
+      }
       return result.data;
     },
     staleTime: 0, // Always consider data stale to force fresh fetches

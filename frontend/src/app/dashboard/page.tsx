@@ -1,14 +1,15 @@
 import { Suspense } from 'react';
 import { DashboardProvider } from './contexts/DashboardContext';
+import GradientText from '@/components/ui/GradientText';
 
 import KPIGrid from './components/KPIGrid';
 import DailyMovers from './components/DailyMovers';
 import FxTicker from './components/FxTicker';
 import { ChartSkeleton, ListSkeleton, FxTickerSkeleton } from './components/Skeletons';
-import PortfolioChartApex from './components/PortfolioChartApex'
+import PortfolioPerformanceChart from '@/components/charts/PortfolioPerformanceChart'
 import AllocationTableApex from './components/AllocationTableApex'
 import DividendChartApex from './components/DividendChartApex'
-
+import PortfolioChartApex from './components/PortfolioChartApex'
 export const revalidate = 60; // Revalidate data every 60 seconds
 
 export default function DashboardPage() {
@@ -17,7 +18,7 @@ export default function DashboardPage() {
     <DashboardProvider>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">My Portfolio</h1>
+          <GradientText className="text-2xl font-bold tracking-tight">My Portfolio</GradientText>
           {/* Add top right controls here */}
         </div>
 
@@ -32,7 +33,7 @@ export default function DashboardPage() {
         </Suspense>
         
         <Suspense fallback={<ChartSkeleton />}>
-          <PortfolioChartApex />
+        <PortfolioChartApex />
         </Suspense>
 
         <Suspense fallback={<ListSkeleton title="Daily movers" />}>

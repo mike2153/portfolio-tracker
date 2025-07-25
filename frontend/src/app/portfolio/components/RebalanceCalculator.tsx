@@ -165,12 +165,12 @@ export default function RebalanceCalculator() {
 
   if (isLoading) {
     return (
-      <div className="rounded-xl bg-gray-800/50 p-6 shadow-lg">
+      <div className="rounded-xl bg-[#161B22]/50 p-6 shadow-lg">
         <div className="animate-pulse">
-          <div className="h-6 bg-gray-700 rounded w-1/3 mb-4"></div>
+          <div className="h-6 bg-[#30363D] rounded w-1/3 mb-4"></div>
           <div className="space-y-3">
             {[1, 2, 3].map(i => (
-              <div key={i} className="h-16 bg-gray-700 rounded"></div>
+              <div key={i} className="h-16 bg-[#30363D] rounded"></div>
             ))}
           </div>
         </div>
@@ -184,14 +184,14 @@ export default function RebalanceCalculator() {
 
   return (
     <div className="mb-6">
-      <div className="rounded-xl bg-gray-800/50 p-6 shadow-lg">
+      <div className="rounded-xl bg-[#161B22]/50 p-6 shadow-lg">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold text-white">Portfolio Rebalancer</h2>
           <div className="flex items-center gap-3">
             <button
               onClick={adjustTo100Percent}
               disabled={totalAllocation === 100}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-lg transition-colors text-sm"
+              className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-gray-100 disabled:bg-[#30363D] text-[#0D1117] disabled:text-[#8B949E] rounded-lg transition-colors text-sm"
             >
               <RefreshCw className="w-4 h-4" />
               Adjust to 100%
@@ -199,7 +199,7 @@ export default function RebalanceCalculator() {
             <button
               onClick={exportPlan}
               disabled={rebalanceData.length === 0}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-700 text-white rounded-lg transition-colors text-sm"
+              className="flex items-center gap-2 px-4 py-2 bg-[#30363D] hover:bg-[#30363D]/70 disabled:bg-[#30363D]/50 text-white rounded-lg transition-colors text-sm"
             >
               <Download className="w-4 h-4" />
               Export Plan
@@ -208,9 +208,9 @@ export default function RebalanceCalculator() {
         </div>
 
         {/* Total allocation indicator */}
-        <div className="mb-4 p-4 bg-gray-700/50 rounded-lg">
+        <div className="mb-4 p-4 bg-[#30363D]/50 rounded-lg">
           <div className="flex items-center justify-between">
-            <span className="text-gray-300">Total Allocation</span>
+            <span className="text-[#8B949E]">Total Allocation</span>
             <span className={`font-semibold ${
               totalAllocation === 100 ? 'text-green-400' : 
               totalAllocation > 100 ? 'text-red-400' : 'text-yellow-400'
@@ -219,7 +219,7 @@ export default function RebalanceCalculator() {
             </span>
           </div>
           {totalAllocation !== 100 && (
-            <p className="text-sm text-gray-400 mt-1">
+            <p className="text-sm text-[#8B949E] mt-1">
               {totalAllocation > 100 ? 'Over-allocated' : 'Under-allocated'} by {Math.abs(100 - totalAllocation).toFixed(2)}%
             </p>
           )}
@@ -227,12 +227,12 @@ export default function RebalanceCalculator() {
 
         {/* Show only changes toggle */}
         <div className="mb-4">
-          <label className="flex items-center gap-2 text-gray-300 cursor-pointer">
+          <label className="flex items-center gap-2 text-[#8B949E] cursor-pointer">
             <input
               type="checkbox"
               checked={showOnlyChanges}
               onChange={(e) => setShowOnlyChanges(e.target.checked)}
-              className="rounded border-gray-600 bg-gray-700 text-blue-600 focus:ring-blue-500"
+              className="rounded border-[#30363D] bg-[#161B22] text-white focus:ring-white"
             />
             <span className="text-sm">Show only positions requiring action</span>
           </label>
@@ -242,22 +242,22 @@ export default function RebalanceCalculator() {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-gray-700">
-                <th className="text-left py-3 px-4 text-sm font-medium text-gray-400">Symbol</th>
-                <th className="text-right py-3 px-4 text-sm font-medium text-gray-400">Current %</th>
-                <th className="text-right py-3 px-4 text-sm font-medium text-gray-400">Target %</th>
-                <th className="text-right py-3 px-4 text-sm font-medium text-gray-400">Action</th>
-                <th className="text-right py-3 px-4 text-sm font-medium text-gray-400">Shares</th>
-                <th className="text-right py-3 px-4 text-sm font-medium text-gray-400">Amount</th>
+              <tr className="border-b border-[#30363D]">
+                <th className="text-left py-3 px-4 text-sm font-medium text-[#8B949E]">Symbol</th>
+                <th className="text-right py-3 px-4 text-sm font-medium text-[#8B949E]">Current %</th>
+                <th className="text-right py-3 px-4 text-sm font-medium text-[#8B949E]">Target %</th>
+                <th className="text-right py-3 px-4 text-sm font-medium text-[#8B949E]">Action</th>
+                <th className="text-right py-3 px-4 text-sm font-medium text-[#8B949E]">Shares</th>
+                <th className="text-right py-3 px-4 text-sm font-medium text-[#8B949E]">Amount</th>
               </tr>
             </thead>
             <tbody>
               {filteredData.map(item => (
-                <tr key={item.symbol} className="border-b border-gray-700/50 hover:bg-gray-700/30">
+                <tr key={item.symbol} className="border-b border-[#30363D]/50 hover:bg-[#30363D]/30">
                   <td className="py-3 px-4">
                     <span className="font-medium text-white">{item.symbol}</span>
                   </td>
-                  <td className="py-3 px-4 text-right text-gray-300">
+                  <td className="py-3 px-4 text-right text-[#8B949E]">
                     {item.currentAllocation.toFixed(2)}%
                   </td>
                   <td className="py-3 px-4 text-right">
@@ -265,7 +265,7 @@ export default function RebalanceCalculator() {
                       type="number"
                       value={item.targetAllocation}
                       onChange={(e) => handleAllocationChange(item.symbol, e.target.value)}
-                      className="w-20 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-right text-sm focus:border-blue-500 focus:outline-none"
+                      className="w-20 px-2 py-1 bg-[#161B22] border border-[#30363D] rounded text-white text-right text-sm focus:border-white focus:outline-none"
                       min="0"
                       max="100"
                       step="0.1"
@@ -279,10 +279,10 @@ export default function RebalanceCalculator() {
                       <span className="text-red-400 font-medium">SELL</span>
                     )}
                     {item.action === 'HOLD' && (
-                      <span className="text-gray-500">—</span>
+                      <span className="text-[#8B949E]">—</span>
                     )}
                   </td>
-                  <td className="py-3 px-4 text-right text-gray-300">
+                  <td className="py-3 px-4 text-right text-[#8B949E]">
                     {item.action !== 'HOLD' ? item.shares.toLocaleString() : '—'}
                   </td>
                   <td className="py-3 px-4 text-right">
@@ -291,7 +291,7 @@ export default function RebalanceCalculator() {
                         ${Math.abs(item.difference).toLocaleString()}
                       </span>
                     ) : (
-                      <span className="text-gray-500">—</span>
+                      <span className="text-[#8B949E]">—</span>
                     )}
                   </td>
                 </tr>
@@ -301,10 +301,10 @@ export default function RebalanceCalculator() {
         </div>
 
         {/* Summary */}
-        <div className="mt-6 p-4 bg-gray-700/50 rounded-lg">
+        <div className="mt-6 p-4 bg-[#30363D]/50 rounded-lg">
           <div className="flex items-start gap-2">
-            <Info className="w-5 h-5 text-blue-400 mt-0.5" />
-            <div className="text-sm text-gray-300">
+            <Info className="w-5 h-5 text-white mt-0.5" />
+            <div className="text-sm text-[#8B949E]">
               <p className="font-medium mb-1">Rebalancing Summary</p>
               <p>
                 Total Buy: ${rebalanceData.filter(item => item.action === 'BUY').reduce((sum, item) => sum + item.difference, 0).toLocaleString()}
@@ -312,7 +312,7 @@ export default function RebalanceCalculator() {
               <p>
                 Total Sell: ${Math.abs(rebalanceData.filter(item => item.action === 'SELL').reduce((sum, item) => sum + item.difference, 0)).toLocaleString()}
               </p>
-              <p className="mt-2 text-gray-400">
+              <p className="mt-2 text-[#8B949E]">
                 Note: This calculator provides estimates based on current prices. Always review orders before execution.
               </p>
             </div>
