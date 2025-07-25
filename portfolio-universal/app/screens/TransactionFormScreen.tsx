@@ -7,8 +7,8 @@ import { colors } from '../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TransactionForm'>;
 
-export default function TransactionFormScreen({ route }: Props): React.JSX.Element {
-  const transactionType = route.params?.type || 'buy';
+export default function TransactionFormScreen({ }: Props): React.JSX.Element {
+  const transactionType = 'buy'; // Default to buy for now
   
   return (
     <ScrollView style={styles.container}>

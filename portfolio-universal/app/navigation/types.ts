@@ -8,6 +8,7 @@ export type RootStackParamList = {
   Main: NavigatorScreenParams<MainTabParamList>;
   StockDetail: { ticker: string };
   TransactionForm: { portfolioId?: string; ticker?: string };
+  Settings: undefined;
 };
 
 // Main Tab Navigator
@@ -16,7 +17,7 @@ export type MainTabParamList = {
   Portfolio: undefined;
   Analytics: undefined;
   Research: undefined;
-  Watchlist: undefined;
+  Settings: undefined;
 };
 
 // Screen Props Types

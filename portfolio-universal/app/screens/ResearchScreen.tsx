@@ -5,7 +5,6 @@ import {
   StyleSheet, 
   ScrollView,
   TouchableOpacity,
-  TextInput,
   RefreshControl,
   ActivityIndicator
 } from 'react-native';
@@ -14,39 +13,87 @@ import { MainTabScreenProps } from '../navigation/types';
 import { 
   front_api_get_dashboard,
   front_api_get_quote,
+  front_api_get_stock_overview,
   front_api_get_news,
   formatCurrency,
   formatPercentage
 } from '@portfolio-tracker/shared';
 import GradientText from '../components/GradientText';
-import { colors } from '../theme/colors';
+import { useTheme } from '../contexts/ThemeContext';
+import { Theme } from '../theme/theme';
+import StockSearchInput from '../components/ui/StockSearchInput';
+import { StockSymbol } from '../hooks/useStockSearch';
+import TabSelector from '../components/ui/TabSelector';
+import { OverviewTab, MetricsTab, FinancialsTab } from '../components/research';
 
 type Props = MainTabScreenProps<'Research'>;
 
 export default function ResearchScreen({ navigation }: Props): React.JSX.Element {
-  const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
-  const [searchedSymbol, setSearchedSymbol] = useState('');
+  const [selectedSymbol, setSelectedSymbol] = useState<StockSymbol | null>(null);
+  const [activeTab, setActiveTab] = useState('overview');
+  const { theme } = useTheme();
 
   // Fetch dashboard data for market indices
-  const { data: dashboardData, refetch: refetchDashboard } = useQuery({
+  const { refetch: refetchDashboard } = useQuery({
     queryKey: ['dashboard'],
     queryFn: front_api_get_dashboard,
-    refetchInterval: 60000,
+    // refetchInterval removed - load data only once
   });
 
-  // Fetch quote data when user searches
-  const { data: quoteData, isLoading: quoteLoading } = useQuery({
-    queryKey: ['quote', searchedSymbol],
-    queryFn: () => front_api_get_quote(searchedSymbol),
-    enabled: !!searchedSymbol,
+  // Fetch quote data when user selects a symbol
+  const { data: quoteData, isLoading: quoteLoading, error: quoteError } = useQuery({
+    queryKey: ['quote', selectedSymbol?.symbol],
+    queryFn: async () => {
+      const result = await front_api_get_quote(selectedSymbol!.symbol);
+      console.log('[ResearchScreen] Quote API response:', {
+        symbol: selectedSymbol!.symbol,
+        success: result?.success,
+        hasData: !!result?.data,
+        error: result?.error,
+        dataKeys: result?.data ? Object.keys(result.data) : [],
+        fullResponse: JSON.stringify(result, null, 2)
+      });
+      
+      // If quote fails but we have data, try to use it
+      if (result?.success === false && result?.data) {
+        console.log('[ResearchScreen] Quote failed but has data, attempting to use it');
+        return { ...result, success: true };
+      }
+      
+      return result;
+    },
+    enabled: !!selectedSymbol,
   });
 
-  // Fetch news for searched symbol
+  // Fetch stock overview as fallback
+  const { data: overviewData } = useQuery({
+    queryKey: ['stock-overview', selectedSymbol?.symbol],
+    queryFn: async () => {
+      try {
+        const result = await front_api_get_stock_overview(selectedSymbol!.symbol);
+        console.log('[ResearchScreen] Overview API response:', {
+          symbol: selectedSymbol!.symbol,
+          hasData: !!result,
+          topLevelKeys: result ? Object.keys(result) : [],
+          fundamentalsKeys: result?.fundamentals ? Object.keys(result.fundamentals) : [],
+          priceDataKeys: result?.price_data ? Object.keys(result.price_data) : [],
+          fullData: JSON.stringify(result, null, 2)
+        });
+        return result;
+      } catch (error) {
+        console.error('[ResearchScreen] Overview API error:', error);
+        return null;
+      }
+    },
+    enabled: !!selectedSymbol && !quote, // Only fetch if quote failed
+  });
+
+  // Fetch news for selected symbol
   const { data: newsData } = useQuery({
-    queryKey: ['news', searchedSymbol],
-    queryFn: () => front_api_get_news(searchedSymbol, 10),
-    enabled: !!searchedSymbol,
+    queryKey: ['news', selectedSymbol?.symbol],
+    queryFn: () => front_api_get_news(selectedSymbol!.symbol, 10),
+    enabled: !!selectedSymbol,
   });
 
   const onRefresh = React.useCallback(async () => {
@@ -55,16 +102,53 @@ export default function ResearchScreen({ navigation }: Props): React.JSX.Element
     setRefreshing(false);
   }, [refetchDashboard]);
 
-  const handleSearch = () => {
-    if (searchQuery.trim()) {
-      setSearchedSymbol(searchQuery.trim().toUpperCase());
-    }
+  const handleSelectSymbol = (symbol: StockSymbol) => {
+    setSelectedSymbol(symbol);
+    setActiveTab('overview'); // Reset to overview tab when selecting new symbol
   };
 
-  // Extract data - API returns data directly
-  const dashboard = dashboardData;
-  const quote = quoteData?.data || quoteData; // Handle both response formats
-  const news = newsData?.data?.items || newsData?.items || [];
+  const tabs = [
+    { key: 'overview', label: 'Overview' },
+    { key: 'metrics', label: 'Metrics' },
+    { key: 'financials', label: 'Financials' },
+  ];
+
+  // Extract data - Handle API response format
+  const apiResponse = quoteData;
+  const quote = apiResponse?.success === false ? null : (apiResponse?.data || apiResponse);
+  const news = newsData?.data?.items || [];
+  
+  // Use overview data to enhance quote if available
+  // Check if overview data is nested under fundamentals
+  const fundamentals = overviewData?.fundamentals || overviewData;
+  
+  const enhancedQuote = quote || (fundamentals && Object.keys(fundamentals).length > 0 ? {
+    symbol: selectedSymbol?.symbol,
+    name: fundamentals.name || fundamentals.Name || selectedSymbol?.name,
+    price: fundamentals.price || overviewData?.price_data?.price || 0,
+    change: 0,
+    change_percent: 0,
+    volume: 0,
+    low: parseFloat(String(fundamentals['52_week_low'] || '0')),
+    high: parseFloat(String(fundamentals['52_week_high'] || '0')),
+    // Additional data from overview
+    marketCap: fundamentals.market_cap || fundamentals.MarketCapitalization,
+    pe: fundamentals.pe_ratio || fundamentals.PERatio,
+    dividend: fundamentals.dividend_per_share || fundamentals.DividendPerShare,
+    sector: fundamentals.sector || fundamentals.Sector
+  } : null);
+  
+  // Log the enhanced quote data
+  if (enhancedQuote) {
+    console.log('[ResearchScreen] Enhanced quote data:', {
+      symbol: selectedSymbol?.symbol,
+      enhancedQuote: JSON.stringify(enhancedQuote, null, 2),
+      quoteData: quote,
+      overviewData: overviewData
+    });
+  }
+  
+  const styles = getStyles(theme);
 
   return (
     <ScrollView 
@@ -77,97 +161,79 @@ export default function ResearchScreen({ navigation }: Props): React.JSX.Element
           <GradientText style={styles.headerTitle}>📊 Research</GradientText>
         </View>
 
-        {/* Search Bar */}
+        {/* Stock Search */}
         <View style={styles.searchSection}>
-          <TextInput
-            style={styles.searchInput}
+          <StockSearchInput
+            onSelectSymbol={handleSelectSymbol}
             placeholder="Search stocks (e.g., AAPL)"
-            placeholderTextColor={colors.secondaryText}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            onSubmitEditing={handleSearch}
-            autoCapitalize="characters"
           />
-          <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>
-            <Text style={styles.searchButtonText}>Search</Text>
-          </TouchableOpacity>
         </View>
 
         {/* Market Indices - TODO: Add when available in API */}
 
         {/* Search Results */}
-        {searchedSymbol && (
+        {selectedSymbol && (
           <>
             {quoteLoading ? (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={colors.buttonBackground} />
-                <Text style={styles.loadingText}>Searching for {searchedSymbol}...</Text>
+                <ActivityIndicator size="large" color={theme.colors.buttonBackground} />
+                <Text style={styles.loadingText}>Loading {selectedSymbol.symbol}...</Text>
               </View>
-            ) : quote ? (
-              <View style={styles.section}>
-                <GradientText style={styles.sectionTitle}>Quote: {searchedSymbol}</GradientText>
-                <TouchableOpacity 
-                  style={styles.quoteCard}
-                  onPress={() => navigation.navigate('StockDetail', { symbol: searchedSymbol })}
-                >
-                  <View style={styles.quoteHeader}>
-                    <Text style={styles.quoteName}>{quote.name || searchedSymbol}</Text>
-                    <Text style={styles.quoteSymbol}>{quote.symbol}</Text>
-                  </View>
-                  <View style={styles.quoteDetails}>
-                    <Text style={styles.quotePrice}>{formatCurrency(quote.price)}</Text>
-                    <Text style={[
-                      styles.quoteChange,
-                      quote.change >= 0 ? styles.positive : styles.negative
-                    ]}>
-                      {quote.change >= 0 ? '+' : ''}{formatCurrency(quote.change)} ({formatPercentage(quote.percent_change)})
+            ) : overviewData ? (
+              <>
+                {/* Stock Header */}
+                <View style={styles.stockHeader}>
+                  <View>
+                    <Text style={styles.stockName}>
+                      {overviewData.fundamentals?.name || overviewData.fundamentals?.Name || selectedSymbol.name}
+                    </Text>
+                    <Text style={styles.stockSymbol}>
+                      {selectedSymbol.symbol} • {overviewData.fundamentals?.exchange || overviewData.fundamentals?.Exchange || 'N/A'}
                     </Text>
                   </View>
-                  <View style={styles.quoteMetrics}>
-                    <View style={styles.metricItem}>
-                      <Text style={styles.metricLabel}>Volume</Text>
-                      <Text style={styles.metricValue}>{(quote.volume / 1000000).toFixed(1)}M</Text>
-                    </View>
-                    <View style={styles.metricItem}>
-                      <Text style={styles.metricLabel}>Day Range</Text>
-                      <Text style={styles.metricValue}>{formatCurrency(quote.day_low)} - {formatCurrency(quote.day_high)}</Text>
-                    </View>
-                  </View>
-                </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.detailButton}
+                    onPress={() => navigation.navigate('StockDetail', { ticker: selectedSymbol.symbol })}
+                  >
+                    <Text style={styles.detailButtonText}>View Details →</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Tab Selector */}
+                <TabSelector
+                  tabs={tabs}
+                  activeTab={activeTab}
+                  onTabChange={setActiveTab}
+                />
+
+                {/* Tab Content */}
+                <View style={styles.tabContent}>
+                  {activeTab === 'overview' && (
+                    <OverviewTab data={overviewData} news={news} />
+                  )}
+                  {activeTab === 'metrics' && (
+                    <MetricsTab data={overviewData} />
+                  )}
+                  {activeTab === 'financials' && (
+                    <FinancialsTab data={overviewData} />
+                  )}
+                </View>
+              </>
+            ) : apiResponse?.error ? (
+              <View style={styles.noResults}>
+                <Text style={styles.noResultsText}>Error loading data for "{selectedSymbol.symbol}"</Text>
+                <Text style={styles.errorDetail}>{apiResponse.error}</Text>
               </View>
             ) : (
               <View style={styles.noResults}>
-                <Text style={styles.noResultsText}>No results found for "{searchedSymbol}"</Text>
-              </View>
-            )}
-
-            {/* News */}
-            {news.length > 0 && (
-              <View style={styles.section}>
-                <GradientText style={styles.sectionTitle}>Latest News</GradientText>
-                {news.slice(0, 5).map((item: any, index: number) => (
-                  <View key={index} style={styles.newsItem}>
-                    <Text style={styles.newsTitle}>{item.title}</Text>
-                    <Text style={styles.newsSource}>{item.source} • {item.published_at}</Text>
-                    {item.sentiment && (
-                      <View style={[
-                        styles.sentimentBadge,
-                        item.sentiment === 'positive' ? styles.positiveSentiment :
-                        item.sentiment === 'negative' ? styles.negativeSentiment :
-                        styles.neutralSentiment
-                      ]}>
-                        <Text style={styles.sentimentText}>{item.sentiment}</Text>
-                      </View>
-                    )}
-                  </View>
-                ))}
+                <Text style={styles.noResultsText}>No data available for "{selectedSymbol.symbol}"</Text>
               </View>
             )}
           </>
         )}
 
         {/* Info Section */}
-        {!searchedSymbol && (
+        {!selectedSymbol && (
           <View style={styles.infoSection}>
             <Text style={styles.infoIcon}>🔍</Text>
             <Text style={styles.infoTitle}>Search for Stocks</Text>
@@ -181,10 +247,10 @@ export default function ResearchScreen({ navigation }: Props): React.JSX.Element
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.background,
   },
   content: {
     padding: 16,
@@ -195,30 +261,10 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: colors.primaryText,
+    color: theme.colors.primaryText,
   },
   searchSection: {
-    flexDirection: 'row',
-    gap: 12,
     marginBottom: 24,
-  },
-  searchInput: {
-    flex: 1,
-    backgroundColor: colors.border,
-    borderRadius: 8,
-    padding: 12,
-    color: colors.primaryText,
-    fontSize: 16,
-  },
-  searchButton: {
-    backgroundColor: colors.buttonBackground,
-    borderRadius: 8,
-    paddingHorizontal: 20,
-    justifyContent: 'center',
-  },
-  searchButtonText: {
-    color: colors.buttonText,
-    fontWeight: '600',
   },
   section: {
     marginBottom: 24,
@@ -226,11 +272,11 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: colors.primaryText,
+    color: theme.colors.primaryText,
     marginBottom: 16,
   },
   indexCard: {
-    backgroundColor: colors.border,
+    backgroundColor: theme.colors.border,
     padding: 16,
     borderRadius: 8,
     marginRight: 12,
@@ -238,13 +284,13 @@ const styles = StyleSheet.create({
   },
   indexName: {
     fontSize: 14,
-    color: colors.secondaryText,
+    color: theme.colors.secondaryText,
     marginBottom: 4,
   },
   indexValue: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: colors.primaryText,
+    color: theme.colors.primaryText,
     marginBottom: 4,
   },
   indexChange: {
@@ -252,10 +298,10 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   positive: {
-    color: colors.greenAccent,
+    color: theme.colors.positive,
   },
   negative: {
-    color: '#ef4444', // Keep red for negative values
+    color: theme.colors.negative,
   },
   loadingContainer: {
     padding: 32,
@@ -263,80 +309,74 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 16,
-    color: colors.secondaryText,
+    color: theme.colors.secondaryText,
   },
-  quoteCard: {
-    backgroundColor: colors.border,
-    padding: 16,
-    borderRadius: 12,
-  },
-  quoteHeader: {
-    marginBottom: 12,
-  },
-  quoteName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.primaryText,
-  },
-  quoteSymbol: {
-    fontSize: 14,
-    color: colors.secondaryText,
-  },
-  quoteDetails: {
+  stockHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
   },
-  quotePrice: {
+  stockName: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: colors.primaryText,
-  },
-  quoteChange: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  quoteMetrics: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  metricItem: {
-    alignItems: 'center',
-  },
-  metricLabel: {
-    fontSize: 12,
-    color: colors.secondaryText,
+    color: theme.colors.primaryText,
     marginBottom: 4,
   },
-  metricValue: {
+  stockSymbol: {
     fontSize: 14,
-    color: colors.primaryText,
+    color: theme.colors.secondaryText,
+  },
+  detailButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: theme.colors.surface,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  detailButtonText: {
+    fontSize: 14,
+    color: theme.colors.primaryText,
     fontWeight: '500',
+  },
+  tabContent: {
+    flex: 1,
   },
   noResults: {
     padding: 32,
     alignItems: 'center',
   },
   noResultsText: {
-    color: colors.secondaryText,
+    color: theme.colors.secondaryText,
     fontSize: 16,
   },
+  errorDetail: {
+    color: theme.colors.negative,
+    fontSize: 14,
+    marginTop: 8,
+    textAlign: 'center',
+  },
   newsItem: {
-    backgroundColor: colors.border,
+    backgroundColor: theme.colors.surface,
     padding: 16,
     borderRadius: 8,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   newsTitle: {
     fontSize: 14,
     fontWeight: '500',
-    color: colors.primaryText,
+    color: theme.colors.primaryText,
     marginBottom: 8,
   },
   newsSource: {
     fontSize: 12,
-    color: colors.secondaryText,
+    color: theme.colors.secondaryText,
   },
   sentimentBadge: {
     alignSelf: 'flex-start',
@@ -346,17 +386,17 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   positiveSentiment: {
-    backgroundColor: `${colors.greenAccent}33`, // 20% opacity
+    backgroundColor: theme.colors.positive + '20', // 20% opacity in hex
   },
   negativeSentiment: {
-    backgroundColor: 'rgba(239, 68, 68, 0.2)', // Keep red for negative
+    backgroundColor: theme.colors.negative + '20', // 20% opacity in hex
   },
   neutralSentiment: {
-    backgroundColor: `${colors.secondaryText}33`, // 20% opacity
+    backgroundColor: theme.colors.secondaryText + '20', // 20% opacity in hex
   },
   sentimentText: {
     fontSize: 12,
-    color: colors.primaryText,
+    color: theme.colors.primaryText,
     textTransform: 'capitalize',
   },
   infoSection: {
@@ -370,12 +410,12 @@ const styles = StyleSheet.create({
   infoTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: colors.primaryText,
+    color: theme.colors.primaryText,
     marginBottom: 8,
   },
   infoText: {
     fontSize: 16,
-    color: colors.secondaryText,
+    color: theme.colors.secondaryText,
     textAlign: 'center',
   },
 });

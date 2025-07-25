@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
-import { formatCurrency, formatPercentage, COLORS } from '@portfolio-tracker/shared';
+import { formatCurrency, formatPercentage } from '@portfolio-tracker/shared';
+import { useTheme } from '../../contexts/ThemeContext';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -41,6 +42,8 @@ const StockChartKit: React.FC<StockChartProps> = ({
   compareMode = false,
 }) => {
   const chartWidth = screenWidth - 32;
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
 
   // Process data for percentage comparison mode
   const processedData = useMemo(() => {
@@ -83,6 +86,15 @@ const StockChartKit: React.FC<StockChartProps> = ({
 
     // Process each series
     const datasets = data.map((series, index) => {
+      // Handle empty series data
+      if (!series.data || series.data.length === 0) {
+        return {
+          data: [],
+          color: () => index === 0 ? colors.blueAccent : colors.greenAccent,
+          strokeWidth: 2,
+        };
+      }
+      
       const firstPrice = series.data[0]?.price || series.data[0]?.close || 1;
       
       const values = sortedDates.map(date => {
@@ -102,29 +114,31 @@ const StockChartKit: React.FC<StockChartProps> = ({
         
         const value = point.price || point.close || 0;
         
-        if (compareMode) {
-          return ((value / firstPrice - 1) * 100);
+        if (compareMode && firstPrice !== 0) {
+          const percentChange = ((value / firstPrice - 1) * 100);
+          // Prevent infinity or NaN values
+          return isFinite(percentChange) ? percentChange : 0;
         }
-        return value;
+        return isFinite(value) ? value : 0;
       }).filter(v => v !== null) as number[];
 
       return {
         data: values,
-        color: () => series.color || (index === 0 ? COLORS.primary : COLORS.success),
+        color: () => series.color || (index === 0 ? theme.colors.blueAccent : theme.colors.greenAccent),
         strokeWidth: 2,
       };
     });
 
     return { labels, datasets };
-  }, [data, compareMode]);
+  }, [data, compareMode, theme]);
 
   const chartConfig = {
-    backgroundColor: COLORS.surface,
-    backgroundGradientFrom: COLORS.surface,
-    backgroundGradientTo: COLORS.surface,
+    backgroundColor: theme.colors.surface,
+    backgroundGradientFrom: theme.colors.surface,
+    backgroundGradientTo: theme.colors.surface,
     decimalPlaces: compareMode ? 1 : 0,
-    color: (opacity = 1) => `rgba(59, 130, 246, ${opacity})`,
-    labelColor: (opacity = 1) => `rgba(209, 213, 219, ${opacity})`,
+    color: (opacity = 1) => theme.colors.blueAccent,
+    labelColor: (opacity = 1) => theme.colors.secondaryText,
     style: {
       borderRadius: 16,
     },
@@ -134,14 +148,25 @@ const StockChartKit: React.FC<StockChartProps> = ({
     propsForLabels: {
       fontSize: 10,
     },
+    propsForBackgroundLines: {
+      strokeDasharray: '', // solid lines
+      stroke: theme.colors.border,
+      strokeWidth: 0.5, // thinner lines
+    },
   };
 
   const timePeriods = ['1D', '1W', '1M', '3M', '6M', '1Y', '5Y', 'MAX'];
 
-  if (!processedData.datasets.length) {
+  // Check if we have valid data to display
+  if (!processedData.datasets.length || 
+      processedData.datasets.every(ds => ds.data.length === 0) ||
+      processedData.labels.length === 0) {
     return (
       <View style={styles.container}>
-        <Text style={styles.noDataText}>No data available</Text>
+        <View style={styles.noDataContainer}>
+          <Text style={styles.noDataText}>No data available</Text>
+          <Text style={styles.noDataSubtext}>Price data will appear here once loaded</Text>
+        </View>
       </View>
     );
   }
@@ -153,8 +178,11 @@ const StockChartKit: React.FC<StockChartProps> = ({
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <LineChart
           data={{
-            labels: processedData.labels,
-            datasets: processedData.datasets,
+            labels: processedData.labels.length > 0 ? processedData.labels : [''],
+            datasets: processedData.datasets.map(ds => ({
+              ...ds,
+              data: ds.data.length > 0 ? ds.data : [0]
+            })),
           }}
           width={chartWidth}
           height={height}
@@ -163,13 +191,13 @@ const StockChartKit: React.FC<StockChartProps> = ({
           chartConfig={chartConfig}
           bezier
           style={styles.chart}
-          withInnerLines={true}
-          withOuterLines={true}
-          withVerticalLines={true}
+          withInnerLines={false}
+          withOuterLines={false}
+          withVerticalLines={false}
           withHorizontalLines={true}
           withVerticalLabels={true}
           withHorizontalLabels={true}
-          segments={5}
+          segments={3}
         />
       </ScrollView>
 
@@ -183,7 +211,7 @@ const StockChartKit: React.FC<StockChartProps> = ({
                   styles.legendDot,
                   { 
                     backgroundColor: series.color || 
-                      (index === 0 ? COLORS.primary : COLORS.success) 
+                      (index === 0 ? theme.colors.blueAccent : theme.colors.greenAccent) 
                   },
                 ]}
               />
@@ -223,16 +251,16 @@ const StockChartKit: React.FC<StockChartProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   container: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: theme.colors.surface,
     borderRadius: 12,
     padding: 16,
   },
   title: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.text,
+    color: theme.colors.primaryText,
     marginBottom: 16,
   },
   chart: {
@@ -259,7 +287,7 @@ const styles = StyleSheet.create({
   },
   legendText: {
     fontSize: 12,
-    color: COLORS.textSecondary,
+    color: theme.colors.secondaryText,
   },
   periodSelector: {
     marginTop: 16,
@@ -268,25 +296,38 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 6,
-    backgroundColor: COLORS.border,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     marginRight: 8,
   },
   periodButtonActive: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: theme.colors.buttonBackground,
+    borderColor: theme.colors.buttonBackground,
   },
   periodButtonText: {
     fontSize: 14,
-    color: COLORS.textSecondary,
+    color: theme.colors.secondaryText,
     fontWeight: '600',
   },
   periodButtonTextActive: {
-    color: COLORS.text,
+    color: theme.colors.buttonText,
   },
   noDataText: {
     textAlign: 'center',
-    color: COLORS.textMuted,
+    color: theme.colors.secondaryText,
     fontSize: 16,
-    paddingVertical: 40,
+  },
+  noDataContainer: {
+    paddingVertical: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  noDataSubtext: {
+    color: theme.colors.secondaryText,
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 8,
   },
 });
 

@@ -25,7 +25,7 @@ import { colors } from '../theme/colors';
 type Props = NativeStackScreenProps<RootStackParamList, 'StockDetail'>;
 
 export default function StockDetailScreen({ route }: Props): React.JSX.Element {
-  const { symbol } = route.params;
+  const { ticker: symbol } = route.params;
   const [refreshing, setRefreshing] = useState(false);
   const [timePeriod, setTimePeriod] = useState('1Y');
   const [chartType, setChartType] = useState<'line' | 'candlestick' | 'area'>('line');
@@ -49,8 +49,8 @@ export default function StockDetailScreen({ route }: Props): React.JSX.Element {
     });
   }, [refetchQuote, refetchOverview]);
 
-  const quote = quoteData?.data;
-  const overview = overviewData?.data;
+  const quote = quoteData?.data || quoteData;
+  const overview = (overviewData as any)?.data || overviewData;
   const isLoading = quoteLoading || overviewLoading;
 
   if (isLoading && !refreshing) {

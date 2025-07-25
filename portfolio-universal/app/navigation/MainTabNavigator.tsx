@@ -3,37 +3,33 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'react-native';
 import { MainTabParamList } from './types';
-import { colors } from '../theme/colors';
+import { useTheme } from '../contexts/ThemeContext';
 import DashboardScreen from '../screens/DashboardScreen';
 // import DashboardScreen from '../screens/SimpleDashboardScreen';
 import PortfolioScreen from '../screens/PortfolioScreen';
 import AnalyticsScreen from '../screens/AnalyticsScreen';
 import ResearchScreen from '../screens/ResearchScreen';
-import WatchlistScreen from '../screens/WatchlistScreen';
+import SettingsScreen from '../screens/SettingsScreen';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
 export default function MainTabNavigator() {
+  const { theme } = useTheme();
+  
   return (
     <Tab.Navigator
       screenOptions={{
         tabBarStyle: {
-          backgroundColor: colors.background,
-          borderTopColor: colors.border,
+          backgroundColor: theme.colors.background,
+          borderTopColor: theme.colors.border,
         },
-        tabBarActiveTintColor: colors.greenAccent,
-        tabBarInactiveTintColor: colors.secondaryText,
+        tabBarActiveTintColor: theme.colors.greenAccent,
+        tabBarInactiveTintColor: theme.colors.secondaryText,
         headerStyle: {
-          backgroundColor: colors.background,
-          borderBottomColor: colors.border,
+          backgroundColor: theme.colors.background,
+          borderBottomColor: theme.colors.border,
         },
-        headerTintColor: colors.primaryText,
-        headerLeft: () => (
-          <Image 
-            source={require('../../assets/logo.png')} 
-            style={{ width: 36, height: 36, marginLeft: 16, borderRadius: 8 }}
-          />
-        ),
+        headerTintColor: theme.colors.primaryText,
       }}
     >
       <Tab.Screen
@@ -43,6 +39,19 @@ export default function MainTabNavigator() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home-outline" size={size} color={color} />
           ),
+          headerTitle: () => (
+            <Image 
+              source={require('../../assets/logo.png')} 
+              style={{ width: 250, height: 1200 }}
+              resizeMode="contain"
+            />
+          ),
+          headerTitleAlign: 'center',
+          headerStyle: {
+            height: 120, // Increase header height
+            backgroundColor: theme.colors.background,
+            borderBottomColor: theme.colors.border,
+          },
         }}
       />
       <Tab.Screen
@@ -73,11 +82,11 @@ export default function MainTabNavigator() {
         }}
       />
       <Tab.Screen
-        name="Watchlist"
-        component={WatchlistScreen}
+        name="Settings"
+        component={SettingsScreen}
         options={{
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="eye-outline" size={size} color={color} />
+            <Ionicons name="settings-outline" size={size} color={color} />
           ),
         }}
       />

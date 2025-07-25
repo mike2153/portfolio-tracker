@@ -6,7 +6,6 @@ import {
   TouchableOpacity
 } from 'react-native';
 import { MainTabScreenProps } from '../navigation/types';
-import { COLORS } from '@portfolio-tracker/shared';
 import GradientText from '../components/GradientText';
 import { colors } from '../theme/colors';
 

@@ -1,8 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
-import { front_api_get_performance, front_api_get_stock_prices, formatCurrency, formatPercentage, COLORS } from '@portfolio-tracker/shared';
-import StockChartKit from './StockChartKit';
+import { front_api_get_performance, formatPercentage } from '@portfolio-tracker/shared';
+import PortfolioComparisonChart from './PortfolioComparisonChart';
+import { useTheme } from '../../contexts/ThemeContext';
+import { Theme } from '../../theme/theme';
 
 interface PortfolioPerformanceChartProps {
   height?: number;
@@ -10,277 +12,182 @@ interface PortfolioPerformanceChartProps {
   benchmarks?: string[];
 }
 
-const DEFAULT_BENCHMARKS = ['SPY', 'QQQ', 'DIA'];
+// Map display periods to API periods
+const PERIOD_MAP: { [key: string]: string } = {
+  '1D': '7D',   // API doesn't support 1D, use 7D
+  '1W': '7D',
+  '1M': '1M',
+  '3M': '3M',
+  '6M': '1Y',   // API doesn't support 6M, use 1Y
+  '1Y': '1Y',
+  '5Y': 'MAX',  // API doesn't support 5Y, use MAX
+  'MAX': 'MAX',
+  'YTD': 'YTD'
+};
 
 const PortfolioPerformanceChartKit: React.FC<PortfolioPerformanceChartProps> = ({
   height = 300,
   initialPeriod = '1Y',
   benchmarks = ['SPY'],
 }) => {
+  const { theme } = useTheme();
   const [timePeriod, setTimePeriod] = useState(initialPeriod);
-  const [selectedBenchmarks, setSelectedBenchmarks] = useState(benchmarks);
-  const [compareMode, setCompareMode] = useState(true);
+  const [selectedBenchmark] = useState(benchmarks[0] || 'SPY');
+  
+  // Map the display period to API period
+  const apiPeriod = PERIOD_MAP[timePeriod] || '1Y';
 
-  // Fetch portfolio performance data
-  const { data: portfolioData, isLoading: portfolioLoading } = useQuery({
-    queryKey: ['portfolio-performance', timePeriod],
-    queryFn: () => front_api_get_performance(timePeriod),
-    refetchInterval: 60000, // Refresh every minute
+  // Fetch portfolio performance data using the correct API endpoint
+  const { data: performanceData, isLoading, error } = useQuery({
+    queryKey: ['portfolio-performance', apiPeriod, selectedBenchmark],
+    queryFn: async () => {
+      console.log('[PortfolioPerformanceChartKit] Fetching performance data:', {
+        period: apiPeriod,
+        benchmark: selectedBenchmark
+      });
+      
+      try {
+        const result = await front_api_get_performance(apiPeriod, selectedBenchmark);
+        console.log('[PortfolioPerformanceChartKit] API response:', {
+          success: result?.success,
+          hasPortfolioData: !!result?.portfolio_performance,
+          portfolioDataLength: result?.portfolio_performance?.length || 0,
+          hasBenchmarkData: !!result?.benchmark_performance,
+          benchmarkDataLength: result?.benchmark_performance?.length || 0,
+          metadata: result?.metadata,
+          metrics: result?.performance_metrics
+        });
+        
+        if (!result?.success) {
+          console.error('[PortfolioPerformanceChartKit] API returned success: false', result);
+          throw new Error(result?.error || 'Failed to fetch performance data');
+        }
+        
+        return result;
+      } catch (error) {
+        console.error('[PortfolioPerformanceChartKit] Error fetching performance data:', error);
+        throw error;
+      }
+    },
   });
 
-  // Fetch benchmark data for each selected benchmark
-  const benchmarkQueries = selectedBenchmarks.map(symbol => 
-    useQuery({
-      queryKey: ['benchmark-prices', symbol, timePeriod],
-      queryFn: () => front_api_get_stock_prices(symbol, timePeriod),
-      enabled: selectedBenchmarks.includes(symbol),
-    })
-  );
-
-  // Combine all data into chart format
+  // Transform data for the chart component
   const chartData = useMemo(() => {
-    const data = [];
+    if (!performanceData) return null;
+    
+    // The API returns data in the correct format already
+    return {
+      portfolio_performance: performanceData.portfolio_performance || [],
+      benchmark_performance: performanceData.benchmark_performance || [],
+      performance_metrics: performanceData.performance_metrics
+    };
+  }, [performanceData]);
 
-    // Add portfolio data
-    if (portfolioData?.data?.portfolio_history) {
-      data.push({
-        symbol: 'Portfolio',
-        data: portfolioData.data.portfolio_history.map((point: any) => ({
-          date: point.date || new Date().toISOString(),
-          price: point.value || 0,
-        })),
-        color: COLORS.primary,
-      });
-    }
+  const styles = getStyles(theme);
 
-    // Add benchmark data
-    benchmarkQueries.forEach((query, index) => {
-      if (query.data?.success && query.data.data?.price_data) {
-        const symbol = selectedBenchmarks[index];
-        data.push({
-          symbol,
-          data: query.data.data.price_data.map((point: any) => ({
-            date: point.time || point.date || new Date().toISOString(),
-            price: point.close || 0,
-            open: point.open,
-            high: point.high,
-            low: point.low,
-            close: point.close,
-          })),
-        });
-      }
-    });
-
-    return data;
-  }, [portfolioData, benchmarkQueries, selectedBenchmarks]);
-
-  const isLoading = portfolioLoading || benchmarkQueries.some(q => q.isLoading);
-
-  // Calculate performance metrics
-  const performanceMetrics = useMemo(() => {
-    if (!chartData.length) return null;
-
-    return chartData.map(series => {
-      const firstValue = series.data[0]?.price || 1;
-      const lastValue = series.data[series.data.length - 1]?.price || 1;
-      const change = lastValue - firstValue;
-      const changePercent = (change / firstValue) * 100;
-
-      return {
-        symbol: series.symbol,
-        currentValue: lastValue,
-        change,
-        changePercent,
-        color: series.color,
-      };
-    });
-  }, [chartData]);
-
-  const handleBenchmarkToggle = (symbol: string) => {
-    if (selectedBenchmarks.includes(symbol)) {
-      setSelectedBenchmarks(prev => prev.filter(s => s !== symbol));
-    } else {
-      setSelectedBenchmarks(prev => [...prev, symbol]);
-    }
-  };
-
-  if (isLoading) {
+  if (error) {
     return (
-      <View style={[styles.container, styles.loadingContainer]}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Loading performance data...</Text>
+      <View style={[styles.container, styles.errorContainer]}>
+        <Text style={styles.errorText}>Failed to load performance data</Text>
+        <Text style={styles.errorSubtext}>{error.message}</Text>
       </View>
     );
   }
 
   return (
     <View>
-      {/* Performance Metrics */}
-      {performanceMetrics && (
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false} 
-          style={styles.metricsContainer}
-        >
-          {performanceMetrics.map(metric => {
-            const isPositive = metric.changePercent >= 0;
-            return (
-              <View
-                key={metric.symbol}
-                style={[
-                  styles.metricCard,
-                  { borderLeftColor: metric.color || COLORS.neutral }
-                ]}
-              >
-                <Text style={styles.metricSymbol}>{metric.symbol}</Text>
-                <Text style={styles.metricValue}>
-                  {formatCurrency(metric.currentValue)}
-                </Text>
-                <Text style={[
-                  styles.metricChange,
-                  { color: isPositive ? COLORS.positive : COLORS.negative }
-                ]}>
-                  {isPositive ? '+' : ''}{formatCurrency(metric.change)} ({formatPercentage(metric.changePercent / 100)})
-                </Text>
-              </View>
-            );
-          })}
-        </ScrollView>
+      {/* Performance Summary */}
+      {performanceData?.performance_metrics && (
+        <View style={styles.summaryContainer}>
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryLabel}>Portfolio</Text>
+            <Text style={[
+              styles.summaryValue,
+              performanceData.performance_metrics.portfolio_return_pct >= 0 ? styles.positive : styles.negative
+            ]}>
+              {formatPercentage(performanceData.performance_metrics.portfolio_return_pct / 100)}
+            </Text>
+          </View>
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryLabel}>{selectedBenchmark}</Text>
+            <Text style={[
+              styles.summaryValue,
+              performanceData.performance_metrics.index_return_pct >= 0 ? styles.positive : styles.negative
+            ]}>
+              {formatPercentage(performanceData.performance_metrics.index_return_pct / 100)}
+            </Text>
+          </View>
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryLabel}>Outperformance</Text>
+            <Text style={[
+              styles.summaryValue,
+              performanceData.performance_metrics.outperformance_pct >= 0 ? styles.positive : styles.negative
+            ]}>
+              {performanceData.performance_metrics.outperformance_pct >= 0 ? '+' : ''}
+              {formatPercentage(performanceData.performance_metrics.outperformance_pct / 100)}
+            </Text>
+          </View>
+        </View>
       )}
 
-      {/* Chart Controls */}
-      <View style={styles.controls}>
-        <TouchableOpacity
-          onPress={() => setCompareMode(!compareMode)}
-          style={[
-            styles.modeButton,
-            compareMode && styles.modeButtonActive
-          ]}
-        >
-          <Text style={[
-            styles.modeButtonText,
-            compareMode && styles.modeButtonTextActive
-          ]}>
-            {compareMode ? 'Percentage' : 'Absolute'}
-          </Text>
-        </TouchableOpacity>
-
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {DEFAULT_BENCHMARKS.map(symbol => (
-            <TouchableOpacity
-              key={symbol}
-              onPress={() => handleBenchmarkToggle(symbol)}
-              style={[
-                styles.benchmarkButton,
-                selectedBenchmarks.includes(symbol) && styles.benchmarkButtonActive
-              ]}
-            >
-              <Text style={[
-                styles.benchmarkButtonText,
-                selectedBenchmarks.includes(symbol) && styles.benchmarkButtonTextActive
-              ]}>
-                {symbol}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-
       {/* Chart */}
-      <StockChartKit
+      <PortfolioComparisonChart
         data={chartData}
         height={height}
         timePeriod={timePeriod}
-        onTimePeriodChange={setTimePeriod}
-        showLegend={true}
-        title="Portfolio Performance"
-        compareMode={compareMode}
+        onPeriodChange={setTimePeriod}
+        isLoading={isLoading}
+        benchmarkSymbol={selectedBenchmark}
       />
     </View>
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: theme.colors.surface,
     borderRadius: 12,
     padding: 16,
   },
-  loadingContainer: {
+  errorContainer: {
     height: 300,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  loadingText: {
-    marginTop: 16,
-    color: COLORS.textMuted,
-    fontSize: 14,
-  },
-  metricsContainer: {
-    marginBottom: 16,
-  },
-  metricCard: {
-    backgroundColor: COLORS.background,
-    padding: 16,
-    borderRadius: 8,
-    marginRight: 12,
-    borderLeftWidth: 4,
-    minWidth: 150,
-  },
-  metricSymbol: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
+  errorText: {
+    color: theme.colors.negative,
+    fontSize: 16,
+    fontWeight: '600',
     marginBottom: 8,
   },
-  metricValue: {
-    color: COLORS.text,
-    fontSize: 20,
-    fontWeight: 'bold',
+  errorSubtext: {
+    color: theme.colors.secondaryText,
+    fontSize: 14,
+  },
+  summaryContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    backgroundColor: 'transparent',
+    padding: 16,
+    marginBottom: 8,
+  },
+  summaryItem: {
+    alignItems: 'center',
+  },
+  summaryLabel: {
+    fontSize: 12,
+    color: theme.colors.secondaryText,
     marginBottom: 4,
   },
-  metricChange: {
-    fontSize: 14,
+  summaryValue: {
+    fontSize: 18,
+    fontWeight: '600',
   },
-  controls: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
+  positive: {
+    color: theme.colors.positive,
   },
-  modeButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 6,
-    backgroundColor: COLORS.background,
-  },
-  modeButtonActive: {
-    backgroundColor: COLORS.primary,
-  },
-  modeButtonText: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  modeButtonTextActive: {
-    color: COLORS.text,
-  },
-  benchmarkButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: COLORS.background,
-    marginLeft: 8,
-  },
-  benchmarkButtonActive: {
-    backgroundColor: COLORS.primary,
-  },
-  benchmarkButtonText: {
-    color: COLORS.textMuted,
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  benchmarkButtonTextActive: {
-    color: COLORS.text,
+  negative: {
+    color: theme.colors.negative,
   },
 });
 

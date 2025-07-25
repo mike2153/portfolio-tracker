@@ -15,11 +15,11 @@ import {
   front_api_get_portfolio,
   front_api_get_transactions, 
   formatCurrency, 
-  formatPercentage,
-  COLORS 
+  formatPercentage
 } from '@portfolio-tracker/shared';
 import GradientText from '../components/GradientText';
-import { colors } from '../theme/colors';
+import { useTheme } from '../contexts/ThemeContext';
+import { Theme } from '../theme/theme';
 
 type Props = MainTabScreenProps<'Portfolio'>;
 
@@ -35,60 +35,9 @@ interface Holding {
   sector?: string;
 }
 
-const HoldingCard = ({ holding, onPress }: { holding: Holding; onPress: () => void }) => {
-  const isPositive = holding.total_pnl >= 0;
-  
-  return (
-    <TouchableOpacity style={styles.holdingCard} onPress={onPress}>
-      <View style={styles.holdingHeader}>
-        <View>
-          <Text style={styles.ticker}>{holding.symbol}</Text>
-          <Text style={styles.companyName}>{holding.company_name}</Text>
-          {holding.sector && <Text style={styles.sector}>{holding.sector}</Text>}
-        </View>
-        <View style={styles.holdingValues}>
-          <Text style={styles.totalValue}>{formatCurrency(holding.current_value)}</Text>
-          <Text style={[styles.gainLoss, isPositive ? styles.positive : styles.negative]}>
-            {isPositive ? '+' : ''}{formatCurrency(holding.total_pnl)} ({formatPercentage(holding.total_pnl_pct)})
-          </Text>
-        </View>
-      </View>
-      
-      <View style={styles.holdingDetails}>
-        <View style={styles.detailItem}>
-          <Text style={styles.detailLabel}>Shares</Text>
-          <Text style={styles.detailValue}>{holding.quantity}</Text>
-        </View>
-        <View style={styles.detailItem}>
-          <Text style={styles.detailLabel}>Avg Price</Text>
-          <Text style={styles.detailValue}>{formatCurrency(holding.average_price)}</Text>
-        </View>
-        <View style={styles.detailItem}>
-          <Text style={styles.detailLabel}>Current</Text>
-          <Text style={styles.detailValue}>{formatCurrency(holding.current_price)}</Text>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
-};
-
-const SummaryCard = ({ title, value, subtitle, isPositive }: {
-  title: string;
-  value: string;
-  subtitle?: string;
-  isPositive?: boolean;
-}) => (
-  <View style={styles.summaryCard}>
-    <GradientText style={styles.summaryTitle}>{title}</GradientText>
-    <Text style={[styles.summaryValue, isPositive !== undefined && (isPositive ? styles.positive : styles.negative)]}>
-      {value}
-    </Text>
-    {subtitle && <Text style={styles.summarySubtitle}>{subtitle}</Text>}
-  </View>
-);
-
 export default function PortfolioScreen({ navigation }: Props): React.JSX.Element {
   const [refreshing, setRefreshing] = useState(false);
+  const { theme } = useTheme();
   
   // Fetch portfolio data
   const { data: portfolioData, isLoading, refetch, error: portfolioError } = useQuery({
@@ -109,7 +58,7 @@ export default function PortfolioScreen({ navigation }: Props): React.JSX.Elemen
         throw error;
       }
     },
-    refetchInterval: 60000, // Refresh every minute
+    // refetchInterval removed - load data only once
   });
 
   // Fetch transactions data
@@ -123,7 +72,7 @@ export default function PortfolioScreen({ navigation }: Props): React.JSX.Elemen
         console.log(`[${timestamp}] [PortfolioScreen] Transactions fetch successful:`, {
           hasData: !!result,
           dataKeys: result ? Object.keys(result) : [],
-          transactionsCount: result?.transactions?.length || result?.length || 0
+          transactionsCount: (result as any)?.transactions?.length || (result as any)?.length || 0
         });
         return result;
       } catch (error) {
@@ -131,7 +80,7 @@ export default function PortfolioScreen({ navigation }: Props): React.JSX.Elemen
         throw error;
       }
     },
-    refetchInterval: 60000,
+    // refetchInterval removed - load data only once
   });
 
   const onRefresh = React.useCallback(async () => {
@@ -150,7 +99,7 @@ export default function PortfolioScreen({ navigation }: Props): React.JSX.Elemen
   // Extract data - the API returns the data directly, not wrapped in a 'data' field
   const portfolio = portfolioData;
   const holdings = portfolio?.holdings || [];
-  const transactions = transactionsData?.transactions || transactionsData || [];
+  const transactions = Array.isArray(transactionsData) ? transactionsData : ((transactionsData as any)?.transactions || []);
 
   // Enhanced debug logging
   const timestamp = new Date().toISOString();
@@ -213,10 +162,65 @@ export default function PortfolioScreen({ navigation }: Props): React.JSX.Elemen
       .sort((a, b) => b.percentage - a.percentage);
   }, [holdings]);
 
+  const styles = getStyles(theme);
+
+  // Component definitions that need styles
+  const HoldingCard = ({ holding, onPress }: { holding: Holding; onPress: () => void }) => {
+    const isPositive = holding.total_pnl >= 0;
+    
+    return (
+      <TouchableOpacity style={styles.holdingCard} onPress={onPress}>
+        <View style={styles.holdingHeader}>
+          <View>
+            <Text style={styles.ticker}>{holding.symbol}</Text>
+            <Text style={styles.companyName}>{holding.company_name}</Text>
+            {holding.sector && <Text style={styles.sector}>{holding.sector}</Text>}
+          </View>
+          <View style={styles.holdingValues}>
+            <Text style={styles.totalValue}>{formatCurrency(holding.current_value)}</Text>
+            <Text style={[styles.gainLoss, isPositive ? styles.positive : styles.negative]}>
+              {isPositive ? '+' : ''}{formatCurrency(holding.total_pnl)} ({formatPercentage(holding.total_pnl_pct)})
+            </Text>
+          </View>
+        </View>
+        
+        <View style={styles.holdingDetails}>
+          <View style={styles.detailItem}>
+            <Text style={styles.detailLabel}>Shares</Text>
+            <Text style={styles.detailValue}>{holding.quantity}</Text>
+          </View>
+          <View style={styles.detailItem}>
+            <Text style={styles.detailLabel}>Avg Price</Text>
+            <Text style={styles.detailValue}>
+              {holding.average_price != null && !isNaN(holding.average_price) 
+                ? formatCurrency(holding.average_price) 
+                : 'N/A'}
+            </Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  const SummaryCard = ({ title, value, subtitle, isPositive }: {
+    title: string;
+    value: string;
+    subtitle?: string;
+    isPositive?: boolean;
+  }) => (
+    <View style={styles.summaryCard}>
+      <GradientText style={styles.summaryTitle}>{title}</GradientText>
+      <Text style={[styles.summaryValue, isPositive !== undefined && (isPositive ? styles.positive : styles.negative)]}>
+        {value}
+      </Text>
+      {subtitle && <Text style={styles.summarySubtitle}>{subtitle}</Text>}
+    </View>
+  );
+
   if (isLoading) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={theme.colors.buttonBackground} />
         <Text style={styles.loadingText}>Loading portfolio...</Text>
       </View>
     );
@@ -244,7 +248,7 @@ export default function PortfolioScreen({ navigation }: Props): React.JSX.Elemen
       holding.symbol,
       `What would you like to do with ${holding.company_name}?`,
       [
-        { text: 'View Details', onPress: () => navigation.navigate('StockDetail', { symbol: holding.symbol }) },
+        { text: 'View Details', onPress: () => navigation.navigate('StockDetail', { ticker: holding.symbol }) },
         { text: 'Buy More', onPress: () => console.log('Buy more') },
         { text: 'Sell', onPress: () => console.log('Sell') },
         { text: 'Cancel', style: 'cancel' }
@@ -290,7 +294,9 @@ export default function PortfolioScreen({ navigation }: Props): React.JSX.Elemen
           <SummaryCard
             title="Best Performer"
             value={bestPerformer?.symbol || 'N/A'}
-            subtitle={bestPerformer ? `+${formatPercentage(bestPerformer.total_pnl_pct)}` : ''}
+            subtitle={bestPerformer && bestPerformer.total_pnl_pct != null && !isNaN(bestPerformer.total_pnl_pct)
+              ? `${bestPerformer.total_pnl_pct >= 0 ? '+' : ''}${formatPercentage(bestPerformer.total_pnl_pct)}`
+              : ''}
             isPositive={true}
           />
         </View>
@@ -357,16 +363,21 @@ export default function PortfolioScreen({ navigation }: Props): React.JSX.Elemen
           </View>
         )}
 
-        {/* Daily Performance */}
+        {/* Portfolio Performance */}
         <View style={styles.section}>
-          <GradientText style={styles.sectionTitle}>Today's Performance</GradientText>
+          <GradientText style={styles.sectionTitle}>Portfolio Performance</GradientText>
           <View style={styles.dailyPerformance}>
-            <Text style={styles.dailyLabel}>Daily Change</Text>
+            <Text style={styles.dailyLabel}>Total Gain/Loss</Text>
             <Text style={[
               styles.dailyValue,
-              dailyChange >= 0 ? styles.positive : styles.negative
+              totalGainLoss >= 0 ? styles.positive : styles.negative
             ]}>
-              {dailyChange >= 0 ? '+' : ''}{formatCurrency(dailyChange)} ({formatPercentage(dailyChangePercent)})
+              {totalGainLoss !== 0 
+                ? `${totalGainLoss >= 0 ? '+' : ''}${formatCurrency(Math.abs(totalGainLoss))}`
+                : '$0.00'} 
+              {totalGainLossPercent !== 0
+                ? ` (${totalGainLossPercent >= 0 ? '+' : '-'}${formatPercentage(Math.abs(totalGainLossPercent))})`
+                : ' (0.00%)'}
             </Text>
           </View>
         </View>
@@ -388,19 +399,19 @@ export default function PortfolioScreen({ navigation }: Props): React.JSX.Elemen
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   loadingContainer: {
     justifyContent: 'center',
     alignItems: 'center',
   },
   loadingText: {
     marginTop: 16,
-    color: colors.secondaryText,
+    color: theme.colors.secondaryText,
     fontSize: 16,
   },
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.background,
   },
   content: {
     padding: 16,
@@ -414,16 +425,16 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: colors.primaryText,
+    color: theme.colors.primaryText,
   },
   addButton: {
-    backgroundColor: '#10b981',
+    backgroundColor: theme.colors.greenAccent,
     borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 8,
   },
   addButtonText: {
-    color: colors.primaryText,
+    color: theme.colors.buttonText,
     fontWeight: '600',
   },
   summaryGrid: {
@@ -433,32 +444,34 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   summaryCard: {
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.surface,
     borderRadius: 12,
     padding: 16,
     width: '48%',
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   summaryTitle: {
     fontSize: 14,
-    color: colors.secondaryText,
+    color: theme.colors.secondaryText,
     marginBottom: 4,
   },
   summaryValue: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: colors.primaryText,
+    color: theme.colors.primaryText,
     marginBottom: 4,
   },
   summarySubtitle: {
     fontSize: 12,
-    color: colors.secondaryText,
+    color: theme.colors.secondaryText,
   },
   positive: {
-    color: '#10b981',
+    color: theme.colors.positive,
   },
   negative: {
-    color: '#ef4444',
+    color: theme.colors.negative,
   },
   section: {
     marginBottom: 24,
@@ -466,14 +479,16 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: colors.primaryText,
+    color: theme.colors.primaryText,
     marginBottom: 16,
   },
   holdingCard: {
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.surface,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   holdingHeader: {
     flexDirection: 'row',
@@ -483,16 +498,16 @@ const styles = StyleSheet.create({
   ticker: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: colors.buttonBackground,
+    color: theme.colors.blueAccent,
   },
   companyName: {
     fontSize: 14,
-    color: colors.secondaryText,
+    color: theme.colors.secondaryText,
     marginTop: 2,
   },
   sector: {
     fontSize: 12,
-    color: colors.secondaryText,
+    color: theme.colors.secondaryText,
     marginTop: 2,
   },
   holdingValues: {
@@ -501,7 +516,7 @@ const styles = StyleSheet.create({
   totalValue: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: colors.primaryText,
+    color: theme.colors.primaryText,
   },
   gainLoss: {
     fontSize: 14,
@@ -517,18 +532,20 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: 12,
-    color: colors.secondaryText,
+    color: theme.colors.secondaryText,
   },
   detailValue: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.secondaryText,
+    color: theme.colors.primaryText,
     marginTop: 2,
   },
   sectorList: {
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.surface,
     borderRadius: 12,
     padding: 16,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   sectorItem: {
     flexDirection: 'row',
@@ -537,30 +554,22 @@ const styles = StyleSheet.create({
   },
   sectorName: {
     fontSize: 16,
-    color: colors.secondaryText,
-  },
-  sectorItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
+    color: theme.colors.secondaryText,
   },
   sectorPercentage: {
-    color: colors.secondaryText,
+    color: theme.colors.primaryText,
     fontSize: 14,
     fontWeight: '600',
   },
-  sectorPercent: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.buttonBackground,
-  },
   dailyPerformance: {
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.surface,
     padding: 16,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   dailyLabel: {
-    color: colors.secondaryText,
+    color: theme.colors.secondaryText,
     fontSize: 14,
     marginBottom: 4,
   },
@@ -570,14 +579,16 @@ const styles = StyleSheet.create({
   },
   sectionSubtitle: {
     fontSize: 14,
-    color: colors.secondaryText,
+    color: theme.colors.secondaryText,
     marginBottom: 12,
   },
   transactionCard: {
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.surface,
     padding: 16,
     borderRadius: 8,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   transactionHeader: {
     flexDirection: 'row',
@@ -587,11 +598,11 @@ const styles = StyleSheet.create({
   transactionType: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#10b981',
+    color: theme.colors.greenAccent,
   },
   transactionDate: {
     fontSize: 12,
-    color: colors.secondaryText,
+    color: theme.colors.secondaryText,
   },
   transactionDetails: {
     gap: 4,
@@ -599,24 +610,26 @@ const styles = StyleSheet.create({
   transactionSymbol: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: colors.primaryText,
+    color: theme.colors.primaryText,
   },
   transactionQuantity: {
     fontSize: 14,
-    color: colors.secondaryText,
+    color: theme.colors.secondaryText,
   },
   transactionTotal: {
     fontSize: 14,
-    color: colors.secondaryText,
+    color: theme.colors.secondaryText,
   },
   emptyCard: {
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.surface,
     padding: 24,
     borderRadius: 12,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   emptyText: {
-    color: colors.secondaryText,
+    color: theme.colors.secondaryText,
     fontSize: 16,
   },
   actionButtons: {
@@ -626,7 +639,7 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
-    backgroundColor: colors.buttonBackground,
+    backgroundColor: theme.colors.buttonBackground,
     borderRadius: 8,
     padding: 16,
     alignItems: 'center',
@@ -634,35 +647,35 @@ const styles = StyleSheet.create({
   secondaryButton: {
     backgroundColor: 'transparent',
     borderWidth: 2,
-    borderColor: colors.buttonBackground,
+    borderColor: theme.colors.buttonBackground,
   },
   actionButtonText: {
-    color: colors.primaryText,
+    color: theme.colors.buttonText,
     fontSize: 16,
     fontWeight: '600',
   },
   secondaryButtonText: {
-    color: colors.buttonBackground,
+    color: theme.colors.buttonBackground,
   },
   errorText: {
-    color: '#ef4444',
+    color: theme.colors.negative,
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 8,
   },
   errorSubtext: {
-    color: colors.secondaryText,
+    color: theme.colors.secondaryText,
     fontSize: 14,
     marginBottom: 16,
   },
   retryButton: {
-    backgroundColor: colors.buttonBackground,
+    backgroundColor: theme.colors.buttonBackground,
     borderRadius: 8,
     paddingHorizontal: 24,
     paddingVertical: 12,
   },
   retryButtonText: {
-    color: colors.primaryText,
+    color: theme.colors.buttonText,
     fontWeight: '600',
   },
 });

@@ -6,7 +6,7 @@ import {
   StyleSheet, 
   RefreshControl,
   TouchableOpacity,
-  ActivityIndicator 
+  ActivityIndicator,
 } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { MainTabScreenProps } from '../navigation/types';
@@ -15,37 +15,23 @@ import {
   front_api_get_dashboard, 
   front_api_get_portfolio,
   formatCurrency, 
-  formatPercentage,
-  COLORS 
+  formatPercentage
 } from '@portfolio-tracker/shared';
 import GradientText from '../components/GradientText';
-import { colors } from '../theme/colors';
+import { useTheme } from '../contexts/ThemeContext';
+import { Theme } from '../theme/theme';
 
 type Props = MainTabScreenProps<'Dashboard'>;
 
-const KPICard = ({ title, value, subtitle, isPositive }: {
-  title: string;
-  value: string;
-  subtitle?: string;
-  isPositive?: boolean;
-}) => (
-  <View style={styles.kpiCard}>
-    <GradientText style={styles.kpiTitle}>{title}</GradientText>
-    <Text style={[styles.kpiValue, isPositive !== undefined && (isPositive ? styles.positive : styles.negative)]}>
-      {value}
-    </Text>
-    {subtitle && <Text style={styles.kpiSubtitle}>{subtitle}</Text>}
-  </View>
-);
-
 export default function DashboardScreen({ navigation }: Props): React.JSX.Element {
   const [refreshing, setRefreshing] = useState(false);
+  const { theme } = useTheme();
 
   // Fetch dashboard data
-  const { data: dashboardData, isLoading: dashboardLoading, refetch: refetchDashboard, error: dashboardError } = useQuery({
+  const { isLoading: dashboardLoading, refetch: refetchDashboard, error: dashboardError } = useQuery({
     queryKey: ['dashboard'],
     queryFn: front_api_get_dashboard,
-    refetchInterval: 60000, // Refresh every minute
+    // refetchInterval removed - load data only once
   });
 
 
@@ -53,7 +39,7 @@ export default function DashboardScreen({ navigation }: Props): React.JSX.Elemen
   const { data: portfolioData, refetch: refetchPortfolio, error: portfolioError } = useQuery({
     queryKey: ['portfolio'],
     queryFn: front_api_get_portfolio,
-    refetchInterval: 60000,
+    // refetchInterval removed - load data only once
   });
 
 
@@ -63,38 +49,49 @@ export default function DashboardScreen({ navigation }: Props): React.JSX.Elemen
     setRefreshing(false);
   }, [refetchDashboard, refetchPortfolio]);
 
-  // Extract data - the API returns the data directly, not wrapped in a 'data' field
-  const dashboard = dashboardData;
+  // Extract data from API responses
   const portfolio = portfolioData;
-
-  // Temporary debug logging to understand the issue
-  console.log('[DEBUG] Dashboard data structure:', JSON.stringify(dashboard, null, 2));
-  console.log('[DEBUG] Portfolio data structure:', JSON.stringify(portfolio, null, 2));
-  console.log('[DEBUG] Calculated values:', {
-    totalValue: dashboard?.portfolio?.total_value,
-    dailyChange: dashboard?.portfolio?.daily_change,
-    totalGainLoss: dashboard?.portfolio?.total_gain_loss,
-    holdingsCount: dashboard?.portfolio?.holdings_count,
-    transactionSummary: dashboard?.transaction_summary
-  });
-
-  // Calculate KPI values from dashboard data
-  const totalValue = dashboard?.portfolio?.total_value || 0;
-  const dailyChange = dashboard?.portfolio?.daily_change || 0;
-  const dailyChangePercent = dashboard?.portfolio?.daily_change_percent || 0;
-  const totalGainLoss = dashboard?.portfolio?.total_gain_loss || 0;
-  const totalGainLossPercent = dashboard?.portfolio?.total_gain_loss_percent || 0;
-  const holdingsCount = dashboard?.portfolio?.holdings_count || portfolio?.holdings?.length || 0;
+  
+  // Calculate KPI values from portfolio data
+  const totalValue = portfolio?.total_value || 0;
+  const totalGainLoss = portfolio?.total_gain_loss || 0;
+  const totalGainLossPercent = portfolio?.total_gain_loss_percent || 0;
+  const dailyChange = portfolio?.daily_change || 0;
+  const dailyChangePercent = portfolio?.daily_change_percent || 0;
+  const totalInvested = portfolio?.total_cost || portfolio?.total_invested || 0;
+  const holdings = portfolio?.holdings || [];
+  const holdingsCount = holdings.length;
 
   // Get top 3 holdings by value
-  const topHoldings = dashboard?.top_holdings || portfolio?.holdings
-    ?.sort((a: any, b: any) => b.current_value - a.current_value)
-    ?.slice(0, 3) || [];
+  const topHoldings = holdings
+    .sort((a: any, b: any) => (b.current_value || 0) - (a.current_value || 0))
+    .slice(0, 3);
+
+  const styles = getStyles(theme);
+
+  // KPICard component definition
+  const KPICard = ({ title, value, subtitle, isPositive }: {
+    title: string;
+    value: string;
+    subtitle?: string;
+    isPositive?: boolean;
+  }) => (
+    <View style={styles.kpiCard}>
+      <GradientText style={styles.kpiTitle}>{title}</GradientText>
+      <Text style={[
+        styles.kpiValue, 
+        isPositive !== undefined ? (isPositive ? styles.positive : styles.negative) : undefined
+      ]}>
+        {value}
+      </Text>
+      {subtitle && <Text style={styles.kpiSubtitle}>{subtitle}</Text>}
+    </View>
+  );
 
   if (dashboardLoading) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={theme.colors.buttonBackground} />
         <Text style={styles.loadingText}>Loading dashboard...</Text>
       </View>
     );
@@ -124,42 +121,40 @@ export default function DashboardScreen({ navigation }: Props): React.JSX.Elemen
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       <View style={styles.content}>
-        {/* HEADER */}
-        <View style={styles.header}>
-          <GradientText style={styles.headerTitle}>📱 NEW DASHBOARD 📱</GradientText>
-          <GradientText style={styles.headerSubtitle}>iOS Portfolio Tracker</GradientText>
-        </View>
 
         {/* KPI CARDS */}
         <View style={styles.kpiGrid}>
           <KPICard
             title="Total Value"
-            value={totalValue > 0 ? formatCurrency(totalValue) : (dashboard?.transaction_summary?.total_invested > 0 ? 'Pending' : '$0.00')}
+            value={totalValue > 0 ? formatCurrency(totalValue) : '$0.00'}
           />
           <KPICard
             title="Total Invested"
-            value={formatCurrency(dashboard?.transaction_summary?.total_invested || 0)}
-            subtitle={dashboard?.transaction_summary?.total_transactions ? `${dashboard.transaction_summary.total_transactions} transaction(s)` : 'No transactions'}
+            value={formatCurrency(totalInvested)}
+            subtitle={holdingsCount > 0 ? `${holdingsCount} holding(s)` : 'No holdings'}
           />
           <KPICard
             title="Total Gain/Loss"
             value={totalValue > 0 ? formatCurrency(Math.abs(totalGainLoss)) : '-'}
-            subtitle={totalValue > 0 ? `${totalGainLoss >= 0 ? '+' : '-'}${formatPercentage(Math.abs(totalGainLossPercent))}` : 'Awaiting prices'}
+            subtitle={totalValue > 0 ? `${totalGainLoss >= 0 ? '+' : '-'}${formatPercentage(Math.abs(totalGainLossPercent))}` : 'No data'}
             isPositive={totalGainLoss >= 0}
           />
           <KPICard
-            title="Holdings"
-            value={holdingsCount > 0 ? holdingsCount.toString() : (dashboard?.transaction_summary?.buy_count > 0 ? 'Processing' : '0')}
-            subtitle={holdingsCount > 0 ? 'Active Positions' : 'Pending calculation'}
+            title="Daily Change"
+            value={totalValue > 0 ? formatCurrency(Math.abs(dailyChange)) : '-'}
+            subtitle={totalValue > 0 ? `${dailyChange >= 0 ? '+' : '-'}${formatPercentage(Math.abs(dailyChangePercent))}` : 'No data'}
+            isPositive={dailyChange >= 0}
           />
         </View>
 
         {/* PORTFOLIO PERFORMANCE CHART */}
-        <PortfolioPerformanceChartKit 
-          height={300}
-          initialPeriod="1Y"
-          benchmarks={['SPY']}
-        />
+        <View style={styles.chartContainer}>
+          <PortfolioPerformanceChartKit 
+            height={300}
+            initialPeriod="1Y"
+            benchmarks={['SPY']}
+          />
+        </View>
 
         {/* TOP HOLDINGS */}
         {topHoldings.length > 0 ? (
@@ -175,31 +170,6 @@ export default function DashboardScreen({ navigation }: Props): React.JSX.Elemen
               ))}
             </View>
           </View>
-        ) : dashboard?.transaction_summary?.total_transactions > 0 ? (
-          <View style={styles.section}>
-            <GradientText style={styles.sectionTitle}>📈 Transaction Summary</GradientText>
-            <View style={styles.transactionInfo}>
-              <Text style={styles.infoText}>
-                You have {dashboard.transaction_summary.total_transactions} transaction(s) recorded.
-              </Text>
-              <Text style={styles.infoText}>
-                Total invested: {formatCurrency(dashboard.transaction_summary.total_invested)}
-              </Text>
-              <Text style={styles.infoSubtext}>
-                Holdings will appear here once stock prices are fetched.{"\n"}
-                This may take a moment for the backend to process.
-              </Text>
-              <TouchableOpacity 
-                style={styles.refreshButton}
-                onPress={() => {
-                  refetchDashboard();
-                  refetchPortfolio();
-                }}
-              >
-                <Text style={styles.refreshButtonText}>Refresh</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
         ) : (
           <View style={styles.section}>
             <GradientText style={styles.sectionTitle}>📈 Getting Started</GradientText>
@@ -212,102 +182,93 @@ export default function DashboardScreen({ navigation }: Props): React.JSX.Elemen
 
         {/* MARKET DATA - TODO: Add market indices when available in API */}
 
-        {/* TEST BUTTONS */}
-        <View style={styles.section}>
-          <TouchableOpacity 
-            style={styles.button}
-            onPress={() => navigation.navigate('Portfolio')}
-          >
-            <Text style={styles.buttonText}>Go to Portfolio →</Text>
-          </TouchableOpacity>
-        </View>
 
       </View>
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   loadingContainer: {
     justifyContent: 'center',
     alignItems: 'center',
   },
   loadingText: {
     marginTop: 16,
-    color: colors.secondaryText,
+    color: theme.colors.secondaryText,
     fontSize: 16,
   },
   errorText: {
-    color: COLORS.negative,
+    color: theme.colors.negative,
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 8,
   },
   errorDetail: {
-    color: colors.secondaryText,
+    color: theme.colors.secondaryText,
     fontSize: 14,
     marginBottom: 16,
     textAlign: 'center',
     paddingHorizontal: 32,
   },
   retryButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: theme.colors.buttonBackground,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
   },
   retryButtonText: {
-    color: colors.primaryText,
+    color: theme.colors.buttonText,
     fontSize: 16,
     fontWeight: '600',
   },
   transactionInfo: {
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.surface,
     padding: 16,
     borderRadius: 12,
   },
   infoText: {
-    color: colors.primaryText,
+    color: theme.colors.primaryText,
     fontSize: 16,
     marginBottom: 8,
   },
   infoSubtext: {
-    color: colors.secondaryText,
+    color: theme.colors.secondaryText,
     fontSize: 14,
     marginTop: 8,
   },
   emptyState: {
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.surface,
     padding: 24,
     borderRadius: 12,
     alignItems: 'center',
   },
   emptyText: {
-    color: colors.primaryText,
+    color: theme.colors.primaryText,
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 8,
   },
   emptySubtext: {
-    color: colors.secondaryText,
+    color: theme.colors.secondaryText,
     fontSize: 14,
     textAlign: 'center',
   },
   refreshButton: {
     marginTop: 16,
-    backgroundColor: COLORS.primary,
+    backgroundColor: theme.colors.buttonBackground,
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 6,
   },
   refreshButtonText: {
-    color: colors.primaryText,
+    color: theme.colors.buttonText,
     fontSize: 14,
     fontWeight: '600',
   },
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.background,
   },
   content: {
     padding: 16,
@@ -317,15 +278,25 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     paddingVertical: 20,
   },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 20,
+  },
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: colors.primaryText,
-    marginBottom: 8,
   },
-  headerSubtitle: {
-    fontSize: 16,
-    color: colors.secondaryText,
+  settingsButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  settingsIcon: {
+    fontSize: 24,
   },
   kpiGrid: {
     flexDirection: 'row',
@@ -334,32 +305,37 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   kpiCard: {
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.surface,
     borderRadius: 12,
     padding: 16,
     width: '48%',
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   kpiTitle: {
     fontSize: 14,
-    color: colors.secondaryText,
+    color: theme.colors.secondaryText,
     marginBottom: 4,
   },
   kpiValue: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: colors.primaryText,
+    color: theme.colors.primaryText,
     marginBottom: 4,
   },
   kpiSubtitle: {
     fontSize: 12,
-    color: colors.secondaryText,
+    color: theme.colors.secondaryText,
   },
   positive: {
-    color: '#10b981',
+    color: theme.colors.positive,
   },
   negative: {
-    color: '#ef4444',
+    color: theme.colors.negative,
+  },
+  chartContainer: {
+    marginBottom: 32,
   },
   section: {
     marginBottom: 24,
@@ -367,13 +343,15 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: colors.primaryText,
+    color: theme.colors.primaryText,
     marginBottom: 16,
   },
   holdingsList: {
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.surface,
     borderRadius: 12,
     padding: 16,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   holdingItem: {
     flexDirection: 'row',
@@ -381,27 +359,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#4b5563',
+    borderBottomColor: theme.colors.border,
   },
   holdingTicker: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: colors.buttonBackground,
+    color: theme.colors.blueAccent,
     width: 60,
   },
   holdingName: {
     fontSize: 14,
-    color: colors.secondaryText,
+    color: theme.colors.secondaryText,
     flex: 1,
     marginLeft: 12,
   },
   holdingValue: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.primaryText,
+    color: theme.colors.primaryText,
   },
   marketList: {
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.surface,
     borderRadius: 12,
     padding: 16,
   },
@@ -411,24 +389,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#4b5563',
+    borderBottomColor: theme.colors.border,
   },
   marketName: {
     fontSize: 16,
-    color: colors.secondaryText,
+    color: theme.colors.secondaryText,
   },
   marketValue: {
     fontSize: 16,
     fontWeight: '600',
   },
   button: {
-    backgroundColor: colors.buttonBackground,
+    backgroundColor: theme.colors.buttonBackground,
     borderRadius: 8,
     padding: 16,
     alignItems: 'center',
   },
   buttonText: {
-    color: colors.primaryText,
+    color: theme.colors.buttonText,
     fontSize: 16,
     fontWeight: '600',
   },

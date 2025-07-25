@@ -8,21 +8,23 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
-  ActivityIndicator
+  ActivityIndicator,
+  Image
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { supabase } from '@portfolio-tracker/shared';
-import GradientText from '../components/GradientText';
-import { colors } from '../theme/colors';
+import { useTheme } from '../contexts/ThemeContext';
+import { Theme } from '../theme/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Auth'>;
 
-export default function AuthScreen({ navigation }: Props): React.JSX.Element {
+export default function AuthScreen(_: Props): React.JSX.Element {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [isLogin, setIsLogin] = useState<boolean>(true);
   const [loading, setLoading] = useState<boolean>(false);
+  const { theme } = useTheme();
 
   const handleAuth = async (): Promise<void> => {
     if (!email || !password) {
@@ -62,13 +64,19 @@ export default function AuthScreen({ navigation }: Props): React.JSX.Element {
     }
   };
 
+  const styles = getStyles(theme);
+
   return (
     <KeyboardAvoidingView 
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.content}>
-        <GradientText style={styles.title}>Portfolio Tracker</GradientText>
+        <Image 
+          source={require('../../assets/logo.png')} 
+          style={styles.logo}
+          resizeMode="contain"
+        />
         <Text style={styles.subtitle}>
           {isLogin ? 'Welcome back!' : 'Create your account'}
         </Text>
@@ -77,7 +85,7 @@ export default function AuthScreen({ navigation }: Props): React.JSX.Element {
           <TextInput
             style={styles.input}
             placeholder="Email"
-            placeholderTextColor={colors.secondaryText}
+            placeholderTextColor={theme.colors.secondaryText}
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
@@ -88,7 +96,7 @@ export default function AuthScreen({ navigation }: Props): React.JSX.Element {
           <TextInput
             style={styles.input}
             placeholder="Password"
-            placeholderTextColor={colors.secondaryText}
+            placeholderTextColor={theme.colors.secondaryText}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
@@ -101,7 +109,7 @@ export default function AuthScreen({ navigation }: Props): React.JSX.Element {
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color={colors.primaryText} />
+              <ActivityIndicator color={theme.colors.buttonText} />
             ) : (
               <Text style={styles.buttonText}>
                 {isLogin ? 'Login' : 'Sign Up'}
@@ -123,52 +131,54 @@ export default function AuthScreen({ navigation }: Props): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.background,
   },
   content: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 10,
   },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: colors.primaryText,
-    marginBottom: 8,
+  logo: {
+    width: 1000,
+    height: 420,
+    marginBottom: -100,
   },
   subtitle: {
-    fontSize: 16,
-    color: colors.secondaryText,
-    marginBottom: 40,
+    fontSize: 25,
+    color: theme.colors.secondaryText,
+    marginBottom: 80,
   },
   form: {
     width: '100%',
     maxWidth: 300,
   },
   input: {
-    backgroundColor: colors.border,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     borderRadius: 8,
     padding: 16,
     marginBottom: 16,
-    color: colors.primaryText,
+    color: theme.colors.primaryText,
     fontSize: 16,
   },
   button: {
-    backgroundColor: colors.buttonBackground,
+    backgroundColor: theme.colors.buttonBackground,
     borderRadius: 8,
     padding: 16,
     alignItems: 'center',
     marginBottom: 16,
   },
   buttonDisabled: {
-    backgroundColor: colors.secondaryText,
+    backgroundColor: theme.colors.neutral,
+    opacity: 0.6,
   },
   buttonText: {
-    color: colors.buttonText,
+    color: theme.colors.buttonText,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -176,7 +186,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   switchText: {
-    color: colors.buttonBackground,
+    color: theme.colors.blueAccent,
     fontSize: 14,
   },
 });

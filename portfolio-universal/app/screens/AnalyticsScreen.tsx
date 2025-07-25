@@ -10,38 +10,43 @@ import { useQuery } from '@tanstack/react-query';
 import { MainTabScreenProps } from '../navigation/types';
 import { 
   front_api_get_portfolio,
-  front_api_get_dashboard,
   formatCurrency,
-  formatPercentage,
-  COLORS 
+  formatPercentage
 } from '@portfolio-tracker/shared';
 import GradientText from '../components/GradientText';
-import { colors } from '../theme/colors';
+import { useTheme } from '../contexts/ThemeContext';
+import { Theme } from '../theme/theme';
 
 type Props = MainTabScreenProps<'Analytics'>;
 
-export default function AnalyticsScreen({ navigation }: Props): React.JSX.Element {
+export default function AnalyticsScreen(_props: Props): React.JSX.Element {
+  const { theme } = useTheme();
+  
   // Fetch portfolio data
   const { data: portfolioData, isLoading: portfolioLoading } = useQuery({
     queryKey: ['portfolio'],
     queryFn: front_api_get_portfolio,
-    refetchInterval: 60000,
+    // refetchInterval removed - load data only once
   });
 
-  // Fetch dashboard data
-  const { data: dashboardData, isLoading: dashboardLoading } = useQuery({
-    queryKey: ['dashboard'],
-    queryFn: front_api_get_dashboard,
-    refetchInterval: 60000,
-  });
 
   // Extract data - the API returns the data directly
   const portfolio = portfolioData;
-  const dashboard = dashboardData;
   const holdings = portfolio?.holdings || [];
 
   // Calculate portfolio metrics
-  const metrics = useMemo(() => {
+  const metrics = useMemo<{
+    totalValue: number;
+    totalCost: number;
+    totalReturn: number;
+    totalReturnPercent: number;
+    volatility: number;
+    beta: number | null;
+    sharpeRatio: number | null;
+    maxDrawdown: number | null;
+    holdingsCount: number;
+    avgHoldingSize: number;
+  } | null>(() => {
     if (!portfolio || !holdings.length) return null;
 
     // Basic metrics
@@ -56,10 +61,10 @@ export default function AnalyticsScreen({ navigation }: Props): React.JSX.Elemen
     const variance = dailyReturns.length > 0 ? dailyReturns.reduce((sum: number, ret: number) => sum + Math.pow(ret - avgReturn, 2), 0) / dailyReturns.length : 0;
     const volatility = Math.sqrt(variance);
 
-    // Risk metrics (simplified)
-    const beta = 1.15; // Placeholder - would need market correlation data
-    const sharpeRatio = totalReturnPercent > 0 ? (totalReturnPercent - 2) / (volatility || 1) : 0; // Assuming 2% risk-free rate
-    const maxDrawdown = -15.2; // Placeholder - would need historical data
+    // Risk metrics (calculate what we can, set others to null)
+    const beta: number | null = null; // Requires market correlation data
+    const sharpeRatio: number | null = null; // Requires historical returns data
+    const maxDrawdown: number | null = null; // Requires historical data
 
     return {
       totalValue,
@@ -114,12 +119,13 @@ export default function AnalyticsScreen({ navigation }: Props): React.JSX.Elemen
       .slice(0, 3);
   }, [holdings]);
 
-  const isLoading = portfolioLoading || dashboardLoading;
+  const isLoading = portfolioLoading;
+  const styles = getStyles(theme);
 
   if (isLoading) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
-        <ActivityIndicator size="large" color={colors.buttonBackground} />
+        <ActivityIndicator size="large" color={theme.colors.buttonBackground} />
         <Text style={styles.loadingText}>Loading analytics...</Text>
       </View>
     );
@@ -185,20 +191,26 @@ export default function AnalyticsScreen({ navigation }: Props): React.JSX.Elemen
           <View style={styles.riskGrid}>
             <View style={styles.riskItem}>
               <Text style={styles.riskLabel}>Volatility</Text>
-              <Text style={styles.riskValue}>{formatPercentage(metrics.volatility / 100)}</Text>
+              <Text style={styles.riskValue}>
+                {metrics.volatility > 0 ? formatPercentage(metrics.volatility / 100) : 'N/A'}
+              </Text>
             </View>
             <View style={styles.riskItem}>
               <Text style={styles.riskLabel}>Beta</Text>
-              <Text style={styles.riskValue}>{metrics.beta.toFixed(2)}</Text>
+              <Text style={styles.riskValue}>
+                {metrics.beta !== null ? metrics.beta.toFixed(2) : 'N/A'}
+              </Text>
             </View>
             <View style={styles.riskItem}>
               <Text style={styles.riskLabel}>Sharpe Ratio</Text>
-              <Text style={styles.riskValue}>{metrics.sharpeRatio.toFixed(2)}</Text>
+              <Text style={styles.riskValue}>
+                {metrics.sharpeRatio !== null ? metrics.sharpeRatio.toFixed(2) : 'N/A'}
+              </Text>
             </View>
             <View style={styles.riskItem}>
               <Text style={styles.riskLabel}>Max Drawdown</Text>
-              <Text style={[styles.riskValue, styles.negative]}>
-                {formatPercentage(Math.abs(metrics.maxDrawdown) / 100)}
+              <Text style={[styles.riskValue, metrics.maxDrawdown != null && styles.negative]}>
+                {metrics.maxDrawdown != null ? formatPercentage(Math.abs(metrics.maxDrawdown) / 100) : 'N/A'}
               </Text>
             </View>
           </View>
@@ -278,10 +290,10 @@ export default function AnalyticsScreen({ navigation }: Props): React.JSX.Elemen
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.background,
   },
   loadingContainer: {
     justifyContent: 'center',
@@ -289,7 +301,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 16,
-    color: colors.secondaryText,
+    color: theme.colors.secondaryText,
     fontSize: 16,
   },
   emptyContainer: {
@@ -304,12 +316,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: colors.primaryText,
+    color: theme.colors.primaryText,
     marginBottom: 8,
   },
   emptySubtitle: {
     fontSize: 16,
-    color: colors.secondaryText,
+    color: theme.colors.secondaryText,
     textAlign: 'center',
   },
   content: {
@@ -321,7 +333,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: colors.primaryText,
+    color: theme.colors.primaryText,
   },
   section: {
     marginBottom: 32,
@@ -329,7 +341,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: colors.primaryText,
+    color: theme.colors.primaryText,
     marginBottom: 16,
   },
   metricsGrid: {
@@ -338,31 +350,33 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   metricCard: {
-    backgroundColor: colors.border,
+    backgroundColor: theme.colors.surface,
     padding: 16,
     borderRadius: 12,
     flex: 1,
     minWidth: '45%',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   metricLabel: {
     fontSize: 14,
-    color: colors.secondaryText,
+    color: theme.colors.secondaryText,
     marginBottom: 8,
   },
   metricValue: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: colors.primaryText,
+    color: theme.colors.primaryText,
   },
   metricSubvalue: {
     fontSize: 14,
     marginTop: 4,
   },
   positive: {
-    color: COLORS.positive,
+    color: theme.colors.positive,
   },
   negative: {
-    color: COLORS.negative,
+    color: theme.colors.negative,
   },
   riskGrid: {
     flexDirection: 'row',
@@ -375,13 +389,13 @@ const styles = StyleSheet.create({
   },
   riskLabel: {
     fontSize: 14,
-    color: colors.secondaryText,
+    color: theme.colors.secondaryText,
     marginBottom: 4,
   },
   riskValue: {
     fontSize: 18,
     fontWeight: '600',
-    color: colors.primaryText,
+    color: theme.colors.primaryText,
   },
   allocationItem: {
     marginBottom: 16,
@@ -393,44 +407,46 @@ const styles = StyleSheet.create({
   },
   allocationSector: {
     fontSize: 16,
-    color: colors.primaryText,
+    color: theme.colors.primaryText,
   },
   allocationValue: {
     fontSize: 16,
-    color: colors.secondaryText,
+    color: theme.colors.secondaryText,
   },
   allocationBar: {
     height: 8,
-    backgroundColor: colors.border,
+    backgroundColor: theme.colors.border,
     borderRadius: 4,
     marginBottom: 4,
   },
   allocationFill: {
     height: '100%',
-    backgroundColor: colors.buttonBackground,
+    backgroundColor: theme.colors.blueAccent,
     borderRadius: 4,
   },
   allocationPercent: {
     fontSize: 14,
-    color: colors.secondaryText,
+    color: theme.colors.secondaryText,
   },
   performerItem: {
-    backgroundColor: colors.border,
+    backgroundColor: theme.colors.surface,
     padding: 16,
     borderRadius: 8,
     marginBottom: 12,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   performerSymbol: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.primaryText,
+    color: theme.colors.primaryText,
   },
   performerName: {
     fontSize: 14,
-    color: colors.secondaryText,
+    color: theme.colors.secondaryText,
     marginTop: 2,
   },
   performerMetrics: {

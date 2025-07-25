@@ -79,7 +79,7 @@
     "nativewind-env.d.ts"
   ],
   "exclude": [
-    "node_modules",
+    //"node_modules",
     "babel.config.js",
     "metro.config.js",
     "jest.config.js"
