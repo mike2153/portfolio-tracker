@@ -22,9 +22,12 @@ from fastapi import HTTPException
 from services.portfolio_calculator import portfolio_calculator
 from services.price_manager import price_manager
 from services.dividend_service import DividendService
+from services.forex_manager import ForexManager
 from supa_api.supa_api_client import get_supa_service_client
 from supa_api.supa_api_jwt_helpers import create_authenticated_client
+from supa_api.supa_api_user_profile import get_user_base_currency
 from debug_logger import DebugLogger
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +59,8 @@ class PortfolioHolding(BaseModel):
     realized_pnl: Decimal = Field(default=Decimal("0"))  # Realized profit/loss from sold positions
     price_date: Optional[datetime] = None
     allocation_percent: float = Field(ge=0, le=100)
+    currency: str = Field(default="USD")  # Stock's native currency
+    base_currency_value: Optional[Decimal] = None  # Value in user's base currency
     
     class Config:
         json_encoders = {
@@ -76,6 +81,7 @@ class PortfolioPerformance(BaseModel):
     dividends_ytd: Decimal = Field(default=Decimal("0"))
     xirr: Optional[float] = None
     sharpe_ratio: Optional[float] = None
+    base_currency: str = Field(default="USD")
     
     class Config:
         json_encoders = {
@@ -219,12 +225,81 @@ class PortfolioMetricsManager:
         self.dividend_service = DividendService()
         self.cache_config = CacheConfig()
         
+        # Initialize ForexManager with Alpha Vantage key
+        alpha_vantage_key = os.getenv("ALPHA_VANTAGE_API_KEY", "")
+        supabase_client = get_supa_service_client()
+        self.forex_manager = ForexManager(supabase_client, alpha_vantage_key)
+        
         # Circuit breaker configuration
         self._service_failures: Dict[str, int] = {}
         self._max_failures = 3
         self._failure_reset_time: Dict[str, datetime] = {}
         
+        # Cache for user base currency
+        self._user_currency_cache: Dict[str, Tuple[str, datetime]] = {}
+        
         logger.info("[PortfolioMetricsManager] Initialized")
+    
+    # ========================================================================
+    # Currency Conversion Methods
+    # ========================================================================
+    
+    async def get_user_base_currency(self, user_id: str) -> str:
+        """
+        Get user's base currency with caching
+        
+        Args:
+            user_id: User's UUID
+            
+        Returns:
+            Base currency code (defaults to 'USD')
+        """
+        # Check cache first
+        if user_id in self._user_currency_cache:
+            currency, cached_at = self._user_currency_cache[user_id]
+            if datetime.now() - cached_at < timedelta(hours=1):
+                return currency
+        
+        # Fetch from database
+        supabase_client = get_supa_service_client()
+        base_currency = await get_user_base_currency(supabase_client, user_id)
+        
+        # Cache the result
+        self._user_currency_cache[user_id] = (base_currency, datetime.now())
+        
+        return base_currency
+    
+    async def convert_to_base_currency(
+        self,
+        amount: Decimal,
+        from_currency: str,
+        user_id: str,
+        as_of_date: date
+    ) -> Decimal:
+        """
+        Convert amount to user's base currency
+        
+        Args:
+            amount: Amount to convert
+            from_currency: Source currency code
+            user_id: User's UUID
+            as_of_date: Date for exchange rate
+            
+        Returns:
+            Amount in user's base currency
+        """
+        base_currency = await self.get_user_base_currency(user_id)
+        
+        if from_currency == base_currency:
+            return amount
+            
+        rate = await self.forex_manager.get_exchange_rate(
+            from_currency,
+            base_currency,
+            as_of_date
+        )
+        
+        return amount * rate
     
     # ========================================================================
     # Primary Public Method
@@ -414,8 +489,13 @@ class PortfolioMetricsManager:
         elif isinstance(time_series_result, BaseException):
             logger.warning(f"[PortfolioMetricsManager] Time series fetch failed: {time_series_result}")
         
+        # Get user's base currency
+        base_currency = await self.get_user_base_currency(user_id)
+        self._current_base_currency = base_currency  # Store for use in _calculate_performance
+        
         # Stage 3: Calculate derived metrics
         logger.info(f"[PortfolioMetricsManager] Stage 3: Calculating derived metrics...")
+        logger.info(f"[PortfolioMetricsManager] User base currency: {base_currency}")
         performance = self._calculate_performance(holdings, dividend_summary)
         sector_allocation = self._calculate_sector_allocation(holdings)
         top_performers = self._get_top_performers(holdings)
@@ -480,12 +560,30 @@ class PortfolioMetricsManager:
                 logger.warning(f"Holdings data from calculator is not a list: {type(holdings_list)}")
                 holdings_list = []
 
+            # Get user's base currency for conversion
+            base_currency = await self.get_user_base_currency(user_id)
+            
             for h in holdings_list:
                 if not isinstance(h, dict): continue # Skip non-dict items
                 try:
                     current_value = Decimal(str(h.get("current_value", 0)))
+                    symbol = h.get("symbol", "UNKNOWN")
+                    
+                    # Determine stock currency from symbol
+                    stock_currency = self._get_stock_currency(symbol)
+                    
+                    # Convert value to base currency if needed
+                    base_currency_value = current_value
+                    if stock_currency != base_currency:
+                        base_currency_value = await self.convert_to_base_currency(
+                            current_value,
+                            stock_currency,
+                            user_id,
+                            date.today()
+                        )
+                    
                     holding = PortfolioHolding(
-                        symbol=h.get("symbol", "UNKNOWN"),
+                        symbol=symbol,
                         quantity=Decimal(str(h.get("quantity", 0))),
                         avg_cost=Decimal(str(h.get("avg_cost", 0))),
                         total_cost=Decimal(str(h.get("total_cost", 0))),
@@ -496,7 +594,9 @@ class PortfolioMetricsManager:
                         dividends_received=Decimal(str(h.get("dividends_received", 0))),
                         realized_pnl=Decimal(str(h.get("realized_pnl", 0))),
                         price_date=datetime.fromisoformat(h["price_date"]) if h.get("price_date") else None,
-                        allocation_percent=(float(current_value) / total_value * 100) if total_value > 0 else 0.0
+                        allocation_percent=(float(current_value) / total_value * 100) if total_value > 0 else 0.0,
+                        currency=stock_currency,
+                        base_currency_value=base_currency_value
                     )
                     result.append(holding)
                 except (ValueError, TypeError, KeyError) as e:
@@ -630,16 +730,78 @@ class PortfolioMetricsManager:
     # Calculation Helper Methods
     # ========================================================================
     
+    def _get_stock_currency(self, symbol: str) -> str:
+        """
+        Determine currency from stock symbol suffix
+        
+        Args:
+            symbol: Stock symbol
+            
+        Returns:
+            Currency code (defaults to 'USD')
+        """
+        symbol_upper = symbol.upper()
+        
+        # Common international exchanges
+        if symbol_upper.endswith('.AX'):
+            return 'AUD'  # Australian Stock Exchange
+        elif symbol_upper.endswith('.L'):
+            return 'GBP'  # London Stock Exchange
+        elif symbol_upper.endswith('.TO'):
+            return 'CAD'  # Toronto Stock Exchange
+        elif symbol_upper.endswith('.PA'):
+            return 'EUR'  # Euronext Paris
+        elif symbol_upper.endswith('.DE'):
+            return 'EUR'  # Frankfurt Stock Exchange
+        elif symbol_upper.endswith('.MC'):
+            return 'EUR'  # Madrid Stock Exchange
+        elif symbol_upper.endswith('.MI'):
+            return 'EUR'  # Milan Stock Exchange
+        elif symbol_upper.endswith('.AS'):
+            return 'EUR'  # Amsterdam Stock Exchange
+        elif symbol_upper.endswith('.BR'):
+            return 'EUR'  # Brussels Stock Exchange
+        elif symbol_upper.endswith('.SW'):
+            return 'CHF'  # Swiss Exchange
+        elif symbol_upper.endswith('.T'):
+            return 'JPY'  # Tokyo Stock Exchange
+        elif symbol_upper.endswith('.HK'):
+            return 'HKD'  # Hong Kong Stock Exchange
+        elif symbol_upper.endswith('.SI'):
+            return 'SGD'  # Singapore Exchange
+        elif symbol_upper.endswith('.NS') or symbol_upper.endswith('.BO'):
+            return 'INR'  # National Stock Exchange/Bombay Stock Exchange
+        elif symbol_upper.endswith('.KS') or symbol_upper.endswith('.KQ'):
+            return 'KRW'  # Korea Exchange
+        elif symbol_upper.endswith('.NZ'):
+            return 'NZD'  # New Zealand Exchange
+        elif symbol_upper.endswith('.MX'):
+            return 'MXN'  # Mexican Stock Exchange
+        elif symbol_upper.endswith('.SA'):
+            return 'BRL'  # São Paulo Stock Exchange
+        else:
+            return 'USD'  # Default to USD
+    
     def _calculate_performance(
         self, 
         holdings: List[PortfolioHolding], 
         dividend_summary: DividendSummary
     ) -> PortfolioPerformance:
-        """Calculate aggregate performance metrics"""
-        total_value = sum((h.current_value for h in holdings), Decimal("0"))
+        """Calculate aggregate performance metrics using base currency values"""
+        # Use base_currency_value if available, otherwise fallback to current_value
+        total_value = sum(
+            (h.base_currency_value if h.base_currency_value else h.current_value for h in holdings), 
+            Decimal("0")
+        )
         total_cost = sum((h.total_cost for h in holdings), Decimal("0"))
         total_gain_loss = total_value - total_cost
         total_gain_loss_percent = (total_gain_loss / total_cost * 100) if total_cost > 0 else Decimal("0")
+        
+        # Get base currency from first holding that has it, or default to USD
+        base_currency = "USD"
+        if holdings:
+            # Try to get from holdings context (would need to be passed in)
+            base_currency = getattr(self, '_current_base_currency', 'USD')
         
         return PortfolioPerformance(
             total_value=total_value,
@@ -651,7 +813,8 @@ class PortfolioMetricsManager:
             dividends_total=dividend_summary.total_received,
             dividends_ytd=dividend_summary.ytd_received,
             xirr=None,  # TODO: Calculate XIRR in Step 3
-            sharpe_ratio=None  # TODO: Calculate Sharpe in future
+            sharpe_ratio=None,  # TODO: Calculate Sharpe in future
+            base_currency=base_currency
         )
     
     def _calculate_sector_allocation(self, holdings: List[PortfolioHolding]) -> Dict[str, float]:

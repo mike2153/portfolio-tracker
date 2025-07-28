@@ -36,6 +36,7 @@ class TransactionCreate(BaseModel):
     price: float
     date: str
     currency: str = "USD"
+    exchange_rate: float = 1.0  # Exchange rate to user's base currency
     commission: float = 0.0
     notes: str = ""
 
@@ -46,6 +47,7 @@ class TransactionUpdate(BaseModel):
     price: float
     date: str
     currency: str
+    exchange_rate: float = 1.0
     commission: float
     notes: str
 
@@ -91,7 +93,9 @@ async def backend_api_get_portfolio(
                 "gain_loss": float(holding.gain_loss),
                 "gain_loss_percent": holding.gain_loss_percent,
                 "dividends_received": float(holding.dividends_received) if hasattr(holding, 'dividends_received') else 0,
-                "price_date": holding.price_date
+                "price_date": holding.price_date,
+                "currency": holding.currency if hasattr(holding, 'currency') else "USD",
+                "base_currency_value": float(holding.base_currency_value) if hasattr(holding, 'base_currency_value') and holding.base_currency_value else float(holding.current_value)
             })
         
         response_data = {
@@ -101,6 +105,7 @@ async def backend_api_get_portfolio(
             "total_cost": float(metrics.performance.total_cost),
             "total_gain_loss": float(metrics.performance.total_gain_loss),
             "total_gain_loss_percent": metrics.performance.total_gain_loss_percent,
+            "base_currency": metrics.performance.base_currency if hasattr(metrics.performance, 'base_currency') else "USD",
             "cache_status": metrics.cache_status,
             "computation_time_ms": metrics.computation_time_ms
         }

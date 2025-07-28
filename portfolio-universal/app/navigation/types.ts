@@ -5,6 +5,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 // Root Stack Navigator
 export type RootStackParamList = {
   Auth: undefined;
+  ProfileCompletion: undefined;
   Main: NavigatorScreenParams<MainTabParamList>;
   StockDetail: { ticker: string };
   TransactionForm: { portfolioId?: string; ticker?: string };

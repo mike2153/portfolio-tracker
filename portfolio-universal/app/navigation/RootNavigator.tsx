@@ -4,6 +4,7 @@ import { useAuth } from '../components/AuthProvider';
 import { RootStackParamList } from './types';
 import { useTheme } from '../contexts/ThemeContext';
 import AuthScreen from '../screens/AuthScreen';
+import { ProfileCompletionScreen } from '../screens/ProfileCompletionScreen';
 import MainTabNavigator from './MainTabNavigator';
 import StockDetailScreen from '../screens/StockDetailScreen';
 import TransactionFormScreen from '../screens/TransactionFormScreen';
@@ -21,6 +22,7 @@ export default function RootNavigator() {
         <Stack.Screen name="Auth" component={AuthScreen} />
       ) : (
         <>
+          <Stack.Screen name="ProfileCompletion" component={ProfileCompletionScreen} />
           <Stack.Screen name="Main" component={MainTabNavigator} />
           <Stack.Screen 
             name="StockDetail" 

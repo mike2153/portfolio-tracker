@@ -153,3 +153,4 @@ build/
 #frontend/.env
 
 nul
+repopack-output.txt

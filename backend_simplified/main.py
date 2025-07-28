@@ -36,6 +36,8 @@ from backend_api_routes.backend_api_portfolio import portfolio_router
 from backend_api_routes.backend_api_dashboard import dashboard_router
 from backend_api_routes.backend_api_analytics import analytics_router
 from backend_api_routes.backend_api_watchlist import watchlist_router
+from backend_api_routes.backend_api_user_profile import user_profile_router
+from backend_api_routes.backend_api_forex import forex_router
 
 # Configure logging
 logging.basicConfig(level=getattr(logging, LOG_LEVEL))
@@ -164,6 +166,8 @@ app.include_router(portfolio_router, prefix="/api", tags=["Portfolio"])
 app.include_router(dashboard_router, tags=["Dashboard"])  # No prefix - router already has /api prefix
 app.include_router(analytics_router, prefix="/api/analytics", tags=["Analytics"])
 app.include_router(watchlist_router, tags=["Watchlist"])  # No prefix - router already has /api/watchlist prefix
+app.include_router(user_profile_router, prefix="/api", tags=["User Profile"])
+app.include_router(forex_router, prefix="/api", tags=["Forex"])
 
 # Request logging middleware
 @app.middleware("http")

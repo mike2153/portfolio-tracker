@@ -33,6 +33,8 @@ interface Holding {
   total_pnl: number;
   total_pnl_pct: number;
   sector?: string;
+  currency?: string;
+  base_currency_value?: number;
 }
 
 export default function PortfolioScreen({ navigation }: Props): React.JSX.Element {
@@ -175,9 +177,14 @@ export default function PortfolioScreen({ navigation }: Props): React.JSX.Elemen
             <Text style={styles.ticker}>{holding.symbol}</Text>
             <Text style={styles.companyName}>{holding.company_name}</Text>
             {holding.sector && <Text style={styles.sector}>{holding.sector}</Text>}
+            {holding.currency && holding.currency !== portfolio?.base_currency && (
+              <Text style={styles.currency}>{holding.currency}</Text>
+            )}
           </View>
           <View style={styles.holdingValues}>
-            <Text style={styles.totalValue}>{formatCurrency(holding.current_value)}</Text>
+            <Text style={styles.totalValue}>
+              {formatCurrency(holding.base_currency_value || holding.current_value)}
+            </Text>
             <Text style={[styles.gainLoss, isPositive ? styles.positive : styles.negative]}>
               {isPositive ? '+' : ''}{formatCurrency(holding.total_pnl)} ({formatPercentage(holding.total_pnl_pct)})
             </Text>
@@ -277,7 +284,7 @@ export default function PortfolioScreen({ navigation }: Props): React.JSX.Elemen
         {/* Portfolio Summary */}
         <View style={styles.summaryGrid}>
           <SummaryCard
-            title="Total Value"
+            title={`Total Value ${portfolio?.base_currency ? `(${portfolio.base_currency})` : ''}`}
             value={formatCurrency(totalValue)}
           />
           <SummaryCard
@@ -499,6 +506,11 @@ const getStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: theme.colors.blueAccent,
+  },
+  currency: {
+    fontSize: 12,
+    color: theme.colors.secondaryText,
+    marginTop: 2,
   },
   companyName: {
     fontSize: 14,
