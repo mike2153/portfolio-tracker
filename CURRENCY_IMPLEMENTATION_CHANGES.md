@@ -4,7 +4,7 @@
 
 This document details all changes made to implement multi-currency support in the Portfolio Tracker application. The implementation follows a production-ready approach with on-the-fly currency conversion, proper type safety, and comprehensive error handling.
 
-## Table of Contents
+## Table of Contentsaaa
 
 1. [Database Changes](#database-changes)
 2. [Backend Implementation](#backend-implementation)
