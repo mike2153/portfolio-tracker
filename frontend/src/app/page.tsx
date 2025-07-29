@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import GradientText from '@/components/ui/GradientText'
 
 interface HealthStatus {
   status: string
@@ -53,7 +54,7 @@ export default function Home() {
       case 'error':
         return 'text-red-600'
       default:
-        return 'text-gray-600'
+        return 'text-[#8B949E]'
     }
   }
 
@@ -77,10 +78,10 @@ export default function Home() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Hero Section */}
       <div className="text-center mb-12">
-        <h1 className="text-4xl font-bold text-gray-100 mb-4">
+        <h1 className="text-4xl font-bold text-white mb-4">
           Professional Financial Analytics Platform
         </h1>
-        <p className="text-xl text-gray-600 mb-8">
+        <p className="text-xl text-[#8B949E] mb-8">
           Advanced portfolio management and analytics for serious investors
         </p>
         <div className="flex justify-center space-x-4">
@@ -95,8 +96,8 @@ export default function Home() {
 
       {/* System Status */}
       <div className="card mb-8">
-        <h2 className="text-xl font-semibold mb-4">System Status</h2>
-        <p className="text-gray-600 mb-4">
+        <GradientText className="text-xl font-semibold mb-4">System Status</GradientText>
+        <p className="text-[#8B949E] mb-4">
           Backend API: <span className={`font-medium ${getStatusColor(healthStatus?.status || 'error')}`}>{apiStatus}</span>
         </p>
         
@@ -105,7 +106,7 @@ export default function Home() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="flex items-center space-x-2">
                 <div className={`w-3 h-3 rounded-full ${getStatusDot(healthStatus.database)}`}></div>
-                <span className="text-sm text-gray-600">Database</span>
+                <span className="text-sm text-[#8B949E]">Database</span>
                 <span className={`text-sm font-medium ${getStatusColor(healthStatus.database)}`}>
                   {healthStatus.database}
                 </span>
@@ -113,7 +114,7 @@ export default function Home() {
               
               <div className="flex items-center space-x-2">
                 <div className={`w-3 h-3 rounded-full ${getStatusDot(healthStatus.data_ready ? 'configured' : 'error')}`}></div>
-                <span className="text-sm text-gray-600">Market Data</span>
+                <span className="text-sm text-[#8B949E]">Market Data</span>
                 <span className={`text-sm font-medium ${getStatusColor(healthStatus.data_ready ? 'configured' : 'error')}`}>
                   {typeof healthStatus.symbols_loaded === 'number' ? `${healthStatus.symbols_loaded.toLocaleString()} symbols` : 'N/A'}
                 </span>
@@ -121,7 +122,7 @@ export default function Home() {
               
               <div className="flex items-center space-x-2">
                 <div className={`w-3 h-3 rounded-full ${getStatusDot(healthStatus.external_apis)}`}></div>
-                <span className="text-sm text-gray-600">External APIs</span>
+                <span className="text-sm text-[#8B949E]">External APIs</span>
                 <span className={`text-sm font-medium ${getStatusColor(healthStatus.external_apis)}`}>
                   {healthStatus.external_apis}
                 </span>
@@ -129,7 +130,7 @@ export default function Home() {
               
               <div className="flex items-center space-x-2">
                 <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                <span className="text-sm text-gray-600">Version</span>
+                <span className="text-sm text-[#8B949E]">Version</span>
                 <span className="text-sm font-medium text-blue-600">
                   {healthStatus.version}
                 </span>
@@ -159,24 +160,24 @@ export default function Home() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
         <Link href="/portfolio" className="card hover:shadow-lg transition-shadow cursor-pointer">
           <div className="text-3xl mb-4">📊</div>
-          <h3 className="text-lg font-semibold mb-3">Portfolio Management</h3>
-          <p className="text-gray-600">
+          <GradientText className="text-lg font-semibold mb-3">Portfolio Management</GradientText>
+          <p className="text-[#8B949E]">
             Add stocks with purchase details, track performance, and manage your entire portfolio in one place.
           </p>
         </Link>
         
         <Link href="/dashboard" className="card hover:shadow-lg transition-shadow cursor-pointer">
           <div className="text-3xl mb-4">📈</div>
-          <h3 className="text-lg font-semibold mb-3">Real-time Data</h3>
-          <p className="text-gray-600">
+          <GradientText className="text-lg font-semibold mb-3">Real-time Data</GradientText>
+          <p className="text-[#8B949E]">
             Live market data integration with Finnhub API for up-to-date portfolio valuations and market overview.
           </p>
         </Link>
         
         <Link href="/analytics" className="card hover:shadow-lg transition-shadow cursor-pointer">
           <div className="text-3xl mb-4">🔬</div>
-          <h3 className="text-lg font-semibold mb-3">Advanced Analytics</h3>
-          <p className="text-gray-600">
+          <GradientText className="text-lg font-semibold mb-3">Advanced Analytics</GradientText>
+          <p className="text-[#8B949E]">
             Calculate Sharpe ratio, Alpha, Beta, maximum drawdown, and other professional financial metrics.
           </p>
         </Link>
@@ -184,21 +185,21 @@ export default function Home() {
 
       {/* Live Demo Section */}
       <div className="card bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
-        <h2 className="text-2xl font-bold mb-6">Live Portfolio Demo</h2>
+        <GradientText className="text-2xl font-bold mb-6">Live Portfolio Demo</GradientText>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="metric-card bg-gray-900">
+          <div className="metric-card bg-[#0D1117]">
             <div className="metric-value text-green-600">+12.5%</div>
             <div className="metric-label">Total Return</div>
           </div>
-          <div className="metric-card bg-gray-900">
+          <div className="metric-card bg-[#0D1117]">
             <div className="metric-value">1.24</div>
             <div className="metric-label">Sharpe Ratio</div>
           </div>
-          <div className="metric-card bg-gray-900">
+          <div className="metric-card bg-[#0D1117]">
             <div className="metric-value">0.85</div>
             <div className="metric-label">Beta</div>
           </div>
-          <div className="metric-card bg-gray-900">
+          <div className="metric-card bg-[#0D1117]">
             <div className="metric-value text-red-600">-8.2%</div>
             <div className="metric-label">Max Drawdown</div>
           </div>
@@ -216,7 +217,7 @@ export default function Home() {
 
       {/* Features List */}
       <div className="mt-16">
-        <h2 className="text-3xl font-bold text-center mb-12">Everything You Need</h2>
+        <GradientText className="text-3xl font-bold text-center mb-12">Everything You Need</GradientText>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="space-y-4">
             <div className="flex items-start space-x-3">
@@ -227,7 +228,7 @@ export default function Home() {
               </div>
               <div>
                 <h3 className="font-semibold">Stock Purchase Tracking</h3>
-                <p className="text-gray-600">Record buy date, quantity, price, and commission for accurate performance calculation.</p>
+                <p className="text-[#8B949E]">Record buy date, quantity, price, and commission for accurate performance calculation.</p>
               </div>
             </div>
             
@@ -239,7 +240,7 @@ export default function Home() {
               </div>
               <div>
                 <h3 className="font-semibold">Real-time Valuation</h3>
-                <p className="text-gray-600">Live market prices automatically update your portfolio value and performance metrics.</p>
+                <p className="text-[#8B949E]">Live market prices automatically update your portfolio value and performance metrics.</p>
               </div>
             </div>
             
@@ -251,7 +252,7 @@ export default function Home() {
               </div>
               <div>
                 <h3 className="font-semibold">Professional Metrics</h3>
-                <p className="text-gray-600">Calculate industry-standard performance metrics used by professional fund managers.</p>
+                <p className="text-[#8B949E]">Calculate industry-standard performance metrics used by professional fund managers.</p>
               </div>
             </div>
           </div>
@@ -265,7 +266,7 @@ export default function Home() {
               </div>
               <div>
                 <h3 className="font-semibold">Secure Authentication</h3>
-                <p className="text-gray-600">Enterprise-grade security powered by Supabase for your financial data.</p>
+                <p className="text-[#8B949E]">Enterprise-grade security powered by Supabase for your financial data.</p>
               </div>
             </div>
             
@@ -277,7 +278,7 @@ export default function Home() {
               </div>
               <div>
                 <h3 className="font-semibold">Cloud Sync</h3>
-                <p className="text-gray-600">Access your portfolio from anywhere with automatic cloud synchronization.</p>
+                <p className="text-[#8B949E]">Access your portfolio from anywhere with automatic cloud synchronization.</p>
               </div>
             </div>
             
@@ -289,7 +290,7 @@ export default function Home() {
               </div>
               <div>
                 <h3 className="font-semibold">Export & Reports</h3>
-                <p className="text-gray-600">Generate detailed reports for tax purposes and investment analysis.</p>
+                <p className="text-[#8B949E]">Generate detailed reports for tax purposes and investment analysis.</p>
               </div>
             </div>
           </div>

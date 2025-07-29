@@ -2,15 +2,16 @@
 Backend API endpoints for watchlist functionality.
 Handles all watchlist-related HTTP requests.
 """
-from fastapi import APIRouter, Depends, HTTPException, Query
-from typing import Dict, Any, List, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query, Header
+from typing import Dict, Any, List, Optional, Union
 from decimal import Decimal
-from pydantic import BaseModel, Field
 import logging
 import asyncio
 
 from supa_api.supa_api_auth import require_authenticated_user
 from utils.auth_helpers import extract_user_credentials
+from utils.response_factory import ResponseFactory
+from models.response_models import APIResponse
 from supa_api.supa_api_watchlist import (
     supa_api_get_watchlist,
     supa_api_add_to_watchlist,
@@ -18,20 +19,13 @@ from supa_api.supa_api_watchlist import (
     supa_api_update_watchlist_item,
     supa_api_check_watchlist_status
 )
-from vantage_api.vantage_api_quotes import vantage_api_get_quote
+from services.price_manager import price_manager
 from debug_logger import DebugLogger
 
+# Import centralized validation models
+from models.validation_models import WatchlistAdd, WatchlistUpdate
+
 logger = logging.getLogger(__name__)
-
-# Pydantic models for request/response validation
-class WatchlistAdd(BaseModel):
-    symbol: str = Field(..., min_length=1, max_length=10)
-    notes: Optional[str] = Field(None, max_length=500)
-    target_price: Optional[Decimal] = Field(None, gt=0, le=10000000)
-
-class WatchlistUpdate(BaseModel):
-    notes: Optional[str] = Field(None, max_length=500)
-    target_price: Optional[Decimal] = Field(None, gt=0, le=10000000)
 
 # Create router
 watchlist_router = APIRouter(prefix="/api/watchlist", tags=["watchlist"])
@@ -40,8 +34,9 @@ watchlist_router = APIRouter(prefix="/api/watchlist", tags=["watchlist"])
 @DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="GET_WATCHLIST")
 async def backend_api_get_watchlist(
     user: Dict[str, Any] = Depends(require_authenticated_user),
-    include_quotes: bool = Query(True, description="Include current price data")
-) -> Dict[str, Any]:
+    include_quotes: bool = Query(True, description="Include current price data"),
+    api_version: Optional[str] = Header(None, alias="X-API-Version")
+) -> Union[Dict[str, Any], APIResponse[Dict[str, Any]]]:
     """
     Get user's watchlist with optional current price data.
     
@@ -62,31 +57,49 @@ async def backend_api_get_watchlist(
         
         # If quotes requested, fetch current prices
         if include_quotes and watchlist_items:
-            # Fetch quotes in parallel for all symbols
+            # Use PriceManager to get current quotes
+            from datetime import date
+            today = date.today()
             symbols = [item['symbol'] for item in watchlist_items]
-            quote_tasks = [vantage_api_get_quote(symbol) for symbol in symbols]
-            quotes = await asyncio.gather(*quote_tasks, return_exceptions=True)
+            quotes_result = await price_manager.get_portfolio_prices(symbols, today, today, user_token)
+            
+            # Extract price data from the result
+            quotes = {}
+            if quotes_result.get('success') and quotes_result.get('prices'):
+                for symbol, price_data in quotes_result['prices'].items():
+                    quotes[symbol] = price_data
             
             # Merge quote data with watchlist items
-            for i, item in enumerate(watchlist_items):
-                if not isinstance(quotes[i], Exception) and quotes[i]:
-                    quote = quotes[i]
+            for item in watchlist_items:
+                symbol = item['symbol']
+                if symbol in quotes and quotes[symbol]:
+                    quote = quotes[symbol]
                     item['current_price'] = float(quote.get('price', 0))
                     item['change'] = float(quote.get('change', 0))
-                    item['change_percent'] = float(quote.get('changePercent', 0))
+                    item['change_percent'] = float(quote.get('change_percent', 0))
                     item['volume'] = int(quote.get('volume', 0))
                 else:
-                    # Default values if quote fetch failed
+                    # Default values if quote not available
                     item['current_price'] = 0
                     item['change'] = 0
                     item['change_percent'] = 0
                     item['volume'] = 0
         
-        return {
-            "success": True,
+        watchlist_data = {
             "watchlist": watchlist_items,
             "count": len(watchlist_items)
         }
+        
+        if api_version == "v2":
+            return ResponseFactory.success(
+                data=watchlist_data,
+                message=f"Watchlist retrieved with {len(watchlist_items)} items"
+            )
+        else:
+            return {
+                "success": True,
+                **watchlist_data
+            }
         
     except Exception as e:
         DebugLogger.log_error(
@@ -102,8 +115,9 @@ async def backend_api_get_watchlist(
 async def backend_api_add_to_watchlist(
     symbol: str,
     data: Optional[WatchlistAdd] = None,
-    user: Dict[str, Any] = Depends(require_authenticated_user)
-) -> Dict[str, Any]:
+    user: Dict[str, Any] = Depends(require_authenticated_user),
+    api_version: Optional[str] = Header(None, alias="X-API-Version")
+) -> Union[Dict[str, Any], APIResponse[Dict[str, Any]]]:
     """
     Add a stock to user's watchlist.
     
@@ -120,14 +134,12 @@ async def backend_api_add_to_watchlist(
     try:
         user_id, user_token = extract_user_credentials(user)
         
-        # Validate symbol format
-        import re
-        if not re.match(r'^[A-Z0-9.-]{1,10}$', symbol.upper()):
-            raise HTTPException(status_code=400, detail="Invalid symbol format")
+        # Symbol validation is already handled by the Pydantic model
+        # if data is provided, it's already validated
         
         # Extract notes and target price if provided
         notes = data.notes if data else None
-        target_price = data.target_price if data else None
+        target_price = float(data.target_price) if data and data.target_price else None
         
         # Add to watchlist
         watchlist_item = await supa_api_add_to_watchlist(
@@ -138,11 +150,21 @@ async def backend_api_add_to_watchlist(
             target_price=target_price
         )
         
-        return {
-            "success": True,
+        response_data = {
             "item": watchlist_item,
             "message": f"{symbol.upper()} added to watchlist"
         }
+        
+        if api_version == "v2":
+            return ResponseFactory.success(
+                data=watchlist_item,
+                message=response_data["message"]
+            )
+        else:
+            return {
+                "success": True,
+                **response_data
+            }
         
     except Exception as e:
         if "duplicate key value" in str(e):
@@ -161,8 +183,9 @@ async def backend_api_add_to_watchlist(
 @DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="REMOVE_FROM_WATCHLIST")
 async def backend_api_remove_from_watchlist(
     symbol: str,
-    user: Dict[str, Any] = Depends(require_authenticated_user)
-) -> Dict[str, Any]:
+    user: Dict[str, Any] = Depends(require_authenticated_user),
+    api_version: Optional[str] = Header(None, alias="X-API-Version")
+) -> Union[Dict[str, Any], APIResponse[Dict[str, Any]]]:
     """
     Remove a stock from user's watchlist.
     
@@ -185,10 +208,25 @@ async def backend_api_remove_from_watchlist(
             user_token=user_token
         )
         
-        return {
-            "success": success,
-            "message": f"{symbol.upper()} removed from watchlist"
-        }
+        message = f"{symbol.upper()} removed from watchlist"
+        
+        if api_version == "v2":
+            if success:
+                return ResponseFactory.success(
+                    data=None,
+                    message=message
+                )
+            else:
+                return ResponseFactory.error(
+                    error="RemovalError",
+                    message="Failed to remove item from watchlist",
+                    status_code=500
+                )
+        else:
+            return {
+                "success": success,
+                "message": message
+            }
         
     except Exception as e:
         DebugLogger.log_error(
@@ -205,8 +243,9 @@ async def backend_api_remove_from_watchlist(
 async def backend_api_update_watchlist_item(
     symbol: str,
     data: WatchlistUpdate,
-    user: Dict[str, Any] = Depends(require_authenticated_user)
-) -> Dict[str, Any]:
+    user: Dict[str, Any] = Depends(require_authenticated_user),
+    api_version: Optional[str] = Header(None, alias="X-API-Version")
+) -> Union[Dict[str, Any], APIResponse[Dict[str, Any]]]:
     """
     Update watchlist item (notes, target price).
     
@@ -229,14 +268,24 @@ async def backend_api_update_watchlist_item(
             symbol=symbol,
             user_token=user_token,
             notes=data.notes,
-            target_price=data.target_price
+            target_price=float(data.target_price) if data.target_price else None
         )
         
-        return {
-            "success": True,
+        response_data = {
             "item": updated_item,
             "message": f"{symbol.upper()} updated successfully"
         }
+        
+        if api_version == "v2":
+            return ResponseFactory.success(
+                data=updated_item,
+                message=response_data["message"]
+            )
+        else:
+            return {
+                "success": True,
+                **response_data
+            }
         
     except Exception as e:
         DebugLogger.log_error(
@@ -252,8 +301,9 @@ async def backend_api_update_watchlist_item(
 @DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="CHECK_WATCHLIST_STATUS")
 async def backend_api_check_watchlist_status(
     symbol: str,
-    user: Dict[str, Any] = Depends(require_authenticated_user)
-) -> Dict[str, Any]:
+    user: Dict[str, Any] = Depends(require_authenticated_user),
+    api_version: Optional[str] = Header(None, alias="X-API-Version")
+) -> Union[Dict[str, Any], APIResponse[Dict[str, Any]]]:
     """
     Check if a stock is in user's watchlist.
     
@@ -276,10 +326,20 @@ async def backend_api_check_watchlist_status(
             user_token=user_token
         )
         
-        return {
-            "success": True,
+        status_data = {
             "is_in_watchlist": is_in_watchlist
         }
+        
+        if api_version == "v2":
+            return ResponseFactory.success(
+                data=status_data,
+                message=f"{symbol.upper()} is {'in' if is_in_watchlist else 'not in'} watchlist"
+            )
+        else:
+            return {
+                "success": True,
+                **status_data
+            }
         
     except Exception as e:
         DebugLogger.log_error(

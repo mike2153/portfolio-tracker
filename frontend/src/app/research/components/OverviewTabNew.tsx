@@ -26,18 +26,23 @@ const OverviewTabNew: React.FC<OverviewTabProps> = ({ ticker, data, isLoading, o
 
   // Convert TimePeriod to query string for the price data hook
   const getYearsFromPeriod = (period: TimePeriod): string => {
-    switch (period) {
-      case '7d':  return '?days=7';
-      case '1m':  return '?days=30';
-      case '3m':  return '?days=90';
-      case '6m':  return '?days=180';
-      case 'ytd': return '?ytd=true';
-      case '1y':  return '?years=1';
-      case '3y':  return '?years=3';
-      case '5y':  return '?years=5';
-      case 'max': return '?years=10'; // Increased for more historical data
-      default:    return '?years=5';
-    }
+    const queryString = (() => {
+      switch (period) {
+        case '7d':  return '?days=7';
+        case '1m':  return '?days=30';
+        case '3m':  return '?days=90';
+        case '6m':  return '?days=180';
+        case 'ytd': return '?ytd=true';
+        case '1y':  return '?years=1';
+        case '3y':  return '?years=3';
+        case '5y':  return '?years=5';
+        case 'max': return '?years=10'; // Increased for more historical data
+        default:    return '?years=5';
+      }
+    })();
+    
+    console.log('[OverviewTabNew] Period changed:', { period, queryString });
+    return queryString;
   };
 
   // Use the price data hook for chart data

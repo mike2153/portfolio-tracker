@@ -22,9 +22,12 @@ from fastapi import HTTPException
 from services.portfolio_calculator import portfolio_calculator
 from services.price_manager import price_manager
 from services.dividend_service import DividendService
+from services.forex_manager import ForexManager
 from supa_api.supa_api_client import get_supa_service_client
 from supa_api.supa_api_jwt_helpers import create_authenticated_client
+from supa_api.supa_api_user_profile import get_user_base_currency
 from debug_logger import DebugLogger
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +59,8 @@ class PortfolioHolding(BaseModel):
     realized_pnl: Decimal = Field(default=Decimal("0"))  # Realized profit/loss from sold positions
     price_date: Optional[datetime] = None
     allocation_percent: float = Field(ge=0, le=100)
+    currency: str = Field(default="USD")  # Stock's native currency
+    base_currency_value: Optional[Decimal] = None  # Value in user's base currency
     
     class Config:
         json_encoders = {
@@ -76,6 +81,7 @@ class PortfolioPerformance(BaseModel):
     dividends_ytd: Decimal = Field(default=Decimal("0"))
     xirr: Optional[float] = None
     sharpe_ratio: Optional[float] = None
+    base_currency: str = Field(default="USD")
     
     class Config:
         json_encoders = {
@@ -219,12 +225,95 @@ class PortfolioMetricsManager:
         self.dividend_service = DividendService()
         self.cache_config = CacheConfig()
         
+        # Initialize ForexManager with Alpha Vantage key
+        alpha_vantage_key = os.getenv("ALPHA_VANTAGE_API_KEY", "")
+        supabase_client = get_supa_service_client()
+        self.forex_manager = ForexManager(supabase_client, alpha_vantage_key)
+        
         # Circuit breaker configuration
-        self._service_failures: Dict[str, int] = {}
         self._max_failures = 3
-        self._failure_reset_time: Dict[str, datetime] = {}
+        self._recovery_timeout = 60  # seconds
         
         logger.info("[PortfolioMetricsManager] Initialized")
+    
+    # ========================================================================
+    # Currency Conversion Methods
+    # ========================================================================
+    
+    async def get_user_base_currency(self, user_id: str) -> str:
+        """
+        Get user's base currency with caching
+        
+        Args:
+            user_id: User's UUID
+            
+        Returns:
+            Base currency code (defaults to 'USD')
+        """
+        # Check database cache first
+        supabase_client = get_supa_service_client()
+        
+        try:
+            # Try to get from cache
+            cache_result = supabase_client.table('user_currency_cache').select('base_currency').eq(
+                'user_id', user_id
+            ).gte(
+                'expires_at', datetime.now(timezone.utc).isoformat()
+            ).single().execute()
+            
+            if cache_result.data:
+                return cache_result.data['base_currency']
+        except:
+            # Cache miss or error, continue to fetch
+            pass
+        
+        # Fetch from user profile
+        base_currency = await get_user_base_currency(supabase_client, user_id)
+        
+        # Cache the result in database
+        try:
+            supabase_client.table('user_currency_cache').upsert({
+                'user_id': user_id,
+                'base_currency': base_currency,
+                'cached_at': datetime.now(timezone.utc).isoformat(),
+                'expires_at': (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+            }).execute()
+        except Exception as e:
+            logger.warning(f"Failed to cache user currency: {e}")
+        
+        return base_currency
+    
+    async def convert_to_base_currency(
+        self,
+        amount: Decimal,
+        from_currency: str,
+        user_id: str,
+        as_of_date: date
+    ) -> Decimal:
+        """
+        Convert amount to user's base currency
+        
+        Args:
+            amount: Amount to convert
+            from_currency: Source currency code
+            user_id: User's UUID
+            as_of_date: Date for exchange rate
+            
+        Returns:
+            Amount in user's base currency
+        """
+        base_currency = await self.get_user_base_currency(user_id)
+        
+        if from_currency == base_currency:
+            return amount
+            
+        rate = await self.forex_manager.get_exchange_rate(
+            from_currency,
+            base_currency,
+            as_of_date
+        )
+        
+        return amount * rate
     
     # ========================================================================
     # Primary Public Method
@@ -271,29 +360,44 @@ class PortfolioMetricsManager:
             if not force_refresh:
                 cached_metrics = await self._get_cached_metrics(user_id, cache_key)
                 if cached_metrics:
-                    logger.info(f"[PortfolioMetricsManager] Cache hit for user {user_id}")
+                    logger.info(f"[PortfolioMetricsManager] === CACHE HIT ===")
+                    logger.info(f"[PortfolioMetricsManager] User ID: {user_id}")
+                    logger.info(f"[PortfolioMetricsManager] Metric type: {metric_type}")
+                    logger.info(f"[PortfolioMetricsManager] Cache key: {cache_key}")
+                    logger.info(f"[PortfolioMetricsManager] Cached at: {cached_metrics.calculated_at}")
                     cached_metrics.cache_status = MetricsCacheStatus.HIT
                     return cached_metrics
             
             # Step 2: Calculate fresh metrics
-            logger.info(f"[PortfolioMetricsManager] Cache miss, calculating for user {user_id}")
+            logger.info(f"[PortfolioMetricsManager] === CACHE MISS ===")
+            logger.info(f"[PortfolioMetricsManager] User ID: {user_id}")
+            logger.info(f"[PortfolioMetricsManager] Metric type: {metric_type}")
+            logger.info(f"[PortfolioMetricsManager] Force refresh: {force_refresh}")
+            logger.info(f"[PortfolioMetricsManager] Calculating fresh metrics...")
             metrics = await self._calculate_metrics(user_id, user_token, metric_type, params)
             
             # Add computation time
             computation_time = datetime.now() - start_time
             metrics.computation_time_ms = int(computation_time.total_seconds() * 1000)
+            logger.info(f"[PortfolioMetricsManager] Metrics calculation completed in {metrics.computation_time_ms}ms")
             
             # Step 3: Cache the results
+            logger.info(f"[PortfolioMetricsManager] Caching metrics for user {user_id}")
             await self._cache_metrics(user_id, cache_key, metrics)
             
             return metrics
             
         except Exception as e:
-            logger.error(f"[PortfolioMetricsManager] Error getting metrics: {str(e)}")
+            logger.error(f"[PortfolioMetricsManager] === ERROR ===")
+            logger.error(f"[PortfolioMetricsManager] Error type: {type(e).__name__}")
+            logger.error(f"[PortfolioMetricsManager] Error message: {str(e)}")
+            logger.error(f"[PortfolioMetricsManager] Full stack trace:", exc_info=True)
             # Try to return partial cached data on error
             if not force_refresh:
+                logger.info(f"[PortfolioMetricsManager] Attempting to retrieve stale cache data...")
                 stale_metrics = await self._get_cached_metrics(user_id, cache_key, allow_stale=True)
                 if stale_metrics:
+                    logger.info(f"[PortfolioMetricsManager] Returning stale cache data from {stale_metrics.calculated_at}")
                     stale_metrics.cache_status = MetricsCacheStatus.STALE
                     return stale_metrics
             raise HTTPException(status_code=500, detail=f"Failed to get portfolio metrics: {str(e)}")
@@ -313,6 +417,10 @@ class PortfolioMetricsManager:
         Calculate all portfolio metrics by orchestrating multiple services.
         Uses asyncio.gather for parallel execution where possible.
         """
+        logger.info(f"[PortfolioMetricsManager] === METRICS CALCULATION START ===")
+        logger.info(f"[PortfolioMetricsManager] User ID: {user_id}")
+        logger.info(f"[PortfolioMetricsManager] Metric type: {metric_type}")
+        
         # Track data completeness
         data_completeness = {
             "holdings": False,
@@ -322,6 +430,7 @@ class PortfolioMetricsManager:
         }
         
         # Stage 1: Parallel fetch of ALL independent data
+        logger.info(f"[PortfolioMetricsManager] Stage 1: Fetching independent data...")
         stage1_results = await asyncio.gather(
             self._get_market_status(),
             self._get_all_transactions(user_id, user_token),
@@ -333,6 +442,8 @@ class PortfolioMetricsManager:
         market_status = stage1_results[0] if isinstance(stage1_results[0], MarketStatus) else MarketStatus(is_open=False)
         transactions = stage1_results[1] if isinstance(stage1_results[1], list) else []
         prefetch_count = stage1_results[2] if isinstance(stage1_results[2], int) else 0
+        
+        logger.info(f"[PortfolioMetricsManager] Stage 1 results: Market status: {market_status.is_open}, Transactions: {len(transactions)}, Prefetched symbols: {prefetch_count}")
         
         # Log any failures
         for i, result in enumerate(stage1_results):
@@ -346,6 +457,7 @@ class PortfolioMetricsManager:
         
         try:
             # Stage 2: Parallel fetch of dependent data
+            logger.info(f"[PortfolioMetricsManager] Stage 2: Fetching dependent data (holdings, dividends, time series)...")
             results: Tuple[
                 Union[List[PortfolioHolding], BaseException],
                 Union[DividendSummary, BaseException],
@@ -371,6 +483,7 @@ class PortfolioMetricsManager:
         if isinstance(holdings_result, list):
             holdings = holdings_result
             data_completeness["holdings"] = True
+            logger.info(f"[PortfolioMetricsManager] Holdings fetched successfully: {len(holdings)} holdings")
         elif isinstance(holdings_result, BaseException):
             logger.error(f"[PortfolioMetricsManager] Holdings fetch failed: {holdings_result}")
         
@@ -378,6 +491,7 @@ class PortfolioMetricsManager:
         if isinstance(dividend_result, DividendSummary):
             dividend_summary = dividend_result
             data_completeness["dividends"] = True
+            logger.info(f"[PortfolioMetricsManager] Dividends fetched successfully: ${float(dividend_summary.total_received):.2f} total")
         elif isinstance(dividend_result, BaseException):
             logger.warning(f"[PortfolioMetricsManager] Dividend fetch failed: {dividend_result}")
         
@@ -385,10 +499,17 @@ class PortfolioMetricsManager:
         if isinstance(time_series_result, list):
             time_series = time_series_result
             data_completeness["time_series"] = True
+            logger.info(f"[PortfolioMetricsManager] Time series fetched successfully: {len(time_series)} data points")
         elif isinstance(time_series_result, BaseException):
             logger.warning(f"[PortfolioMetricsManager] Time series fetch failed: {time_series_result}")
         
+        # Get user's base currency
+        base_currency = await self.get_user_base_currency(user_id)
+        self._current_base_currency = base_currency  # Store for use in _calculate_performance
+        
         # Stage 3: Calculate derived metrics
+        logger.info(f"[PortfolioMetricsManager] Stage 3: Calculating derived metrics...")
+        logger.info(f"[PortfolioMetricsManager] User base currency: {base_currency}")
         performance = self._calculate_performance(holdings, dividend_summary)
         sector_allocation = self._calculate_sector_allocation(holdings)
         top_performers = self._get_top_performers(holdings)
@@ -397,6 +518,11 @@ class PortfolioMetricsManager:
         cache_status = MetricsCacheStatus.MISS
         if any(isinstance(r, Exception) for r in results):
             cache_status = MetricsCacheStatus.PARTIAL
+        
+        logger.info(f"[PortfolioMetricsManager] === METRICS CALCULATION COMPLETE ===")
+        logger.info(f"[PortfolioMetricsManager] Data completeness: {data_completeness}")
+        logger.info(f"[PortfolioMetricsManager] Total portfolio value: ${float(performance.total_value):.2f}")
+        logger.info(f"[PortfolioMetricsManager] Cache status: {cache_status}")
         
         return PortfolioMetrics(
             user_id=user_id,
@@ -435,12 +561,12 @@ class PortfolioMetricsManager:
             holdings_list = holdings_data.get("holdings", [])
             total_value = holdings_data.get("total_value", 0)
             
-            # Ensure total_value is numeric
+            # Ensure total_value is numeric and convert to Decimal
             if not isinstance(total_value, (int, float, Decimal)):
                 logger.error(f"total_value is not numeric: {type(total_value)}")
-                total_value = 0
-            
-            total_value = float(total_value)
+                total_value = Decimal('0')
+            else:
+                total_value = Decimal(str(total_value))
             
             # Transform to our model and add allocation percentages
             result = []
@@ -448,12 +574,30 @@ class PortfolioMetricsManager:
                 logger.warning(f"Holdings data from calculator is not a list: {type(holdings_list)}")
                 holdings_list = []
 
+            # Get user's base currency for conversion
+            base_currency = await self.get_user_base_currency(user_id)
+            
             for h in holdings_list:
                 if not isinstance(h, dict): continue # Skip non-dict items
                 try:
                     current_value = Decimal(str(h.get("current_value", 0)))
+                    symbol = h.get("symbol", "UNKNOWN")
+                    
+                    # Determine stock currency from symbol
+                    stock_currency = self._get_stock_currency(symbol)
+                    
+                    # Convert value to base currency if needed
+                    base_currency_value = current_value
+                    if stock_currency != base_currency:
+                        base_currency_value = await self.convert_to_base_currency(
+                            current_value,
+                            stock_currency,
+                            user_id,
+                            date.today()
+                        )
+                    
                     holding = PortfolioHolding(
-                        symbol=h.get("symbol", "UNKNOWN"),
+                        symbol=symbol,
                         quantity=Decimal(str(h.get("quantity", 0))),
                         avg_cost=Decimal(str(h.get("avg_cost", 0))),
                         total_cost=Decimal(str(h.get("total_cost", 0))),
@@ -464,7 +608,9 @@ class PortfolioMetricsManager:
                         dividends_received=Decimal(str(h.get("dividends_received", 0))),
                         realized_pnl=Decimal(str(h.get("realized_pnl", 0))),
                         price_date=datetime.fromisoformat(h["price_date"]) if h.get("price_date") else None,
-                        allocation_percent=(float(current_value) / total_value * 100) if total_value > 0 else 0.0
+                        allocation_percent=float((current_value / total_value * 100)) if total_value > 0 else 0.0,
+                        currency=stock_currency,
+                        base_currency_value=base_currency_value
                     )
                     result.append(holding)
                 except (ValueError, TypeError, KeyError) as e:
@@ -598,16 +744,83 @@ class PortfolioMetricsManager:
     # Calculation Helper Methods
     # ========================================================================
     
+    def _get_stock_currency(self, symbol: str) -> str:
+        """
+        Determine currency from stock symbol suffix
+        
+        Args:
+            symbol: Stock symbol
+            
+        Returns:
+            Currency code (defaults to 'USD')
+        """
+        symbol_upper = symbol.upper()
+        
+        # Common international exchanges
+        if symbol_upper.endswith('.ASX'):
+            return 'AUD'  # Australian Stock Exchange
+        elif symbol_upper.endswith('.LON'):
+            return 'GBP'  # London Stock Exchange
+        elif symbol_upper.endswith('.TRV'):
+            return 'CAD'  # Toronto Stock Exchange
+        elif symbol_upper.endswith('.PA'):
+            return 'EUR'  # Euronext Paris
+        elif symbol_upper.endswith('.FRK'):
+            return 'EUR'  # Frankfurt Stock Exchange
+        elif symbol_upper.endswith('.MC'):
+            return 'EUR'  # Madrid Stock Exchange
+        elif symbol_upper.endswith('.MFM'):
+            return 'EUR'  # Milan Stock Exchange
+        elif symbol_upper.endswith('.AMS'):
+            return 'EUR'  # Amsterdam Stock Exchange
+        elif symbol_upper.endswith('.BFO'):
+            return 'EUR'  # Brussels Stock Exchange
+        elif symbol_upper.endswith('.SW'):
+            return 'CHF'  # Swiss Exchange
+        elif symbol_upper.endswith('.TSE'):
+            return 'JPY'  # Tokyo Stock Exchange
+        elif symbol_upper.endswith('.HKM'):
+            return 'HKD'  # Hong Kong Stock Exchange
+        elif symbol_upper.endswith('.SME') or symbol_upper.endswith('.SGX'):
+            return 'SGD'  # Singapore Exchange
+        elif symbol_upper.endswith('.BBX') or symbol_upper.endswith('.BO'):
+            return 'INR'  # National Stock Exchange/Bombay Stock Exchange
+        elif symbol_upper.endswith('.BSE'):
+            return 'INR'  # Bombay Stock Exchange
+        elif symbol_upper.endswith('.KFE') or symbol_upper.endswith('.KQ'):
+            return 'KRW'  # Korea Exchange
+        elif symbol_upper.endswith('.NZX'):
+            return 'NZD'  # New Zealand Exchange
+        elif symbol_upper.endswith('.MDX'):
+            return 'MXN'  # Mexican Stock Exchange
+        elif symbol_upper.endswith('.BOV'):
+            return 'BRL'  # São Paulo Stock Exchange
+        elif symbol_upper.endswith('.DEX'):
+            return 'EUR'  # XETRA Stock Exchange
+
+        else:
+            return 'USD'  # Default to USD
+    
     def _calculate_performance(
         self, 
         holdings: List[PortfolioHolding], 
         dividend_summary: DividendSummary
     ) -> PortfolioPerformance:
-        """Calculate aggregate performance metrics"""
-        total_value = sum((h.current_value for h in holdings), Decimal("0"))
+        """Calculate aggregate performance metrics using base currency values"""
+        # Use base_currency_value if available, otherwise fallback to current_value
+        total_value = sum(
+            (h.base_currency_value if h.base_currency_value else h.current_value for h in holdings), 
+            Decimal("0")
+        )
         total_cost = sum((h.total_cost for h in holdings), Decimal("0"))
         total_gain_loss = total_value - total_cost
         total_gain_loss_percent = (total_gain_loss / total_cost * 100) if total_cost > 0 else Decimal("0")
+        
+        # Get base currency from first holding that has it, or default to USD
+        base_currency = "USD"
+        if holdings:
+            # Try to get from holdings context (would need to be passed in)
+            base_currency = getattr(self, '_current_base_currency', 'USD')
         
         return PortfolioPerformance(
             total_value=total_value,
@@ -619,7 +832,8 @@ class PortfolioMetricsManager:
             dividends_total=dividend_summary.total_received,
             dividends_ytd=dividend_summary.ytd_received,
             xirr=None,  # TODO: Calculate XIRR in Step 3
-            sharpe_ratio=None  # TODO: Calculate Sharpe in future
+            sharpe_ratio=None,  # TODO: Calculate Sharpe in future
+            base_currency=base_currency
         )
     
     def _calculate_sector_allocation(self, holdings: List[PortfolioHolding]) -> Dict[str, float]:
@@ -786,33 +1000,58 @@ class PortfolioMetricsManager:
     
     def _record_service_failure(self, service_name: str) -> None:
         """Record a service failure for circuit breaker"""
-        self._service_failures[service_name] = self._service_failures.get(service_name, 0) + 1
-        self._failure_reset_time[service_name] = datetime.now() + timedelta(minutes=5)
-        
-        if self._service_failures[service_name] >= self._max_failures:
-            logger.error(f"[PortfolioMetricsManager] Service {service_name} has failed {self._max_failures} times")
+        try:
+            client = get_supa_service_client()
+            client.rpc('record_service_failure', {
+                'p_service_name': service_name,
+                'p_failure_threshold': self._max_failures
+            }).execute()
+            logger.warning(f"[PortfolioMetricsManager] Recorded failure for service {service_name}")
+        except Exception as e:
+            logger.error(f"[PortfolioMetricsManager] Failed to record service failure: {e}")
     
     def _is_service_available(self, service_name: str) -> bool:
         """Check if service is available (not circuit broken)"""
-        # Check if we should reset the circuit
-        if service_name in self._failure_reset_time:
-            if datetime.now() > self._failure_reset_time[service_name]:
-                self._reset_service_failures(service_name)
-        
-        return self._service_failures.get(service_name, 0) < self._max_failures
+        try:
+            client = get_supa_service_client()
+            result = client.rpc('check_circuit_breaker', {
+                'p_service_name': service_name,
+                'p_failure_threshold': self._max_failures,
+                'p_recovery_timeout': self._recovery_timeout
+            }).execute()
+            
+            if result.data and len(result.data) > 0:
+                is_open = result.data[0]['is_open']
+                state = result.data[0]['state']
+                logger.debug(f"[PortfolioMetricsManager] Circuit breaker for {service_name}: state={state}, is_open={is_open}")
+                return not is_open
+            
+            # Default to available if check fails
+            return True
+        except Exception as e:
+            logger.error(f"[PortfolioMetricsManager] Failed to check circuit breaker: {e}")
+            # Fail open - allow service calls if circuit breaker check fails
+            return True
     
     def _reset_service_failures(self, service_name: str) -> None:
         """Reset failure count for a service"""
-        if service_name in self._service_failures:
-            del self._service_failures[service_name]
-        if service_name in self._failure_reset_time:
-            del self._failure_reset_time[service_name]
+        try:
+            client = get_supa_service_client()
+            client.rpc('record_service_success', {
+                'p_service_name': service_name
+            }).execute()
+            logger.info(f"[PortfolioMetricsManager] Reset failures for service {service_name}")
+        except Exception as e:
+            logger.error(f"[PortfolioMetricsManager] Failed to reset service failures: {e}")
     
     async def reset_all_circuit_breakers(self) -> None:
         """Reset all circuit breakers (e.g., on a schedule)"""
-        self._service_failures.clear()
-        self._failure_reset_time.clear()
-        logger.info("[PortfolioMetricsManager] All circuit breakers reset")
+        try:
+            client = get_supa_service_client()
+            client.rpc('reset_circuit_breaker').execute()
+            logger.info("[PortfolioMetricsManager] All circuit breakers reset")
+        except Exception as e:
+            logger.error(f"[PortfolioMetricsManager] Failed to reset all circuit breakers: {e}")
     
     async def invalidate_user_cache(self, user_id: str, metric_type: Optional[str] = None) -> None:
         """
@@ -822,26 +1061,35 @@ class PortfolioMetricsManager:
             user_id: User's UUID
             metric_type: Optional specific metric type to invalidate
         """
+        logger.info(f"[PortfolioMetricsManager] === CACHE INVALIDATION ===")
+        logger.info(f"[PortfolioMetricsManager] User ID: {user_id}")
+        logger.info(f"[PortfolioMetricsManager] Metric type: {metric_type if metric_type else 'ALL'}")
+        
         try:
             client = get_supa_service_client()
             
             if metric_type:
                 # Invalidate specific metric type
                 cache_key = self._generate_cache_key(user_id, metric_type, {})
-                client.table("portfolio_caches").delete().eq(
+                logger.info(f"[PortfolioMetricsManager] Invalidating cache key: {cache_key}")
+                result = client.table("portfolio_caches").delete().eq(
                     "user_id", user_id
                 ).eq(
                     "cache_key", cache_key
                 ).execute()
+                logger.info(f"[PortfolioMetricsManager] Deleted {len(result.data) if result.data else 0} cache entries")
             else:
                 # Invalidate all cache entries for user
-                client.table("portfolio_caches").delete().eq(
+                logger.info(f"[PortfolioMetricsManager] Invalidating ALL cache entries for user")
+                result = client.table("portfolio_caches").delete().eq(
                     "user_id", user_id
                 ).execute()
+                logger.info(f"[PortfolioMetricsManager] Deleted {len(result.data) if result.data else 0} cache entries")
             
-            logger.info(f"[PortfolioMetricsManager] Cache invalidated for user {user_id}")
+            logger.info(f"[PortfolioMetricsManager] Cache invalidation completed successfully")
         except Exception as e:
-            logger.error(f"[PortfolioMetricsManager] Failed to invalidate cache: {str(e)}")
+            logger.error(f"[PortfolioMetricsManager] Failed to invalidate cache: {type(e).__name__}: {str(e)}")
+            logger.error(f"[PortfolioMetricsManager] Stack trace:", exc_info=True)
     
     async def cleanup_expired_cache(self) -> None:
         """Clean up expired cache entries from database"""

@@ -8,11 +8,8 @@ from fastapi.responses import JSONResponse
 import uvicorn
 import logging
 from contextlib import asynccontextmanager
-import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
-from fastapi import FastAPI
-from contextlib import asynccontextmanager
 from services.dividend_service import dividend_service
 from debug_logger import DebugLogger
 import asyncio
@@ -26,8 +23,7 @@ from config import (
     LOG_LEVEL
 )
 
-# Import debug logger
-from debug_logger import DebugLogger
+# Import debug logger (already imported above)
 
 # Import routes
 from backend_api_routes.backend_api_auth import auth_router
@@ -36,6 +32,11 @@ from backend_api_routes.backend_api_portfolio import portfolio_router
 from backend_api_routes.backend_api_dashboard import dashboard_router
 from backend_api_routes.backend_api_analytics import analytics_router
 from backend_api_routes.backend_api_watchlist import watchlist_router
+from backend_api_routes.backend_api_user_profile import user_profile_router
+from backend_api_routes.backend_api_forex import forex_router
+
+# Import exception handler registration
+from middleware.error_handler import register_exception_handlers
 
 # Configure logging
 logging.basicConfig(level=getattr(logging, LOG_LEVEL))
@@ -107,6 +108,9 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Register exception handlers
+register_exception_handlers(app)
+
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
@@ -116,35 +120,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Global exception handler
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    """Handle all unhandled exceptions with detailed logging"""
-    DebugLogger.log_error(
-        file_name="main.py",
-        function_name="global_exception_handler",
-        error=exc,
-        path=request.url.path,
-        method=request.method
-    )
-    
-    # Include CORS headers in error responses
-    response = JSONResponse(
-        status_code=500,
-        content={
-            "error": "Internal server error",
-            "message": str(exc),
-            "path": request.url.path
-        },
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Allow-Methods": "*",
-            "Access-Control-Allow-Headers": "*"
-        }
-    )
-    
-    return response
+# Note: Global exception handling is now managed by middleware.error_handler.register_exception_handlers()
 
 # Root endpoint
 @app.get("/")
@@ -164,6 +140,8 @@ app.include_router(portfolio_router, prefix="/api", tags=["Portfolio"])
 app.include_router(dashboard_router, tags=["Dashboard"])  # No prefix - router already has /api prefix
 app.include_router(analytics_router, prefix="/api/analytics", tags=["Analytics"])
 app.include_router(watchlist_router, tags=["Watchlist"])  # No prefix - router already has /api/watchlist prefix
+app.include_router(user_profile_router, prefix="/api", tags=["User Profile"])
+app.include_router(forex_router, prefix="/api", tags=["Forex"])
 
 # Request logging middleware
 @app.middleware("http")

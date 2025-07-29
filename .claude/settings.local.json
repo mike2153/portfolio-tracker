@@ -36,7 +36,16 @@
       "Bash(docker build:*)",
       "Bash(docker compose run:*)",
       "WebFetch(domain:www.alphavantage.co)",
-      "Bash(touch:*)"
+      "Bash(touch:*)",
+      "Bash(npm install:*)",
+      "Bash(npx expo start:*)",
+      "Bash(npm ls:*)",
+      "Bash(npx:*)",
+      "Bash(node:*)",
+      "Bash(wc:*)",
+      "Bash(docker exec:*)",
+      "Bash(npm cache clean:*)",
+      "Bash(npm run:*)"
     ],
     "deny": []
   }

@@ -24,7 +24,7 @@ const KPICard = ({ title, data, prefix = "", suffix = "", showPercentage = false
   if (!data || typeof data !== 'object') {
     console.error(`[KPICard] ❌ Invalid data for ${title}:`, data);
     return (
-      <div className="relative rounded-xl border border-red-700 bg-red-800/50 p-4 shadow-md backdrop-blur-sm">
+      <div className="relative rounded-xl border border-red-800 bg-red-900/20 p-4 shadow-md backdrop-blur-sm">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-medium text-red-400">{title}</h3>
         </div>
@@ -136,10 +136,10 @@ const KPICard = ({ title, data, prefix = "", suffix = "", showPercentage = false
 
 */
   return (
-    <div className="relative rounded-xl border border-gray-700 bg-gray-800/50 p-4 shadow-md backdrop-blur-sm">
+    <div className="relative rounded-xl border border-[#30363D] bg-[#161B22] p-4 shadow-md backdrop-blur-sm">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-gray-400">{title}</h3>
-        <Info className="h-4 w-4 text-gray-500" />
+        <h3 className="text-sm font-medium text-[#8B949E]">{title}</h3>
+        <Info className="h-4 w-4 text-[#8B949E]" />
       </div>
       <div className="mt-2">
         <div className="flex items-baseline">
@@ -147,7 +147,7 @@ const KPICard = ({ title, data, prefix = "", suffix = "", showPercentage = false
             {finalDisplayValue}
           </p>
           {showPercentage && (percentValue !== undefined || data.percentGain !== undefined) && (
-            <span className="ml-2 text-lg font-medium text-gray-300">
+            <span className="ml-2 text-lg font-medium text-[#8B949E]">
               {formatPercentageDisplay(percentValue || data.percentGain)}
             </span>
           )}
@@ -159,7 +159,7 @@ const KPICard = ({ title, data, prefix = "", suffix = "", showPercentage = false
               {finalSafeDelta}%
             </span>
           )}
-          <p className="text-gray-500">{sub_label}</p>
+          <p className="text-[#8B949E]">{sub_label}</p>
         </div>
       </div>
     </div>

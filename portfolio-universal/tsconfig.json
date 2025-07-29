@@ -1,0 +1,87 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": false,
+    "alwaysStrict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "jsx": "react-native",
+    "lib": [
+      "esnext"
+    ],
+    "target": "esnext",
+    "module": "esnext",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "./app/*"
+      ],
+      "@shared/*": [
+        "./shared/*"
+      ],
+      "@components/*": [
+        "./app/components/*"
+      ],
+      "@screens/*": [
+        "./app/screens/*"
+      ],
+      "@navigation/*": [
+        "./app/navigation/*"
+      ],
+      "@hooks/*": [
+        "./shared/hooks/*"
+      ],
+      "@utils/*": [
+        "./shared/utils/*"
+      ],
+      "@services/*": [
+        "./shared/services/*"
+      ],
+      "@types/*": [
+        "./shared/types/*"
+      ],
+      "@constants/*": [
+        "./shared/constants/*"
+      ],
+      "@assets/*": [
+        "./assets/*"
+      ],
+      "@config/*": [
+        "./shared/config/*"
+      ],
+      "@contexts/*": [
+        "./shared/contexts/*"
+      ],
+      "@api/*": [
+        "./shared/api/*"
+      ]
+    }
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "app.config.ts",
+    "nativewind-env.d.ts"
+  ],
+  "exclude": [
+    //"node_modules",
+    "babel.config.js",
+    "metro.config.js",
+    "jest.config.js"
+  ]
+}

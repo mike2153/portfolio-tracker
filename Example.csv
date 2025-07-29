@@ -1,0 +1,6 @@
+Event,Date,Symbol,Price,Quantity,Currency,FeeTax,Exchange,FeeCurrency,DoNotAdjustCash,Note
+Cash_In,2020-02-01,USD,1,"1000",USD,0,,,,
+Buy,2020-03-06,AAPL,100,10,USD,1,,,,"Test Note"
+Dividend,2020-04-10,AAPL,0.76,7.6,USD,0.76,,,,
+Sell,2020-05-10,AAPL,110,5,USD,1,,,,
+Fee,2020-04-01,,0,0,USD,10,,,,

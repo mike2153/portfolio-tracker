@@ -25,7 +25,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 
 from debug_logger import DebugLogger
-from supa_api.supa_api_historical_prices import supa_api_get_historical_prices, supa_api_store_historical_prices_batch, supa_api_get_historical_prices_batch
+from supa_api.supa_api_historical_prices import supa_api_get_historical_prices, supa_api_store_historical_prices_batch, supa_api_get_historical_prices_batch,supa_api_get_prices_for_date_batch
 from supa_api.supa_api_client import get_supa_service_client
 from vantage_api.vantage_api_quotes import vantage_api_get_quote, vantage_api_get_daily_adjusted
 from vantage_api.vantage_api_client import get_vantage_client
@@ -44,64 +44,64 @@ class CacheConfig:
     
 
 class CircuitBreaker:
-    """Circuit breaker pattern for external service failures"""
+    """Circuit breaker pattern for external service failures - uses database for distributed state"""
     
     def __init__(self, failure_threshold: int = 5, recovery_timeout: int = 60):
         self.failure_threshold = failure_threshold
         self.recovery_timeout = recovery_timeout
-        self._failures: Dict[str, int] = {}
-        self._last_failure_time: Dict[str, datetime] = {}
-        self._state: Dict[str, str] = {}  # 'closed', 'open', 'half_open'
+        self.db_client = get_supa_service_client()
     
     def is_open(self, service: str) -> bool:
         """Check if circuit is open (blocking calls)"""
-        if service not in self._state:
-            self._state[service] = 'closed'
+        try:
+            result = self.db_client.rpc('check_circuit_breaker', {
+                'p_service_name': service,
+                'p_failure_threshold': self.failure_threshold,
+                'p_recovery_timeout': self.recovery_timeout
+            }).execute()
+            
+            if result.data and len(result.data) > 0:
+                return result.data[0]['is_open']
+            
+            # Default to closed if check fails
             return False
-        
-        if self._state[service] == 'open':
-            # Check if recovery timeout has passed
-            if service in self._last_failure_time:
-                time_since_failure = (datetime.now() - self._last_failure_time[service]).seconds
-                if time_since_failure > self.recovery_timeout:
-                    self._state[service] = 'half_open'
-                    return False
-            return True
-        
-        return False
+        except Exception as e:
+            logger.error(f"Failed to check circuit breaker: {e}")
+            # Fail open - allow service calls if circuit breaker check fails
+            return False
     
     def record_failure(self, service: str):
         """Record service failure"""
-        self._failures[service] = self._failures.get(service, 0) + 1
-        self._last_failure_time[service] = datetime.now()
-        
-        if self._failures[service] >= self.failure_threshold:
-            self._state[service] = 'open'
-            logger.warning(f"Circuit breaker OPEN for {service}")
+        try:
+            self.db_client.rpc('record_service_failure', {
+                'p_service_name': service,
+                'p_failure_threshold': self.failure_threshold
+            }).execute()
+            logger.warning(f"Recorded failure for service {service}")
+        except Exception as e:
+            logger.error(f"Failed to record service failure: {e}")
     
     def record_success(self, service: str):
         """Record service success"""
-        if service in self._state and self._state[service] == 'half_open':
-            self._state[service] = 'closed'
-            self._failures[service] = 0
+        try:
+            self.db_client.rpc('record_service_success', {
+                'p_service_name': service
+            }).execute()
+        except Exception as e:
+            logger.error(f"Failed to record service success: {e}")
     
     def reset(self, service: Optional[str] = None):
         """Reset circuit breaker for a service or all services"""
-        if service:
-            # Reset specific service
-            if service in self._failures:
-                self._failures[service] = 0
-            if service in self._state:
-                self._state[service] = 'closed'
-            if service in self._last_failure_time:
-                del self._last_failure_time[service]
-            logger.info(f"Circuit breaker RESET for {service}")
-        else:
-            # Reset all services
-            self._failures.clear()
-            self._state.clear()
-            self._last_failure_time.clear()
-            logger.info("Circuit breaker RESET for all services")
+        try:
+            self.db_client.rpc('reset_circuit_breaker', {
+                'p_service_name': service
+            }).execute()
+            if service:
+                logger.info(f"Circuit breaker RESET for {service}")
+            else:
+                logger.info("Circuit breaker RESET for all services")
+        except Exception as e:
+            logger.error(f"Failed to reset circuit breaker: {e}")
 
 
 class PriceManager:
@@ -128,17 +128,12 @@ class PriceManager:
         # Cache configuration
         self.cache_config = CacheConfig()
         
-        # In-memory caches (preserving existing structure)
-        self._quote_cache: Dict[str, Tuple[Dict, datetime, float]] = {}
-        self._market_info_cache: Dict[str, Tuple[Dict, datetime]] = {}
-        self._market_status_cache: Dict[str, Tuple[bool, datetime]] = {}
-        self._holidays_cache: Dict[str, Set[date]] = {}
-        self._last_update_cache: Dict[str, datetime] = {}
+        # Cache configuration
         self._holidays_loaded = False
-        # Add cache for previous day prices
-        self._previous_day_cache: Dict[str, Dict[str, Dict[str, Any]]] = {}
-        self._previous_day_cache_timestamp: Dict[str, float] = {}
         self._previous_day_cache_ttl = 3600  # 1 hour cache for previous day prices
+        
+        # Session ID for request-level caching
+        self._session_id = None
         
         # Circuit breaker for API failures
         self._circuit_breaker = CircuitBreaker()
@@ -147,8 +142,7 @@ class PriceManager:
         # Session management
         self._update_locks: Dict[str, asyncio.Lock] = {}
         
-        # Request-level cache for avoiding duplicate DB queries within same request
-        self._request_cache: Dict[str, Any] = {}
+        # Request-level cache configuration
         self._request_cache_enabled = False
         
         logger.info("[PriceManager] Initialized unified price management service")
@@ -158,14 +152,17 @@ class PriceManager:
     def enable_request_cache(self):
         """Enable request-level caching for the current request"""
         self._request_cache_enabled = True
-        self._request_cache.clear()
-        logger.debug("[PriceManager] Request cache enabled")
+        # Generate a unique session ID for this request
+        import uuid
+        self._session_id = str(uuid.uuid4())
+        logger.debug(f"[PriceManager] Request cache enabled with session {self._session_id}")
     
     def disable_request_cache(self):
         """Disable request-level caching and clear cache"""
         self._request_cache_enabled = False
-        self._request_cache.clear()
-        logger.debug("[PriceManager] Request cache disabled and cleared")
+        self._session_id = None
+        # Note: Database cleanup handled by expiration
+        logger.debug("[PriceManager] Request cache disabled")
     
     def _get_request_cache_key(self, operation: str, **kwargs) -> str:
         """Generate a cache key for request-level caching"""
@@ -244,13 +241,21 @@ class PriceManager:
         last_trading_day = await self.get_last_trading_day(from_date)
         cache_key = self._get_cache_key_for_date(last_trading_day)
         
-        # Check cache first
-        if cache_key in self._previous_day_cache:
-            cache_timestamp = self._previous_day_cache_timestamp.get(cache_key, 0)
-            if self._is_cache_valid(cache_timestamp, self._previous_day_cache_ttl):
-                # Return cached prices for requested symbols
-                cached_data = self._previous_day_cache[cache_key]
-                return {symbol: cached_data[symbol] for symbol in symbols if symbol in cached_data}
+        # Check database cache first
+        try:
+            result = self.db_client.rpc(
+                'get_previous_day_prices',
+                {
+                    'p_cache_date': last_trading_day,
+                    'p_symbols': symbols
+                }
+            ).execute()
+            
+            if result.data:
+                logger.info(f"[PRICE MANAGER] Previous day cache HIT for {last_trading_day}")
+                return {row['symbol']: row['price_data'] for row in result.data}
+        except Exception as e:
+            logger.warning(f"[PRICE MANAGER] Failed to check previous day cache: {e}")
         
         # Cache miss or expired - fetch from database
         prices = await supa_api_get_prices_for_date_batch(
@@ -259,36 +264,35 @@ class PriceManager:
             user_token=user_token
         )
         
-        # Update cache
-        if cache_key not in self._previous_day_cache:
-            self._previous_day_cache[cache_key] = {}
-        
-        self._previous_day_cache[cache_key].update(prices)
-        self._previous_day_cache_timestamp[cache_key] = time_module.time()
-        
-        # Clean up old cache entries (keep only last 7 days)
-        self._cleanup_old_cache_entries()
+        # Update database cache
+        try:
+            # Prepare batch insert data
+            cache_records = []
+            expires_at = (datetime.now(timezone.utc) + timedelta(seconds=self._previous_day_cache_ttl)).isoformat()
+            
+            for symbol, price_data in prices.items():
+                cache_records.append({
+                    'cache_date': last_trading_day,
+                    'symbol': symbol,
+                    'price_data': price_data,
+                    'cached_at': datetime.now(timezone.utc).isoformat(),
+                    'expires_at': expires_at
+                })
+            
+            # Batch upsert to database
+            if cache_records:
+                self.db_client.table('previous_day_price_cache').upsert(cache_records).execute()
+                logger.debug(f"[PRICE MANAGER] Cached {len(cache_records)} previous day prices")
+        except Exception as e:
+            logger.error(f"[PRICE MANAGER] Failed to cache previous day prices: {e}")
         
         return prices
     
     def _cleanup_old_cache_entries(self):
-        """Remove cache entries older than 7 days to prevent memory bloat."""
-        current_date = date.today()
-        cutoff_date = current_date - timedelta(days=7)
-        
-        keys_to_remove = []
-        for cache_key in list(self._previous_day_cache.keys()):
-            try:
-                cache_date = datetime.strptime(cache_key, '%Y-%m-%d').date()
-                if cache_date < cutoff_date:
-                    keys_to_remove.append(cache_key)
-            except ValueError:
-                # Invalid date format, remove it
-                keys_to_remove.append(cache_key)
-        
-        for key in keys_to_remove:
-            self._previous_day_cache.pop(key, None)
-            self._previous_day_cache_timestamp.pop(key, None)
+        """Remove cache entries older than 7 days - handled by database expiration."""
+        # Database handles cleanup via expires_at column
+        # This method is kept for compatibility but does nothing
+        pass
     
     async def get_market_info(self, symbol: str, user_token: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """
@@ -302,12 +306,21 @@ class PriceManager:
             Dict with market info or None if not found
         """
         try:
-            # Check cache first
+            # Check database cache first
             cache_key = f"market_info:{symbol}"
-            if cache_key in self._market_info_cache:
-                cached_data, cache_time = self._market_info_cache[cache_key]
-                if (datetime.now() - cache_time).seconds < self.cache_config.market_info_timeout:
-                    return cached_data
+            try:
+                result = self.db_client.table('market_info_cache').select(
+                    'market_data'
+                ).eq(
+                    'symbol', symbol
+                ).gte(
+                    'expires_at', datetime.now(timezone.utc).isoformat()
+                ).single().execute()
+                
+                if result.data:
+                    return result.data['market_data']
+            except:
+                pass  # Cache miss, continue to fetch
             
             # Get market info from transactions table (which stores market data)
             result = self.db_client.table('transactions') \
@@ -320,8 +333,16 @@ class PriceManager:
             if result.data and len(result.data) > 0:
                 market_data = result.data[0]
                 
-                # Cache the result
-                self._market_info_cache[cache_key] = (market_data, datetime.now())
+                # Cache the result in database
+                try:
+                    self.db_client.table('market_info_cache').upsert({
+                        'symbol': symbol,
+                        'market_data': market_data,
+                        'cached_at': datetime.now(timezone.utc).isoformat(),
+                        'expires_at': (datetime.now(timezone.utc) + timedelta(seconds=self.cache_config.market_info_timeout)).isoformat()
+                    }).execute()
+                except Exception as e:
+                    logger.warning(f"Failed to cache market info: {e}")
                 
                 return market_data
             
@@ -335,7 +356,16 @@ class PriceManager:
                     'market_timezone': 'America/New_York',
                     'market_currency': 'USD'
                 }
-                self._market_info_cache[cache_key] = (default_market_info, datetime.now())
+                # Cache default market info in database
+                try:
+                    self.db_client.table('market_info_cache').upsert({
+                        'symbol': symbol,
+                        'market_data': default_market_info,
+                        'cached_at': datetime.now(timezone.utc).isoformat(),
+                        'expires_at': (datetime.now(timezone.utc) + timedelta(seconds=self.cache_config.market_info_timeout)).isoformat()
+                    }).execute()
+                except Exception as e:
+                    logger.warning(f"Failed to cache default market info: {e}")
                 return default_market_info
             
             logger.warning(f"[PriceManager] No market info found for {symbol}")
@@ -406,17 +436,9 @@ class PriceManager:
                 .execute()
             
             if result.data:
-                self._holidays_cache.clear()
-                for holiday in result.data:
-                    exchange = holiday['exchange']
-                    holiday_date = datetime.strptime(holiday['holiday_date'], '%Y-%m-%d').date()
-                    
-                    if exchange not in self._holidays_cache:
-                        self._holidays_cache[exchange] = set()
-                    self._holidays_cache[exchange].add(holiday_date)
-                
+                # Holidays are now stored in database, no need to cache in memory
                 self._holidays_loaded = True
-                logger.info(f"[PriceManager] Loaded {len(result.data)} market holidays")
+                logger.info(f"[PriceManager] Found {len(result.data)} market holidays in database")
             
         except Exception as e:
             logger.error(f"[PriceManager] Error loading market holidays: {e}")
@@ -440,9 +462,29 @@ class PriceManager:
             cache_key = f"quote_{symbol}"
             now = datetime.now(timezone.utc)
             
-            if cache_key in self._quote_cache:
-                cached_data, cache_time, cached_price = self._quote_cache[cache_key]
-                age_seconds = (now - cache_time).total_seconds()
+            # Check database cache
+            cached_quote = None
+            try:
+                cached_quote = self.db_client.rpc(
+                    'get_cached_quote',
+                    {
+                        'p_symbol': symbol,
+                        'p_cache_key': cache_key
+                    }
+                ).execute()
+                
+                if cached_quote.data:
+                    cached_data = cached_quote.data
+                    cache_time = datetime.fromisoformat(cached_data.get('cached_at', now.isoformat()))
+                    cached_price = float(cached_data.get('cached_price', 0))
+                    age_seconds = (now - cache_time).total_seconds()
+                else:
+                    cached_data = None
+            except Exception as e:
+                logger.debug(f"Cache lookup failed: {e}")
+                cached_data = None
+            
+            if cached_data:
                 
                 # Check if market is currently open
                 is_market_open, market_info = await self.is_market_open(symbol)
@@ -460,7 +502,20 @@ class PriceManager:
                     
                     if fresh_quote and fresh_quote.get('price') == cached_price:
                         # Price hasn't changed, update cache timestamp
-                        self._quote_cache[cache_key] = (cached_data, now, cached_price)
+                        # Update cache timestamp in database
+                        try:
+                            self.db_client.rpc(
+                                'set_cached_quote',
+                                {
+                                    'p_symbol': symbol,
+                                    'p_cache_key': cache_key,
+                                    'p_quote_data': cached_data,
+                                    'p_cached_price': cached_price,
+                                    'p_ttl_seconds': cache_timeout
+                                }
+                            ).execute()
+                        except:
+                            pass
                         return cached_data
                     elif fresh_quote:
                         # Price changed, use and cache the fresh data
@@ -475,7 +530,20 @@ class PriceManager:
                                 "message": "Fresh quote - price changed"
                             }
                         }
-                        self._quote_cache[cache_key] = (result, now, fresh_quote.get('price'))
+                        # Cache the fresh result in database
+                        try:
+                            self.db_client.rpc(
+                                'set_cached_quote',
+                                {
+                                    'p_symbol': symbol,
+                                    'p_cache_key': cache_key,
+                                    'p_quote_data': result,
+                                    'p_cached_price': fresh_quote.get('price'),
+                                    'p_ttl_seconds': cache_timeout
+                                }
+                            ).execute()
+                        except:
+                            pass
                         return result
             
             # No cache, get fresh quote
@@ -499,8 +567,29 @@ class PriceManager:
                 }
             }
             
-            # Cache the result
-            self._quote_cache[cache_key] = (result, now, quote_data.get('price'))
+            # Cache the result in database
+            try:
+                # Determine appropriate cache timeout
+                is_market_open, _ = await self.is_market_open(symbol)
+                if is_market_open:
+                    cache_timeout = self.cache_config.quote_timeout_market_open
+                elif now.weekday() >= 5:  # Weekend
+                    cache_timeout = self.cache_config.quote_timeout_weekend
+                else:
+                    cache_timeout = self.cache_config.quote_timeout_market_closed
+                
+                self.db_client.rpc(
+                    'set_cached_quote',
+                    {
+                        'p_symbol': symbol,
+                        'p_cache_key': cache_key,
+                        'p_quote_data': result,
+                        'p_cached_price': quote_data.get('price'),
+                        'p_ttl_seconds': cache_timeout
+                    }
+                ).execute()
+            except Exception as e:
+                logger.warning(f"Failed to cache quote: {e}")
             
             return result
             
@@ -798,15 +887,29 @@ class PriceManager:
             return {}
         
         # Check request cache if enabled
-        if self._request_cache_enabled:
+        if self._request_cache_enabled and self._session_id:
             cache_key = self._get_request_cache_key(
                 "batch_prices",
                 symbols=sorted(symbols),
                 max_days_back=max_days_back
             )
-            if cache_key in self._request_cache:
-                logger.debug(f"[PriceManager] Request cache HIT for batch prices: {len(symbols)} symbols")
-                return self._request_cache[cache_key]
+            
+            try:
+                result = self.db_client.table('price_request_cache').select(
+                    'result_data'
+                ).eq(
+                    'session_id', self._session_id
+                ).eq(
+                    'cache_key', cache_key
+                ).gte(
+                    'expires_at', datetime.now(timezone.utc).isoformat()
+                ).single().execute()
+                
+                if result.data:
+                    logger.debug(f"[PriceManager] Request cache HIT for batch prices: {len(symbols)} symbols")
+                    return result.data['result_data']
+            except:
+                pass  # Cache miss, continue
             
         try:
             # Get prices from the last N days for all symbols in one query
@@ -858,9 +961,18 @@ class PriceManager:
                 logger.warning(f"[PriceManager] No price data for symbols: {missing_symbols}")
             
             # Store in request cache if enabled
-            if self._request_cache_enabled:
-                self._request_cache[cache_key] = prices
-                logger.debug(f"[PriceManager] Stored batch prices in request cache: {len(prices)} symbols")
+            if self._request_cache_enabled and self._session_id:
+                try:
+                    self.db_client.table('price_request_cache').upsert({
+                        'session_id': self._session_id,
+                        'cache_key': cache_key,
+                        'result_data': prices,
+                        'created_at': datetime.now(timezone.utc).isoformat(),
+                        'expires_at': (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat()
+                    }).execute()
+                    logger.debug(f"[PriceManager] Stored batch prices in request cache: {len(prices)} symbols")
+                except Exception as e:
+                    logger.warning(f"Failed to cache request data: {e}")
             
             return prices
             
@@ -1324,9 +1436,19 @@ class PriceManager:
     
     def _is_holiday(self, check_date: date, exchange: str) -> bool:
         """Check if date is a market holiday"""
-        if exchange in self._holidays_cache:
-            return check_date in self._holidays_cache[exchange]
-        return False
+        try:
+            result = self.db_client.rpc(
+                'is_market_holiday',
+                {
+                    'p_exchange': exchange,
+                    'p_check_date': check_date.isoformat()
+                }
+            ).execute()
+            
+            return bool(result.data) if result.data is not None else False
+        except Exception as e:
+            logger.warning(f"Failed to check holiday: {e}")
+            return False
     
     async def _get_current_price_data(self, symbol: str) -> Optional[Dict[str, Any]]:
         """Get current price data from Alpha Vantage"""
@@ -1607,11 +1729,11 @@ class PriceManager:
     
     async def clear_cache(self):
         """Clear all caches"""
-        self._quote_cache.clear()
-        self._market_info_cache.clear()
-        self._market_status_cache.clear()
-        self._last_update_cache.clear()
-        logger.info("[PriceManager] All caches cleared")
+        try:
+            self.db_client.rpc('cleanup_expired_price_caches').execute()
+            logger.info("[PriceManager] Database caches cleaned up")
+        except Exception as e:
+            logger.error(f"[PriceManager] Failed to clear caches: {e}")
     
     async def get_market_status(self, symbol: str = "SPY") -> Dict[str, Any]:
         """
@@ -1909,7 +2031,7 @@ class PriceManager:
             
             if symbols:
                 # Use existing batch method to fetch all prices
-                await self.get_latest_quotes(symbols, user_token)
+                await self.get_portfolio_prices(symbols, user_token)
                 logger.info(f"[PriceManager] Prefetched {len(symbols)} symbols for user {user_id}")
                 return len(symbols)
             

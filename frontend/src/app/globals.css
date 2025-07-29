@@ -2,35 +2,49 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --bg-primary: #0D1117;
+  --text-primary: #FFFFFF;
+  --text-secondary: #8B949E;
+  --button-bg: #FFFFFF;
+  --button-text: #0D1117;
+  --accent-green: #238636;
+  --border-color: #30363D;
+}
+
 @layer base {
   html {
     font-family: Inter, system-ui, sans-serif;
+  }
+  
+  body {
+    @apply bg-[#0D1117] text-white;
   }
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors;
+    @apply bg-white text-[#0D1117] px-4 py-2 rounded-md hover:bg-gray-100 transition-colors font-medium;
   }
   
   .btn-secondary {
-    @apply bg-gray-200 text-gray-900 px-4 py-2 rounded-md hover:bg-gray-300 transition-colors;
+    @apply bg-transparent text-white px-4 py-2 rounded-md border border-[#30363D] hover:bg-[#30363D] transition-colors;
   }
   
   .card {
-    @apply bg-gray-900 rounded-lg shadow-sm border border-gray-700 p-6 text-gray-100;
+    @apply bg-[#0D1117] rounded-lg shadow-sm border border-[#30363D] p-6 text-white;
   }
 
   .metric-card {
-    @apply bg-gray-900 rounded-lg shadow-sm border border-gray-700 p-4 text-center text-gray-100;
+    @apply bg-[#0D1117] rounded-lg shadow-sm border border-[#30363D] p-4 text-center text-white;
   }
   
   .metric-value {
-    @apply text-2xl font-bold text-gray-100;
+    @apply text-2xl font-bold text-white;
   }
   
   .metric-label {
-    @apply text-sm text-gray-600;
+    @apply text-sm text-[#8B949E];
   }
 }
 
@@ -55,6 +69,6 @@
   input[type='date'],
   select,
   textarea {
-    @apply bg-slate-700 text-white border-gray-600 placeholder-gray-400;
+    @apply bg-[#0D1117] text-white border-[#30363D] placeholder-[#8B949E];
   }
 } 

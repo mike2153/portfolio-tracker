@@ -2,6 +2,9 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# Set Python path for imports
+ENV PYTHONPATH=/app
+
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     gcc \

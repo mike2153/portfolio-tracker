@@ -7,6 +7,8 @@ import { usePathname, useRouter } from 'next/navigation'
 interface AuthContextValue {
   user: User | null
   session: any | null  // Full session with access_token
+  signOut: () => Promise<void>
+  isLoading: boolean
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -22,40 +24,80 @@ export const useAuth = () => {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<any | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
   const pathname = usePathname()
 
+  const signOut = async () => {
+    try {
+      const { error } = await supabase.auth.signOut()
+      if (error) throw error
+      
+      // Clear state
+      setUser(null)
+      setSession(null)
+      
+      // Redirect to auth page
+      router.push('/auth')
+    } catch (error) {
+      console.error('Error signing out:', error)
+    }
+  }
+
   useEffect(() => {
     const init = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session?.user) {
-        setUser(session.user)
-        setSession(session)
-      } else if (pathname !== '/auth') {
-        router.replace('/auth')
+      try {
+        // Get initial session
+        const { data: { session } } = await supabase.auth.getSession()
+        
+        if (session?.user) {
+          setUser(session.user)
+          setSession(session)
+        } else if (pathname !== '/auth') {
+          // Only redirect if we're done loading and there's no session
+          router.replace('/auth')
+        }
+      } catch (error) {
+        console.error('Error getting session:', error)
+      } finally {
+        // Always set loading to false after initial check
+        setIsLoading(false)
       }
     }
 
     init()
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    
+    // Set up auth state change listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log(`[AuthProvider] Auth state changed: ${event}`, { 
+        hasSession: !!session, 
+        hasUser: !!session?.user,
+        userId: session?.user?.id,
+        pathname 
+      })
+      
       if (session?.user) {
         setUser(session.user)
         setSession(session)
+        setIsLoading(false)
       } else {
         setUser(null)
         setSession(null)
+        // Only redirect if not already on auth page
         if (pathname !== '/auth') {
           router.replace('/auth')
         }
+        setIsLoading(false)
       }
     })
+    
     return () => {
       subscription.unsubscribe()
     }
   }, [router, pathname])
 
   return (
-    <AuthContext.Provider value={{ user, session }}>
+    <AuthContext.Provider value={{ user, session, signOut, isLoading }}>
       {children}
     </AuthContext.Provider>
   )

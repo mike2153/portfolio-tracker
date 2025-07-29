@@ -2,36 +2,7 @@
  * Frontend API client functions for watchlist operations.
  * Handles all HTTP requests to the watchlist backend endpoints.
  */
-import { supabase } from '@/lib/supabaseClient';
-
-const API_BASE = process.env.NEXT_PUBLIC_BACKEND_API_URL ?? 'http://localhost:8000';
-
-/**
- * A wrapper around fetch that automatically adds the Supabase auth token.
- */
-async function authFetch(path: string, init: RequestInit = {}) {
-  const { data: { session } } = await supabase.auth.getSession();
-  
-  if (!session?.access_token) {
-    throw new Error('No authentication token available');
-  }
-
-  const headers = new Headers(init.headers);
-  headers.set('Authorization', `Bearer ${session.access_token}`);
-  
-  if ((init.method === 'POST' || init.method === 'PUT') && !headers.has('Content-Type')) {
-    headers.set('Content-Type', 'application/json');
-  }
-  
-  const fullUrl = `${API_BASE}${path}`;
-  const requestConfig = {
-    credentials: 'include' as RequestCredentials,
-    ...init,
-    headers,
-  };
-  
-  return fetch(fullUrl, requestConfig);
-}
+import { authFetch } from '@/lib/front_api_client';
 
 export interface WatchlistItem {
   id: string;
