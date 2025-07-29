@@ -1,9 +1,40 @@
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
+
 CREATE TABLE public.api_cache (
   cache_key text NOT NULL,
   data jsonb NOT NULL,
   created_at timestamp with time zone DEFAULT now(),
   expires_at timestamp with time zone NOT NULL,
   CONSTRAINT api_cache_pkey PRIMARY KEY (cache_key)
+);
+CREATE TABLE public.api_usage (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  service character varying NOT NULL,
+  date date NOT NULL,
+  call_count integer DEFAULT 0,
+  CONSTRAINT api_usage_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.audit_log (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  action character varying NOT NULL,
+  table_name character varying,
+  record_id uuid,
+  old_data jsonb,
+  new_data jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT audit_log_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.circuit_breaker_state (
+  service_name character varying NOT NULL,
+  failure_count integer DEFAULT 0,
+  last_failure_time timestamp with time zone,
+  circuit_state character varying DEFAULT 'closed'::character varying CHECK (circuit_state::text = ANY (ARRAY['closed'::character varying, 'open'::character varying, 'half_open'::character varying]::text[])),
+  last_success_time timestamp with time zone,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT circuit_breaker_state_pkey PRIMARY KEY (service_name)
 );
 CREATE TABLE public.company_financials (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -13,6 +44,31 @@ CREATE TABLE public.company_financials (
   last_updated timestamp without time zone DEFAULT now(),
   created_at timestamp without time zone DEFAULT now(),
   CONSTRAINT company_financials_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.dividend_sync_state (
+  user_id uuid NOT NULL,
+  last_sync_time timestamp with time zone,
+  sync_in_progress boolean DEFAULT false,
+  sync_started_at timestamp with time zone,
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT dividend_sync_state_pkey PRIMARY KEY (user_id)
+);
+CREATE TABLE public.forex_rates (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  from_currency character varying NOT NULL,
+  to_currency character varying NOT NULL,
+  date date NOT NULL,
+  rate numeric NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT forex_rates_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.global_dividend_sync_state (
+  id integer NOT NULL DEFAULT 1 CHECK (id = 1),
+  last_sync_time timestamp with time zone,
+  sync_in_progress boolean DEFAULT false,
+  sync_started_at timestamp with time zone,
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT global_dividend_sync_state_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.historical_prices (
   id bigint NOT NULL DEFAULT nextval('historical_prices_id_seq'::regclass),
@@ -30,6 +86,17 @@ CREATE TABLE public.historical_prices (
   updated_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
   CONSTRAINT historical_prices_pkey PRIMARY KEY (id)
 );
+CREATE TABLE public.holdings (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  symbol text NOT NULL,
+  quantity numeric NOT NULL DEFAULT 0,
+  average_price numeric,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT holdings_pkey PRIMARY KEY (id),
+  CONSTRAINT holdings_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
 CREATE TABLE public.market_holidays (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   exchange character varying NOT NULL,
@@ -40,6 +107,20 @@ CREATE TABLE public.market_holidays (
   late_open_time time without time zone,
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT market_holidays_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.market_holidays_cache (
+  market character varying NOT NULL,
+  holidays jsonb NOT NULL,
+  cached_at timestamp with time zone DEFAULT now(),
+  expires_at timestamp with time zone NOT NULL,
+  CONSTRAINT market_holidays_cache_pkey PRIMARY KEY (market)
+);
+CREATE TABLE public.market_info_cache (
+  symbol character varying NOT NULL,
+  market_info jsonb NOT NULL,
+  cached_at timestamp with time zone DEFAULT now(),
+  expires_at timestamp with time zone NOT NULL,
+  CONSTRAINT market_info_cache_pkey PRIMARY KEY (symbol)
 );
 CREATE TABLE public.portfolio_caches (
   user_id uuid NOT NULL,
@@ -81,6 +162,49 @@ CREATE TABLE public.portfolio_metrics_cache (
   CONSTRAINT portfolio_metrics_cache_pkey PRIMARY KEY (user_id, cache_key),
   CONSTRAINT portfolio_metrics_cache_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
+CREATE TABLE public.portfolios (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  name text NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT portfolios_pkey PRIMARY KEY (id),
+  CONSTRAINT portfolios_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.previous_day_price_cache (
+  symbol character varying NOT NULL,
+  previous_close numeric NOT NULL,
+  cached_at timestamp with time zone DEFAULT now(),
+  expires_at timestamp with time zone NOT NULL,
+  CONSTRAINT previous_day_price_cache_pkey PRIMARY KEY (symbol)
+);
+CREATE TABLE public.price_alerts (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  symbol text NOT NULL,
+  target_price numeric NOT NULL,
+  condition text NOT NULL CHECK (condition = ANY (ARRAY['above'::text, 'below'::text])),
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  triggered_at timestamp with time zone,
+  CONSTRAINT price_alerts_pkey PRIMARY KEY (id),
+  CONSTRAINT price_alerts_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.price_quote_cache (
+  symbol character varying NOT NULL,
+  cache_key character varying NOT NULL,
+  quote_data jsonb NOT NULL,
+  cached_at timestamp with time zone DEFAULT now(),
+  expires_at timestamp with time zone NOT NULL,
+  CONSTRAINT price_quote_cache_pkey PRIMARY KEY (symbol, cache_key)
+);
+CREATE TABLE public.price_request_cache (
+  request_key character varying NOT NULL,
+  response_data jsonb NOT NULL,
+  cached_at timestamp with time zone DEFAULT now(),
+  expires_at timestamp with time zone NOT NULL,
+  CONSTRAINT price_request_cache_pkey PRIMARY KEY (request_key)
+);
 CREATE TABLE public.price_update_log (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   symbol character varying NOT NULL UNIQUE,
@@ -114,6 +238,23 @@ CREATE TABLE public.price_update_sessions (
   gap_details jsonb,
   CONSTRAINT price_update_sessions_pkey PRIMARY KEY (id)
 );
+CREATE TABLE public.rate_limits (
+  user_id uuid NOT NULL,
+  action character varying NOT NULL,
+  last_attempt timestamp with time zone DEFAULT now(),
+  attempt_count integer DEFAULT 1,
+  CONSTRAINT rate_limits_pkey PRIMARY KEY (user_id, action)
+);
+CREATE TABLE public.stocks (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  symbol character varying NOT NULL UNIQUE,
+  company_name character varying,
+  exchange character varying,
+  currency character varying NOT NULL DEFAULT 'USD'::character varying,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT stocks_pkey PRIMARY KEY (id)
+);
 CREATE TABLE public.symbol_exchanges (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   symbol character varying NOT NULL UNIQUE,
@@ -146,8 +287,16 @@ CREATE TABLE public.transactions (
   market_close time without time zone DEFAULT '16:00:00'::time without time zone,
   market_timezone character varying DEFAULT 'UTC-05'::character varying,
   market_currency character varying DEFAULT 'USD'::character varying,
+  exchange_rate numeric,
   CONSTRAINT transactions_pkey PRIMARY KEY (id),
   CONSTRAINT transactions_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.user_currency_cache (
+  user_id uuid NOT NULL,
+  base_currency character varying NOT NULL,
+  cached_at timestamp with time zone DEFAULT now(),
+  expires_at timestamp with time zone DEFAULT (now() + '01:00:00'::interval),
+  CONSTRAINT user_currency_cache_pkey PRIMARY KEY (user_id)
 );
 CREATE TABLE public.user_dividends (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -172,6 +321,25 @@ CREATE TABLE public.user_dividends (
   rejected boolean DEFAULT false,
   CONSTRAINT user_dividends_pkey PRIMARY KEY (id),
   CONSTRAINT user_dividends_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.user_profiles (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid UNIQUE,
+  first_name character varying NOT NULL,
+  last_name character varying NOT NULL,
+  country character varying NOT NULL,
+  base_currency character varying NOT NULL DEFAULT 'USD'::character varying,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT user_profiles_pkey PRIMARY KEY (id),
+  CONSTRAINT user_profiles_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.users (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  email text NOT NULL UNIQUE,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT users_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.watchlist (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
