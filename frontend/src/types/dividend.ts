@@ -1,88 +1,37 @@
 // Unified Dividend Data Model - Frontend TypeScript Types
-// This mirrors the Python types for consistent data contracts
+// Import base types from shared API contracts
+import type {
+  DividendType,
+  DividendSource,
+  DividendStatus,
+  BaseDividendData,
+  UserDividendData,
+  DividendSummary,
+  DividendConfirmRequest,
+  DividendSyncRequest,
+  APIResponse
+} from '../../../shared/types/api-contracts';
 
-export type DividendType = 'cash' | 'stock' | 'drp';
-export type DividendSource = 'alpha_vantage' | 'manual' | 'broker';
-export type DividendStatus = 'pending' | 'confirmed' | 'edited';
-
-/**
- * Base dividend data - represents raw dividend information from external APIs
- */
-export interface BaseDividendData {
-  symbol: string;
-  ex_date: string; // ISO date string
-  pay_date: string; // ISO date string
-  amount_per_share: number;
-  currency: string;
-  dividend_type: DividendType;
-  source: DividendSource;
-  declaration_date?: string;
-  record_date?: string;
-}
-
-/**
- * Complete user dividend record - what the frontend receives from the API
- * Contains all necessary information for display and actions
- */
-export interface UserDividendData extends BaseDividendData {
-  id: string;
-  user_id?: string; // null for global dividends
-  
-  // User-specific ownership information (ALWAYS present in API responses)
-  shares_held_at_ex_date: number;
-  current_holdings: number;
-  total_amount: number; // CALCULATED: amount_per_share * shares_held_at_ex_date
-  
-  // Confirmation status (based on transaction existence, not just a flag)
-  confirmed: boolean;
-  status: DividendStatus;
-  
-  // Display information
-  company: string; // Human-readable company name
-  notes?: string;
-  
-  // Computed convenience fields
-  is_future: boolean;
-  is_recent: boolean;
-  
-  // Metadata
-  created_at: string; // ISO datetime string
-  updated_at?: string;
-}
+// Re-export imported types for backward compatibility
+export type {
+  DividendType,
+  DividendSource,
+  DividendStatus,
+  BaseDividendData,
+  UserDividendData,
+  DividendSummary,
+  DividendConfirmRequest,
+  DividendSyncRequest
+};
 
 /**
- * Dividend summary statistics for analytics dashboard
+ * @deprecated Use APIResponse<UserDividendData> instead
  */
-export interface DividendSummary {
-  total_received: number;
-  total_pending: number;
-  ytd_received: number;
-  confirmed_count: number;
-  pending_count: number;
-}
+export interface DividendResponse extends APIResponse<UserDividendData> {}
 
 /**
- * Request types for API calls
+ * @deprecated Use APIResponse<UserDividendData[]> with proper metadata instead
  */
-export interface DividendConfirmRequest {
-  dividend_id: string;
-  edited_amount?: number; // Optional override for total amount
-}
-
-export interface DividendSyncRequest {
-  symbol?: string; // If provided, sync only this symbol
-}
-
-/**
- * API Response wrappers
- */
-export interface DividendResponse {
-  success: boolean;
-  data?: UserDividendData;
-  error?: string;
-  message?: string;
-}
-
 export interface DividendListResponse {
   success: boolean;
   data: UserDividendData[];
@@ -97,6 +46,9 @@ export interface DividendListResponse {
   error?: string;
 }
 
+/**
+ * @deprecated Use APIResponse<{ dividend_summary: DividendSummary }> instead
+ */
 export interface DividendSummaryResponse {
   success: boolean;
   data: {

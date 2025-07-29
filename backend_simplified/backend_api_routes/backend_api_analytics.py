@@ -2,11 +2,12 @@
 Backend API routes for analytics functionality
 Handles analytics summary, holdings data, and dividend management
 """
-from fastapi import APIRouter, HTTPException, Depends, Query, Request
-from typing import Dict, Any, List
+from fastapi import APIRouter, HTTPException, Depends, Query, Request, Header
+from typing import Dict, Any, List, Union
 import logging
 from datetime import datetime, date, timedelta
 from decimal import Decimal
+import time
 
 from debug_logger import DebugLogger
 from supa_api.supa_api_auth import require_authenticated_user
@@ -14,6 +15,12 @@ from services.dividend_service import dividend_service
 from services.portfolio_calculator import portfolio_calculator
 from services.portfolio_metrics_manager import portfolio_metrics_manager
 from utils.auth_helpers import extract_user_credentials
+from models.response_models import APIResponse
+from utils.response_factory import ResponseFactory
+from utils.error_handlers import (
+    ServiceUnavailableError, InvalidInputError, DataNotFoundError,
+    handle_database_error, handle_external_api_error, async_error_handler
+)
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +30,9 @@ analytics_router = APIRouter()
 @analytics_router.get("/summary")
 @DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="ANALYTICS_SUMMARY")
 async def backend_api_analytics_summary(
-    user_data: Dict[str, Any] = Depends(require_authenticated_user)
-) -> Dict[str, Any]:
+    user_data: Dict[str, Any] = Depends(require_authenticated_user),
+    x_api_version: str = Header(default="v1", alias="X-API-Version")
+) -> Union[Dict[str, Any], APIResponse[Dict[str, Any]]]:
     """
     Get analytics summary with KPI cards data
     Returns portfolio value, profit, IRR, passive income, and cash balance
@@ -39,8 +47,9 @@ async def backend_api_analytics_summary(
     if not user_token:
         raise HTTPException(status_code=401, detail="Access token not found in authentication data")
     
-    logger.info(f"[backend_api_analytics.py::backend_api_analytics_summary] OPTIMIZED Summary request for user: {user_id}")
+    logger.info(f"[backend_api_analytics.py::backend_api_analytics_summary] OPTIMIZED Summary request for user: {user_id}, API version: {x_api_version}")
     
+    start_time = time.time()
     try:
         # Use PortfolioMetricsManager for optimized data fetching
         metrics = await portfolio_metrics_manager.get_portfolio_metrics(
@@ -90,6 +99,24 @@ async def backend_api_analytics_summary(
             "dividend_summary": dividend_summary
         }
         
+        # Calculate total computation time
+        computation_time_ms = int((time.time() - start_time) * 1000)
+        
+        # Return v2 format if requested
+        if x_api_version == "v2":
+            return ResponseFactory.success(
+                data=summary,
+                message="Analytics summary retrieved successfully",
+                metadata={
+                    "user_id": user_id,
+                    "optimized": True,
+                    "cache_status": metrics.cache_status,
+                    "metrics_computation_time_ms": metrics.computation_time_ms,
+                    "total_computation_time_ms": computation_time_ms
+                }
+            )
+        
+        # Return legacy v1 format
         return {
             "success": True,
             "data": summary,
@@ -109,14 +136,28 @@ async def backend_api_analytics_summary(
             error=e,
             user_id=user_id
         )
+        
+        # Return v2 error format if requested
+        if x_api_version == "v2":
+            if isinstance(e, ServiceUnavailableError):
+                return ResponseFactory.service_unavailable("Analytics service", str(e))
+            else:
+                return ResponseFactory.error(
+                    error="InternalServerError",
+                    message="Failed to retrieve analytics summary",
+                    status_code=500
+                )
+        
+        # Return legacy v1 error format
         raise HTTPException(status_code=500, detail=str(e))
 
 @analytics_router.get("/holdings")
 @DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="ANALYTICS_HOLDINGS")
 async def backend_api_analytics_holdings(
     include_sold: bool = Query(False, description="Include sold holdings in response"),
-    user_data: Dict[str, Any] = Depends(require_authenticated_user)
-) -> Dict[str, Any]:
+    user_data: Dict[str, Any] = Depends(require_authenticated_user),
+    x_api_version: str = Header(default="v1", alias="X-API-Version")
+) -> Union[Dict[str, Any], APIResponse[List[Dict[str, Any]]]]:
     """
     Get detailed holdings data for analytics table
     Returns holdings with cost basis, value, dividends, gains, P&L, etc.
@@ -130,11 +171,29 @@ async def backend_api_analytics_holdings(
     if not user_token:
         raise HTTPException(status_code=401, detail="Access token not found in authentication data")
     
-    logger.info(f"[backend_api_analytics.py::backend_api_analytics_holdings] Holdings request for user: {user_id}")
+    logger.info(f"[backend_api_analytics.py::backend_api_analytics_holdings] Holdings request for user: {user_id}, API version: {x_api_version}")
     
+    start_time = time.time()
     try:
         holdings_data = await _get_detailed_holdings(user_id, user_token, include_sold)
         
+        # Calculate computation time
+        computation_time_ms = int((time.time() - start_time) * 1000)
+        
+        # Return v2 format if requested
+        if x_api_version == "v2":
+            return ResponseFactory.success(
+                data=holdings_data,
+                message=f"Retrieved {len(holdings_data)} holdings",
+                metadata={
+                    "user_id": user_id,
+                    "include_sold": include_sold,
+                    "total_holdings": len(holdings_data),
+                    "computation_time_ms": computation_time_ms
+                }
+            )
+        
+        # Return legacy v1 format
         return {
             "success": True,
             "data": holdings_data,
@@ -153,14 +212,30 @@ async def backend_api_analytics_holdings(
             error=e,
             user_id=user_id
         )
+        
+        # Return v2 error format if requested
+        if x_api_version == "v2":
+            if isinstance(e, DataNotFoundError):
+                return ResponseFactory.not_found("Holdings", user_id)
+            elif isinstance(e, ServiceUnavailableError):
+                return ResponseFactory.service_unavailable("Analytics service", str(e))
+            else:
+                return ResponseFactory.error(
+                    error="InternalServerError",
+                    message="Failed to retrieve holdings data",
+                    status_code=500
+                )
+        
+        # Return legacy v1 error format
         raise HTTPException(status_code=500, detail=str(e))
 
 @analytics_router.get("/dividends")
 @DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="ANALYTICS_DIVIDENDS")
 async def backend_api_analytics_dividends(
     confirmed_only: bool = Query(False, description="Return only confirmed dividends"),
-    user_data: Dict[str, Any] = Depends(require_authenticated_user)
-) -> Dict[str, Any]:
+    user_data: Dict[str, Any] = Depends(require_authenticated_user),
+    x_api_version: str = Header(default="v1", alias="X-API-Version")
+) -> Union[Dict[str, Any], APIResponse[List[Dict[str, Any]]]]:
     """
     REFACTORED: Get dividends with unified data model and transaction-based confirmation
     Fixes all data consistency and API contract issues
@@ -173,8 +248,9 @@ async def backend_api_analytics_dividends(
     if not user_token:
         raise HTTPException(status_code=401, detail="Access token not found in authentication data")
     
-    logger.info(f"[backend_api_analytics.py::backend_api_analytics_dividends] FIXED dividends request for user: {user_id}, confirmed_only: {confirmed_only}")
+    logger.info(f"[backend_api_analytics.py::backend_api_analytics_dividends] FIXED dividends request for user: {user_id}, confirmed_only: {confirmed_only}, API version: {x_api_version}")
     
+    start_time = time.time()
     try:
         # Use original service with corrected parameter order
         dividends_result = await dividend_service.get_user_dividends(
@@ -182,8 +258,34 @@ async def backend_api_analytics_dividends(
         )
         
         if not dividends_result["success"]:
-            raise HTTPException(status_code=500, detail=dividends_result.get("error", "Failed to get dividends"))
+            error_msg = dividends_result.get("error", "Failed to get dividends")
+            if x_api_version == "v2":
+                return ResponseFactory.error(
+                    error="DividendRetrievalError",
+                    message=error_msg,
+                    status_code=500
+                )
+            else:
+                raise HTTPException(status_code=500, detail=error_msg)
         
+        # Calculate computation time
+        computation_time_ms = int((time.time() - start_time) * 1000)
+        
+        # Return v2 format if requested
+        if x_api_version == "v2":
+            return ResponseFactory.success(
+                data=dividends_result["dividends"],
+                message=dividends_result.get("message", "Dividends retrieved successfully"),
+                metadata={
+                    "user_id": user_id,
+                    "confirmed_only": confirmed_only,
+                    "total_dividends": dividends_result["total_count"],
+                    "owned_symbols": dividends_result.get("owned_symbols", []),
+                    "computation_time_ms": computation_time_ms
+                }
+            )
+        
+        # Return legacy v1 format
         return {
             "success": True,
             "data": dividends_result["dividends"],
@@ -197,6 +299,10 @@ async def backend_api_analytics_dividends(
             }
         }
         
+    except HTTPException:
+        # Re-raise HTTP exceptions if not in v2 mode
+        if x_api_version != "v2":
+            raise
     except Exception as e:
         DebugLogger.log_error(
             file_name="backend_api_analytics.py",
@@ -204,6 +310,21 @@ async def backend_api_analytics_dividends(
             error=e,
             user_id=user_id
         )
+        
+        # Return v2 error format if requested
+        if x_api_version == "v2":
+            if "database" in str(e).lower() or "supabase" in str(e).lower():
+                return handle_database_error(e, "dividend retrieval", user_id)
+            elif "alpha vantage" in str(e).lower():
+                return handle_external_api_error(e, "Alpha Vantage", "retrieve dividends", user_id)
+            else:
+                return ResponseFactory.error(
+                    error="InternalServerError",
+                    message="Failed to retrieve dividends",
+                    status_code=500
+                )
+        
+        # Return legacy v1 error format
         raise HTTPException(status_code=500, detail=str(e))
 
 @analytics_router.post("/dividends/confirm")
@@ -211,8 +332,9 @@ async def backend_api_analytics_dividends(
 async def backend_api_confirm_dividend(
     request: Request,
     dividend_id: str = Query(..., description="Dividend ID to confirm"),
-    user_data: Dict[str, Any] = Depends(require_authenticated_user)
-) -> Dict[str, Any]:
+    user_data: Dict[str, Any] = Depends(require_authenticated_user),
+    x_api_version: str = Header(default="v1", alias="X-API-Version")
+) -> Union[Dict[str, Any], APIResponse[Dict[str, Any]]]:
     """
     OPTIMIZED: Confirm dividend with proper validation and transaction creation
     NO PORTFOLIO RECALCULATION - Only dividend operations (uses Alpha Vantage dividend APIs)
@@ -222,8 +344,9 @@ async def backend_api_confirm_dividend(
     
     body = await request.json()
     edited_amount = body.get('edited_amount')  # Optional float
-    DebugLogger.info_if_enabled(f"[backend_api_analytics.py] OPTIMIZED confirm request for dividend {dividend_id}, user {user_id}, edited_amount: {edited_amount}", logger)
+    DebugLogger.info_if_enabled(f"[backend_api_analytics.py] OPTIMIZED confirm request for dividend {dividend_id}, user {user_id}, edited_amount: {edited_amount}, API version: {x_api_version}", logger)
     
+    start_time = time.time()
     try:
         # PERFORMANCE: This uses Alpha Vantage dividend APIs, NOT historical price data
         # No get_historical_prices calls should be triggered from this operation
@@ -231,6 +354,27 @@ async def backend_api_confirm_dividend(
         
         DebugLogger.info_if_enabled(f"[backend_api_analytics.py] OPTIMIZED confirmation result: success={result['success']}, total_amount={result.get('total_amount')}", logger)
         DebugLogger.info_if_enabled(f"[backend_api_analytics.py] 🚀 PERFORMANCE: Dividend confirmation completed without portfolio recalculation", logger)
+        
+        # Calculate computation time
+        computation_time_ms = int((time.time() - start_time) * 1000)
+        
+        # Return v2 format if requested
+        if x_api_version == "v2":
+            return ResponseFactory.success(
+                data={
+                    "dividend_id": dividend_id,
+                    "total_amount": result.get('total_amount'),
+                    "transaction_id": result.get('transaction_id'),
+                    "performance_optimized": True,
+                    "portfolio_recalculation_skipped": True
+                },
+                message=result.get('message', 'Dividend confirmed successfully'),
+                metadata={
+                    "user_id": user_id,
+                    "computation_time_ms": computation_time_ms,
+                    "cache_status": "not_applicable"
+                }
+            )
         
         # Add performance metadata to help frontend understand this was optimized
         result["performance_optimized"] = True
@@ -240,14 +384,33 @@ async def backend_api_confirm_dividend(
         
     except Exception as e:
         DebugLogger.log_error(file_name="backend_api_analytics.py", function_name="backend_api_confirm_dividend", error=e, user_id=user_id, dividend_id=dividend_id)
+        
+        # Return v2 error format if requested
+        if x_api_version == "v2":
+            if "not found" in str(e).lower():
+                return ResponseFactory.not_found("Dividend", dividend_id)
+            elif "already confirmed" in str(e).lower():
+                return ResponseFactory.validation_error(
+                    {"dividend_id": "Dividend is already confirmed"},
+                    "Cannot confirm an already confirmed dividend"
+                )
+            else:
+                return ResponseFactory.error(
+                    error="DividendConfirmationError",
+                    message=f"Failed to confirm dividend: {str(e)}",
+                    status_code=500
+                )
+        
+        # Return legacy v1 error format
         raise HTTPException(status_code=500, detail=str(e))
 
 @analytics_router.post("/dividends/sync")
 @DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="SYNC_DIVIDENDS")
 async def backend_api_sync_dividends(
     symbol: str = Query(..., description="Symbol to sync dividends for"),
-    user_data: Dict[str, Any] = Depends(require_authenticated_user)
-) -> Dict[str, Any]:
+    user_data: Dict[str, Any] = Depends(require_authenticated_user),
+    x_api_version: str = Header(default="v1", alias="X-API-Version")
+) -> Union[Dict[str, Any], APIResponse[Dict[str, Any]]]:
     """
     REFACTORED: Manually sync dividends with idempotent upserts
     """
@@ -259,18 +422,53 @@ async def backend_api_sync_dividends(
     if not user_token:
         raise HTTPException(status_code=401, detail="Access token not found in authentication data")
     
-    logger.info(f"[backend_api_analytics.py::backend_api_sync_dividends] REFACTORED syncing dividends for {symbol}, user: {user_id}")
+    logger.info(f"[backend_api_analytics.py::backend_api_sync_dividends] REFACTORED syncing dividends for {symbol}, user: {user_id}, API version: {x_api_version}")
     
+    start_time = time.time()
     try:
+        # Validate symbol format
+        if not symbol or not symbol.strip():
+            if x_api_version == "v2":
+                return ResponseFactory.validation_error(
+                    {"symbol": "Symbol cannot be empty"},
+                    "Invalid symbol provided"
+                )
+            else:
+                raise HTTPException(status_code=400, detail="Symbol cannot be empty")
         # Use original service
         result = await dividend_service.sync_dividends_for_symbol(user_id, symbol.upper(), user_token)
         
+        # Calculate computation time
+        computation_time_ms = int((time.time() - start_time) * 1000)
+        
+        # Return v2 format if requested
+        if x_api_version == "v2":
+            return ResponseFactory.success(
+                data={
+                    "symbol": symbol.upper(),
+                    "dividends_synced": result.get("dividends_synced", 0),
+                    "dividends_assigned": result.get("dividends_assigned", 0),
+                    "from_cache": result.get("from_cache", False)
+                },
+                message=result.get("message", f"Dividend sync completed for {symbol}"),
+                metadata={
+                    "user_id": user_id,
+                    "computation_time_ms": computation_time_ms,
+                    "api_source": "Alpha Vantage" if not result.get("from_cache") else "cache"
+                }
+            )
+        
+        # Return legacy v1 format
         return {
             "success": True,
             "data": result,
             "message": result.get("message", f"Dividend sync completed for {symbol}")
         }
         
+    except HTTPException:
+        # Re-raise HTTP exceptions if not in v2 mode
+        if x_api_version != "v2":
+            raise
     except Exception as e:
         DebugLogger.log_error(
             file_name="backend_api_analytics.py",
@@ -279,6 +477,28 @@ async def backend_api_sync_dividends(
             user_id=user_id,
             symbol=symbol
         )
+        
+        # Return v2 error format if requested
+        if x_api_version == "v2":
+            if "rate limit" in str(e).lower():
+                return ResponseFactory.error(
+                    error="RateLimitError",
+                    message="API rate limit exceeded. Please try again later.",
+                    status_code=429
+                )
+            elif "alpha vantage" in str(e).lower():
+                return ResponseFactory.service_unavailable(
+                    "Alpha Vantage API",
+                    "Unable to sync dividends at this time"
+                )
+            else:
+                return ResponseFactory.error(
+                    error="DividendSyncError",
+                    message=f"Failed to sync dividends for {symbol}",
+                    status_code=500
+                )
+        
+        # Return legacy v1 error format
         raise HTTPException(status_code=500, detail=str(e))
 
 @analytics_router.post("/dividends/sync-all")
@@ -303,27 +523,30 @@ async def backend_api_sync_all_dividends(
     
     try:
         # OPTIMIZATION: Check if user has synced recently (within last 5 minutes)
-        last_sync_key = f"dividend_sync_{user_id}"
-        current_time = datetime.now().timestamp()
+        # Use database rate limiting instead of in-memory cache for multi-worker safety
+        from supa_api.supa_api_client import get_supa_service_client
+        supa_client = get_supa_service_client()
         
-        # Simple in-memory rate limiting (in production, use Redis)
-        if not hasattr(backend_api_sync_all_dividends, '_sync_cache'):
-            backend_api_sync_all_dividends._sync_cache = {}
+        # Call the database rate limit check function
+        rate_limit_result = supa_client.rpc(
+            'check_rate_limit',
+            {
+                'p_user_id': user_id,
+                'p_action': 'dividend_sync_all',
+                'p_seconds': 300,  # 5 minutes
+                'p_max_attempts': 1  # Only allow once per 5 minutes
+            }
+        ).execute()
         
-        last_sync_time = backend_api_sync_all_dividends._sync_cache.get(last_sync_key, 0)
-        time_since_last_sync = current_time - last_sync_time
-        
-        if time_since_last_sync < 300:  # 5 minutes
-            remaining_time = 300 - time_since_last_sync
+        # Check if rate limited
+        if not rate_limit_result.data:
+            # Calculate approximate time remaining (5 minutes)
             return {
                 "success": True,
                 "data": {"total_symbols": 0, "dividends_synced": 0},
-                "message": f"Dividend sync rate limited. Try again in {int(remaining_time)} seconds.",
+                "message": "Dividend sync rate limited. Try again in a few minutes.",
                 "rate_limited": True
             }
-        
-        # Update sync time before processing
-        backend_api_sync_all_dividends._sync_cache[last_sync_key] = current_time
         
         # Get all unique symbols the user has owned
         from supa_api.supa_api_transactions import supa_api_get_user_transactions
@@ -382,8 +605,9 @@ async def backend_api_sync_all_dividends(
 @analytics_router.get("/dividends/summary")
 @DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="DIVIDEND_SUMMARY")
 async def backend_api_dividend_summary(
-    user_data: Dict[str, Any] = Depends(require_authenticated_user)
-) -> Dict[str, Any]:
+    user_data: Dict[str, Any] = Depends(require_authenticated_user),
+    x_api_version: str = Header(default="v1", alias="X-API-Version")
+) -> Union[Dict[str, Any], APIResponse[Dict[str, Any]]]:
     """
     Get lightweight dividend summary for dividend page cards only
     This is much faster than the full analytics summary
@@ -391,20 +615,49 @@ async def backend_api_dividend_summary(
     # Extract and validate user credentials
     user_id, user_token = extract_user_credentials(user_data)
     
-    logger.info(f"[backend_api_analytics.py::backend_api_dividend_summary] Fast dividend summary for user: {user_id}")
+    logger.info(f"[backend_api_analytics.py::backend_api_dividend_summary] Fast dividend summary for user: {user_id}, API version: {x_api_version}")
     
+    start_time = time.time()
     try:
         # Use the lightweight dividend summary from service
         summary = await dividend_service.get_dividend_summary(user_id)
         
         if not summary["success"]:
-            raise HTTPException(status_code=500, detail=summary.get("error", "Failed to get dividend summary"))
+            error_msg = summary.get("error", "Failed to get dividend summary")
+            if x_api_version == "v2":
+                return ResponseFactory.error(
+                    error="DividendSummaryError",
+                    message=error_msg,
+                    status_code=500
+                )
+            else:
+                raise HTTPException(status_code=500, detail=error_msg)
         
+        # Calculate computation time
+        computation_time_ms = int((time.time() - start_time) * 1000)
+        
+        # Return v2 format if requested
+        if x_api_version == "v2":
+            return ResponseFactory.success(
+                data=summary["summary"],
+                message="Dividend summary retrieved successfully",
+                metadata={
+                    "user_id": user_id,
+                    "computation_time_ms": computation_time_ms,
+                    "cache_status": "lightweight_query"
+                }
+            )
+        
+        # Return legacy v1 format
         return {
             "success": True,
             "data": summary["summary"]
         }
         
+    except HTTPException:
+        # Re-raise HTTP exceptions if not in v2 mode
+        if x_api_version != "v2":
+            raise
     except Exception as e:
         DebugLogger.log_error(
             file_name="backend_api_analytics.py",
@@ -412,6 +665,16 @@ async def backend_api_dividend_summary(
             error=e,
             user_id=user_id
         )
+        
+        # Return v2 error format if requested
+        if x_api_version == "v2":
+            return ResponseFactory.error(
+                error="InternalServerError",
+                message="Failed to retrieve dividend summary",
+                status_code=500
+            )
+        
+        # Return legacy v1 error format
         raise HTTPException(status_code=500, detail=str(e))
 
 @analytics_router.post("/dividends/assign-simple")
@@ -671,8 +934,8 @@ async def _enrich_dividend_data(user_id: str, dividends: List[Dict[str, Any]]) -
         
         # Calculate projected dividend amount
         if not dividend['confirmed'] and enriched_dividend['current_holdings'] > 0:
-            projected_amount = float(dividend['amount']) * enriched_dividend['current_holdings']
-            enriched_dividend['projected_amount'] = projected_amount
+            projected_amount = Decimal(str(dividend['amount'])) * Decimal(str(enriched_dividend['current_holdings']))
+            enriched_dividend['projected_amount'] = float(projected_amount)  # Convert to float for JSON serialization
         
         enriched.append(enriched_dividend)
     
@@ -697,16 +960,16 @@ async def _get_lightweight_dividend_summary(user_id: str) -> Dict[str, Any]:
             .execute()
         
         # Calculate YTD received - use total_amount if available, otherwise calculate from amount * shares
-        ytd_received = 0
+        ytd_received = Decimal('0')
         for div in ytd_result.data if ytd_result.data else []:
             if div.get('total_amount'):
-                ytd_received += float(div['total_amount'])
+                ytd_received += Decimal(str(div['total_amount']))
             elif div.get('amount') and div.get('shares_held_at_ex_date'):
                 # Fallback calculation if total_amount not set
-                ytd_received += float(div['amount']) * float(div['shares_held_at_ex_date'])
+                ytd_received += Decimal(str(div['amount'])) * Decimal(str(div['shares_held_at_ex_date']))
         
         return {
-            "ytd_received": ytd_received,
+            "ytd_received": float(ytd_received),  # Convert to float for JSON serialization
             "total_received": 0,  # Skip for performance
             "total_pending": 0,   # Skip for performance
             "confirmed_count": len(ytd_result.data) if ytd_result.data else 0,

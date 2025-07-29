@@ -277,7 +277,7 @@ class DividendService:
                 
                 if shares_at_ex_date > 0:
                     # Create user-specific dividend record
-                    total_amount = float(dividend['amount']) * shares_at_ex_date
+                    total_amount = Decimal(str(dividend['amount'])) * shares_at_ex_date
                     # Add symbol to dividend data since it's not included from Alpha Vantage
                     dividend_with_symbol = {**dividend, 'symbol': symbol}
                     success = await self._create_user_dividend_record(
@@ -891,7 +891,7 @@ class DividendService:
             else:
                 # Use the per-share amount from database
                 per_share_amount = Decimal(str(dividend['amount']))
-                total_amount_for_transaction = per_share_amount * Decimal(str(shares_held))
+                total_amount_for_transaction = Decimal(str(per_share_amount)) * Decimal(str(shares_held))
             
             # Create dividend transaction in transactions table (user's actual receipt)
             # Note: transactions table uses 'price' and 'quantity', not 'total_value'
@@ -905,7 +905,7 @@ class DividendService:
                 # 'total_value' field doesn't exist - removed
                 'date': dividend['pay_date'],
                 'notes': f"Dividend payment - ${per_share_amount:.4f} per share × {shares_held} shares" + 
-                        (f" (edited total from ${dividend['amount'] * shares_held:.2f})" if edited_amount is not None else "")
+                        (f" (edited total from ${float(Decimal(str(dividend['amount'])) * Decimal(str(shares_held))):.2f})" if edited_amount is not None else "")
             }
             
             # Insert transaction
@@ -1091,14 +1091,14 @@ class DividendService:
             # Handle amount calculations
             if edited_data.get('amount_per_share') is not None:
                 amount_per_share = float(edited_data['amount_per_share'])
-                total_amount = round(amount_per_share * shares_held, 2)
+                total_amount = round(float(Decimal(str(amount_per_share)) * Decimal(str(shares_held))), 2)
             elif edited_data.get('total_amount') is not None:
                 total_amount = float(edited_data['total_amount'])
                 amount_per_share = round(total_amount / shares_held, 3) if shares_held > 0 else 0
             else:
                 # Keep original amounts if not edited
                 amount_per_share = float(original_dividend['amount'])
-                total_amount = round(amount_per_share * shares_held, 2)
+                total_amount = round(float(Decimal(str(amount_per_share)) * Decimal(str(shares_held))), 2)
             
             # SMART UPDATE LOGIC
             if ex_date_changing:
@@ -1368,7 +1368,7 @@ class DividendService:
             logger.error(f"Failed to get first transaction date: {e}")
             return None
     
-    async def _calculate_shares_owned_at_date(self, user_id, symbol: str, target_date: str, user_token: str) -> float:
+    async def _calculate_shares_owned_at_date(self, user_id, symbol: str, target_date: str, user_token: str) -> Decimal:
         """Calculate how many shares user owned at a specific date"""
         try:
             # Import here to avoid circular imports
@@ -1381,7 +1381,7 @@ class DividendService:
             all_transactions = await supa_api_get_user_transactions(user_id, limit=1000, user_token=user_token)
             
             if not all_transactions:
-                return 0.0
+                return Decimal('0')
             
             # Filter transactions for this symbol up to the target date
             relevant_transactions = [
@@ -1391,22 +1391,22 @@ class DividendService:
             ]
             
             if not relevant_transactions:
-                return 0.0
+                return Decimal('0')
             
             # Calculate running total of shares
-            total_shares = 0.0
+            total_shares = Decimal('0')
             for transaction in relevant_transactions:
                 if transaction['transaction_type'] in ['BUY', 'Buy']:
-                    total_shares += float(transaction['quantity'])
+                    total_shares += Decimal(str(transaction['quantity']))
                 elif transaction['transaction_type'] in ['SELL', 'Sell']:
-                    total_shares -= float(transaction['quantity'])
+                    total_shares -= Decimal(str(transaction['quantity']))
                 # Note: DIVIDEND transactions don't affect share count
             
-            return max(0.0, total_shares)  # Can't have negative shares
+            return max(Decimal('0'), total_shares)  # Can't have negative shares
             
         except Exception as e:
             logger.error(f"Failed to calculate shares owned at date: {e}")
-            return 0.0
+            return Decimal('0')
     
     @DebugLogger.log_api_call(api_name="DIVIDEND_SERVICE", sender="BACKEND", receiver="DATABASE", operation="SYNC_ALL_HOLDINGS")
     async def sync_dividends_for_all_holdings(self, user_id: str, user_token: str) -> Dict[str, Any]:
@@ -1553,7 +1553,7 @@ class DividendService:
     async def background_dividend_sync_all_users(self) -> Dict[str, Any]:
         """Protected global background sync with race condition handling"""
         
-        # Check if global sync can start
+        # Check and acquire global sync lock (this handles all checks)
         if not self._can_start_global_sync():
             return {
                 "success": False,
@@ -1561,18 +1561,21 @@ class DividendService:
                 "code": "SYNC_BLOCKED"
             }
         
-        # Set global sync flag
-        with self._sync_lock:
-            self._global_sync_in_progress = True
-            self._last_global_sync = time.time()
-        
         #DebugLogger.info_if_enabled("[dividend_service::background_dividend_sync_all_users] Starting protected global sync", logger)
         
         try:
             return await self._background_dividend_sync_all_users_impl()
         finally:
-            with self._sync_lock:
-                self._global_sync_in_progress = False
+            # Release global sync lock
+            try:
+                self.supa_client.rpc(
+                    'release_dividend_sync_lock',
+                    {
+                        'p_sync_type': 'global'
+                    }
+                ).execute()
+            except Exception as e:
+                logger.error(f"Failed to release global sync lock: {e}")
     
     async def _background_dividend_sync_all_users_impl(self) -> Dict[str, Any]:
         """Implementation of global background sync - OPTIMIZED with smart filtering"""
@@ -1969,13 +1972,13 @@ class DividendService:
                                     user_id=user_id,
                                     dividend=dividend,
                                     shares_held=shares_at_ex_date,
-                                    total_amount=float(dividend['amount']) * shares_at_ex_date
+                                    total_amount=Decimal(str(dividend['amount'])) * shares_at_ex_date
                                 )
                                 
                                 if success:
                                     user_assigned += 1
                                     total_assigned += 1
-                                    #logger.info(f"[SIMPLE_DIVIDEND_ASSIGNMENT] ✓ Assigned {symbol} dividend ({dividend['ex_date']}) to user {user_id}: {shares_at_ex_date} shares * ${dividend['amount']} = ${float(dividend['amount']) * shares_at_ex_date}")
+                                    #logger.info(f"[SIMPLE_DIVIDEND_ASSIGNMENT] ✓ Assigned {symbol} dividend ({dividend['ex_date']}) to user {user_id}: {shares_at_ex_date} shares * ${dividend['amount']} = ${float(Decimal(str(dividend['amount'])) * shares_at_ex_date)}")
                     
                     assignment_results.append({
                         "user_id": user_id,
@@ -2100,7 +2103,7 @@ class DividendService:
             logger.error(f"Error getting global dividends for {symbol}: {e}")
             return []
     
-    async def _calculate_shares_at_date_simple(self, user_id: str, symbol: str, target_date: str) -> float:
+    async def _calculate_shares_at_date_simple(self, user_id: str, symbol: str, target_date: str) -> Decimal:
         """Calculate shares owned by user at a specific date (simplified version)"""
         try:
             target_date_obj = datetime.strptime(target_date, '%Y-%m-%d').date()
@@ -2116,21 +2119,21 @@ class DividendService:
             
             transactions = result.data
             if not transactions:
-                return 0.0
+                return Decimal('0')
             
-            total_shares = 0.0
+            total_shares = Decimal('0')
             for txn in transactions:
                 if txn['transaction_type'].upper() in ['BUY', 'PURCHASE']:
-                    total_shares += float(txn['quantity'])
+                    total_shares += Decimal(str(txn['quantity']))
                 elif txn['transaction_type'].upper() in ['SELL', 'SALE']:
-                    total_shares -= float(txn['quantity'])
+                    total_shares -= Decimal(str(txn['quantity']))
             
             #logger.info(f"[SIMPLE_DIVIDEND_ASSIGNMENT] User {user_id} owned {total_shares} shares of {symbol} on {target_date}")
-            return max(0.0, total_shares)
+            return max(Decimal('0'), total_shares)
             
         except Exception as e:
             logger.error(f"Error calculating shares for {user_id} {symbol} at {target_date}: {e}")
-            return 0.0
+            return Decimal('0')
     
     async def _create_user_dividend_record(self, user_id: str, dividend: Dict[str, Any], shares_held: float, total_amount: float) -> bool:
         """Create a user-specific dividend record"""

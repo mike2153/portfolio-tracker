@@ -44,7 +44,8 @@
       "Bash(node:*)",
       "Bash(wc:*)",
       "Bash(docker exec:*)",
-      "Bash(npm cache clean:*)"
+      "Bash(npm cache clean:*)",
+      "Bash(npm run:*)"
     ],
     "deny": []
   }

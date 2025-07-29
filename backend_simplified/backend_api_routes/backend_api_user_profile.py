@@ -3,12 +3,15 @@ User Profile API endpoints
 Handles user profile management including currency preferences
 """
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any
+from fastapi import APIRouter, Depends, HTTPException, Header
+from pydantic import BaseModel
+from typing import Optional, Dict, Any, Union
 import logging
 
-from backend_api_routes.backend_api_auth import get_current_user
+from supa_api.supa_api_auth import require_authenticated_user
+from utils.auth_helpers import extract_user_credentials
+from utils.response_factory import ResponseFactory
+from models.response_models import APIResponse
 from supa_api.supa_api_user_profile import (
     get_user_profile,
     create_user_profile,
@@ -17,30 +20,17 @@ from supa_api.supa_api_user_profile import (
 )
 from supa_api.supa_api_client import get_supa_service_client
 
+# Import centralized validation models
+from models.validation_models import UserProfileCreate, UserProfileUpdate
+
 logger = logging.getLogger(__name__)
 
 user_profile_router = APIRouter()
 
 
 # ============================================================================
-# Request/Response Models
+# Response Models (keep local as they're not for validation)
 # ============================================================================
-
-class UserProfileCreate(BaseModel):
-    """Request model for creating user profile"""
-    first_name: str = Field(..., min_length=1, max_length=100)
-    last_name: str = Field(..., min_length=1, max_length=100)
-    country: str = Field(..., pattern="^[A-Z]{2}$", description="Two-letter country code")
-    base_currency: str = Field(default="USD", pattern="^[A-Z]{3}$", description="Three-letter currency code")
-
-
-class UserProfileUpdate(BaseModel):
-    """Request model for updating user profile"""
-    first_name: Optional[str] = Field(None, min_length=1, max_length=100)
-    last_name: Optional[str] = Field(None, min_length=1, max_length=100)
-    country: Optional[str] = Field(None, pattern="^[A-Z]{2}$", description="Two-letter country code")
-    base_currency: Optional[str] = Field(None, pattern="^[A-Z]{3}$", description="Three-letter currency code")
-
 
 class UserProfileResponse(BaseModel):
     """Response model for user profile"""
@@ -58,15 +48,18 @@ class UserProfileResponse(BaseModel):
 # API Endpoints
 # ============================================================================
 
-@user_profile_router.get("/profile", response_model=UserProfileResponse)
-async def get_profile(user_data: Dict[str, Any] = Depends(get_current_user)) -> UserProfileResponse:
+@user_profile_router.get("/profile")
+async def get_profile(
+    user_data: Dict[str, Any] = Depends(require_authenticated_user),
+    api_version: Optional[str] = Header(None, alias="X-API-Version")
+) -> Union[UserProfileResponse, APIResponse[UserProfileResponse]]:
     """
     Get current user's profile
     
     Returns:
         User profile data including base currency preference
     """
-    user_id: str = user_data["user_id"]
+    user_id, user_token = extract_user_credentials(user_data)
     
     try:
         supabase = get_supa_service_client()
@@ -75,7 +68,7 @@ async def get_profile(user_data: Dict[str, Any] = Depends(get_current_user)) -> 
         if not profile:
             raise HTTPException(status_code=404, detail="Profile not found")
             
-        return UserProfileResponse(
+        profile_response = UserProfileResponse(
             id=profile["id"],
             user_id=profile["user_id"],
             first_name=profile["first_name"],
@@ -86,6 +79,14 @@ async def get_profile(user_data: Dict[str, Any] = Depends(get_current_user)) -> 
             updated_at=profile["updated_at"]
         )
         
+        if api_version == "v2":
+            return ResponseFactory.success(
+                data=profile_response,
+                message="User profile retrieved successfully"
+            )
+        else:
+            return profile_response
+        
     except HTTPException:
         raise
     except Exception as e:
@@ -93,11 +94,12 @@ async def get_profile(user_data: Dict[str, Any] = Depends(get_current_user)) -> 
         raise HTTPException(status_code=500, detail="Failed to fetch profile")
 
 
-@user_profile_router.post("/profile", response_model=UserProfileResponse)
+@user_profile_router.post("/profile")
 async def create_profile(
     profile_data: UserProfileCreate,
-    user_data: Dict[str, Any] = Depends(get_current_user)
-) -> UserProfileResponse:
+    user_data: Dict[str, Any] = Depends(require_authenticated_user),
+    api_version: Optional[str] = Header(None, alias="X-API-Version")
+) -> Union[UserProfileResponse, APIResponse[UserProfileResponse]]:
     """
     Create user profile with currency preference
     
@@ -107,7 +109,7 @@ async def create_profile(
     Returns:
         Created profile data
     """
-    user_id: str = user_data["user_id"]
+    user_id, user_token = extract_user_credentials(user_data)
     
     try:
         supabase = get_supa_service_client()
@@ -130,7 +132,7 @@ async def create_profile(
         if not profile:
             raise HTTPException(status_code=500, detail="Failed to create profile")
             
-        return UserProfileResponse(
+        profile_response = UserProfileResponse(
             id=profile["id"],
             user_id=profile["user_id"],
             first_name=profile["first_name"],
@@ -141,6 +143,14 @@ async def create_profile(
             updated_at=profile["updated_at"]
         )
         
+        if api_version == "v2":
+            return ResponseFactory.success(
+                data=profile_response,
+                message="User profile created successfully"
+            )
+        else:
+            return profile_response
+        
     except HTTPException:
         raise
     except Exception as e:
@@ -148,11 +158,12 @@ async def create_profile(
         raise HTTPException(status_code=500, detail="Failed to create profile")
 
 
-@user_profile_router.patch("/profile", response_model=UserProfileResponse)
+@user_profile_router.patch("/profile")
 async def update_profile(
     updates: UserProfileUpdate,
-    user_data: Dict[str, Any] = Depends(get_current_user)
-) -> UserProfileResponse:
+    user_data: Dict[str, Any] = Depends(require_authenticated_user),
+    api_version: Optional[str] = Header(None, alias="X-API-Version")
+) -> Union[UserProfileResponse, APIResponse[UserProfileResponse]]:
     """
     Update user profile including currency preference
     
@@ -162,7 +173,7 @@ async def update_profile(
     Returns:
         Updated profile data
     """
-    user_id: str = user_data["user_id"]
+    user_id, user_token = extract_user_credentials(user_data)
     
     # Build update dict excluding None values
     update_dict: Dict[str, Any] = {}
@@ -192,7 +203,7 @@ async def update_profile(
         if not profile:
             raise HTTPException(status_code=500, detail="Failed to update profile")
             
-        return UserProfileResponse(
+        profile_response = UserProfileResponse(
             id=profile["id"],
             user_id=profile["user_id"],
             first_name=profile["first_name"],
@@ -203,6 +214,14 @@ async def update_profile(
             updated_at=profile["updated_at"]
         )
         
+        if api_version == "v2":
+            return ResponseFactory.success(
+                data=profile_response,
+                message="User profile updated successfully"
+            )
+        else:
+            return profile_response
+        
     except HTTPException:
         raise
     except Exception as e:
@@ -211,21 +230,41 @@ async def update_profile(
 
 
 @user_profile_router.get("/profile/currency")
-async def get_base_currency(user_data: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, str]:
+async def get_base_currency(
+    user_data: Dict[str, Any] = Depends(require_authenticated_user),
+    api_version: Optional[str] = Header(None, alias="X-API-Version")
+) -> Union[Dict[str, str], APIResponse[Dict[str, str]]]:
     """
     Get user's base currency preference
     
     Returns:
         Dictionary with base_currency field
     """
-    user_id: str = user_data["user_id"]
+    user_id, user_token = extract_user_credentials(user_data)
     
     try:
         supabase = get_supa_service_client()
         base_currency = await get_user_base_currency(supabase, user_id)
         
-        return {"base_currency": base_currency}
+        currency_data = {"base_currency": base_currency}
+        
+        if api_version == "v2":
+            return ResponseFactory.success(
+                data=currency_data,
+                message="Base currency retrieved successfully"
+            )
+        else:
+            return currency_data
         
     except Exception as e:
         logger.error(f"Error fetching base currency: {e}")
-        return {"base_currency": "USD"}  # Default to USD on error
+        default_data = {"base_currency": "USD"}  # Default to USD on error
+        
+        if api_version == "v2":
+            return ResponseFactory.success(
+                data=default_data,
+                message="Using default currency due to error",
+                metadata={"error": str(e)}
+            )
+        else:
+            return default_data

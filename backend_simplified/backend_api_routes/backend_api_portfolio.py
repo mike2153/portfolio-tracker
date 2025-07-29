@@ -2,15 +2,25 @@
 Backend API routes for portfolio and transaction management
 Handles CRUD operations for transactions and portfolio calculations
 """
-from fastapi import APIRouter, Depends, HTTPException, Body, Query
-from typing import Dict, Any, List
+from fastapi import APIRouter, Depends, HTTPException, Body, Query, Header
+from typing import Dict, Any, List, Optional, Union
 import logging
 from datetime import datetime
-from pydantic import BaseModel
+from decimal import Decimal
 
 from debug_logger import DebugLogger
 from supa_api.supa_api_auth import require_authenticated_user
 from utils.auth_helpers import extract_user_credentials
+from utils.response_factory import ResponseFactory
+from models.response_models import APIResponse, ErrorResponse
+from utils.error_handlers import (
+    ServiceUnavailableError, 
+    InvalidInputError, 
+    DataNotFoundError,
+    handle_database_error,
+    handle_external_api_error,
+    async_error_handler
+)
 from supa_api.supa_api_transactions import (
     supa_api_get_user_transactions,
     supa_api_add_transaction,
@@ -23,40 +33,21 @@ from services.price_manager import price_manager
 from services.portfolio_calculator import portfolio_calculator
 from services.portfolio_metrics_manager import portfolio_metrics_manager
 
+# Import centralized validation models
+from models.validation_models import TransactionCreate, TransactionUpdate
+
 logger = logging.getLogger(__name__)
 
 # Create router
 portfolio_router = APIRouter()
 
-# Pydantic models for request validation
-class TransactionCreate(BaseModel):
-    transaction_type: str  # Buy or Sell
-    symbol: str
-    quantity: float
-    price: float
-    date: str
-    currency: str = "USD"
-    exchange_rate: float = 1.0  # Exchange rate to user's base currency
-    commission: float = 0.0
-    notes: str = ""
-
-class TransactionUpdate(BaseModel):
-    transaction_type: str
-    symbol: str
-    quantity: float
-    price: float
-    date: str
-    currency: str
-    exchange_rate: float = 1.0
-    commission: float
-    notes: str
-
 @portfolio_router.get("/portfolio")
 @DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="GET_PORTFOLIO")
 async def backend_api_get_portfolio(
     user: Dict[str, Any] = Depends(require_authenticated_user),
-    force_refresh: bool = Query(False, description="Force refresh cache")
-) -> Dict[str, Any]:
+    force_refresh: bool = Query(False, description="Force refresh cache"),
+    api_version: Optional[str] = Header(None, alias="X-API-Version")
+) -> Union[Dict[str, Any], APIResponse[Dict[str, Any]]]:
     """Get user's current portfolio holdings calculated from transactions"""
     # Comprehensive logging for incoming request
     logger.info(f"[backend_api_portfolio.py::backend_api_get_portfolio] === GET PORTFOLIO REQUEST START ===")
@@ -98,22 +89,43 @@ async def backend_api_get_portfolio(
                 "base_currency_value": float(holding.base_currency_value) if hasattr(holding, 'base_currency_value') and holding.base_currency_value else float(holding.current_value)
             })
         
-        response_data = {
-            "success": True,
+        portfolio_data = {
             "holdings": holdings_list,
             "total_value": float(metrics.performance.total_value),
             "total_cost": float(metrics.performance.total_cost),
             "total_gain_loss": float(metrics.performance.total_gain_loss),
             "total_gain_loss_percent": metrics.performance.total_gain_loss_percent,
-            "base_currency": metrics.performance.base_currency if hasattr(metrics.performance, 'base_currency') else "USD",
-            "cache_status": metrics.cache_status,
-            "computation_time_ms": metrics.computation_time_ms
+            "base_currency": metrics.performance.base_currency if hasattr(metrics.performance, 'base_currency') else "USD"
         }
         
-        logger.info(f"[backend_api_portfolio.py::backend_api_get_portfolio] Response data structure: {list(response_data.keys())}")
-        logger.info(f"[backend_api_portfolio.py::backend_api_get_portfolio] === GET PORTFOLIO REQUEST END (SUCCESS) ===")
-        return response_data
+        # Check API version for response format
+        if api_version == "v2":
+            response = ResponseFactory.success(
+                data=portfolio_data,
+                message="Portfolio data retrieved successfully",
+                metadata={
+                    "cache_status": metrics.cache_status,
+                    "computation_time_ms": metrics.computation_time_ms
+                }
+            )
+            logger.info(f"[backend_api_portfolio.py::backend_api_get_portfolio] Returning v2 format response")
+            return response
+        else:
+            # Backward compatible format
+            response_data = {
+                "success": True,
+                **portfolio_data,
+                "cache_status": metrics.cache_status,
+                "computation_time_ms": metrics.computation_time_ms
+            }
+            logger.info(f"[backend_api_portfolio.py::backend_api_get_portfolio] Returning v1 format response")
+            return response_data
         
+        logger.info(f"[backend_api_portfolio.py::backend_api_get_portfolio] Response data structure: {list(portfolio_data.keys())}")
+        logger.info(f"[backend_api_portfolio.py::backend_api_get_portfolio] === GET PORTFOLIO REQUEST END (SUCCESS) ===")
+        
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions as-is
     except Exception as e:
         logger.error(f"[backend_api_portfolio.py::backend_api_get_portfolio] ERROR: {type(e).__name__}: {str(e)}")
         logger.error(f"[backend_api_portfolio.py::backend_api_get_portfolio] Full stack trace:", exc_info=True)
@@ -124,18 +136,23 @@ async def backend_api_get_portfolio(
             user_id=user_id if 'user_id' in locals() else 'unknown'
         )
         logger.info(f"[backend_api_portfolio.py::backend_api_get_portfolio] === GET PORTFOLIO REQUEST END (ERROR) ===")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to retrieve portfolio data: {str(e)}"
-        )
+        
+        if "supabase" in str(e).lower() or "postgrest" in str(e).lower():
+            raise handle_database_error(e, "portfolio retrieval", user_id if 'user_id' in locals() else None)
+        else:
+            raise ServiceUnavailableError(
+                "Portfolio Service",
+                f"Failed to retrieve portfolio data: {str(e)}"
+            )
 
 @portfolio_router.get("/transactions")
 @DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="GET_TRANSACTIONS")
 async def backend_api_get_transactions(
     user: Dict[str, Any] = Depends(require_authenticated_user),
     limit: int = 100,
-    offset: int = 0
-) -> Dict[str, Any]:
+    offset: int = 0,
+    api_version: Optional[str] = Header(None, alias="X-API-Version")
+) -> Union[Dict[str, Any], APIResponse[Dict[str, Any]]]:
     """Get user's transaction history"""
     logger.info(f"[backend_api_portfolio.py::backend_api_get_transactions] === GET TRANSACTIONS REQUEST START ===")
     logger.info(f"[backend_api_portfolio.py::backend_api_get_transactions] User email: {user.get('email', 'unknown')}")
@@ -153,14 +170,31 @@ async def backend_api_get_transactions(
         )
         logger.info(f"[backend_api_portfolio.py::backend_api_get_transactions] Retrieved {len(transactions)} transactions")
         
-        response_data = {
-            "success": True,
-            "transactions": transactions,
-            "count": len(transactions)
-        }
-        logger.info(f"[backend_api_portfolio.py::backend_api_get_transactions] === GET TRANSACTIONS REQUEST END (SUCCESS) ===")
-        return response_data
+        # Check API version for response format
+        if api_version == "v2":
+            response = ResponseFactory.success(
+                data={
+                    "transactions": transactions,
+                    "count": len(transactions)
+                },
+                message="Transactions retrieved successfully"
+            )
+            logger.info(f"[backend_api_portfolio.py::backend_api_get_transactions] Returning v2 format response")
+            return response
+        else:
+            # Backward compatible format
+            response_data = {
+                "success": True,
+                "transactions": transactions,
+                "count": len(transactions)
+            }
+            logger.info(f"[backend_api_portfolio.py::backend_api_get_transactions] Returning v1 format response")
+            return response_data
         
+        logger.info(f"[backend_api_portfolio.py::backend_api_get_transactions] === GET TRANSACTIONS REQUEST END (SUCCESS) ===")
+        
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions as-is
     except Exception as e:
         logger.error(f"[backend_api_portfolio.py::backend_api_get_transactions] ERROR: {type(e).__name__}: {str(e)}")
         logger.error(f"[backend_api_portfolio.py::backend_api_get_transactions] Full stack trace:", exc_info=True)
@@ -171,13 +205,21 @@ async def backend_api_get_transactions(
             user_id=user_id if 'user_id' in locals() else 'unknown'
         )
         logger.info(f"[backend_api_portfolio.py::backend_api_get_transactions] === GET TRANSACTIONS REQUEST END (ERROR) ===")
-        raise HTTPException(status_code=500, detail=str(e))
+        
+        if "supabase" in str(e).lower() or "postgrest" in str(e).lower():
+            raise handle_database_error(e, "transaction retrieval", user_id if 'user_id' in locals() else None)
+        else:
+            raise ServiceUnavailableError(
+                "Transaction Service",
+                f"Failed to retrieve transactions: {str(e)}"
+            )
 
 @portfolio_router.post("/cache/clear")
 @DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="CLEAR_CACHE")
 async def backend_api_clear_cache(
-    user: Dict[str, Any] = Depends(require_authenticated_user)
-) -> Dict[str, Any]:
+    user: Dict[str, Any] = Depends(require_authenticated_user),
+    api_version: Optional[str] = Header(None, alias="X-API-Version")
+) -> Union[Dict[str, Any], APIResponse[Dict[str, Any]]]:
     """Clear the portfolio metrics cache for the current user"""
     logger.info(f"[backend_api_portfolio.py::backend_api_clear_cache] Clearing cache for user: {user['email']}")
     
@@ -187,11 +229,21 @@ async def backend_api_clear_cache(
         # Invalidate all cache entries for the user
         await portfolio_metrics_manager.invalidate_user_cache(user_id)
         
-        return {
-            "success": True,
-            "message": "Portfolio cache cleared successfully"
-        }
+        # Check API version for response format
+        if api_version == "v2":
+            return ResponseFactory.success(
+                data={"cleared": True},
+                message="Portfolio cache cleared successfully"
+            )
+        else:
+            # Backward compatible format
+            return {
+                "success": True,
+                "message": "Portfolio cache cleared successfully"
+            }
         
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions as-is
     except Exception as e:
         DebugLogger.log_error(
             file_name="backend_api_portfolio.py",
@@ -199,14 +251,18 @@ async def backend_api_clear_cache(
             error=e,
             user_id=user_id
         )
-        raise HTTPException(status_code=500, detail=str(e))
+        raise ServiceUnavailableError(
+            "Cache Service",
+            f"Failed to clear cache: {str(e)}"
+        )
 
 @portfolio_router.post("/transactions")
 @DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="ADD_TRANSACTION")
 async def backend_api_add_transaction(
     transaction: TransactionCreate,
-    user: Dict[str, Any] = Depends(require_authenticated_user)
-) -> Dict[str, Any]:
+    user: Dict[str, Any] = Depends(require_authenticated_user),
+    api_version: Optional[str] = Header(None, alias="X-API-Version")
+) -> Union[Dict[str, Any], APIResponse[Dict[str, Any]]]:
     """Add a new transaction"""
     logger.info(f"🔥🔥🔥 [backend_api_portfolio.py::backend_api_add_transaction] === COMPREHENSIVE API DEBUG START ===")
     logger.info(f"🔥 [backend_api_portfolio.py::backend_api_add_transaction] Adding transaction for user: {user['email']}, symbol: {transaction.symbol}")
@@ -214,86 +270,25 @@ async def backend_api_add_transaction(
     try:
         user_id, user_token = extract_user_credentials(user)
         
-        # 🔥 SECURITY: Additional input validation and sanitization
-
-        
-        # Validate transaction type
-        if transaction.transaction_type not in ["Buy", "Sell"]:
-            logger.error(f"❌ [VALIDATION_DEBUG] Invalid transaction type: {transaction.transaction_type}")
-            return {
-                "success": False,
-                "message": "Transaction type must be 'Buy' or 'Sell'.",
-                "error_type": "validation_error"
-            }
-        # Validate numeric fields
-        if transaction.quantity <= 0 or transaction.quantity > 10000000:
-            logger.error(f"❌ [SECURITY_DEBUG] Invalid quantity: {transaction.quantity}")
-            return {
-                "success": False,
-                "message": "Quantity must be between 0.01 and 10,000,000 shares.",
-                "error_type": "validation_error"
-            }
-            
-        if transaction.price <= 0 or transaction.price > 10000000:
-            logger.error(f"❌ [SECURITY_DEBUG] Invalid price: {transaction.price}")
-            return {
-                "success": False,
-                "message": "Price must be between $0.01 and $10,000,000 per share.",
-                "error_type": "validation_error"
-            }
-            
-        if transaction.commission < 0 or transaction.commission > 10000:
-            logger.error(f"❌ [SECURITY_DEBUG] Invalid commission: {transaction.commission}")
-            return {
-                "success": False,
-                "message": "Commission must be between $0 and $10,000.",
-                "error_type": "validation_error"
-            }
-        
-        # 🔒 SECURITY: Validate symbol format (prevent injection via symbol)
-        import re
-        if not re.match(r'^[A-Z0-9.-]{1,8}$', transaction.symbol):
-            logger.error(f"❌ [SECURITY_DEBUG] Invalid symbol format: {transaction.symbol}")
-            return {
-                "success": False,
-                "message": "Invalid symbol format. Symbol must be 1-8 characters (uppercase letters, numbers, dots, or hyphens only).",
-                "error_type": "validation_error"
-            }
-        
-        # 🔒 SECURITY: Validate date is not too far in past/future
-        from datetime import datetime, timedelta
-        transaction_date = datetime.strptime(transaction.date, '%Y-%m-%d').date()
-        today = datetime.now().date()
-        
-        if transaction_date > today:
-            logger.error(f"❌ [SECURITY_DEBUG] Future date not allowed: {transaction.date}")
-            return {
-                "success": False,
-                "message": "Transaction date cannot be in the future. Please select a valid date.",
-                "error_type": "validation_error"
-            }
-            
-        if transaction_date < (today - timedelta(days=3650)):  # 10 years ago
-            logger.error(f"❌ [SECURITY_DEBUG] Date too far in past: {transaction.date}")
-            return {
-                "success": False,
-                "message": "Transaction date cannot be more than 10 years ago. Please select a more recent date.",
-                "error_type": "validation_error"
-            }
-        
-        # 🔒 SECURITY: Sanitize notes field
-        if transaction.notes:
-            # Remove any potential XSS or injection attempts
-            sanitized_notes = re.sub(r'[<>"\';]', '', transaction.notes[:500])  # Limit to 500 chars
-            if sanitized_notes != transaction.notes:
-                logger.warning(f"⚠️ [SECURITY_DEBUG] Notes field sanitized")
-            transaction.notes = sanitized_notes
+        # Note: Input validation is now handled by the Pydantic model with Field validators
+        # Symbol is already validated and normalized by the model
+        # All numeric fields are already Decimal types with proper constraints
+        # Date validation and notes sanitization are handled by validators
         
 
         
         # Add user_id to transaction data - CRITICAL: Use authenticated user's ID, never trust client
-        transaction_data = transaction.dict()
+        transaction_data = transaction.model_dump()
         transaction_data["user_id"] = user["id"]  # 🔒 SECURITY: Force user_id from auth token
+        
+        # Convert Decimal fields to float for JSON serialization
+        transaction_data["quantity"] = float(transaction_data["quantity"])
+        transaction_data["price"] = float(transaction_data["price"])
+        transaction_data["commission"] = float(transaction_data["commission"])
+        transaction_data["exchange_rate"] = float(transaction_data["exchange_rate"])
+        
+        # Convert date to string format
+        transaction_data["date"] = transaction_data["date"].strftime('%Y-%m-%d')
         
         # 🔥 VALIDATE FINAL TRANSACTION DATA
         required_fields = ['user_id', 'symbol', 'transaction_type', 'quantity', 'price', 'date']
@@ -351,7 +346,7 @@ async def backend_api_add_transaction(
         if transaction.transaction_type == "Buy":
             try:
                 # Get the transaction date for dividend sync
-                transaction_date = datetime.strptime(transaction.date, '%Y-%m-%d').date()
+                transaction_date = transaction.date
                 
                 # For historical transactions, we might want to sync all past dividends
                 # Setting from_date to None will sync all available dividends for the symbol
@@ -378,12 +373,26 @@ async def backend_api_add_transaction(
                 # Don't fail the transaction if dividend sync fails
                 logger.error(f"[backend_api_portfolio.py] Dividend sync failed for {transaction.symbol}: {str(dividend_error)}", exc_info=True)
         
-        return {
-            "success": True,
-            "transaction": new_transaction,
-            "message": f"{transaction.transaction_type} transaction added successfully"
-        }
+        # Check API version for response format
+        if api_version == "v2":
+            return ResponseFactory.success(
+                data={"transaction": new_transaction},
+                message=f"{transaction.transaction_type} transaction added successfully"
+            )
+        else:
+            # Backward compatible format
+            return {
+                "success": True,
+                "transaction": new_transaction,
+                "message": f"{transaction.transaction_type} transaction added successfully"
+            }
         
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions as-is
+    except ValueError as e:
+        logger.error(f"💥 [API_DEBUG] VALUE ERROR IN BACKEND API!")
+        logger.error(f"💥 [API_DEBUG] Exception message: {str(e)}")
+        raise InvalidInputError("transaction", str(e))
     except Exception as e:
         logger.error(f"💥 [API_DEBUG] EXCEPTION IN BACKEND API!")
         logger.error(f"💥 [API_DEBUG] Exception type: {type(e).__name__}")
@@ -394,19 +403,29 @@ async def backend_api_add_transaction(
             file_name="backend_api_portfolio.py",
             function_name="backend_api_add_transaction",
             error=e,
-            user_id=user_id,
-            transaction=transaction.dict()
+            user_id=user_id if 'user_id' in locals() else 'unknown',
+            transaction=transaction.model_dump()
         )
         logger.info(f"🔥🔥🔥 [backend_api_portfolio.py::backend_api_add_transaction] === COMPREHENSIVE API DEBUG END (ERROR) ===")
-        raise HTTPException(status_code=400, detail=str(e))
+        
+        if "supabase" in str(e).lower() or "postgrest" in str(e).lower():
+            raise handle_database_error(e, "transaction creation", user_id if 'user_id' in locals() else None)
+        elif "alpha vantage" in str(e).lower():
+            raise handle_external_api_error(e, "Alpha Vantage", "symbol search", user_id if 'user_id' in locals() else None)
+        else:
+            raise ServiceUnavailableError(
+                "Transaction Service",
+                f"Failed to add transaction: {str(e)}"
+            )
 
 @portfolio_router.put("/transactions/{transaction_id}")
 @DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="UPDATE_TRANSACTION")
 async def backend_api_update_transaction(
     transaction_id: str,
     transaction: TransactionUpdate,
-    user: Dict[str, Any] = Depends(require_authenticated_user)
-) -> Dict[str, Any]:
+    user: Dict[str, Any] = Depends(require_authenticated_user),
+    api_version: Optional[str] = Header(None, alias="X-API-Version")
+) -> Union[Dict[str, Any], APIResponse[Dict[str, Any]]]:
     """Update an existing transaction"""
     logger.info(f"[backend_api_portfolio.py::backend_api_update_transaction] Updating transaction {transaction_id} for user: {user['email']}")
     
@@ -416,38 +435,70 @@ async def backend_api_update_transaction(
         # CRITICAL FIX: Forward the caller's JWT so RLS allows update operation
         logger.info(f"[backend_api_portfolio.py::backend_api_update_transaction] 🔐 JWT token present: {bool(user_token)}")
         
+        # Convert Pydantic model to dict with proper serialization
+        transaction_data = transaction.model_dump()
+        
+        # Convert Decimal fields to float for JSON serialization
+        transaction_data["quantity"] = float(transaction_data["quantity"])
+        transaction_data["price"] = float(transaction_data["price"])
+        transaction_data["commission"] = float(transaction_data["commission"])
+        transaction_data["exchange_rate"] = float(transaction_data["exchange_rate"])
+        
+        # Convert date to string format
+        transaction_data["date"] = transaction_data["date"].strftime('%Y-%m-%d')
+        
         updated = await supa_api_update_transaction(
             transaction_id=transaction_id,
             user_id=user_id,
-            transaction_data=transaction.dict(),
+            transaction_data=transaction_data,
             user_token=user_token
         )
         
         # Invalidate cache after updating transaction
         await portfolio_metrics_manager.invalidate_user_cache(user_id)
         
-        return {
-            "success": True,
-            "transaction": updated,
-            "message": "Transaction updated successfully"
-        }
+        # Check API version for response format
+        if api_version == "v2":
+            return ResponseFactory.success(
+                data={"transaction": updated},
+                message="Transaction updated successfully"
+            )
+        else:
+            # Backward compatible format
+            return {
+                "success": True,
+                "transaction": updated,
+                "message": "Transaction updated successfully"
+            }
         
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions as-is
     except Exception as e:
         DebugLogger.log_error(
             file_name="backend_api_portfolio.py",
             function_name="backend_api_update_transaction",
             error=e,
             transaction_id=transaction_id,
-            user_id=user_id
+            user_id=user_id if 'user_id' in locals() else 'unknown'
         )
-        raise HTTPException(status_code=400, detail=str(e))
+        
+        if "not found" in str(e).lower():
+            raise DataNotFoundError("Transaction", transaction_id)
+        elif "supabase" in str(e).lower() or "postgrest" in str(e).lower():
+            raise handle_database_error(e, "transaction update", user_id if 'user_id' in locals() else None)
+        else:
+            raise ServiceUnavailableError(
+                "Transaction Service",
+                f"Failed to update transaction: {str(e)}"
+            )
 
 @portfolio_router.delete("/transactions/{transaction_id}")
 @DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="DELETE_TRANSACTION")
 async def backend_api_delete_transaction(
     transaction_id: str,
-    user: Dict[str, Any] = Depends(require_authenticated_user)
-) -> Dict[str, Any]:
+    user: Dict[str, Any] = Depends(require_authenticated_user),
+    api_version: Optional[str] = Header(None, alias="X-API-Version")
+) -> Union[Dict[str, Any], APIResponse[Dict[str, Any]]]:
     """Delete a transaction"""
     logger.info(f"[backend_api_portfolio.py::backend_api_delete_transaction] Deleting transaction {transaction_id} for user: {user['email']}")
     
@@ -467,29 +518,47 @@ async def backend_api_delete_transaction(
             # Invalidate cache after deleting transaction
             await portfolio_metrics_manager.invalidate_user_cache(user_id)
             
-            return {
-                "success": True,
-                "message": "Transaction deleted successfully"
-            }
+            # Check API version for response format
+            if api_version == "v2":
+                return ResponseFactory.success(
+                    data={"deleted": True},
+                    message="Transaction deleted successfully"
+                )
+            else:
+                # Backward compatible format
+                return {
+                    "success": True,
+                    "message": "Transaction deleted successfully"
+                }
         else:
-            raise HTTPException(status_code=404, detail="Transaction not found")
+            raise DataNotFoundError("Transaction", transaction_id)
             
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions as-is
     except Exception as e:
         DebugLogger.log_error(
             file_name="backend_api_portfolio.py",
             function_name="backend_api_delete_transaction",
             error=e,
             transaction_id=transaction_id,
-            user_id=user_id
+            user_id=user_id if 'user_id' in locals() else 'unknown'
         )
-        raise HTTPException(status_code=400, detail=str(e))
+        
+        if "supabase" in str(e).lower() or "postgrest" in str(e).lower():
+            raise handle_database_error(e, "transaction deletion", user_id if 'user_id' in locals() else None)
+        else:
+            raise ServiceUnavailableError(
+                "Transaction Service",
+                f"Failed to delete transaction: {str(e)}"
+            )
 
 @portfolio_router.get("/allocation")
 @DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="GET_ALLOCATION")
 async def backend_api_get_allocation(
     user: Dict[str, Any] = Depends(require_authenticated_user),
-    force_refresh: bool = Query(False, description="Force refresh cache")
-) -> Dict[str, Any]:
+    force_refresh: bool = Query(False, description="Force refresh cache"),
+    api_version: Optional[str] = Header(None, alias="X-API-Version")
+) -> Union[Dict[str, Any], APIResponse[Dict[str, Any]]]:
     """
     Unified allocation API endpoint for both dashboard and analytics pages
     Returns comprehensive portfolio allocation data with all calculations
@@ -631,14 +700,31 @@ async def backend_api_get_allocation(
         logger.info(f"[backend_api_portfolio.py::backend_api_get_allocation] Allocations count: {len(allocations)}")
         logger.info(f"[backend_api_portfolio.py::backend_api_get_allocation] Total portfolio value: ${allocation_data['summary']['total_value']:.2f}")
         
-        # Return in the expected format
-        response_data = {
-            "success": True,
-            "data": allocation_data
-        }
-        logger.info(f"[backend_api_portfolio.py::backend_api_get_allocation] === GET ALLOCATION REQUEST END (SUCCESS) ===")
-        return response_data
+        # Check API version for response format
+        if api_version == "v2":
+            response = ResponseFactory.success(
+                data=allocation_data,
+                message="Portfolio allocation data retrieved successfully",
+                metadata={
+                    "cache_status": metrics.cache_status,
+                    "computation_time_ms": metrics.computation_time_ms
+                }
+            )
+            logger.info(f"[backend_api_portfolio.py::backend_api_get_allocation] Returning v2 format response")
+            return response
+        else:
+            # Backward compatible format
+            response_data = {
+                "success": True,
+                "data": allocation_data
+            }
+            logger.info(f"[backend_api_portfolio.py::backend_api_get_allocation] Returning v1 format response")
+            return response_data
         
+        logger.info(f"[backend_api_portfolio.py::backend_api_get_allocation] === GET ALLOCATION REQUEST END (SUCCESS) ===")
+        
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions as-is
     except Exception as e:
         logger.error(f"[backend_api_portfolio.py::backend_api_get_allocation] ERROR: {type(e).__name__}: {str(e)}")
         logger.error(f"[backend_api_portfolio.py::backend_api_get_allocation] Full stack trace:", exc_info=True)
@@ -651,7 +737,11 @@ async def backend_api_get_allocation(
         # According to architecture, we should not have fallbacks that bypass PortfolioMetricsManager
         logger.error(f"[backend_api_portfolio] Failed to get allocation data: {str(e)}")
         logger.info(f"[backend_api_portfolio.py::backend_api_get_allocation] === GET ALLOCATION REQUEST END (ERROR) ===")
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Failed to retrieve portfolio allocation data: {str(e)}"
-        ) 
+        
+        if "supabase" in str(e).lower() or "postgrest" in str(e).lower():
+            raise handle_database_error(e, "allocation data retrieval", user_id if 'user_id' in locals() else None)
+        else:
+            raise ServiceUnavailableError(
+                "Portfolio Service",
+                f"Failed to retrieve portfolio allocation data: {str(e)}"
+            ) 

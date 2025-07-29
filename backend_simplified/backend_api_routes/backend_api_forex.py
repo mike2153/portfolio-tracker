@@ -3,14 +3,16 @@ Backend API routes for forex/currency exchange
 Handles exchange rate fetching and currency conversions
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from typing import Dict, Any, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query, Header
+from typing import Dict, Any, Optional, Union
 from datetime import date, datetime
 import logging
 from decimal import Decimal
 
-from backend_api_routes.backend_api_auth import get_current_user
+from supa_api.supa_api_auth import require_authenticated_user
 from utils.auth_helpers import extract_user_credentials
+from utils.response_factory import ResponseFactory
+from models.response_models import APIResponse
 from services.forex_manager import ForexManager
 from supa_api.supa_api_client import get_supa_service_client
 import os
@@ -38,8 +40,9 @@ async def get_exchange_rate(
     from_currency: str = Query(..., description="Source currency code (e.g., USD)"),
     to_currency: str = Query(..., description="Target currency code (e.g., EUR)"),
     date: Optional[str] = Query(None, description="Date for historical rate (YYYY-MM-DD)"),
-    user: Dict[str, Any] = Depends(get_current_user)
-) -> Dict[str, Any]:
+    user_data: Dict[str, Any] = Depends(require_authenticated_user),
+    api_version: Optional[str] = Header(None, alias="X-API-Version")
+) -> Union[Dict[str, Any], APIResponse[Dict[str, Any]]]:
     """
     Get exchange rate between two currencies
     
@@ -78,14 +81,24 @@ async def get_exchange_rate(
             target_date=rate_date
         )
         
-        return {
-            "success": True,
+        rate_data = {
             "from_currency": from_currency,
             "to_currency": to_currency,
             "date": rate_date.isoformat(),
             "rate": float(rate),
             "inverse_rate": float(Decimal("1") / rate) if rate > 0 else 0
         }
+        
+        if api_version == "v2":
+            return ResponseFactory.success(
+                data=rate_data,
+                message=f"Exchange rate retrieved: {from_currency} to {to_currency}"
+            )
+        else:
+            return {
+                "success": True,
+                **rate_data
+            }
         
     except HTTPException:
         raise
@@ -98,8 +111,9 @@ async def get_exchange_rate(
 async def get_latest_exchange_rate(
     from_currency: str = Query(..., description="Source currency code"),
     to_currency: str = Query(..., description="Target currency code"),
-    user: Dict[str, Any] = Depends(get_current_user)
-) -> Dict[str, Any]:
+    user_data: Dict[str, Any] = Depends(require_authenticated_user),
+    api_version: Optional[str] = Header(None, alias="X-API-Version")
+) -> Union[Dict[str, Any], APIResponse[Dict[str, Any]]]:
     """
     Get latest available exchange rate between two currencies
     
@@ -127,14 +141,24 @@ async def get_latest_exchange_rate(
             to_currency=to_currency
         )
         
-        return {
-            "success": True,
+        rate_data = {
             "from_currency": from_currency,
             "to_currency": to_currency,
             "rate": float(rate),
             "inverse_rate": float(Decimal("1") / rate) if rate > 0 else 0,
             "is_fallback": rate == forex_manager._get_fallback_rate(from_currency, to_currency)
         }
+        
+        if api_version == "v2":
+            return ResponseFactory.success(
+                data=rate_data,
+                message=f"Latest exchange rate retrieved: {from_currency} to {to_currency}"
+            )
+        else:
+            return {
+                "success": True,
+                **rate_data
+            }
         
     except HTTPException:
         raise
@@ -149,8 +173,9 @@ async def convert_currency(
     from_currency: str = Query(..., description="Source currency code"),
     to_currency: str = Query(..., description="Target currency code"),
     date: Optional[str] = Query(None, description="Date for historical rate (YYYY-MM-DD)"),
-    user: Dict[str, Any] = Depends(get_current_user)
-) -> Dict[str, Any]:
+    user_data: Dict[str, Any] = Depends(require_authenticated_user),
+    api_version: Optional[str] = Header(None, alias="X-API-Version")
+) -> Union[Dict[str, Any], APIResponse[Dict[str, Any]]]:
     """
     Convert an amount from one currency to another
     
@@ -197,8 +222,7 @@ async def convert_currency(
         amount_decimal = Decimal(str(amount))
         converted_amount = amount_decimal * rate
         
-        return {
-            "success": True,
+        conversion_data = {
             "original_amount": amount,
             "converted_amount": float(converted_amount),
             "from_currency": from_currency,
@@ -206,6 +230,17 @@ async def convert_currency(
             "exchange_rate": float(rate),
             "date": rate_date.isoformat()
         }
+        
+        if api_version == "v2":
+            return ResponseFactory.success(
+                data=conversion_data,
+                message=f"Converted {amount} {from_currency} to {converted_amount:.2f} {to_currency}"
+            )
+        else:
+            return {
+                "success": True,
+                **conversion_data
+            }
         
     except HTTPException:
         raise

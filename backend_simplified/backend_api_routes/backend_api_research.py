@@ -2,12 +2,14 @@
 Backend API routes for stock research functionality
 Handles symbol search and stock overview data
 """
-from fastapi import APIRouter, Query, HTTPException, Depends
-from typing import Dict, Any
+from fastapi import APIRouter, Query, HTTPException, Depends, Header
+from typing import Dict, Any, Optional, Union
 import logging
 from datetime import datetime, timedelta, timezone
 
 from debug_logger import DebugLogger
+from utils.response_factory import ResponseFactory
+from models.response_models import APIResponse
 from vantage_api.vantage_api_search import combined_symbol_search
 from vantage_api.vantage_api_quotes import vantage_api_get_overview, vantage_api_get_historical_price
 from vantage_api.vantage_api_news import vantage_api_get_news_sentiment
@@ -24,8 +26,10 @@ research_router = APIRouter()
 @DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="SYMBOL_SEARCH")
 async def backend_api_symbol_search_handler(
     q: str = Query(..., description="Search query for stock symbols"),
-    limit: int = Query(50, description="Maximum number of results")
-) -> Dict[str, Any]:
+    limit: int = Query(50, description="Maximum number of results"),
+    user_data: Dict[str, Any] = Depends(require_authenticated_user),
+    api_version: Optional[str] = Header(None, alias="X-API-Version")
+) -> Union[Dict[str, Any], APIResponse[Dict[str, Any]]]:
     """
     Search for stock symbols with intelligent scoring
     Returns relevance-sorted results from cache and Alpha Vantage
@@ -33,13 +37,23 @@ async def backend_api_symbol_search_handler(
     logger.info(f"[backend_api_research.py::backend_api_symbol_search_handler] Search request: query='{q}', limit={limit}")
     
     if not q or len(q.strip()) < 1:
-        return {
-            "ok": True,
+        empty_result = {
             "results": [],
             "total": 0,
             "query": q,
             "limit": limit
         }
+        
+        if api_version == "v2":
+            return ResponseFactory.success(
+                data=empty_result,
+                message="No search query provided"
+            )
+        else:
+            return {
+                "ok": True,
+                **empty_result
+            }
     
     try:
         # Perform combined search (cache + Alpha Vantage)
@@ -47,13 +61,23 @@ async def backend_api_symbol_search_handler(
         
         logger.info(f"[backend_api_research.py::backend_api_symbol_search_handler] Found {len(results)} results for '{q}'")
         
-        return {
-            "ok": True,
+        result_data = {
             "results": results,
             "total": len(results),
             "query": q,
             "limit": limit
         }
+        
+        if api_version == "v2":
+            return ResponseFactory.success(
+                data=result_data,
+                message=f"Found {len(results)} results for '{q}'"
+            )
+        else:
+            return {
+                "ok": True,
+                **result_data
+            }
         
     except Exception as e:
         DebugLogger.log_error(
@@ -67,8 +91,9 @@ async def backend_api_symbol_search_handler(
 @research_router.get("/stock_overview")
 async def backend_api_stock_overview_handler(
     symbol: str = Query(..., description="Stock symbol to get overview for"),
-    user_data: Dict[str, Any] = Depends(require_authenticated_user)
-) -> Dict[str, Any]:
+    user_data: Dict[str, Any] = Depends(require_authenticated_user),
+    api_version: Optional[str] = Header(None, alias="X-API-Version")
+) -> Union[Dict[str, Any], APIResponse[Dict[str, Any]]]:
     """
     Get comprehensive stock overview data
     Combines real-time quote and company fundamentals
@@ -110,11 +135,19 @@ async def backend_api_stock_overview_handler(
             "symbol": symbol,
             "price_data": quote_data,
             "fundamentals": overview_data,
-            "success": True,
             "price_metadata": quote_result.get("metadata", {})
         }
         
-        return combined_data
+        if api_version == "v2":
+            return ResponseFactory.success(
+                data=combined_data,
+                message=f"Stock overview retrieved for {symbol}"
+            )
+        else:
+            return {
+                "success": True,
+                **combined_data
+            }
         
     except Exception as e:
         DebugLogger.log_error(
@@ -125,20 +158,32 @@ async def backend_api_stock_overview_handler(
         )
         
         # Return partial data if possible
-        return {
+        error_data = {
             "symbol": symbol,
             "price_data": None,
-            "fundamentals": None,
-            "success": False,
-            "error": str(e)
+            "fundamentals": None
         }
+        
+        if api_version == "v2":
+            return ResponseFactory.error(
+                error="ServiceError",
+                message=f"Failed to retrieve stock overview: {str(e)}",
+                status_code=500
+            )
+        else:
+            return {
+                "success": False,
+                "error": str(e),
+                **error_data
+            }
 
 @research_router.get("/quote/{symbol}", dependencies=[Depends(require_authenticated_user)])
 @DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="QUOTE")
 async def backend_api_quote_handler(
     symbol: str,
-    user_data: Dict[str, Any] = Depends(require_authenticated_user)
-) -> Dict[str, Any]:
+    user_data: Dict[str, Any] = Depends(require_authenticated_user),
+    api_version: Optional[str] = Header(None, alias="X-API-Version")
+) -> Union[Dict[str, Any], APIResponse[Dict[str, Any]]]:
     """Get real-time quote data for a symbol using CurrentPriceManager"""
     logger.info(f"[backend_api_research.py::backend_api_quote_handler] Quote request for: {symbol}")
     
@@ -147,18 +192,38 @@ async def backend_api_quote_handler(
         quote_result = await price_manager.get_current_price(symbol.upper(), user_token)
         
         if quote_result.get("success"):
-            return {
-                "success": True,
+            quote_data = {
                 "data": quote_result["data"],
                 "metadata": quote_result.get("metadata", {})
             }
+            
+            if api_version == "v2":
+                return ResponseFactory.success(
+                    data=quote_data["data"],
+                    message="Quote retrieved successfully",
+                    metadata=quote_data["metadata"]
+                )
+            else:
+                return {
+                    "success": True,
+                    **quote_data
+                }
         else:
-            return {
-                "success": False,
-                "error": quote_result.get("error", "Data Not Available At This Time"),
-                "data": None,
-                "metadata": quote_result.get("metadata", {})
-            }
+            error_msg = quote_result.get("error", "Data Not Available At This Time")
+            
+            if api_version == "v2":
+                return ResponseFactory.error(
+                    error="DataNotAvailable",
+                    message=error_msg,
+                    status_code=404
+                )
+            else:
+                return {
+                    "success": False,
+                    "error": error_msg,
+                    "data": None,
+                    "metadata": quote_result.get("metadata", {})
+                }
     except Exception as e:
         DebugLogger.log_error(
             file_name="backend_api_research.py",
@@ -166,19 +231,27 @@ async def backend_api_quote_handler(
             error=e,
             symbol=symbol
         )
-        return {
-            "success": False,
-            "error": "Data Not Available At This Time",
-            "data": None,
-            "metadata": {}
-        }
+        if api_version == "v2":
+            return ResponseFactory.error(
+                error="ServiceError",
+                message="Data Not Available At This Time",
+                status_code=500
+            )
+        else:
+            return {
+                "success": False,
+                "error": "Data Not Available At This Time",
+                "data": None,
+                "metadata": {}
+            }
 
 @research_router.get("/historical_price/{symbol}")
 async def backend_api_historical_price_handler(
     symbol: str,
     date: str = Query(..., description="Date in YYYY-MM-DD format for historical price lookup"),
-    user_data: Dict[str, Any] = Depends(require_authenticated_user)
-) -> Dict[str, Any]:
+    user_data: Dict[str, Any] = Depends(require_authenticated_user),
+    api_version: Optional[str] = Header(None, alias="X-API-Version")
+) -> Union[Dict[str, Any], APIResponse[Dict[str, Any]]]:
     logger.info(f"[backend_api_research.py::backend_api_historical_price_handler] Historical price request: {symbol} on {date}")
     
     if not symbol:
@@ -221,7 +294,13 @@ async def backend_api_historical_price_handler(
         
         logger.info(f"[backend_api_research.py::backend_api_historical_price_handler] Successfully retrieved price: {symbol} @ ${price_data['close']} on {price_data['date']}")
         
-        return response_data
+        if api_version == "v2":
+            return ResponseFactory.success(
+                data=response_data,
+                message=response_data["message"]
+            )
+        else:
+            return response_data
         
     except Exception as e:
         DebugLogger.log_error(
@@ -233,13 +312,25 @@ async def backend_api_historical_price_handler(
         )
         
         # Return error response instead of raising exception to allow frontend to handle gracefully
-        return {
-            "success": False,
+        error_data = {
             "symbol": symbol,
-            "requested_date": date,
-            "error": str(e),
-            "message": f"Could not fetch historical price for {symbol} on {date}"
+            "requested_date": date
         }
+        error_msg = f"Could not fetch historical price for {symbol} on {date}"
+        
+        if api_version == "v2":
+            return ResponseFactory.error(
+                error="DataNotAvailable",
+                message=error_msg,
+                status_code=404
+            )
+        else:
+            return {
+                "success": False,
+                "error": str(e),
+                "message": error_msg,
+                **error_data
+            }
 
 @research_router.get("/financials/{symbol}")
 @DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="FINANCIALS")
@@ -247,8 +338,9 @@ async def backend_api_financials_handler(
     symbol: str,
     data_type: str = Query('OVERVIEW', description="Type of financial data: OVERVIEW, INCOME_STATEMENT, BALANCE_SHEET, CASH_FLOW"),
     force_refresh: bool = Query(False, description="Force refresh from API even if cached"),
-    user_data: Dict[str, Any] = Depends(require_authenticated_user)
-) -> Dict[str, Any]:
+    user_data: Dict[str, Any] = Depends(require_authenticated_user),
+    api_version: Optional[str] = Header(None, alias="X-API-Version")
+) -> Union[Dict[str, Any], APIResponse[Dict[str, Any]]]:
     """
     Get company financials with intelligent caching
     
@@ -276,17 +368,33 @@ async def backend_api_financials_handler(
         )
         
         # Return success response with cache metadata
-        return {
-            "success": result["success"],
-            "data": result.get("data"),
-            "metadata": {
-                "symbol": result["symbol"],
-                "data_type": result["data_type"],
-                "cache_status": result["cache_status"],
-                "timestamp": datetime.utcnow().isoformat()
-            },
-            "error": result.get("error")
+        metadata = {
+            "symbol": result["symbol"],
+            "data_type": result["data_type"],
+            "cache_status": result["cache_status"],
+            "timestamp": datetime.utcnow().isoformat()
         }
+        
+        if api_version == "v2":
+            if result["success"]:
+                return ResponseFactory.success(
+                    data=result.get("data"),
+                    message="Financial data retrieved successfully",
+                    metadata=metadata
+                )
+            else:
+                return ResponseFactory.error(
+                    error="DataRetrievalError",
+                    message=result.get("error", "Failed to retrieve financial data"),
+                    status_code=500
+                )
+        else:
+            return {
+                "success": result["success"],
+                "data": result.get("data"),
+                "metadata": metadata,
+                "error": result.get("error")
+            }
         
     except Exception as e:
         DebugLogger.log_error(
@@ -302,8 +410,9 @@ async def backend_api_financials_handler(
 async def backend_api_force_refresh_financials_handler(
     symbol: str = Query(..., description="Stock symbol to refresh"),
     data_type: str = Query('OVERVIEW', description="Type of financial data to refresh: OVERVIEW, INCOME_STATEMENT, BALANCE_SHEET, CASH_FLOW"),
-    user_data: Dict[str, Any] = Depends(require_authenticated_user)
-) -> Dict[str, Any]:
+    user_data: Dict[str, Any] = Depends(require_authenticated_user),
+    api_version: Optional[str] = Header(None, alias="X-API-Version")
+) -> Union[Dict[str, Any], APIResponse[Dict[str, Any]]]:
     """
     Force refresh financial data from external API
     Admin/dev endpoint for manual cache invalidation
@@ -322,8 +431,7 @@ async def backend_api_force_refresh_financials_handler(
             force_refresh=True
         )
         
-        return {
-            "success": True,
+        response_data = {
             "message": f"Successfully refreshed {symbol}:{data_type}",
             "data": result.get("data"),
             "metadata": {
@@ -333,6 +441,18 @@ async def backend_api_force_refresh_financials_handler(
                 "timestamp": datetime.utcnow().isoformat()
             }
         }
+        
+        if api_version == "v2":
+            return ResponseFactory.success(
+                data=result.get("data"),
+                message=response_data["message"],
+                metadata=response_data["metadata"]
+            )
+        else:
+            return {
+                "success": True,
+                **response_data
+            }
         
     except Exception as e:
         DebugLogger.log_error(
@@ -352,8 +472,9 @@ async def backend_api_stock_prices_handler(
     days: int = Query(None, description="Number of days of historical data"),
     years: int = Query(None, description="Number of years of historical data"),
     ytd: bool = Query(False, description="Year-to-date data"),
-    user_data: Dict[str, Any] = Depends(require_authenticated_user)
-) -> Dict[str, Any]:
+    user_data: Dict[str, Any] = Depends(require_authenticated_user),
+    api_version: Optional[str] = Header(None, alias="X-API-Version")
+) -> Union[Dict[str, Any], APIResponse[Dict[str, Any]]]:
     """
     Get historical price data for a stock ticker with flexible period selection.
     """
@@ -390,12 +511,21 @@ async def backend_api_stock_prices_handler(
         )
 
         if not result["success"]:
-            return {
-                "success": False,
-                "error": result.get("error", "Data Not Available At This Time"),
-                "data": None,
-                "metadata": result.get("metadata", {})
-            }
+            error_msg = result.get("error", "Data Not Available At This Time")
+            
+            if api_version == "v2":
+                return ResponseFactory.error(
+                    error="DataNotAvailable",
+                    message=error_msg,
+                    status_code=404
+                )
+            else:
+                return {
+                    "success": False,
+                    "error": error_msg,
+                    "data": None,
+                    "metadata": result.get("metadata", {})
+                }
     except Exception as e:
         DebugLogger.log_error(
             file_name="backend_api_research.py",
@@ -406,32 +536,50 @@ async def backend_api_stock_prices_handler(
             years=years,
             ytd=ytd
         )
-        return {
-            "success": False,
-            "error": "Data Not Available At This Time",
-            "data": None,
-            "metadata": {}
-        }
+        if api_version == "v2":
+            return ResponseFactory.error(
+                error="ServiceError",
+                message="Data Not Available At This Time",
+                status_code=500
+            )
+        else:
+            return {
+                "success": False,
+                "error": "Data Not Available At This Time",
+                "data": None,
+                "metadata": {}
+            }
 
-    return {
-        "success": True,
-        "data": {
-            "symbol": symbol,
-            "price_data": result["data"],
-            "start_date": str(start_date),
-            "end_date": str(today),
-            "data_points": len(result["data"]) if result["data"] else 0
-        },
-        "metadata": result.get("metadata", {})
+    # Success response
+    price_data = {
+        "symbol": symbol,
+        "price_data": result["data"],
+        "start_date": str(start_date),
+        "end_date": str(today),
+        "data_points": len(result["data"]) if result["data"] else 0
     }
+    
+    if api_version == "v2":
+        return ResponseFactory.success(
+            data=price_data,
+            message=f"Historical prices retrieved for {symbol}",
+            metadata=result.get("metadata", {})
+        )
+    else:
+        return {
+            "success": True,
+            "data": price_data,
+            "metadata": result.get("metadata", {})
+        }
 
 @research_router.get("/news/{symbol}")
 @DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="NEWS")
 async def backend_api_news_handler(
     symbol: str,
     limit: int = Query(50, description="Maximum number of articles"),
-    user_data: Dict[str, Any] = Depends(require_authenticated_user)
-) -> Dict[str, Any]:
+    user_data: Dict[str, Any] = Depends(require_authenticated_user),
+    api_version: Optional[str] = Header(None, alias="X-API-Version")
+) -> Union[Dict[str, Any], APIResponse[Dict[str, Any]]]:
     """
     Fetch news and sentiment data for a stock symbol
     """
@@ -441,16 +589,31 @@ async def backend_api_news_handler(
         result = await vantage_api_get_news_sentiment(symbol, limit=limit)
         
         if not result.get('ok'):
-            return {
-                "success": False,
-                "error": result.get('error', 'Failed to fetch news'),
-                "data": None
-            }
+            error_msg = result.get('error', 'Failed to fetch news')
+            
+            if api_version == "v2":
+                return ResponseFactory.error(
+                    error="NewsServiceError",
+                    message=error_msg,
+                    status_code=500
+                )
+            else:
+                return {
+                    "success": False,
+                    "error": error_msg,
+                    "data": None
+                }
         
-        return {
-            "success": True,
-            "data": result['data']
-        }
+        if api_version == "v2":
+            return ResponseFactory.success(
+                data=result['data'],
+                message=f"News retrieved for {symbol}"
+            )
+        else:
+            return {
+                "success": True,
+                "data": result['data']
+            }
         
     except Exception as e:
         DebugLogger.log_error(
@@ -459,8 +622,15 @@ async def backend_api_news_handler(
             error=e,
             symbol=symbol
         )
-        return {
-            "success": False,
-            "error": str(e),
-            "data": None
-        }
+        if api_version == "v2":
+            return ResponseFactory.error(
+                error="ServiceError",
+                message=f"Failed to fetch news: {str(e)}",
+                status_code=500
+            )
+        else:
+            return {
+                "success": False,
+                "error": str(e),
+                "data": None
+            }

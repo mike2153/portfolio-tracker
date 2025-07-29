@@ -7,13 +7,12 @@ import { Eye, Trash2, TrendingUp, TrendingDown } from 'lucide-react';
 import ApexListView, { ListViewColumn, ListViewAction } from '@/components/charts/ApexListView';
 import CompanyIcon from '@/components/ui/CompanyIcon';
 import { front_api_get_watchlist, front_api_remove_from_watchlist, WatchlistItem } from '@/hooks/api/front_api_watchlist';
-import { vantage_api_calculate_ytd_return } from '@/hooks/api/vantage_api_historical';
 import { useToast } from '@/components/ui/Toast';
+import AuthGuard from '@/components/AuthGuard';
 
 interface WatchlistRow extends WatchlistItem {
   id: string;
   company_name: string;
-  ytd_return?: number;
   accentColorClass: string;
 }
 
@@ -35,36 +34,36 @@ export default function WatchlistPage() {
         // Transform data for the table
         const colors = ['emerald', 'blue', 'purple', 'orange', 'red', 'yellow', 'pink', 'indigo', 'cyan', 'lime'];
         
-        const transformedData: WatchlistRow[] = await Promise.all(
-          response.watchlist.map(async (item, index) => {
-            // Calculate YTD return
-            let ytdReturn: number | undefined;
-            try {
-              ytdReturn = await vantage_api_calculate_ytd_return(item.symbol);
-            } catch (err) {
-              console.error(`Failed to calculate YTD for ${item.symbol}:`, err);
-            }
-            
-            return {
-              ...item,
-              id: item.id,
-              company_name: item.symbol, // We don't have company names in the current structure
-              ytd_return: ytdReturn,
-              accentColorClass: colors[index % colors.length]
-            };
-          })
-        );
+        const transformedData: WatchlistRow[] = response.watchlist.map((item, index) => ({
+          ...item,
+          id: item.id,
+          company_name: item.symbol, // We don't have company names in the current structure
+          accentColorClass: colors[index % colors.length]
+        }));
         
         setWatchlistData(transformedData);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to load watchlist:', err);
-      setError('Failed to load watchlist');
-      addToast({
-        type: 'error',
-        title: "Error",
-        message: "Failed to load watchlist"
-      });
+      
+      // Check if it's an authentication error
+      if (err.message?.includes('authentication') || err.message?.includes('No credentials')) {
+        setError('Please log in to view your watchlist.');
+        addToast({
+          type: 'error',
+          title: "Authentication Required",
+          message: "Please log in to access your watchlist"
+        });
+        // Redirect to auth page after a short delay
+        setTimeout(() => router.push('/auth'), 2000);
+      } else {
+        setError('Failed to load watchlist');
+        addToast({
+          type: 'error',
+          title: "Error",
+          message: "Failed to load watchlist"
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -139,20 +138,6 @@ export default function WatchlistPage() {
       }
     },
     {
-      key: 'ytd_return',
-      label: 'YTD Return',
-      sortable: true,
-      render: (value: number | undefined) => {
-        if (value === undefined) return <span className="text-[#8B949E]">—</span>;
-        const isPositive = value >= 0;
-        return (
-          <span className={`font-mono ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
-            {isPositive ? '+' : ''}{value.toFixed(2)}%
-          </span>
-        );
-      }
-    },
-    {
       key: 'target_price',
       label: 'Target Price',
       sortable: true,
@@ -186,22 +171,24 @@ export default function WatchlistPage() {
   ];
 
   return (
-    <div className="p-6">
-      <div className="mb-6">
-        <GradientText className="text-3xl font-bold">Watchlist</GradientText>
-        <p className="text-[#8B949E] mt-2">Track stocks you're interested in</p>
-      </div>
+    <AuthGuard>
+      <div className="p-6">
+        <div className="mb-6">
+          <GradientText className="text-3xl font-bold">Watchlist</GradientText>
+          <p className="text-[#8B949E] mt-2">Track stocks you're interested in</p>
+        </div>
 
-      <ApexListView
-        data={watchlistData}
-        columns={columns}
-        actions={actions}
-        isLoading={isLoading}
-        error={error}
-        emptyMessage="Your watchlist is empty. Add stocks from the Research page to start tracking them."
-        searchPlaceholder="Search watchlist..."
-        title="Your Watchlist"
-      />
-    </div>
+        <ApexListView
+          data={watchlistData}
+          columns={columns}
+          actions={actions}
+          isLoading={isLoading}
+          error={error}
+          emptyMessage="Your watchlist is empty. Add stocks from the Research page to start tracking them."
+          searchPlaceholder="Search watchlist..."
+          title="Your Watchlist"
+        />
+      </div>
+    </AuthGuard>
   );
 }

@@ -19,13 +19,13 @@ logger = logging.getLogger(__name__)
 class PortfolioSummary:
     """Data class for portfolio summary metrics."""
     def __init__(self):
-        self.total_value: float = 0.0
-        self.total_cost: float = 0.0
-        self.total_gain_loss: float = 0.0
-        self.total_gain_loss_percent: float = 0.0
-        self.total_dividends: float = 0.0
-        self.daily_change: float = 0.0
-        self.daily_change_percent: float = 0.0
+        self.total_value: Decimal = Decimal('0')
+        self.total_cost: Decimal = Decimal('0')
+        self.total_gain_loss: Decimal = Decimal('0')
+        self.total_gain_loss_percent: Decimal = Decimal('0')
+        self.total_dividends: Decimal = Decimal('0')
+        self.daily_change: Decimal = Decimal('0')
+        self.daily_change_percent: Decimal = Decimal('0')
 
 
 class XIRRCalculator:
@@ -35,18 +35,20 @@ class XIRRCalculator:
     """
     
     @staticmethod
-    def calculate_xirr(cash_flows: List[float], dates: List[date], guess: float = 0.1) -> Optional[float]:
+    def calculate_xirr(cash_flows: List[Decimal], dates: List[date], guess: float = 0.1) -> Optional[float]:
         """
         Calculate XIRR for a series of cash flows.
         
         Args:
-            cash_flows: List of cash flows (negative for investments, positive for returns)
+            cash_flows: List of cash flows as Decimal (negative for investments, positive for returns)
             dates: List of dates corresponding to cash flows
             guess: Initial guess for the rate (default 0.1 = 10%)
             
         Returns:
             XIRR as a decimal (e.g., 0.15 for 15%) or None if calculation fails
         """
+        # Convert Decimal cash flows to float for mathematical operations
+        cash_flows_float = [float(cf) for cf in cash_flows]
         if len(cash_flows) != len(dates):
             logger.error("Cash flows and dates must have the same length")
             return None
@@ -56,8 +58,8 @@ class XIRRCalculator:
             return None
             
         # Check for valid cash flows (need both positive and negative)
-        has_positive = any(cf > 0 for cf in cash_flows)
-        has_negative = any(cf < 0 for cf in cash_flows)
+        has_positive = any(cf > 0 for cf in cash_flows_float)
+        has_negative = any(cf < 0 for cf in cash_flows_float)
         
         if not (has_positive and has_negative):
             logger.error("Cash flows must have both positive and negative values")
@@ -77,7 +79,7 @@ class XIRRCalculator:
             npv = 0.0
             dnpv = 0.0
             
-            for i, (cf, days) in enumerate(zip(cash_flows, days_from_start)):
+            for i, (cf, days) in enumerate(zip(cash_flows_float, days_from_start)):
                 if days == 0:
                     # First cash flow
                     npv += cf
@@ -98,6 +100,7 @@ class XIRRCalculator:
                 logger.warning("Derivative too small, trying different guess")
                 # Try with a different initial guess
                 if guess != 0.0:
+                    # Pass original Decimal values
                     return XIRRCalculator.calculate_xirr(cash_flows, dates, guess=0.0)
                 else:
                     return None
@@ -117,6 +120,7 @@ class XIRRCalculator:
         logger.warning(f"XIRR calculation did not converge after {max_iterations} iterations")
         # Try with different initial guess
         if guess != 0.0:
+            # Pass original Decimal values
             return XIRRCalculator.calculate_xirr(cash_flows, dates, guess=0.0)
         
         return None
@@ -140,7 +144,11 @@ class XIRRCalculator:
         dates_list = []
         
         for cf in cash_flows:
-            amounts.append(cf['amount'])
+            # Ensure amounts are Decimal
+            amount = cf['amount']
+            if not isinstance(amount, Decimal):
+                amount = Decimal(str(amount))
+            amounts.append(amount)
             dates_list.append(cf['date'])
             
         return XIRRCalculator.calculate_xirr(amounts, dates_list)

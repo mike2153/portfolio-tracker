@@ -231,12 +231,8 @@ class PortfolioMetricsManager:
         self.forex_manager = ForexManager(supabase_client, alpha_vantage_key)
         
         # Circuit breaker configuration
-        self._service_failures: Dict[str, int] = {}
         self._max_failures = 3
-        self._failure_reset_time: Dict[str, datetime] = {}
-        
-        # Cache for user base currency
-        self._user_currency_cache: Dict[str, Tuple[str, datetime]] = {}
+        self._recovery_timeout = 60  # seconds
         
         logger.info("[PortfolioMetricsManager] Initialized")
     
@@ -254,18 +250,36 @@ class PortfolioMetricsManager:
         Returns:
             Base currency code (defaults to 'USD')
         """
-        # Check cache first
-        if user_id in self._user_currency_cache:
-            currency, cached_at = self._user_currency_cache[user_id]
-            if datetime.now() - cached_at < timedelta(hours=1):
-                return currency
-        
-        # Fetch from database
+        # Check database cache first
         supabase_client = get_supa_service_client()
+        
+        try:
+            # Try to get from cache
+            cache_result = supabase_client.table('user_currency_cache').select('base_currency').eq(
+                'user_id', user_id
+            ).gte(
+                'expires_at', datetime.now(timezone.utc).isoformat()
+            ).single().execute()
+            
+            if cache_result.data:
+                return cache_result.data['base_currency']
+        except:
+            # Cache miss or error, continue to fetch
+            pass
+        
+        # Fetch from user profile
         base_currency = await get_user_base_currency(supabase_client, user_id)
         
-        # Cache the result
-        self._user_currency_cache[user_id] = (base_currency, datetime.now())
+        # Cache the result in database
+        try:
+            supabase_client.table('user_currency_cache').upsert({
+                'user_id': user_id,
+                'base_currency': base_currency,
+                'cached_at': datetime.now(timezone.utc).isoformat(),
+                'expires_at': (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+            }).execute()
+        except Exception as e:
+            logger.warning(f"Failed to cache user currency: {e}")
         
         return base_currency
     
@@ -547,12 +561,12 @@ class PortfolioMetricsManager:
             holdings_list = holdings_data.get("holdings", [])
             total_value = holdings_data.get("total_value", 0)
             
-            # Ensure total_value is numeric
+            # Ensure total_value is numeric and convert to Decimal
             if not isinstance(total_value, (int, float, Decimal)):
                 logger.error(f"total_value is not numeric: {type(total_value)}")
-                total_value = 0
-            
-            total_value = float(total_value)
+                total_value = Decimal('0')
+            else:
+                total_value = Decimal(str(total_value))
             
             # Transform to our model and add allocation percentages
             result = []
@@ -594,7 +608,7 @@ class PortfolioMetricsManager:
                         dividends_received=Decimal(str(h.get("dividends_received", 0))),
                         realized_pnl=Decimal(str(h.get("realized_pnl", 0))),
                         price_date=datetime.fromisoformat(h["price_date"]) if h.get("price_date") else None,
-                        allocation_percent=(float(current_value) / total_value * 100) if total_value > 0 else 0.0,
+                        allocation_percent=float((current_value / total_value * 100)) if total_value > 0 else 0.0,
                         currency=stock_currency,
                         base_currency_value=base_currency_value
                     )
@@ -743,42 +757,47 @@ class PortfolioMetricsManager:
         symbol_upper = symbol.upper()
         
         # Common international exchanges
-        if symbol_upper.endswith('.AX'):
+        if symbol_upper.endswith('.ASX'):
             return 'AUD'  # Australian Stock Exchange
-        elif symbol_upper.endswith('.L'):
+        elif symbol_upper.endswith('.LON'):
             return 'GBP'  # London Stock Exchange
-        elif symbol_upper.endswith('.TO'):
+        elif symbol_upper.endswith('.TRV'):
             return 'CAD'  # Toronto Stock Exchange
         elif symbol_upper.endswith('.PA'):
             return 'EUR'  # Euronext Paris
-        elif symbol_upper.endswith('.DE'):
+        elif symbol_upper.endswith('.FRK'):
             return 'EUR'  # Frankfurt Stock Exchange
         elif symbol_upper.endswith('.MC'):
             return 'EUR'  # Madrid Stock Exchange
-        elif symbol_upper.endswith('.MI'):
+        elif symbol_upper.endswith('.MFM'):
             return 'EUR'  # Milan Stock Exchange
-        elif symbol_upper.endswith('.AS'):
+        elif symbol_upper.endswith('.AMS'):
             return 'EUR'  # Amsterdam Stock Exchange
-        elif symbol_upper.endswith('.BR'):
+        elif symbol_upper.endswith('.BFO'):
             return 'EUR'  # Brussels Stock Exchange
         elif symbol_upper.endswith('.SW'):
             return 'CHF'  # Swiss Exchange
-        elif symbol_upper.endswith('.T'):
+        elif symbol_upper.endswith('.TSE'):
             return 'JPY'  # Tokyo Stock Exchange
-        elif symbol_upper.endswith('.HK'):
+        elif symbol_upper.endswith('.HKM'):
             return 'HKD'  # Hong Kong Stock Exchange
-        elif symbol_upper.endswith('.SI'):
+        elif symbol_upper.endswith('.SME') or symbol_upper.endswith('.SGX'):
             return 'SGD'  # Singapore Exchange
-        elif symbol_upper.endswith('.NS') or symbol_upper.endswith('.BO'):
+        elif symbol_upper.endswith('.BBX') or symbol_upper.endswith('.BO'):
             return 'INR'  # National Stock Exchange/Bombay Stock Exchange
-        elif symbol_upper.endswith('.KS') or symbol_upper.endswith('.KQ'):
+        elif symbol_upper.endswith('.BSE'):
+            return 'INR'  # Bombay Stock Exchange
+        elif symbol_upper.endswith('.KFE') or symbol_upper.endswith('.KQ'):
             return 'KRW'  # Korea Exchange
-        elif symbol_upper.endswith('.NZ'):
+        elif symbol_upper.endswith('.NZX'):
             return 'NZD'  # New Zealand Exchange
-        elif symbol_upper.endswith('.MX'):
+        elif symbol_upper.endswith('.MDX'):
             return 'MXN'  # Mexican Stock Exchange
-        elif symbol_upper.endswith('.SA'):
+        elif symbol_upper.endswith('.BOV'):
             return 'BRL'  # São Paulo Stock Exchange
+        elif symbol_upper.endswith('.DEX'):
+            return 'EUR'  # XETRA Stock Exchange
+
         else:
             return 'USD'  # Default to USD
     
@@ -981,33 +1000,58 @@ class PortfolioMetricsManager:
     
     def _record_service_failure(self, service_name: str) -> None:
         """Record a service failure for circuit breaker"""
-        self._service_failures[service_name] = self._service_failures.get(service_name, 0) + 1
-        self._failure_reset_time[service_name] = datetime.now() + timedelta(minutes=5)
-        
-        if self._service_failures[service_name] >= self._max_failures:
-            logger.error(f"[PortfolioMetricsManager] Service {service_name} has failed {self._max_failures} times")
+        try:
+            client = get_supa_service_client()
+            client.rpc('record_service_failure', {
+                'p_service_name': service_name,
+                'p_failure_threshold': self._max_failures
+            }).execute()
+            logger.warning(f"[PortfolioMetricsManager] Recorded failure for service {service_name}")
+        except Exception as e:
+            logger.error(f"[PortfolioMetricsManager] Failed to record service failure: {e}")
     
     def _is_service_available(self, service_name: str) -> bool:
         """Check if service is available (not circuit broken)"""
-        # Check if we should reset the circuit
-        if service_name in self._failure_reset_time:
-            if datetime.now() > self._failure_reset_time[service_name]:
-                self._reset_service_failures(service_name)
-        
-        return self._service_failures.get(service_name, 0) < self._max_failures
+        try:
+            client = get_supa_service_client()
+            result = client.rpc('check_circuit_breaker', {
+                'p_service_name': service_name,
+                'p_failure_threshold': self._max_failures,
+                'p_recovery_timeout': self._recovery_timeout
+            }).execute()
+            
+            if result.data and len(result.data) > 0:
+                is_open = result.data[0]['is_open']
+                state = result.data[0]['state']
+                logger.debug(f"[PortfolioMetricsManager] Circuit breaker for {service_name}: state={state}, is_open={is_open}")
+                return not is_open
+            
+            # Default to available if check fails
+            return True
+        except Exception as e:
+            logger.error(f"[PortfolioMetricsManager] Failed to check circuit breaker: {e}")
+            # Fail open - allow service calls if circuit breaker check fails
+            return True
     
     def _reset_service_failures(self, service_name: str) -> None:
         """Reset failure count for a service"""
-        if service_name in self._service_failures:
-            del self._service_failures[service_name]
-        if service_name in self._failure_reset_time:
-            del self._failure_reset_time[service_name]
+        try:
+            client = get_supa_service_client()
+            client.rpc('record_service_success', {
+                'p_service_name': service_name
+            }).execute()
+            logger.info(f"[PortfolioMetricsManager] Reset failures for service {service_name}")
+        except Exception as e:
+            logger.error(f"[PortfolioMetricsManager] Failed to reset service failures: {e}")
     
     async def reset_all_circuit_breakers(self) -> None:
         """Reset all circuit breakers (e.g., on a schedule)"""
-        self._service_failures.clear()
-        self._failure_reset_time.clear()
-        logger.info("[PortfolioMetricsManager] All circuit breakers reset")
+        try:
+            client = get_supa_service_client()
+            client.rpc('reset_circuit_breaker').execute()
+            logger.info("[PortfolioMetricsManager] All circuit breakers reset")
+        except Exception as e:
+            logger.error(f"[PortfolioMetricsManager] Failed to reset all circuit breakers: {e}")
     
     async def invalidate_user_cache(self, user_id: str, metric_type: Optional[str] = None) -> None:
         """

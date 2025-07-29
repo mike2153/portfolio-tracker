@@ -10,7 +10,7 @@ import logging
 from datetime import datetime, date
 from typing import Any, Dict, List, Tuple, Optional, cast
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Header
 
 from debug_logger import DebugLogger, LoggingConfig
 from supa_api.supa_api_auth import require_authenticated_user
@@ -18,7 +18,9 @@ from supa_api.supa_api_transactions import supa_api_get_transaction_summary
 from services.price_manager import price_manager
 from services.portfolio_calculator import portfolio_calculator
 from services.portfolio_metrics_manager import portfolio_metrics_manager
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP 
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from utils.response_factory import ResponseFactory
+from models.response_models import APIResponse 
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +67,7 @@ def _assert_jwt(user: Dict[str, Any]) -> _AuthContext:  # pragma: no cover
 async def backend_api_get_dashboard(
     user: Dict[str, Any] = Depends(require_authenticated_user),
     force_refresh: bool = Query(False, description="Force refresh cache"),
+    x_api_version: str = Header("v1", description="API version for response format"),
 ) -> Dict[str, Any]:
     """Return portfolio snapshot + market blurb for the dashboard."""
     logger.info(f"[backend_api_dashboard.py::backend_api_get_dashboard] === GET DASHBOARD REQUEST START ===")
@@ -137,8 +140,8 @@ async def backend_api_get_dashboard(
             }
             holdings_with_allocation.append(holding_dict)
         
-        resp = {
-            "success": True,
+        # Prepare data for response
+        dashboard_data = {
             "portfolio": {
                 "total_value": float(metrics.performance.total_value),
                 "total_cost": float(metrics.performance.total_cost),
@@ -150,25 +153,60 @@ async def backend_api_get_dashboard(
             },
             "top_holdings": holdings_with_allocation,
             "transaction_summary": summary,
-            "cache_status": metrics.cache_status,  # Include cache status for monitoring
-            "computation_time_ms": metrics.computation_time_ms,
         }
         
-        logger.info(f"[backend_api_dashboard.py::backend_api_get_dashboard] Response structure: {list(resp.keys())}")
-        logger.info(f"[backend_api_dashboard.py::backend_api_get_dashboard] Portfolio value: ${resp['portfolio']['total_value']:.2f}")
-        logger.info(f"[backend_api_dashboard.py::backend_api_get_dashboard] Top holdings count: {len(resp['top_holdings'])}")
-        logger.info(f"[backend_api_dashboard.py::backend_api_get_dashboard] === GET DASHBOARD REQUEST END (SUCCESS) ===")
-        return resp
+        # Return based on version
+        if x_api_version == "v2":
+            # New standardized format
+            response = ResponseFactory.success(
+                data=dashboard_data,
+                message="Dashboard data retrieved successfully",
+                metadata={
+                    "cache_status": metrics.cache_status,
+                    "computation_time_ms": metrics.computation_time_ms,
+                    "holdings_count": len(metrics.holdings),
+                    "force_refresh": force_refresh,
+                }
+            )
+            logger.info(f"[backend_api_dashboard.py::backend_api_get_dashboard] Returning v2 response format")
+            return response.dict()
+        else:
+            # Legacy v1 format for backward compatibility
+            resp = {
+                "success": True,
+                **dashboard_data,
+                "cache_status": metrics.cache_status,
+                "computation_time_ms": metrics.computation_time_ms,
+            }
+            
+            logger.info(f"[backend_api_dashboard.py::backend_api_get_dashboard] Response structure: {list(resp.keys())}")
+            logger.info(f"[backend_api_dashboard.py::backend_api_get_dashboard] Portfolio value: ${resp['portfolio']['total_value']:.2f}")
+            logger.info(f"[backend_api_dashboard.py::backend_api_get_dashboard] Top holdings count: {len(resp['top_holdings'])}")
+            logger.info(f"[backend_api_dashboard.py::backend_api_get_dashboard] === GET DASHBOARD REQUEST END (SUCCESS) ===")
+            return resp
         
     except Exception as e:
         # Log the error and let it propagate - no fallback
         logger.error(f"[backend_api_dashboard.py::backend_api_get_dashboard] ERROR: {type(e).__name__}: {str(e)}")
         logger.error(f"[backend_api_dashboard.py::backend_api_get_dashboard] Full stack trace:", exc_info=True)
         DebugLogger.log_error(__file__, "backend_api_get_dashboard", e, user_id=uid)
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to retrieve dashboard data: {str(e)}"
-        )
+        # Return error based on version
+        if x_api_version == "v2":
+            error_response = ResponseFactory.error(
+                error="DashboardError",
+                message=f"Failed to retrieve dashboard data: {str(e)}",
+                status_code=500
+            )
+            raise HTTPException(
+                status_code=500,
+                detail=error_response.dict()
+            )
+        else:
+            # Legacy error format
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to retrieve dashboard data: {str(e)}"
+            )
 
 # ---------------------------------------------------------------------------
 # /dashboard/performance – time-series comparison
@@ -185,6 +223,7 @@ async def backend_api_get_performance(
     user: Dict[str, Any] = Depends(require_authenticated_user),
     period: str = "1M",  # 1D, 1W, 1M, 3M, 6M, 1Y, ALL
     benchmark: str = Query("SPY", regex=r"^[A-Z]{1,5}$"),
+    x_api_version: str = Header("v1", description="API version for response format"),
 ) -> Dict[str, Any]:
     """Return portfolio vs index performance for the requested period."""
     logger.info(f"[backend_api_dashboard.py::backend_api_get_performance] === GET PERFORMANCE REQUEST START ===")
@@ -203,6 +242,13 @@ async def backend_api_get_performance(
     # --- Validate benchmark ----------------------------------------------
     benchmark = benchmark.upper()
     if not ISU.validate_benchmark(benchmark):
+        if x_api_version == "v2":
+            error_response = ResponseFactory.validation_error(
+                field_errors={"benchmark": f"Unsupported benchmark: {benchmark}"},
+                message="Invalid benchmark symbol"
+            )
+            raise HTTPException(status_code=400, detail=error_response.dict())
+        else:
             raise HTTPException(status_code=400, detail=f"Unsupported benchmark: {benchmark}")
         
     # --- Resolve date range ----------------------------------------------
@@ -231,7 +277,15 @@ async def backend_api_get_performance(
     # --- Await portfolio series ------------------------------------------
     portfolio_result = await portfolio_task
     if isinstance(portfolio_result, Exception):
-        raise HTTPException(status_code=500, detail="Portfolio time-series calculation failed")
+        if x_api_version == "v2":
+            error_response = ResponseFactory.error(
+                error="CalculationError",
+                message="Portfolio time-series calculation failed",
+                status_code=500
+            )
+            raise HTTPException(status_code=500, detail=error_response.dict())
+        else:
+            raise HTTPException(status_code=500, detail="Portfolio time-series calculation failed")
     # Support both old and new return types for backward compatibility
     if isinstance(portfolio_result, tuple) and len(portfolio_result) == 2:
         portfolio_series, portfolio_meta = portfolio_result
@@ -254,8 +308,8 @@ async def backend_api_get_performance(
             
             if index_only_meta.get("no_data"):
                 logger.error("[backend_api_get_performance] ❌ Even index-only data unavailable")
-                return {
-                    "success": False,
+                # No data response
+                no_data_response = {
                     "period": period,
                     "benchmark": benchmark,
                     "portfolio_performance": [],
@@ -272,14 +326,23 @@ async def backend_api_get_performance(
                     },
                     "performance_metrics": {},
                 }
+                
+                if x_api_version == "v2":
+                    return ResponseFactory.error(
+                        error="NoDataError",
+                        message="No data available for portfolio or benchmark",
+                        status_code=404
+                    ).dict()
+                else:
+                    return {"success": False, **no_data_response}
             
             # Convert to chart format
             index_only_chart_data = []
             for d, v in index_only_series:
                 chart_point = {"date": d.isoformat(), "value": float(v)}
                 index_only_chart_data.append(chart_point)
-            return {
-                "success": True,
+            # Index-only response data
+            index_only_data = {
                 "period": period,
                 "benchmark": benchmark,
                 "portfolio_performance": [],    
@@ -303,10 +366,23 @@ async def backend_api_get_performance(
                 },
             }
             
+            if x_api_version == "v2":
+                return ResponseFactory.success(
+                    data=index_only_data,
+                    message="Index-only performance data retrieved (no portfolio data available)",
+                    metadata={
+                        "cache_status": "fresh",
+                        "computation_time_ms": 0,
+                        "index_only_mode": True
+                    }
+                ).dict()
+            else:
+                return {"success": True, **index_only_data}
+            
         except Exception as e:
             logger.error("[backend_api_get_performance] ❌ Index-only fallback failed: %s", str(e))
-            return {
-                "success": False,
+            # Error fallback response
+            error_data = {
                 "period": period,
                 "benchmark": benchmark,
                 "portfolio_performance": [],
@@ -322,6 +398,15 @@ async def backend_api_get_performance(
                 },
                 "performance_metrics": {},
             }
+            
+            if x_api_version == "v2":
+                return ResponseFactory.error(
+                    error="DataRetrievalError",
+                    message=f"Failed to retrieve data: {str(e)}",
+                    status_code=500
+                ).dict()
+            else:
+                return {"success": False, **error_data}
 
     # --- Helper: safe Decimal coercion --------------------------------------
     def _safe_decimal(raw: Any) -> Decimal:  # noqa: WPS430 (nested def acceptable here)
@@ -382,8 +467,8 @@ async def backend_api_get_performance(
             chart_point = {"date": d.isoformat(), "value": float(v)}
             index_chart_data.append(chart_point)
     
-    return {
-        "success": True,
+    # Prepare performance data
+    performance_data = {
         "period": period,
         "benchmark": benchmark,
         "portfolio_performance": portfolio_chart_data,
@@ -398,6 +483,24 @@ async def backend_api_get_performance(
         },
         "performance_metrics": metrics,
     }
+    
+    if x_api_version == "v2":
+        # Calculate computation time (approximate)
+        computation_time_ms = int((datetime.utcnow() - datetime.fromisoformat(performance_data["metadata"]["calculation_timestamp"].replace("Z", ""))).total_seconds() * 1000) if "calculation_timestamp" in performance_data["metadata"] else 0
+        
+        return ResponseFactory.success(
+            data=performance_data,
+            message="Performance data retrieved successfully",
+            metadata={
+                "cache_status": "fresh",
+                "computation_time_ms": computation_time_ms,
+                "period": period,
+                "benchmark": benchmark
+            }
+        ).dict()
+    else:
+        # Legacy v1 format
+        return {"success": True, **performance_data}
 
 @dashboard_router.post("/debug/toggle-info-logging")
 async def toggle_info_logging(current_user: dict = Depends(require_authenticated_user)):
@@ -462,6 +565,7 @@ async def reset_circuit_breaker(
 async def backend_api_get_gainers(
     user: Dict[str, Any] = Depends(require_authenticated_user),
     force_refresh: bool = Query(False),
+    x_api_version: str = Header("v1", description="API version for response format"),
 ) -> Dict[str, Any]:
     """Get top gaining holdings for the dashboard."""
     try:
@@ -476,11 +580,22 @@ async def backend_api_get_gainers(
         )
         
         if not metrics.holdings:
-            return {
-                "success": True,
-                "data": {"items": []},
-                "message": "No holdings found"
-            }
+            empty_data = {"items": []}
+            if x_api_version == "v2":
+                return ResponseFactory.success(
+                    data=empty_data,
+                    message="No holdings found",
+                    metadata={
+                        "cache_status": metrics.cache_status,
+                        "computation_time_ms": metrics.computation_time_ms
+                    }
+                ).dict()
+            else:
+                return {
+                    "success": True,
+                    "data": empty_data,
+                    "message": "No holdings found"
+                }
         
         # Filter for positive gains and sort by gain percentage
         gainers = [
@@ -500,18 +615,45 @@ async def backend_api_get_gainers(
                 "changeValue": float(holding.gain_loss)
             })
         
-        return {
-            "success": True,
-            "data": {"items": top_gainers},
-            "cache_status": metrics.cache_status
-        }
+        # Prepare response data
+        gainers_data = {"items": top_gainers}
+        
+        if x_api_version == "v2":
+            return ResponseFactory.success(
+                data=gainers_data,
+                message=f"Retrieved {len(top_gainers)} top gaining holdings",
+                metadata={
+                    "cache_status": metrics.cache_status,
+                    "computation_time_ms": metrics.computation_time_ms,
+                    "total_gainers": len(gainers),
+                    "displayed_count": len(top_gainers)
+                }
+            ).dict()
+        else:
+            # Legacy v1 format
+            return {
+                "success": True,
+                "data": gainers_data,
+                "cache_status": metrics.cache_status
+            }
         
     except Exception as e:
         DebugLogger.log_error(__file__, "backend_api_get_gainers", e, user_id=uid)
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to retrieve top gainers: {str(e)}"
-        )
+        if x_api_version == "v2":
+            error_response = ResponseFactory.error(
+                error="GainersError",
+                message=f"Failed to retrieve top gainers: {str(e)}",
+                status_code=500
+            )
+            raise HTTPException(
+                status_code=500,
+                detail=error_response.dict()
+            )
+        else:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to retrieve top gainers: {str(e)}"
+            )
 
 @dashboard_router.get("/dashboard/losers")
 @DebugLogger.log_api_call(
@@ -523,6 +665,7 @@ async def backend_api_get_gainers(
 async def backend_api_get_losers(
     user: Dict[str, Any] = Depends(require_authenticated_user),
     force_refresh: bool = Query(False),
+    x_api_version: str = Header("v1", description="API version for response format"),
 ) -> Dict[str, Any]:
     """Get top losing holdings for the dashboard."""
     try:
@@ -537,11 +680,22 @@ async def backend_api_get_losers(
         )
         
         if not metrics.holdings:
-            return {
-                "success": True,
-                "data": {"items": []},
-                "message": "No holdings found"
-            }
+            empty_data = {"items": []}
+            if x_api_version == "v2":
+                return ResponseFactory.success(
+                    data=empty_data,
+                    message="No holdings found",
+                    metadata={
+                        "cache_status": metrics.cache_status,
+                        "computation_time_ms": metrics.computation_time_ms
+                    }
+                ).dict()
+            else:
+                return {
+                    "success": True,
+                    "data": empty_data,
+                    "message": "No holdings found"
+                }
         
         losers = [
             h for h in metrics.holdings 
@@ -560,15 +714,42 @@ async def backend_api_get_losers(
                 "changeValue": abs(float(holding.gain_loss)) 
             })
         
-        return {
-            "success": True,
-            "data": {"items": top_losers},
-            "cache_status": metrics.cache_status
-        }
+        # Prepare response data
+        losers_data = {"items": top_losers}
+        
+        if x_api_version == "v2":
+            return ResponseFactory.success(
+                data=losers_data,
+                message=f"Retrieved {len(top_losers)} top losing holdings",
+                metadata={
+                    "cache_status": metrics.cache_status,
+                    "computation_time_ms": metrics.computation_time_ms,
+                    "total_losers": len(losers),
+                    "displayed_count": len(top_losers)
+                }
+            ).dict()
+        else:
+            # Legacy v1 format
+            return {
+                "success": True,
+                "data": losers_data,
+                "cache_status": metrics.cache_status
+            }
         
     except Exception as e:
         DebugLogger.log_error(__file__, "backend_api_get_losers", e, user_id=uid)
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to retrieve top losers: {str(e)}"
-        )
+        if x_api_version == "v2":
+            error_response = ResponseFactory.error(
+                error="LosersError",
+                message=f"Failed to retrieve top losers: {str(e)}",
+                status_code=500
+            )
+            raise HTTPException(
+                status_code=500,
+                detail=error_response.dict()
+            )
+        else:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to retrieve top losers: {str(e)}"
+            )

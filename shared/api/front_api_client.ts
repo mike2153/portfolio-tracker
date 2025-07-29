@@ -6,7 +6,47 @@
  */
 
 import { getSupabase } from '../utils/supabaseClient';
-import { ApiResponse, DashboardOverview } from '../types/api';
+import { 
+  APIResponse,
+  DashboardOverview,
+  AnalyticsHolding,
+  AnalyticsSummary,
+  PortfolioData,
+  Transaction,
+  UserProfile,
+  WatchlistItem,
+  DividendRecord,
+  StockOverview,
+  StockQuote,
+  SymbolSearchResult,
+  ExchangeRate
+} from '../types/api-contracts';
+
+// Type alias for backward compatibility
+export type ApiResponse<T = any> = APIResponse<T>;
+
+// API Version Configuration
+interface APIConfig {
+  version: 'v1' | 'v2';
+  autoTransform: boolean; // Whether to automatically transform v2 responses to v1 format
+}
+
+const apiConfig: APIConfig = {
+  version: 'v1', // Default to v1 for backward compatibility
+  autoTransform: true
+};
+
+// Helper to set API version globally
+export function setAPIVersion(version: 'v1' | 'v2', autoTransform: boolean = true): void {
+  apiConfig.version = version;
+  apiConfig.autoTransform = autoTransform;
+  console.log(`[API Client] Switched to API version ${version}, autoTransform: ${autoTransform}`);
+}
+
+// Helper to get current API version
+export function getAPIVersion(): string {
+  return apiConfig.version;
+}
 
 // Use appropriate environment variable based on platform
 const API_BASE = process.env.NEXT_PUBLIC_BACKEND_API_URL ?? 
@@ -31,6 +71,9 @@ export async function authFetch(path: string, init: RequestInit = {}) {
   const makeAuthenticatedRequest = async (token: string) => {
     const headers = new Headers(init.headers);
     headers.set('Authorization', `Bearer ${token}`);
+    
+    // Add API version header
+    headers.set('X-API-Version', apiConfig.version);
     
     if ((init.method === 'POST' || init.method === 'PUT') && !headers.has('Content-Type')) {
       headers.set('Content-Type', 'application/json');
@@ -119,6 +162,47 @@ export async function authFetch(path: string, init: RequestInit = {}) {
 }
 
 /**
+ * Transform v2 API response to v1 format for backward compatibility
+ */
+function transformV2ToV1<T>(response: APIResponse<T>): T {
+  if (!response.success && response.error) {
+    throw new Error(response.message || response.error);
+  }
+  if (response.data === undefined) {
+    throw new Error('No data in response');
+  }
+  return response.data;
+}
+
+/**
+ * Handle response based on API version configuration
+ */
+async function handleVersionedResponse<T>(response: Response): Promise<T> {
+  const text = await response.text();
+  let data: any;
+  
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    console.error('[handleVersionedResponse] Failed to parse JSON:', text);
+    throw new Error('Invalid JSON response');
+  }
+  
+  // If using v2 and response has the v2 structure
+  if (apiConfig.version === 'v2' && 'success' in data && 'data' in data) {
+    // If autoTransform is enabled, extract just the data for backward compatibility
+    if (apiConfig.autoTransform) {
+      return transformV2ToV1<T>(data as APIResponse<T>);
+    }
+    // Otherwise return the full v2 response
+    return data as T;
+  }
+  
+  // For v1 or responses without v2 structure, return as is
+  return data as T;
+}
+
+/**
  * A helper to make a GET request and parse the JSON response.
  * Throws an error if the request is not successful.
  * @param path The API path for the GET request
@@ -147,16 +231,16 @@ async function getJSON<T>(path:string): Promise<T> {
     }
     
     try {
-      const jsonData = await res.json() as T;
+      const jsonData = await handleVersionedResponse<T>(res);
       console.log(`[${timestamp}] [getJSON] Success:`, {
         path,
         dataKeys: jsonData && typeof jsonData === 'object' ? Object.keys(jsonData) : 'N/A',
-        success: (jsonData as any)?.success
+        apiVersion: apiConfig.version
       });
       return jsonData;
     } catch (jsonError) {
-      console.error(`[${timestamp}] [getJSON] JSON parse error:`, jsonError);
-      throw new Error(`Failed to parse JSON response from ${path}`);
+      console.error(`[${timestamp}] [getJSON] Response handling error:`, jsonError);
+      throw new Error(`Failed to parse response from ${path}: ${jsonError instanceof Error ? jsonError.message : 'Unknown error'}`);
     }
   } catch (error) {
     console.error(`[${timestamp}] [getJSON] Error for ${path}:`, error);
@@ -568,6 +652,40 @@ async function get(path: string): Promise<any> {
   }
 }
 
+// ───────────────────────────────── Forex ──────────────────────────────
+export const front_api_get_exchange_rate = async (params: {
+  from_currency: string;
+  to_currency: string;
+  date?: string;
+}) => {
+  const queryParams = new URLSearchParams({
+    from_currency: params.from_currency,
+    to_currency: params.to_currency,
+    ...(params.date && { date: params.date })
+  });
+  
+  const response = await authFetch(`/api/forex/rate?${queryParams}`);
+  const responseData = await response.json();
+  
+  if (!response.ok) {
+    throw new Error(responseData.detail || 'Failed to fetch exchange rate');
+  }
+  
+  return responseData;
+};
+
+// ───────────────────────────────── User Profile ──────────────────────────────
+export const front_api_get_user_profile = async () => {
+  const response = await authFetch('/api/profile');
+  const responseData = await response.json();
+  
+  if (!response.ok) {
+    throw new Error(responseData.detail || 'Failed to fetch user profile');
+  }
+  
+  return responseData;
+};
+
 // Convenience object for components that import as `front_api_client.front_api_*`
 export const front_api_client = {
   // Generic method
@@ -597,4 +715,6 @@ export const front_api_client = {
   front_api_health_check,
   front_api_get_stock_prices,
   front_api_get_news,
+  front_api_get_exchange_rate,
+  front_api_get_user_profile,
 };
