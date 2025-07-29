@@ -11,14 +11,20 @@
 
 ## Overview
 
-The Portfolio Tracker backend is built with FastAPI and uses Supabase as the database. It follows strict type safety rules and uses specific data structures throughout.
+The Portfolio Tracker backend is built with FastAPI and implements a **permanent storage strategy** where all market data is stored in Supabase. It follows strict type safety rules with zero tolerance for type errors.
 
 ### Core Technologies
 - **Framework**: FastAPI (Python 3.9+)
-- **Database**: Supabase (PostgreSQL)
-- **Authentication**: Supabase JWT tokens
-- **External APIs**: Alpha Vantage for market data
-- **Type System**: Python type hints with Pydantic models
+- **Database**: Supabase (PostgreSQL) - permanent storage for all data
+- **Authentication**: Supabase JWT tokens with RLS enforcement
+- **External APIs**: Alpha Vantage for market data (only when data missing)
+- **Type System**: Python type hints with Pydantic models (MANDATORY)
+
+### Permanent Storage Strategy
+- All Alpha Vantage data is stored permanently in dedicated tables
+- No temporary caching or time-based deletion
+- External APIs are only called when data is missing or stale
+- Historical data accumulates over time for complete analysis
 
 ## API Endpoints
 
@@ -364,23 +370,25 @@ Standard response wrapper (used by most but not all endpoints):
 }
 ```
 
-**Note**: Response formats vary across endpoints:
-- Portfolio/Dashboard endpoints typically use the standard wrapper
-- Watchlist endpoints may return `item` instead of `data`
-- Research endpoints may use `ok`/`results` format
-- Not all endpoints include `metadata`
+**Note**: All endpoints use the standard response wrapper with `success`, `data`, `error`, and optional `metadata` fields.
 
 ## Type Safety Guidelines
 
-### 1. Always Use Type Hints
+**ZERO TOLERANCE FOR TYPE ERRORS - ALL FUNCTIONS MUST BE FULLY TYPED**
+
+### 1. Always Use Type Hints (MANDATORY)
 ```python
-# ❌ BAD
+# ❌ BAD - NO TYPE HINTS
 def calculate_return(cost, value):
     return (value - cost) / cost * 100
 
-# ✅ GOOD
+# ❌ BAD - INCOMPLETE TYPE HINTS
+def calculate_return(cost: Decimal, value: Decimal):
+    return (value - cost) / cost * 100
+
+# ✅ GOOD - FULLY TYPED WITH RETURN TYPE
 def calculate_return(cost: Decimal, value: Decimal) -> Decimal:
-    if cost == 0:
+    if cost == Decimal('0'):
         raise ValueError("Cost cannot be zero")
     return (value - cost) / cost * 100
 ```
@@ -456,14 +464,16 @@ def get_price(symbol: str, date: Optional[str] = None) -> float:
 - Handles holdings, allocations, and time series
 
 #### PortfolioMetricsManager
-- Manages caching of expensive calculations
-- Coordinates data fetching from multiple sources
-- Handles cache invalidation
+- Manages performance caching for expensive calculations
+- Coordinates data fetching from permanent storage
+- Handles cache invalidation on transaction changes
+- Note: This is the ONLY service that uses short-term caching
 
 #### PriceManager
 - Centralized price data management
-- Handles caching and fallback strategies
-- Integrates with Alpha Vantage
+- Fetches from permanent storage (historical_prices table)
+- Falls back to Alpha Vantage only if data missing
+- Stores all fetched data permanently
 
 ## Common Patterns
 
@@ -501,20 +511,24 @@ async def get_portfolio_data(user_id: str, user_token: str):
         }
 ```
 
-### 3. Caching Pattern
+### 3. Permanent Storage Pattern
 ```python
-# Check cache first
-cached_data = await cache_manager.get(cache_key)
-if cached_data and not force_refresh:
-    return cached_data
+# Check permanent storage first
+stored_data = await supabase_api.get_historical_data(symbol, date)
+if stored_data and not force_refresh:
+    return stored_data
 
-# Calculate if not cached
-data = await expensive_calculation()
+# Fetch from Alpha Vantage if missing
+external_data = await alpha_vantage_api.fetch_data(symbol)
 
-# Store in cache
-await cache_manager.set(cache_key, data, ttl=3600)
-return data
+# Store permanently in Supabase
+await supabase_api.store_historical_data(symbol, external_data)
+return external_data
 ```
+
+**Note**: We use permanent storage, not temporary caching. The only exceptions are:
+- `portfolio_metrics_cache`: For expensive calculations (5 min TTL)
+- `price_quote_cache`: For real-time quotes (15 min TTL during market hours)
 
 ## Error Prevention
 

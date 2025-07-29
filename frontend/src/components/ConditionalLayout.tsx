@@ -50,8 +50,8 @@ export default function ConditionalLayout({ children }: ConditionalLayoutProps) 
     )
   }
 
-  // For auth page, show simple layout without navigation
-  if (pathname === '/auth') {
+  // For auth page and home page, show simple layout without navigation
+  if (pathname === '/auth' || pathname === '/') {
     return <div className="min-h-screen">{children}</div>
   }
 

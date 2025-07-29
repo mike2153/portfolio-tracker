@@ -116,7 +116,7 @@ export default function AnalyticsPage() {
       
       case 'general':
         return (
-          <div className="bg-[#0D1117] border border-[#30363D] rounded-xl p-8 text-center">
+          <div className="bg-[#161B22] border border-[#30363D] rounded-xl p-8 text-center">
             <h3 className="text-xl font-semibold text-white mb-4">General Analytics</h3>
             <p className="text-[#8B949E]">Coming soon - General analytics and insights</p>
           </div>
@@ -128,7 +128,7 @@ export default function AnalyticsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0D1117] text-white">
+    <div className="min-h-screen bg-[#161B22] text-white">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">

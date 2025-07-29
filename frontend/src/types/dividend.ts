@@ -24,39 +24,13 @@ export type {
   DividendSyncRequest
 };
 
-/**
- * @deprecated Use APIResponse<UserDividendData> instead
- */
-export interface DividendResponse extends APIResponse<UserDividendData> {}
+// Legacy type aliases for backward compatibility
+// These types are maintained to prevent breaking changes in existing code
+// New code should use APIResponse<T> directly from api-contracts
 
-/**
- * @deprecated Use APIResponse<UserDividendData[]> with proper metadata instead
- */
-export interface DividendListResponse {
-  success: boolean;
-  data: UserDividendData[];
-  metadata: {
-    timestamp: string;
-    user_id: string;
-    confirmed_only: boolean;
-    total_dividends: number;
-    [key: string]: any;
-  };
-  total_count: number;
-  error?: string;
-}
-
-/**
- * @deprecated Use APIResponse<{ dividend_summary: DividendSummary }> instead
- */
-export interface DividendSummaryResponse {
-  success: boolean;
-  data: {
-    dividend_summary: DividendSummary;
-    [key: string]: any;
-  };
-  error?: string;
-}
+export type DividendResponse = APIResponse<UserDividendData>;
+export type DividendListResponse = APIResponse<UserDividendData[]>;
+export type DividendSummaryResponse = APIResponse<{ dividend_summary: DividendSummary }>;
 
 /**
  * Utility types for frontend components
@@ -94,22 +68,14 @@ export interface DividendFormErrors {
  */
 export function dividendToTableRow(dividend: UserDividendData): DividendTableRow {
   // Robust null/undefined handling for numeric fields
-  const safeNumber = (value: any): number => {
+  const safeNumber = (value: number | null | undefined): number => {
     if (value === null || value === undefined || isNaN(Number(value))) {
       return 0;
     }
     return Number(value);
   };
 
-  // DEBUG: Log the input dividend
-  console.log('[dividendToTableRow] Input dividend:', {
-    id: dividend.id,
-    id_type: typeof dividend.id,
-    symbol: dividend.symbol,
-    total_amount: dividend.total_amount
-  });
-
-  const tableRow = {
+  const tableRow: DividendTableRow = {
     id: dividend.id || '',
     symbol: dividend.symbol || '',
     company: dividend.company || getCompanyDisplayName(dividend.symbol || ''),
@@ -125,14 +91,6 @@ export function dividendToTableRow(dividend: UserDividendData): DividendTableRow
     is_future: dividend.is_future || false,
     is_recent: dividend.is_recent || false
   };
-
-  // DEBUG: Log the output table row
-  console.log('[dividendToTableRow] Output tableRow:', {
-    id: tableRow.id,
-    id_type: typeof tableRow.id,
-    symbol: tableRow.symbol,
-    total_amount: tableRow.total_amount
-  });
 
   return tableRow;
 }

@@ -53,8 +53,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (session?.user) {
           setUser(session.user)
           setSession(session)
-        } else if (pathname !== '/auth') {
+        } else if (pathname !== '/auth' && pathname !== '/') {
           // Only redirect if we're done loading and there's no session
+          // Skip redirect for home page and auth page
           router.replace('/auth')
         }
       } catch (error) {
@@ -83,8 +84,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setUser(null)
         setSession(null)
-        // Only redirect if not already on auth page
-        if (pathname !== '/auth') {
+        // Only redirect if not already on auth page or home page
+        if (pathname !== '/auth' && pathname !== '/') {
           router.replace('/auth')
         }
         setIsLoading(false)
