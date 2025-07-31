@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, ChangeEvent } from 'react';
 import { Loader2 } from 'lucide-react';
-import { front_api_search_symbols, front_api_get_quote } from '@/lib/front_api_client';
+import { front_api_search_symbols } from '@/lib/front_api_client';
 import { StockSymbol } from '@/types/api';
 import { useToast } from '@/components/ui/Toast';
 
@@ -40,7 +40,7 @@ export const AddDividendModal: React.FC<AddDividendModalProps> = ({ isOpen, onCl
     const initialFormState: ManualDividendFormState = {
         ticker: '',
         company_name: '',
-        payment_date: new Date().toISOString().split('T')[0],
+        payment_date: new Date().toISOString().split('T')[0] as string,
         total_received: '',
         amount_per_share: '',
         fee: '0',
@@ -59,10 +59,10 @@ export const AddDividendModal: React.FC<AddDividendModalProps> = ({ isOpen, onCl
         if (isOpen) {
             setForm(initialFormState);
         }
-    }, [isOpen]);
+    }, [isOpen, initialFormState]);
 
     const handleFormChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-        const { name, value, type } = e.target;
+        const { name, value } = e.target;
         const isCheckbox = (e.target as HTMLInputElement).type === 'checkbox';
         const checked = (e.target as HTMLInputElement).checked;
 
@@ -83,14 +83,14 @@ export const AddDividendModal: React.FC<AddDividendModalProps> = ({ isOpen, onCl
         }
         setSearchLoading(true);
         try {
-            const response: any = await front_api_search_symbols({ query, limit: 10 });
+            const response = await front_api_search_symbols({ query, limit: 10 });
             if (response?.ok && response?.data?.results) {
                 setTickerSuggestions(response.data.results);
                 setSearchCache(prev => ({ ...prev, [query]: response.data.results }));
             } else {
                 setTickerSuggestions([]);
             }
-        } catch (error) {
+        } catch {
             setTickerSuggestions([]);
         } finally {
             setSearchLoading(false);

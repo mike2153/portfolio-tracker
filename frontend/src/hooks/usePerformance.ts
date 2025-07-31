@@ -51,6 +51,7 @@ export interface PerformanceResponse {
     chart_type?: string;   // NEW: Chart type indicator
   };
   performance_metrics: PerformanceMetrics;
+  error?: string; // Added missing error property
 }
 
 export interface UsePerformanceOptions {
@@ -213,7 +214,7 @@ export function usePerformance(
         }
         
         // Type assertion for response object
-        const responseObj = response as any;
+        const responseObj = response as PerformanceResponse;
         
         // Validate response structure
         if (!responseObj.hasOwnProperty('success')) {
@@ -234,30 +235,32 @@ export function usePerformance(
         const benchmarkData = Array.isArray(responseObj.benchmark_performance) ? responseObj.benchmark_performance : [];
         
         // Sanitize data points to prevent NaN values
-        const sanitizeDataPoint = (point: any, index: number, arrayName: string): any => {
-          if (!point || typeof point !== 'object') {
+        const sanitizeDataPoint = (point: unknown, index: number, arrayName: string): PerformanceDataPoint | null => {
+          if (!point || typeof point !== 'object' || point === null) {
             console.warn(`[usePerformance] ⚠️ Invalid ${arrayName} point at index ${index}:`, point);
             return null;
           }
           
+          const pointObj = point as Record<string, unknown>;
+          
           // Ensure date exists and is valid
-          if (!point.date || typeof point.date !== 'string') {
-            console.warn(`[usePerformance] ⚠️ Invalid date in ${arrayName} point at index ${index}:`, point.date);
+          if (!pointObj.date || typeof pointObj.date !== 'string') {
+            console.warn(`[usePerformance] ⚠️ Invalid date in ${arrayName} point at index ${index}:`, pointObj.date);
             return null;
           }
           
           // Ensure value exists and is numeric
-          let value = point.value ?? point.total_value ?? 0;
+          let value = pointObj.value ?? pointObj.total_value ?? 0;
           if (typeof value === 'string') {
             value = parseFloat(value);
           }
           if (typeof value !== 'number' || isNaN(value)) {
-            console.warn(`[usePerformance] ⚠️ Invalid value in ${arrayName} point at index ${index}:`, point.value, point.total_value);
+            console.warn(`[usePerformance] ⚠️ Invalid value in ${arrayName} point at index ${index}:`, pointObj.value, pointObj.total_value);
             value = 0;
           }
           
           return {
-            date: point.date,
+            date: pointObj.date as string,
             value: value,
             total_value: value, // Ensure backward compatibility
           };
@@ -265,12 +268,12 @@ export function usePerformance(
         
         // Sanitize both arrays
         const sanitizedPortfolioData = portfolioData
-          .map((point: any, index: number) => sanitizeDataPoint(point, index, 'portfolio'))
-          .filter((point: any) => point !== null);
+          .map((point: unknown, index: number) => sanitizeDataPoint(point, index, 'portfolio'))
+          .filter((point: PerformanceDataPoint | null): point is PerformanceDataPoint => point !== null);
         
         const sanitizedBenchmarkData = benchmarkData
-          .map((point: any, index: number) => sanitizeDataPoint(point, index, 'benchmark'))
-          .filter((point: any) => point !== null);
+          .map((point: unknown, index: number) => sanitizeDataPoint(point, index, 'benchmark'))
+          .filter((point: PerformanceDataPoint | null): point is PerformanceDataPoint => point !== null);
         
 
         
@@ -288,7 +291,7 @@ export function usePerformance(
           benchmark_name: metadata.benchmark_name || benchmark,
           calculation_timestamp: metadata.calculation_timestamp || new Date().toISOString(),
           cached: metadata.cached || false,
-          cache_date: metadata.cache_date || null,
+          ...(metadata.cache_date && { cache_date: metadata.cache_date }),
           no_data: metadata.no_data || false,
           index_only: metadata.index_only || false,
           reason: metadata.reason || '',
@@ -297,7 +300,7 @@ export function usePerformance(
         };
         
         // Sanitize performance metrics to prevent NaN
-        const sanitizeMetric = (value: any, defaultValue: number = 0) => {
+        const sanitizeMetric = (value: unknown, defaultValue: number = 0): number => {
           if (typeof value === 'string') {
             value = parseFloat(value);
           }

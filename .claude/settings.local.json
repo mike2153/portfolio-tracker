@@ -50,5 +50,18 @@
       "Bash(cp:*)"
     ],
     "deny": []
+  },
+  "hooks": {
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "play sound"
+          }
+        ]
+      }
+    ]
   }
 }

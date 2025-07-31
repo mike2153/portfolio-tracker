@@ -126,7 +126,7 @@ export default function DividendChartApex({
 
       {/* Chart */}
       <ApexChart
-        data={chartData as any}
+        data={chartData}
         type="area"
         height={height}
         title={title}
@@ -136,7 +136,7 @@ export default function DividendChartApex({
         showToolbar={false}
         isLoading={isLoading}
         error={error}
-        onRetry={onRetry}
+        {...(onRetry && { onRetry })}
         colors={['#10b981', '#3b82f6']}
       />
 

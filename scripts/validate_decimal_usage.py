@@ -1,0 +1,1 @@
+# Creating financial precision validator

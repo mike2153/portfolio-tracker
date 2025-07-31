@@ -57,11 +57,17 @@ interface NewsItem {
 }
 
 interface StockAnalysisPageProps {
-  params: { ticker: string }
+  params: Promise<{ ticker: string }>
 }
 
 export default function StockAnalysisPage({ params }: StockAnalysisPageProps) {
-  const { ticker } = params
+  const [ticker, setTicker] = useState<string>('')
+  
+  useEffect(() => {
+    params.then(({ ticker }) => {
+      setTicker(ticker)
+    })
+  }, [params])
   const router = useRouter()
   
   const [overview, setOverview] = useState<StockOverview | null>(null)
@@ -141,8 +147,10 @@ export default function StockAnalysisPage({ params }: StockAnalysisPageProps) {
 
   // Fetch stock data on mount
   useEffect(() => {
-    fetchStockData();
-  }, [fetchStockData]);
+    if (ticker) {
+      fetchStockData();
+    }
+  }, [fetchStockData, ticker]);
 
   useEffect(() => {
     if (selectedTab === 'performance') {

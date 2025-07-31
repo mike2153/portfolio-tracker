@@ -2,8 +2,8 @@
 
 import React, { useState } from 'react';
 import GradientText from '@/components/ui/GradientText';
-import { useQuery } from '@tanstack/react-query';
-import { front_api_client } from '@/lib/front_api_client';
+// import { useQuery } from '@tanstack/react-query';
+// import { front_api_client } from '@/lib/front_api_client';
 import { usePortfolioAllocation } from '@/hooks/usePortfolioAllocation';
 
 // Components
@@ -41,7 +41,7 @@ export default function AnalyticsPage() {
   React.useEffect(() => {
     console.log('[AnalyticsPage] Mounted, forcing data refresh');
     refetch();
-  }, []);
+  }, [refetch]);
 
   console.log('[AnalyticsPage] Allocation data:', allocationData);
   console.log('[AnalyticsPage] Loading:', allocationLoading, 'Error:', allocationError);
@@ -57,6 +57,7 @@ export default function AnalyticsPage() {
     });
     return {
     symbol: allocation.symbol,
+    company: allocation.company_name || allocation.symbol + ' Corporation',
     quantity: allocation.quantity,
     current_price: allocation.current_price,
     current_value: allocation.current_value,
@@ -140,7 +141,7 @@ export default function AnalyticsPage() {
         {activeTab !== 'dividends' && (
           <div className="mb-8">
             <AnalyticsKPIGrid
-              summary={summaryData}
+              {...(summaryData && { summary: summaryData })}
               isLoading={allocationLoading}
               error={allocationError}
             />

@@ -17,7 +17,7 @@ import {
   dividendToTableRow,
   formatDividendCurrency,
   formatDividendDate,
-  isDividendConfirmable,
+  // isDividendConfirmable,
   getCompanyDisplayName
 } from '@/types/dividend';
 
@@ -114,7 +114,7 @@ export default function AnalyticsDividendsTab() {
       if (!saveAndNew) {
         setShowAddModal(false);
       }
-    } catch (error) {
+    } catch {
       // Error is handled in mutation onError
     }
   };
@@ -183,6 +183,11 @@ export default function AnalyticsDividendsTab() {
         throw new Error(result.error || 'Failed to fetch dividends');
       }
 
+      if (!result.data) {
+        console.warn('[FRONTEND_DEBUG] No data in successful API response');
+        return []; // Return empty array for undefined data
+      }
+
       // FIXED: Backend now provides complete UserDividendData with all fields
       console.log('[FRONTEND_DEBUG] ===== Mapping API data to UserDividendData =====');
       const dividends: UserDividendData[] = result.data.map((item, index) => {
@@ -205,7 +210,7 @@ export default function AnalyticsDividendsTab() {
           is_future: item.is_future || false,
           is_recent: item.is_recent || false,
           created_at: item.created_at,
-          updated_at: item.updated_at
+          updated_at: item.updated_at || ''
         };
         console.log(`[FRONTEND_DEBUG] Mapped dividend ${index + 1} result:`, mappedDividend);
         return mappedDividend;
@@ -242,6 +247,11 @@ export default function AnalyticsDividendsTab() {
       });
       if (!response.ok) throw new Error('Failed to fetch summary');
       const result: DividendSummaryResponse = await response.json();
+      
+      if (!result.data) {
+        throw new Error('No dividend summary data received from API');
+      }
+      
       return result.data.dividend_summary;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -295,7 +305,7 @@ export default function AnalyticsDividendsTab() {
       console.log('[FRONTEND] Auto-syncing dividends on page load...');
       syncDividendsMutation.mutate();
     }
-  }, []);
+  }, [syncDividendsMutation]);
 
   // FIXED: Transform to table format using utility function
   const listData = useMemo((): DividendTableRow[] => {
@@ -512,7 +522,7 @@ export default function AnalyticsDividendsTab() {
         }
       }
     ],
-    [dividendsData, confirmDividendMutation]
+    [confirmDividendMutation]
   );
 
   console.log('[REFACTORED_FRONTEND] ===== Rendering component =====');

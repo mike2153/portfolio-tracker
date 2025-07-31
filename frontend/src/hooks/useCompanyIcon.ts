@@ -37,7 +37,7 @@ export const useCompanyIcon = (symbol: string): UseCompanyIconReturn => {
     // Check cache first
     if (iconCache.has(cleanSymbol)) {
       const cachedPath = iconCache.get(cleanSymbol);
-      setIconPath(cachedPath);
+      setIconPath(cachedPath || null);
       setLoading(false);
       setError(cachedPath === null);
       return;

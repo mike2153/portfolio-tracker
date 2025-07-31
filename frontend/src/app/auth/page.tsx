@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabaseClient'
 import GradientText from '@/components/ui/GradientText'
 
 // Debug helper function (temporarily enabled for OAuth debugging)
-const debugLog = (context: string, data: any) => {
+const debugLog = (context: string, data: unknown) => {
   console.log(`[AUTH:${context}]`, data)
 }
 
@@ -137,7 +137,7 @@ export default function AuthPage() {
     setMessage('')
 
     try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: `${window.location.origin}/dashboard`

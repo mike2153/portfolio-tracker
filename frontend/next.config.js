@@ -1,28 +1,131 @@
 /** @type {import('next').NextConfig} */
+
+// Bundle analyzer configuration for bulletproof monitoring
+const withBundleAnalyzer = require('@next/bundle-analyzer')({
+  enabled: process.env.ANALYZE === 'true',
+});
+
 const nextConfig = {
+  // 🛡️ BULLETPROOF TYPE SAFETY - NO TOLERANCE FOR ERRORS
   typescript: {
-    // Allows production builds to successfully complete even if
-    // your project has type errors.
-    ignoreBuildErrors: true,
+    // CHANGED: Block builds with type errors (was: ignoreBuildErrors: true)
+    ignoreBuildErrors: false,
   },
   eslint: {
-    // Allows production builds to successfully complete even if
-    // your project has ESLint errors.
-    ignoreDuringBuilds: true,
+    // CHANGED: Block builds with ESLint errors (was: ignoreDuringBuilds: true)
+    ignoreDuringBuilds: false,
+    dirs: ['src'], // Only lint src directory
   },
-  // 🔥 Docker hot reload optimization
-  webpack: (config, { dev }) => {
+
+  // Performance optimizations
+  experimental: {
+    optimizeCss: true,
+    optimizePackageImports: [
+      'lucide-react',
+      '@heroicons/react',
+      'react-icons',
+    ],
+  },
+
+  // Enhanced webpack configuration
+  webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {
+    // Docker hot reload optimization (keep existing)
     if (dev) {
-      // Enable polling for file changes in Docker environment
       config.watchOptions = {
         poll: 1000,
         aggregateTimeout: 300,
       }
     }
-    return config
+
+    // Bundle size monitoring and type safety enforcement
+    if (!dev && !isServer) {
+      // Bundle size limits (STRICT)
+      const BUNDLE_SIZE_LIMITS = {
+        maxAssetSize: 500000, // 500 KB max per asset
+        maxEntrypointSize: 500000, // 500 KB max per entry point
+      };
+
+      config.performance = {
+        ...config.performance,
+        maxAssetSize: BUNDLE_SIZE_LIMITS.maxAssetSize,
+        maxEntrypointSize: BUNDLE_SIZE_LIMITS.maxEntrypointSize,
+        assetFilter: (assetFilename) => {
+          return assetFilename.endsWith('.js');
+        },
+      };
+
+      // Build ID for tracking
+      config.plugins.push(
+        new webpack.DefinePlugin({
+          'process.env.BUILD_ID': JSON.stringify(buildId),
+        })
+      );
+    }
+
+    // TypeScript strict mode enforcement
+    if (config.module && config.module.rules) {
+      const tsRule = config.module.rules.find(
+        (rule) => rule.test && rule.test.toString().includes('tsx?')
+      );
+
+      if (tsRule && tsRule.use) {
+        const tsLoader = Array.isArray(tsRule.use) 
+          ? tsRule.use.find(loader => 
+              typeof loader === 'object' && 
+              loader.loader && 
+              loader.loader.includes('typescript')
+            )
+          : tsRule.use;
+
+        if (tsLoader && typeof tsLoader === 'object' && tsLoader.options) {
+          tsLoader.options = {
+            ...tsLoader.options,
+            compilerOptions: {
+              ...tsLoader.options.compilerOptions,
+              strict: true,
+              noImplicitAny: true,
+              strictNullChecks: true,
+              noImplicitReturns: true,
+              noFallthroughCasesInSwitch: true,
+            },
+          };
+        }
+      }
+    }
+
+    return config;
   },
-  // Transpile the shared module
+
+  // Environment variables for feature flags
+  env: {
+    NEXT_PUBLIC_FEATURE_FLAGS_ENABLED: process.env.NODE_ENV === 'development' ? 'true' : 'false',
+  },
+
+  // Security headers
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+          {
+            key: 'X-XSS-Protection',
+            value: '1; mode=block',
+          },
+        ],
+      },
+    ];
+  },
+
+  // Transpile the shared module (keep existing)
   transpilePackages: ['@portfolio-tracker/shared'],
 }
 
-module.exports = nextConfig 
+module.exports = withBundleAnalyzer(nextConfig); 

@@ -4,51 +4,17 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { supabase } from '@/lib/supabaseClient';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
+import {
+  DashboardContextType,
+  DashboardContextState,
+  PerformanceData,
+  PerformanceDataPoint,
+  getPerformanceValue
+} from '@/types/dashboard';
 
-interface PerformanceData {
-  portfolioPerformance: Array<{
-    date: string;
-    value?: number;          // New backend format
-    total_value?: number;    // Legacy format for backward compatibility
-    indexed_performance?: number;
-  }>;
-  benchmarkPerformance: Array<{
-    date: string;
-    value?: number;          // New backend format
-    total_value?: number;    // Legacy format for backward compatibility
-    indexed_performance?: number;
-  }>;
-  comparison?: {
-    portfolio_return: number;
-    benchmark_return: number;
-    outperformance: number;
-  };
-}
+// Performance data types now imported from centralized types
 
-interface DashboardContextType {
-  // Selected values
-  selectedPeriod: string;
-  setSelectedPeriod: (period: string) => void;
-  selectedBenchmark: string;
-  setSelectedBenchmark: (benchmark: string) => void;
-  
-  // Performance data
-  performanceData: PerformanceData | null;
-  setPerformanceData: (data: PerformanceData | null) => void;
-  
-  // Calculated values for KPIs
-  portfolioDollarGain: number;
-  portfolioPercentGain: number;
-  benchmarkDollarGain: number;
-  benchmarkPercentGain: number;
-  
-  // Loading state
-  isLoadingPerformance: boolean;
-  setIsLoadingPerformance: (loading: boolean) => void;
-  
-  // User ID
-  userId: string | null;
-}
+// Dashboard context type now imported from centralized types
 
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
 
@@ -103,7 +69,8 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
   }, []);
 
   // Helper function to get value from either new or legacy format
-  const getValue = (dataPoint: any) => dataPoint.value ?? dataPoint.total_value ?? 0;
+  // Now uses typed helper from centralized types
+  const getValue = (dataPoint: PerformanceDataPoint): number => getPerformanceValue(dataPoint);
 
   // Calculate dollar and percent gains from performance data
   const portfolioDollarGain = React.useMemo(() => {
@@ -134,7 +101,8 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
     return first > 0 ? ((last - first) / first) * 100 : 0;
   }, [performanceData]);
 
-  const value: DashboardContextType = React.useMemo(() => ({
+  // Ensure all context values are properly typed
+  const contextValue: DashboardContextType = React.useMemo(() => ({
     selectedPeriod,
     setSelectedPeriod,
     selectedBenchmark,
@@ -171,7 +139,7 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
   }
 
   return (
-    <DashboardContext.Provider value={value}>
+    <DashboardContext.Provider value={contextValue}>
       {children}
     </DashboardContext.Provider>
   );

@@ -66,11 +66,13 @@ export default function PortfolioChartApex({
       setPerformanceData({
         portfolioPerformance: portfolioData,
         benchmarkPerformance: benchmarkData,
-        comparison: metrics ? {
-          portfolio_return: metrics.portfolio_return_pct,
-          benchmark_return: metrics.index_return_pct,
-          outperformance: metrics.outperformance_pct
-        } : undefined
+        ...(metrics && {
+          comparison: {
+            portfolio_return: metrics.portfolio_return_pct,
+            benchmark_return: metrics.index_return_pct,
+            outperformance: metrics.outperformance_pct
+          }
+        })
       });
     }
   }, [isLoading, portfolioData, benchmarkData, metrics, setPerformanceData, setIsLoadingPerformance]);

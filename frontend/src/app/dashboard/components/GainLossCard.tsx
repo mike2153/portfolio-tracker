@@ -18,7 +18,7 @@ interface GainLossCardProps {
 const GainLossCard = ({ type, title }: GainLossCardProps) => {
     const isGainers = type === 'gainers';
     const { userId } = useDashboard();
-    const { user, session } = useAuth();
+    const { session } = useAuth();
 
     // Use real API endpoint
     const queryFn = async () => {
@@ -40,7 +40,7 @@ const GainLossCard = ({ type, title }: GainLossCardProps) => {
         return response.json();
     };
     
-    const { data, isLoading, isError, error } = useQuery({
+    const { data, isLoading, isError } = useQuery({
         queryKey: ['dashboard', type, userId],
         queryFn,
         enabled: !!session?.access_token,

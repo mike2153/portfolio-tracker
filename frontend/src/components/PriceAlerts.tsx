@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import dynamic from 'next/dynamic'
+
+// Plotly removed for bundle size optimization
 import { PriceAlert, AlertStatistics } from '@/types'
 import { 
   Bell, 
@@ -260,36 +261,18 @@ export default function PriceAlerts({ userId }: PriceAlertsProps) {
         </div>
       )}
 
-      {/* Top Tickers Chart */}
+      {/* Top Tickers List */}
       {statistics && statistics.top_tickers.length > 0 && (
         <div className="bg-gray-900 rounded-lg border border-gray-700 p-6 text-gray-100">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Most Watched Stocks</h3>
-          <Plot
-            data={[
-              {
-                x: statistics.top_tickers.map(t => t.ticker),
-                y: statistics.top_tickers.map(t => t.alert_count),
-                type: 'bar',
-                marker: {
-                  color: '#3B82F6',
-                  line: { color: '#1E40AF', width: 1 }
-                },
-                text: statistics.top_tickers.map(t => t.alert_count.toString()),
-                textposition: 'auto'
-              }
-            ]}
-            layout={{
-              height: 300,
-              margin: { t: 20, r: 20, b: 60, l: 60 },
-              xaxis: { title: 'Stock Ticker' },
-              yaxis: { title: 'Number of Alerts' },
-              showlegend: false,
-              plot_bgcolor: 'transparent',
-              paper_bgcolor: 'transparent'
-            }}
-            config={{ displayModeBar: false, responsive: true }}
-            style={{ width: '100%' }}
-          />
+          <h3 className="text-lg font-semibold text-gray-100 mb-4">Most Watched Stocks</h3>
+          <div className="space-y-2">
+            {statistics.top_tickers.slice(0, 5).map((ticker) => (
+              <div key={ticker.ticker} className="flex justify-between items-center py-2 px-3 bg-gray-800 rounded">
+                <span className="text-gray-100 font-medium">{ticker.ticker}</span>
+                <span className="text-blue-400">{ticker.alert_count} alerts</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

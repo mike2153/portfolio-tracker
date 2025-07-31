@@ -101,7 +101,7 @@ export default function ApexChart({
   const options: ApexOptions = useMemo(() => ({
     chart: {
       id: `apex-chart-${type}`,
-      type: type as any,
+      type: type as 'line' | 'area' | 'bar' | 'candlestick',
       height,
       background: darkMode ? 'transparent' : '#ffffff',
       toolbar: { show: showToolbar },
@@ -115,7 +115,7 @@ export default function ApexChart({
     colors: dynamicColors,
     dataLabels: { enabled: false },
     stroke: { 
-      curve: 'smooth' as any, 
+      curve: 'smooth' as 'smooth', 
       width: type === 'area' || type === 'line' ? 2 : 1 
     },
     fill: {
@@ -305,7 +305,7 @@ export default function ApexChart({
         <ReactApexChart 
           options={options} 
           series={series} 
-          type={type as any} 
+          type={type as 'line' | 'area' | 'bar' | 'candlestick'} 
           height={height} 
         />
       </div>

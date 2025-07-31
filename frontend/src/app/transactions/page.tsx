@@ -86,9 +86,9 @@ const formatDate = (iso: string) => {
 };
 
 // Debounce utility function - As this is a small helper, it's fine to keep it here.
-function debounce(func: (...args: any[]) => void, delay: number) {
+function debounce<T extends unknown[]>(func: (...args: T) => void, delay: number) {
   let timeoutId: NodeJS.Timeout;
-  return (...args: any[]) => {
+  return (...args: T) => {
     clearTimeout(timeoutId);
     timeoutId = setTimeout(() => {
       func(...args);
@@ -276,7 +276,7 @@ const TransactionsPage = () => {
           const response = await front_api_client.front_api_get_historical_price(
               upperTicker,
               date
-          ) as any;
+          ) as { success: boolean; price_data?: { close: number } };
           
           if (response && response.success === true) {
               if (response.price_data && typeof response.price_data.close !== 'undefined') {
@@ -296,7 +296,7 @@ const TransactionsPage = () => {
               const errorMessage = response?.message || response?.error || `Could not fetch price for ${ticker}.`;
               addToast({ type: 'error', title: 'Price Fetch Failed', message: errorMessage });
           }
-      } catch (error: any) {
+      } catch (error: unknown) {
           addToast({ type: 'error', title: 'Price Fetch Error', message: `Error fetching price: ${error.message || 'Unknown error'}.` });
       } finally {
           setLoadingPrice(false);
@@ -361,7 +361,7 @@ const TransactionsPage = () => {
 
       await refreshData();
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[Submit] ERROR CAUGHT:', err);
       setError(err.message || `Error ${isEditing ? 'creating' : 'updating'} transaction`);
       addToast({ type: 'error', title: 'Submission Failed', message: err.message });
@@ -399,7 +399,7 @@ const TransactionsPage = () => {
         const response = await front_api_client.front_api_delete_transaction(txnId);
         addToast({ type: 'success', title: 'Transaction Deleted', message: 'The transaction has been removed.' });
         await refreshData();
-      } catch (err: any) {
+      } catch (err: unknown) {
         addToast({ type: 'error', title: 'Client-side Error', message: err.message });
       }
     }

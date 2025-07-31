@@ -1,0 +1,56 @@
+name: Quality Gate Enforcement
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  quality-gate:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+    
+    - name: Install monitoring dependencies
+      run: |
+        pip install mypy
+        npm install -g jscpd type-coverage
+    
+    - name: Install project dependencies
+      run: |
+        cd frontend && npm install
+        # Add backend dependency installation if needed
+    
+    - name: Run Quality Gate Check
+      run: python scripts/ci_quality_gate.py --strict
+    
+    - name: Upload Quality Report
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: quality-report
+        path: |
+          metrics/ci_quality_report.json
+          metrics/quality_gate_junit.xml
+          quality_dashboard.html
+    
+    - name: Publish Test Results
+      uses: dorny/test-reporter@v1
+      if: always()
+      with:
+        name: Quality Gate Results
+        path: metrics/quality_gate_junit.xml
+        reporter: java-junit

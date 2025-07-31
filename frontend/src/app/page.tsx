@@ -14,6 +14,11 @@ interface HealthStatus {
   version: string
 }
 
+interface HealthApiResponse {
+  status: string
+  version?: string
+}
+
 export default function Home() {
   const [healthStatus, setHealthStatus] = useState<HealthStatus | null>(null)
   const [apiStatus, setApiStatus] = useState<string>('Checking...')
@@ -22,7 +27,7 @@ export default function Home() {
     // Test API connection with health endpoint
     fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/`)
       .then(res => res.json())
-      .then((data: any) => {
+      .then((data: HealthApiResponse) => {
         // Map the simple health response to the expected format
         const healthData: HealthStatus = {
           status: data.status || 'unknown',

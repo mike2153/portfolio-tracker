@@ -194,7 +194,7 @@ const StockChart: React.FC<StockChartProps> = ({
       )}
       
       <Chart
-        options={chartOptions as any}
+        options={chartOptions}
         series={chartOptions.series}
         type={chartType === 'candlestick' ? 'candlestick' : 'line'}
         height={height}

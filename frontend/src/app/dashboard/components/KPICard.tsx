@@ -1,26 +1,65 @@
 'use client';
 
 import { ArrowUp, ArrowDown, Info } from 'lucide-react';
-import { KPIValue } from '@/types/api';
-import { cn } from '@/lib/utils'; // Assuming a utility for classnames exists
+import { cn } from '@/lib/utils';
+import { 
+  KPICardProps
+} from '@/types/dashboard';
 
-interface KPICardProps {
-  title: string;
-  data: KPIValue & { percentGain?: number };
-  prefix?: string;
-  suffix?: string;
-  showPercentage?: boolean;
-  percentValue?: number;
-  showValueAsPercent?: boolean;
-}
+// Props now imported from centralized types
+// Enhanced with better error handling and loading states
 
-const KPICard = ({ title, data, prefix = "", suffix = "", showPercentage = false, percentValue, showValueAsPercent = false }: KPICardProps) => {
+const KPICard = ({ 
+  title, 
+  data, 
+  prefix = "", 
+  suffix = "", 
+  showPercentage = false, 
+  percentValue, 
+  showValueAsPercent = false,
+  loading = false,
+  error = null
+}: KPICardProps) => {
 //  console.log(`[KPICard] 🚀 Enhanced KPI card rendering for: ${title}`);
  // console.log(`[KPICard] 📊 Raw data received:`, data);
   //console.log(`[KPICard] 📊 Data type:`, typeof data);
   //console.log(`[KPICard] 📊 Data keys:`, data ? Object.keys(data) : 'null');
   //console.log(`[KPICard] 🎯 Props - title: "${title}", prefix: "${prefix}", suffix: "${suffix}"`);
   
+  // Handle loading state
+  if (loading) {
+    return (
+      <div className="relative rounded-xl border border-[#30363D] bg-[#161B22] p-4 shadow-md backdrop-blur-sm">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-medium text-[#8B949E]">{title}</h3>
+          <Info className="h-4 w-4 text-[#8B949E]" />
+        </div>
+        <div className="mt-2">
+          <div className="animate-pulse">
+            <div className="h-8 bg-[#30363D] rounded mb-2"></div>
+            <div className="h-4 bg-[#30363D] rounded w-3/4"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Handle error state
+  if (error) {
+    return (
+      <div className="relative rounded-xl border border-red-800 bg-red-900/20 p-4 shadow-md backdrop-blur-sm">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-medium text-red-400">{title}</h3>
+        </div>
+        <div className="mt-2">
+          <p className="text-2xl font-semibold text-red-300">Error</p>
+          <p className="text-xs text-red-500">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Handle invalid data
   if (!data || typeof data !== 'object') {
     console.error(`[KPICard] ❌ Invalid data for ${title}:`, data);
     return (
@@ -41,8 +80,8 @@ const KPICard = ({ title, data, prefix = "", suffix = "", showPercentage = false
   /*
 
 */
-  // Add defensive function to safely format value
-  const safeFormatValue = (val: any): string => {
+  // Type-safe value formatting function
+  const safeFormatValue = (val: number | string | null | undefined): string => {
     //console.log(`[KPICard] safeFormatValue called with:`, val, 'type:', typeof val);
     
     // Handle null/undefined
@@ -85,8 +124,8 @@ const KPICard = ({ title, data, prefix = "", suffix = "", showPercentage = false
     return String(val);
   };
 
-  // Add defensive function to safely format delta percentage
-  const safeFormatDelta = (delta: any): string => {
+  // Type-safe delta formatting function
+  const safeFormatDelta = (delta: number | string | null | undefined): string => {
   //  //console.log(`[KPICard] safeFormatDelta called with:`, delta, 'type:', typeof delta);
     
     // Handle null/undefined

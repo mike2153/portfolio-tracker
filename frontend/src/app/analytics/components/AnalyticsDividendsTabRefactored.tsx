@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from 'react';
-import { PlusCircle } from 'lucide-react';
+// import { PlusCircle } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabaseClient';
 import ApexListView from '@/components/charts/ApexListView';
@@ -9,9 +9,9 @@ import ApexListView from '@/components/charts/ApexListView';
 // Import unified types
 import {
   UserDividendData,
-  DividendSummary,
+  // DividendSummary,
   DividendListResponse,
-  DividendSummaryResponse,
+  // DividendSummaryResponse,
   DividendTableRow,
   dividendToTableRow,
   formatDividendCurrency,
@@ -837,7 +837,7 @@ export default function AnalyticsDividendsTabRefactored() {
         }
       }
     ],
-    [dividendsData, confirmingDividendId]
+    [dividendsData, confirmingDividendId, confirmDividendMutation, rejectDividendMutation]
   );
 
   console.log('[REFACTORED_FRONTEND] ===== Rendering component =====');

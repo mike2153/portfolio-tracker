@@ -1,16 +1,25 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { DashboardOverview } from '@/types/api';
+// Removed unused DashboardOverview import
 import KPICard from './KPICard';
+import { 
+  DashboardAPIResponse,
+  AnalyticsAPIResponse,
+  TransformedKPIData,
+  KPIGridProps,
+  DashboardQueryError,
+  isDashboardAPIResponse,
+  isAnalyticsAPIResponse,
+  // formatCurrencyValue,
+  // formatPercentageValue
+} from '@/types/dashboard';
 import { KPIGridSkeleton } from './Skeletons';
 import { useDashboard } from '../contexts/DashboardContext';
 import { useAuth } from '@/components/AuthProvider';
 import { front_api_get_dashboard, front_api_get_analytics_summary } from '@/lib/front_api_client';
 
-interface KPIGridProps {
-  initialData?: DashboardOverview;
-}
+// Props now imported from centralized types
 
 const KPIGrid = ({ initialData }: KPIGridProps) => {
   const {
@@ -24,11 +33,20 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
   } = useDashboard();
   const { user } = useAuth();
 
-  const { data: apiData, isLoading, isError, error } = useQuery<any, Error>({
+  const { data: apiData, isLoading, isError, error } = useQuery<DashboardAPIResponse, DashboardQueryError>({
     queryKey: ['dashboard'],
-    queryFn: async (): Promise<any> => {
+    queryFn: async (): Promise<DashboardAPIResponse> => {
       try {
-        const result: any = await front_api_get_dashboard();
+        const result = await front_api_get_dashboard();
+        
+        // Type guard validation
+        if (!isDashboardAPIResponse(result)) {
+          throw new DashboardQueryError({
+            message: 'Invalid dashboard API response format',
+            code: 'INVALID_RESPONSE_FORMAT',
+            timestamp: new Date().toISOString()
+          });
+        }
         
         if (!result.success) {
           throw new Error(result.error || 'API returned an error');
@@ -50,11 +68,20 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
   });
 
   // Fetch analytics summary for dividend and IRR data
-  const { data: analyticsData } = useQuery<any, Error>({
+  const { data: analyticsData } = useQuery<AnalyticsAPIResponse, DashboardQueryError>({
     queryKey: ['analytics-summary'],
-    queryFn: async (): Promise<any> => {
+    queryFn: async (): Promise<AnalyticsAPIResponse> => {
       try {
-        const result: any = await front_api_get_analytics_summary();
+        const result = await front_api_get_analytics_summary();
+        
+        // Type guard validation
+        if (!isAnalyticsAPIResponse(result)) {
+          throw new DashboardQueryError({
+            message: 'Invalid analytics API response format',
+            code: 'INVALID_RESPONSE_FORMAT',
+            timestamp: new Date().toISOString()
+          });
+        }
         
         if (!result.success) {
           throw new Error(result.error || 'Analytics API returned an error');
@@ -73,8 +100,8 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
 
   const data = apiData || initialData;
 
-  // Transform the dashboard API response to KPI format
-  const transformedData = data ? {
+  // Transform the dashboard API response to KPI format with strict typing
+  const transformedData: TransformedKPIData | null = data ? {
     marketValue: {
       value: data.portfolio?.total_value || 0,
       sub_label: `Cost Basis: $${(data.portfolio?.total_cost || 0).toLocaleString()}`,
@@ -97,6 +124,9 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
     }
   } : null;
 
+  // Type-safe error handling
+  const typedError = error as DashboardQueryError | undefined;
+
   if (isLoading) {
     return <KPIGridSkeleton />;
   }
@@ -105,7 +135,10 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
     return (
       <div className="rounded-xl bg-red-900/20 border border-red-800 p-6 shadow-lg">
         <h3 className="text-lg font-semibold text-red-400">Error Loading KPI Data</h3>
-        <p className="text-sm text-red-300 mt-2">{error?.message || 'Failed to load dashboard data'}</p>
+        <p className="text-sm text-red-300 mt-2">{typedError?.message || 'Failed to load dashboard data'}</p>
+        {typedError?.code && (
+          <p className="text-xs text-red-400 mt-1">Error Code: {typedError.code}</p>
+        )}
         <p className="text-xs text-red-400 mt-1">Check browser console for detailed debugging info</p>
       </div>
     );
@@ -115,7 +148,7 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
     return <KPIGridSkeleton />;
   }
 
-  const performanceKPIData = performanceData ? {
+  const _performanceKPIData = performanceData ? {
     value: portfolioDollarGain,
     percentGain: portfolioPercentGain,
     sub_label: `${selectedBenchmark}: ${benchmarkDollarGain.toFixed(2)} (${benchmarkPercentGain.toFixed(2)}%)`,

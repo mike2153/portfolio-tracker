@@ -164,7 +164,7 @@ const AllocationTableApex = () => {
       },
       {
         label: 'View Details',
-        onClick: (item) => {
+        onClick: (_item) => {
           //console.log('[AllocationTableApex] View details for:', item.symbol);
           // TODO: Navigate to stock details page
         },
@@ -172,7 +172,7 @@ const AllocationTableApex = () => {
       },
       {
         label: 'Add Transaction',
-        onClick: (item) => {
+        onClick: (_item) => {
           //console.log('[AllocationTableApex] Add transaction for:', item.symbol);
           // TODO: Open add transaction modal with pre-filled symbol
         },

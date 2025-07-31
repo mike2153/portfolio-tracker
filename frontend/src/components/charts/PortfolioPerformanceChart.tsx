@@ -5,6 +5,18 @@ import { useQuery } from '@tanstack/react-query';
 import { front_api_get_performance, front_api_get_stock_prices } from '@/lib/front_api_client';
 import StockChart from './StockChart';
 import { formatCurrency, formatPercentage } from '@/lib/front_api_client';
+import type { APIResponse, StockPricesResponse } from '@/types/index';
+
+interface PerformanceHistoryPoint {
+  date: string;
+  value: number;
+}
+
+interface PerformanceResponse extends APIResponse {
+  data?: {
+    portfolio_history: PerformanceHistoryPoint[];
+  };
+}
 
 interface PortfolioPerformanceChartProps {
   height?: number;
@@ -28,7 +40,7 @@ const PortfolioPerformanceChart: React.FC<PortfolioPerformanceChartProps> = ({
   const [compareMode, setCompareMode] = useState(true);
 
   // Fetch portfolio performance data
-  const { data: portfolioData, isLoading: portfolioLoading } = useQuery<any>({
+  const { data: portfolioData, isLoading: portfolioLoading } = useQuery<PerformanceResponse>({
     queryKey: ['portfolio-performance', timePeriod],
     queryFn: () => front_api_get_performance(timePeriod),
     refetchInterval: 60000, // Refresh every minute
@@ -36,7 +48,7 @@ const PortfolioPerformanceChart: React.FC<PortfolioPerformanceChartProps> = ({
 
   // Fetch benchmark data for each selected benchmark
   const benchmarkQueries = selectedBenchmarks.map(symbol => 
-    useQuery<any>({
+    useQuery<StockPricesResponse>({
       queryKey: ['benchmark-prices', symbol, timePeriod],
       queryFn: () => front_api_get_stock_prices(symbol, timePeriod),
       enabled: selectedBenchmarks.includes(symbol),
@@ -51,7 +63,7 @@ const PortfolioPerformanceChart: React.FC<PortfolioPerformanceChartProps> = ({
     if (portfolioData?.data?.portfolio_history) {
       data.push({
         symbol: 'Portfolio',
-        data: portfolioData.data.portfolio_history.map((point: any) => ({
+        data: portfolioData.data.portfolio_history.map((point: PerformanceHistoryPoint) => ({
           date: new Date(point.date),
           price: point.value,
         })),
@@ -65,7 +77,7 @@ const PortfolioPerformanceChart: React.FC<PortfolioPerformanceChartProps> = ({
         const symbol = selectedBenchmarks[index];
         data.push({
           symbol,
-          data: query.data.data.price_data.map((point: any) => ({
+          data: query.data.data.price_data.map((point) => ({
             date: new Date(point.time),
             price: point.close,
             open: point.open,
