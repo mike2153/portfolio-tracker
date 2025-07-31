@@ -13,23 +13,26 @@ from debug_logger import DebugLogger
 
 logger = logging.getLogger(__name__)
 
-def _safe_decimal_to_float(value: Any) -> float:
+def _safe_decimal_to_float(value: Any) -> Decimal:
     """
-    Safely convert financial values to float for JSON serialization only.
+    DEPRECATED: Use decimal_json_encoder instead for proper JSON serialization.
+    
+    This function converts Decimal to float, which should be avoided in financial calculations.
+    Use utils.decimal_json_encoder.decimal_safe_dumps() for JSON serialization instead.
     
     NOTE: This should ONLY be used at the database storage boundary.
     All financial calculations should remain in Decimal format until this final step.
     """
     try:
         if isinstance(value, Decimal):
-            return float(value)
+            return value  # Keep as Decimal instead of converting to float
         elif isinstance(value, (int, float)):
-            return float(value)
+            return Decimal(str(value))  # Convert to Decimal for consistency
         else:
-            return float(Decimal(str(value)))
+            return Decimal(str(value))
     except (ValueError, TypeError, InvalidOperation) as e:
-        logger.warning(f"Failed to convert {value} to float for JSON: {e}")
-        return 0.0
+        logger.warning(f"Failed to convert {value} to Decimal: {e}")
+        return Decimal('0')
 
 @DebugLogger.log_api_call(api_name="SUPABASE", sender="BACKEND", receiver="SUPA_API", operation="STORE_HISTORICAL_PRICES")
 async def supa_api_store_historical_prices(symbol: str, price_data: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -141,7 +144,7 @@ async def supa_api_get_historical_price_for_date(symbol: str, target_date: str) 
                 'low': _safe_float_conversion(price_record['low']),
                 'close': _safe_float_conversion(price_record['close']),
                 'adjusted_close': _safe_float_conversion(price_record['adjusted_close']),
-                'volume': int(price_record['volume']),
+                'volume': Decimal(str(price_record['volume'])),
                 'is_exact_date': bool(price_record['is_exact_date'])
             }
             

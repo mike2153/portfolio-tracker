@@ -687,16 +687,16 @@ class IndexSimulationUtils:
         outperformance = portfolio_return - index_return
         outperformance_pct = outperformance * 100
 
-        # Convert Decimal to float only at final serialization
+        # Keep Decimal values for precision, convert only during JSON serialization
         metrics = {
-            'portfolio_start_value': float(portfolio_start),
-            'portfolio_end_value': float(portfolio_end),
-            'portfolio_return_pct': float(portfolio_return_pct),
-            'index_start_value': float(index_start),
-            'index_end_value': float(index_end),
-            'index_return_pct': float(index_return_pct),
-            'outperformance_pct': float(outperformance_pct),
-            'absolute_outperformance': float(portfolio_end - index_end)
+            'portfolio_start_value': portfolio_start,
+            'portfolio_end_value': portfolio_end,
+            'portfolio_return_pct': portfolio_return_pct,
+            'index_start_value': index_start,
+            'index_end_value': index_end,
+            'index_return_pct': index_return_pct,
+            'outperformance_pct': outperformance_pct,
+            'absolute_outperformance': portfolio_end - index_end
         }
 
         return metrics

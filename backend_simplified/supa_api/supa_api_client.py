@@ -26,7 +26,7 @@ class SupaApiClient:
             cls._instance._initialize_clients()
         return cls._instance
     
-    def _initialize_clients(self):
+    def _initialize_clients(self) -> None:
         """Initialize both anon and service clients"""
         logger.info(f"""
 ========== SUPABASE CLIENT INIT ==========

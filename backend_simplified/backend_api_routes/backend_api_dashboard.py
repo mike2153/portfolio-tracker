@@ -532,7 +532,7 @@ async def backend_api_get_performance(
     
     if x_api_version == "v2":
         # Calculate computation time (approximate)
-        computation_time_ms = int((datetime.utcnow() - datetime.fromisoformat(performance_data["metadata"]["calculation_timestamp"].replace("Z", ""))).total_seconds() * 1000) if "calculation_timestamp" in performance_data["metadata"] else 0
+        computation_time_ms = int((datetime.utcnow() - datetime.fromisoformat(performance_data["metadata"]["calculation_timestamp"].replace("Z", ""))).total_seconds() * Decimal('1000')) if "calculation_timestamp" in performance_data["metadata"] else 0
         
         return ResponseFactory.success(
             data=performance_data,

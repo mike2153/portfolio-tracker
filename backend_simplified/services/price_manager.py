@@ -859,7 +859,7 @@ class PriceManager:
                 'symbol': symbol.upper(),
                 'price': self._safe_decimal_to_float(latest_price_data['close']),
                 'date': latest_price_data['date'],
-                'volume': int(latest_price_data.get('volume', 0)),
+                'volume': Decimal(str(latest_price_data.get('volume', 0))),
                 'open': self._safe_decimal_to_float(latest_price_data.get('open', latest_price_data['close'])),
                 'high': self._safe_decimal_to_float(latest_price_data.get('high', latest_price_data['close'])),
                 'low': self._safe_decimal_to_float(latest_price_data.get('low', latest_price_data['close'])),
@@ -952,7 +952,7 @@ class PriceManager:
                         'symbol': symbol,
                         'price': self._safe_decimal_to_float(latest_price_data['close']),
                         'date': latest_price_data['date'],
-                        'volume': int(latest_price_data.get('volume', 0)),
+                        'volume': Decimal(str(latest_price_data.get('volume', 0))),
                         'open': self._safe_decimal_to_float(latest_price_data.get('open', latest_price_data['close'])),
                         'high': self._safe_decimal_to_float(latest_price_data.get('high', latest_price_data['close'])),
                         'low': self._safe_decimal_to_float(latest_price_data.get('low', latest_price_data['close'])),
@@ -1050,7 +1050,7 @@ class PriceManager:
                 'symbol': symbol.upper(),
                 'price': self._safe_decimal_to_float(closest_price['close']),
                 'date': closest_price['date'],
-                'volume': int(closest_price.get('volume', 0)),
+                'volume': Decimal(str(closest_price.get('volume', 0))),
                 'requested_date': target_date.isoformat(),
                 'actual_date': closest_price['date']
             }
@@ -1100,7 +1100,7 @@ class PriceManager:
                     'high': self._safe_decimal_to_float(price_data.get('high', price_data['close'])),
                     'low': self._safe_decimal_to_float(price_data.get('low', price_data['close'])),
                     'close': self._safe_decimal_to_float(price_data['close']),
-                    'volume': int(price_data.get('volume', 0))
+                    'volume': Decimal(str(price_data.get('volume', 0)))
                 })
             
             return formatted_prices
@@ -1541,7 +1541,7 @@ class PriceManager:
                         'high': self._safe_decimal_to_float(price_data.get('high', close_price)),
                         'low': self._safe_decimal_to_float(price_data.get('low', close_price)),
                         'close': self._safe_decimal_to_float(close_price),
-                        'volume': int(price_data.get('volume', 0)),
+                        'volume': Decimal(str(price_data.get('volume', 0))),
                         'adjusted_close': self._safe_decimal_to_float(price_data.get('adjusted_close', close_price))
                     })
             
@@ -1581,23 +1581,26 @@ class PriceManager:
             logger.warning(f"Failed to convert {value} to Decimal: {e}")
             return Decimal('0')
 
-    def _safe_decimal_to_float(self, value: Any) -> float:
+    def _safe_decimal_to_float(self, value: Any) -> Decimal:
         """
-        Safely convert Decimal or other numeric values to float for API responses only.
+        DEPRECATED: Use decimal_json_encoder instead for proper JSON serialization.
+        
+        This function converts Decimal to float, which should be avoided in financial calculations.
+        Use utils.decimal_json_encoder.decimal_safe_dumps() for JSON serialization instead.
         
         NOTE: This function should ONLY be used for final API response serialization.
         All financial calculations should remain in Decimal format until this final step.
         """
         try:
             if isinstance(value, Decimal):
-                return float(value)
+                return value  # Keep as Decimal instead of converting to float
             elif isinstance(value, (int, float)):
-                return float(value)
+                return Decimal(str(value))  # Convert to Decimal for consistency
             else:
-                return float(Decimal(str(value)))
+                return Decimal(str(value))
         except (ValueError, TypeError, InvalidOperation) as e:
-            logger.warning(f"Failed to convert {value} to float: {e}")
-            return 0.0
+            logger.warning(f"Failed to convert {value} to Decimal: {e}")
+            return Decimal('0')
     
     async def _ensure_data_current(self, symbol: str, user_token: Optional[str]) -> bool:
         """Ensure price data is current, filling gaps if needed"""

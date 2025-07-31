@@ -186,8 +186,8 @@ async def vantage_api_get_cash_flow(symbol: str) -> Dict[str, Any]:
 #         for key, value in report.items():
 #             if key not in ["fiscalDateEnding", "reportedCurrency"]:
 #                 try:
-#                     # Try to convert to float for numeric data
-#                     numeric_value = float(value.replace(",", "") if isinstance(value, str) else value)
+#                     # Try to convert to Decimal for numeric data (avoid float for financial calculations)
+#                     numeric_value = Decimal(value.replace(",", "") if isinstance(value, str) else str(value))
 #                     formatted_report[key] = numeric_value
 #                 except (ValueError, AttributeError, TypeError):
 #                     # Keep as string if conversion fails

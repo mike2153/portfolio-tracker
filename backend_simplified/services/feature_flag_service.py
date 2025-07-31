@@ -61,7 +61,7 @@ except ImportError:
         from utils.auth_helpers import extract_user_credentials
     except ImportError:
         # Final fallback - create dummy function
-        def extract_user_credentials(user_data):
+        def extract_user_credentials(user_data) -> Dict[str, str]:
             return {"user_id": "anonymous", "email": ""}
 
 try:
@@ -390,9 +390,9 @@ class FeatureFlagService:
         if flag_config.rollout_strategy == RolloutStrategy.PERCENTAGE_BASED:
             if user_id:
                 user_hash = self._hash_user_id(user_id, flag_config.flag_name)
-                user_percentage = user_hash % 100
+                user_percentage = user_hash % Decimal('100')
                 
-                if user_percentage < flag_config.enabled_percentage:
+                if user_percentage < Decimal(str(flag_config.enabled_percentage)):
                     return FeatureFlagEvaluation(
                         flag_name=flag_config.flag_name,
                         is_enabled=True,

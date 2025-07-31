@@ -12,6 +12,7 @@ from decimal import Decimal
 from supa_api.supa_api_auth import require_authenticated_user
 from utils.auth_helpers import extract_user_credentials
 from utils.response_factory import ResponseFactory
+from utils.decimal_json_encoder import decimal_safe_dumps
 from models.response_models import APIResponse
 from services.forex_manager import ForexManager
 from supa_api.supa_api_client import get_supa_service_client
@@ -222,13 +223,13 @@ async def convert_currency(
         amount_decimal = Decimal(str(amount))
         converted_amount = amount_decimal * rate
         
-        # Convert Decimal to float only at final serialization
+        # Keep Decimal throughout calculation, convert to float only at final serialization
         conversion_data = {
             "original_amount": amount,
-            "converted_amount": float(converted_amount),
+            "converted_amount": converted_amount,  # Keep as Decimal
             "from_currency": from_currency,
             "to_currency": to_currency,
-            "exchange_rate": float(rate),
+            "exchange_rate": rate,  # Keep as Decimal
             "date": rate_date.isoformat()
         }
         

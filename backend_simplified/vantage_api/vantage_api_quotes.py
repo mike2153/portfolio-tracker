@@ -99,7 +99,7 @@ async def vantage_api_get_quote(symbol: str, user_id: Optional[str] = None) -> D
             'price': _safe_decimal_conversion(quote.get('05. price', 0), user_id),
             'change': _safe_decimal_conversion(quote.get('09. change', 0), user_id),
             'change_percent': _safe_decimal_conversion(quote.get('10. change percent', '0%'), user_id),
-            'volume': int(quote.get('06. volume', 0)),
+            'volume': Decimal(str(quote.get('06. volume', 0))),
             'latest_trading_day': quote.get('07. latest trading day', ''),
             'previous_close': _safe_decimal_conversion(quote.get('08. previous close', 0), user_id),
             'open': _safe_decimal_conversion(quote.get('02. open', 0), user_id),
@@ -277,7 +277,7 @@ async def vantage_api_fetch_and_store_historical_data(symbol: str, start_date: O
                 'low': _safe_decimal_conversion(price_data.get('3. low', 0), user_id),
                 'close': _safe_decimal_conversion(price_data.get('4. close', 0), user_id),
                 'adjusted_close': _safe_decimal_conversion(price_data.get('5. adjusted close', price_data.get('4. close', 0)), user_id),
-                'volume': int(price_data.get('5. volume', 0)) if '5. volume' in price_data else int(price_data.get('6. volume', 0))
+                'volume': Decimal(str(price_data.get('5. volume', 0))) if '5. volume' in price_data else Decimal(str(price_data.get('6. volume', 0)))
             }
             price_records.append(record)
         # Store in database
@@ -524,12 +524,12 @@ async def vantage_api_get_dividends(symbol: str, user_id: Optional[str] = None) 
         )
         return []
 
-def _safe_float(value: Any) -> float:
-    """Legacy function - use _safe_decimal_conversion instead"""
+def _safe_float(value: Any) -> Decimal:
+    """DEPRECATED: Use _safe_decimal_conversion instead for proper financial calculations"""
     logger.warning("_safe_float is deprecated, use _safe_decimal_conversion instead")
     if value is None or value == 'None' or value == '':
-        return 0.0
+        return Decimal('0')
     try:
-        return float(value)
-    except (ValueError, TypeError):
-        return 0.0 
+        return Decimal(str(value))
+    except (ValueError, TypeError, InvalidOperation):
+        return Decimal('0') 

@@ -236,23 +236,26 @@ class PortfolioMetricsManager:
         
         logger.info("[PortfolioMetricsManager] Initialized")
     
-    def _safe_decimal_to_float(self, value: Any) -> float:
+    def _safe_decimal_to_float(self, value: Any) -> Decimal:
         """
-        Safely convert Decimal or other numeric values to float for API responses only.
+        DEPRECATED: Use decimal_json_encoder instead for proper JSON serialization.
+        
+        This function converts Decimal to float, which should be avoided in financial calculations.
+        Use utils.decimal_json_encoder.decimal_safe_dumps() for JSON serialization instead.
         
         NOTE: This function should ONLY be used for final API response serialization.
         All financial calculations should remain in Decimal format until this final step.
         """
         try:
             if isinstance(value, Decimal):
-                return float(value)
+                return value  # Keep as Decimal instead of converting to float
             elif isinstance(value, (int, float)):
-                return float(value)
+                return Decimal(str(value))  # Convert to Decimal for consistency
             else:
-                return float(Decimal(str(value)))
+                return Decimal(str(value))
         except (ValueError, TypeError, InvalidOperation) as e:
-            logger.warning(f"Failed to convert {value} to float: {e}")
-            return 0.0
+            logger.warning(f"Failed to convert {value} to Decimal: {e}")
+            return Decimal('0')
     
     # ========================================================================
     # Currency Conversion Methods
@@ -396,7 +399,7 @@ class PortfolioMetricsManager:
             
             # Add computation time
             computation_time = datetime.now() - start_time
-            metrics.computation_time_ms = int(computation_time.total_seconds() * 1000)
+            metrics.computation_time_ms = int(computation_time.total_seconds() * Decimal('1000'))
             logger.info(f"[PortfolioMetricsManager] Metrics calculation completed in {metrics.computation_time_ms}ms")
             
             # Step 3: Cache the results
