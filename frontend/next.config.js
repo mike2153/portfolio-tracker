@@ -18,6 +18,38 @@ try {
 }
 
 const nextConfig = {
+  // Image optimization configuration
+  images: {
+    remotePatterns: [
+      // Financial news and content providers
+      'g.foolcdn.com',
+      'cdn.finra.org', 
+      'seekingalpha.com',
+      'static.seekingalpha.com',
+      'assets.marketwatch.com',
+      'cdn.marketaux.com',
+      'cdn.benzinga.com',
+      
+      // Stock photo and placeholder services
+      'images.unsplash.com',
+      'via.placeholder.com',
+      
+      // Add more domains here as needed:
+      // 'cdn.benzinga.com',
+      // 'assets.bwbx.io', // Bloomberg
+      // 'static01.nyt.com', // NY Times
+      // 'images.wsj.net', // Wall Street Journal
+      // 'thumbs.dreamstime.com',
+      // 'cdn.cnn.com',
+      // 'assets.cnbc.com',
+    ].map(hostname => ({
+      protocol: 'https',
+      hostname,
+      port: '',
+      pathname: '/**',
+    })),
+  },
+
   // 🛡️ BULLETPROOF TYPE SAFETY - NO TOLERANCE FOR ERRORS
   typescript: {
     // CHANGED: Block builds with type errors (was: ignoreBuildErrors: true)

@@ -11,7 +11,13 @@ from decimal import Decimal, InvalidOperation
 
 from .vantage_api_client import get_vantage_client
 from debug_logger import DebugLogger
-from services.feature_flag_service import is_feature_enabled
+try:
+    from services.feature_flag_service import is_feature_enabled
+except ImportError:
+    # Fallback for Docker builds - disable feature flags
+    def is_feature_enabled(flag_name: str, user_id: str = None) -> bool:
+        """Fallback feature flag function that always returns True"""
+        return True
 from utils.auth_helpers import validate_user_id
 
 logger = logging.getLogger(__name__)

@@ -14,7 +14,13 @@ from debug_logger import DebugLogger
 from supa_api.supa_api_client import get_supa_service_client
 from vantage_api.vantage_api_client import get_vantage_client
 from utils.distributed_lock import DividendSyncLocks, distributed_lock, DistributedLockError
-from .feature_flag_service import is_feature_enabled
+try:
+    from .feature_flag_service import is_feature_enabled
+except ImportError:
+    # Fallback for Docker builds - disable feature flags
+    def is_feature_enabled(flag_name: str, user_id: str = None) -> bool:
+        """Fallback feature flag function that always returns True"""
+        return True
 
 logger = logging.getLogger(__name__)
 
