@@ -15,7 +15,7 @@ interface MetricsSidebarProps {
  */
 const MetricsSidebar: React.FC<MetricsSidebarProps> = ({ ticker, data, isLoading }) => {
   // Format financial numbers with graceful handling
-  const formatNumber = (value: string | number) => {
+  const _formatNumber = (value: string | number) => {
     const num = typeof value === 'string' ? parseFloat(value) : value;
     if (isNaN(num) || num === 0) return 'N/A';
     
@@ -43,7 +43,7 @@ const MetricsSidebar: React.FC<MetricsSidebarProps> = ({ ticker, data, isLoading
     return `${(num * 100).toFixed(2)}%`;
   };
 
-  const getColorForValue = (value: string | number, isPercentage = false) => {
+  const getColorForValue = (value: string | number, _isPercentage = false) => {
     const num = typeof value === 'string' ? parseFloat(value) : value;
     if (isNaN(num) || num === 0) return 'text-white';
     return num > 0 ? 'text-green-400' : 'text-red-400';

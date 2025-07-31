@@ -17,7 +17,7 @@ export default function HoldingsTable() {
       sortable: true,
       searchable: true,
       render: (value) => (
-        <span className="font-semibold text-white">{value}</span>
+        <span className="font-semibold text-white">{String(value)}</span>
       ),
     },
     {
@@ -25,7 +25,7 @@ export default function HoldingsTable() {
       label: 'Shares',
       sortable: true,
       render: (value) => (
-        <span className="text-[#8B949E]">{value.toLocaleString()}</span>
+        <span className="text-[#8B949E]">{Number(value).toLocaleString()}</span>
       ),
     },
     {
@@ -33,7 +33,7 @@ export default function HoldingsTable() {
       label: 'Price',
       sortable: true,
       render: (value) => (
-        <span className="text-[#8B949E]">${value.toFixed(2)}</span>
+        <span className="text-[#8B949E]">${Number(value).toFixed(2)}</span>
       ),
     },
     {
@@ -41,7 +41,7 @@ export default function HoldingsTable() {
       label: 'Market Value',
       sortable: true,
       render: (value) => (
-        <span className="font-medium text-white">${value.toLocaleString()}</span>
+        <span className="font-medium text-white">${Number(value).toLocaleString()}</span>
       ),
     },
     {
@@ -49,15 +49,15 @@ export default function HoldingsTable() {
       label: 'Cost Basis',
       sortable: true,
       render: (value) => (
-        <span className="text-[#8B949E]">${value.toLocaleString()}</span>
+        <span className="text-[#8B949E]">${Number(value).toLocaleString()}</span>
       ),
     },
     {
       key: 'gain_loss',
       label: 'Gain/Loss',
       sortable: true,
-      render: (value, item) => {
-        const isPositive = value >= 0;
+      render: (value, _item) => {
+        const isPositive = Number(value) >= 0;
         return (
           <div className="flex items-center gap-1">
             {isPositive ? (
@@ -66,7 +66,7 @@ export default function HoldingsTable() {
               <TrendingDown className="w-4 h-4 text-red-400" />
             )}
             <span className={isPositive ? 'text-green-400' : 'text-red-400'}>
-              ${Math.abs(value).toLocaleString()}
+              ${Math.abs(Number(value)).toLocaleString()}
             </span>
           </div>
         );
@@ -77,10 +77,10 @@ export default function HoldingsTable() {
       label: 'Gain/Loss %',
       sortable: true,
       render: (value) => {
-        const isPositive = value >= 0;
+        const isPositive = Number(value) >= 0;
         return (
           <span className={`font-medium ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
-            {isPositive ? '+' : ''}{value.toFixed(2)}%
+            {isPositive ? '+' : ''}{Number(value).toFixed(2)}%
           </span>
         );
       },
@@ -94,10 +94,10 @@ export default function HoldingsTable() {
           <div className="w-16 bg-[#30363D] rounded-full h-2">
             <div
               className="bg-white h-2 rounded-full"
-              style={{ width: `${Math.min(value, 100)}%` }}
+              style={{ width: `${Math.min(Number(value), 100)}%` }}
             />
           </div>
-          <span className="text-[#8B949E] text-sm">{value.toFixed(1)}%</span>
+          <span className="text-[#8B949E] text-sm">{Number(value).toFixed(1)}%</span>
         </div>
       ),
     },
@@ -106,7 +106,7 @@ export default function HoldingsTable() {
       label: 'Dividends',
       sortable: true,
       render: (value) => (
-        <span className="text-[#8B949E]">${value.toFixed(2)}</span>
+        <span className="text-[#8B949E]">${Number(value).toFixed(2)}</span>
       ),
     },
   ];

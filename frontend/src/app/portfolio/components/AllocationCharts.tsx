@@ -74,7 +74,6 @@ export default function AllocationCharts() {
       background: 'transparent',
       animations: {
         enabled: true,
-        easing: 'easeinout',
         speed: 800
       }
     },
@@ -140,8 +139,7 @@ export default function AllocationCharts() {
     states: {
       hover: {
         filter: {
-          type: 'lighten',
-          value: 0.1
+          type: 'lighten'
         }
       }
     }

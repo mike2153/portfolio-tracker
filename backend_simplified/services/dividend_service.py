@@ -6,30 +6,109 @@ import asyncio
 import logging
 from datetime import datetime, date, timedelta
 from typing import Dict, Any, List, Optional
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 import threading
 import time
 
 from debug_logger import DebugLogger
 from supa_api.supa_api_client import get_supa_service_client
 from vantage_api.vantage_api_client import get_vantage_client
+from utils.distributed_lock import DividendSyncLocks, distributed_lock, DistributedLockError
+from .feature_flag_service import is_feature_enabled
 
 logger = logging.getLogger(__name__)
 
 class DividendService:
     """Service for managing dividend tracking and synchronization"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         self.supa_client = get_supa_service_client()
         self.vantage_client = get_vantage_client()
         
-        # Race condition protection
-        self._sync_lock = threading.RLock()
+        # DEPRECATED: Race condition protection (replaced with distributed locks)
+        # TODO: Remove these in-memory locks once all methods are updated to use distributed locks
+        self._sync_lock = threading.RLock()  # DEPRECATED - use distributed_lock instead
         self._last_global_sync = 0
-        self._user_sync_locks = {}  # Per-user sync locks
-        self._global_sync_in_progress = False
+        self._user_sync_locks = {}  # DEPRECATED - use DividendSyncLocks instead
+        self._global_sync_in_progress = False  # DEPRECATED - use DividendSyncLocks instead
         
         logger.info(f"[DividendService] Initialized with service client: {type(self.supa_client)}")
+    
+    # 🛡️ BULLETPROOF DECIMAL UTILITIES for Financial Precision
+    def _safe_decimal_conversion(self, value: Any, user_id: Optional[str] = None) -> Decimal:
+        """
+        Convert any value to Decimal with feature flag controlled precision.
+        
+        Args:
+            value: Value to convert (str, int, float, Decimal)
+            user_id: User ID for feature flag evaluation
+            
+        Returns:
+            Decimal value with proper precision
+            
+        Raises:
+            ValueError: If conversion fails
+        """
+        try:
+            if value is None:
+                return Decimal('0')
+            
+            # Feature flag controlled conversion
+            if is_feature_enabled("decimal_migration", user_id):
+                # Precise conversion - maintain original precision
+                if isinstance(value, Decimal):
+                    return value
+                elif isinstance(value, str):
+                    return Decimal(value)
+                elif isinstance(value, (int, float)):
+                    return Decimal(str(value))
+                else:
+                    return Decimal(str(value))
+            else:
+                # Legacy fallback - preserve precision without float conversion
+                if isinstance(value, Decimal):
+                    return value
+                elif isinstance(value, str):
+                    return Decimal(value) if value else Decimal('0')
+                elif isinstance(value, (int, float)):
+                    return Decimal(str(value))
+                else:
+                    return Decimal(str(value))
+                    
+        except (ValueError, TypeError, InvalidOperation) as e:
+            logger.error(f"Failed to convert {value} to Decimal: {e}")
+            return Decimal('0')
+    
+    def _decimal_multiply(self, a: Decimal, b: Decimal, user_id: Optional[str] = None) -> Decimal:
+        """Perform precision-safe Decimal multiplication"""
+        try:
+            if is_feature_enabled("decimal_migration", user_id):
+                # Use high precision for financial calculations
+                return a * b
+            else:
+                # Legacy behavior 
+                return a * b
+                
+        except Exception as e:
+            logger.error(f"Decimal multiplication failed: {e}")
+            return Decimal('0')
+    
+    def _decimal_divide(self, a: Decimal, b: Decimal, user_id: Optional[str] = None) -> Decimal:
+        """Perform precision-safe Decimal division"""
+        try:
+            if b == 0:
+                return Decimal('0')
+                
+            if is_feature_enabled("decimal_migration", user_id):
+                # Use high precision for financial calculations
+                return a / b
+            else:
+                # Legacy behavior
+                return a / b
+                
+        except Exception as e:
+            logger.error(f"Decimal division failed: {e}")
+            return Decimal('0')
     
     def _can_start_global_sync(self) -> bool:
         """Check if global sync can start (no user syncs in progress, not rate limited)"""
@@ -64,7 +143,7 @@ class DividendService:
             self._user_sync_locks[user_id] = True
             return True
     
-    def _release_user_sync_lock(self, user_id: str):
+    def _release_user_sync_lock(self, user_id: str) -> None:
         """Release sync lock for a specific user"""
         with self._sync_lock:
             self._user_sync_locks[user_id] = False
@@ -347,13 +426,14 @@ class DividendService:
                             continue
                         
                         amount = item.get('amount', 0)
-                        if not amount or float(amount) <= 0:
+                        decimal_amount = self._safe_decimal_conversion(amount, user_id)
+                        if not amount or decimal_amount <= 0:
                             logger.warning(f"Skipping dividend for {symbol}: invalid amount {amount}")
                             continue
                         
                         dividend = {
                             'date': item.get('ex_date'),
-                            'amount': float(amount),
+                            'amount': decimal_amount,
                             'ex_date': item.get('ex_date'),
                             'pay_date': item.get('pay_date', item.get('ex_date')),
                             'declaration_date': item.get('declaration_date'),
@@ -443,9 +523,12 @@ class DividendService:
                 logger.warning(f"Skipping dividend for {symbol}: invalid amount '{data.get('amount')}'")
                 return False
             
-            # Convert amount to float early for validation
+            # Convert amount to Decimal early for validation
             try:
-                per_share_amount = float(data['amount'])
+                per_share_amount = self._safe_decimal_conversion(data['amount'], user_id)
+                if per_share_amount <= 0:
+                    logger.warning(f"Skipping dividend for {symbol}: invalid amount '{data['amount']}'")
+                    return False
             except (ValueError, TypeError):
                 logger.warning(f"Skipping dividend for {symbol}: invalid amount format '{data['amount']}'")
                 return False
@@ -581,7 +664,7 @@ class DividendService:
             
             # Validate and convert amount
             try:
-                per_share_amount = float(dividend_data['amount'])
+                per_share_amount = self._safe_decimal_conversion(dividend_data['amount'], user_id)
                 if per_share_amount <= 0:
                     logger.warning(f"Skipping dividend for {symbol}: non-positive amount {per_share_amount}")
                     return False
@@ -752,11 +835,11 @@ class DividendService:
                     'user_id': dividend.get('user_id'),
                     'ex_date': dividend['ex_date'],  # Keep as string (YYYY-MM-DD format)
                     'pay_date': dividend.get('pay_date'),  # Keep as string
-                    'amount': float(dividend['amount']) if dividend.get('amount') else 0.0,
-                    'amount_per_share': float(dividend['amount']) if dividend.get('amount') else 0.0,  # Frontend expects 'amount_per_share'
-                    'shares_held_at_ex_date': float(dividend.get('shares_held_at_ex_date', 0)),
-                    'current_holdings': float(current_holdings) if current_holdings is not None else 0.0,
-                    'total_amount': float(dividend.get('total_amount', 0)),  # Use pre-calculated amount
+                    'amount': str(self._safe_decimal_conversion(dividend['amount'], user_id)) if dividend.get('amount') else '0.0',
+                    'amount_per_share': str(self._safe_decimal_conversion(dividend['amount'], user_id)) if dividend.get('amount') else '0.0',  # Frontend expects 'amount_per_share'
+                    'shares_held_at_ex_date': str(self._safe_decimal_conversion(dividend.get('shares_held_at_ex_date', 0), user_id)),
+                    'current_holdings': str(self._safe_decimal_conversion(current_holdings, user_id)) if current_holdings is not None else '0.0',
+                    'total_amount': self._safe_decimal_conversion(dividend.get('total_amount', 0), user_id),  # Use pre-calculated amount
                     'confirmed': bool(is_confirmed),
                     'company': self._get_company_name(dividend['symbol']) or f"{dividend['symbol']} Corporation",
                     'status': 'confirmed' if is_confirmed else 'pending',
@@ -867,9 +950,9 @@ class DividendService:
                 final_amount = Decimal(str(dividend['amount']))
                 #DebugLogger.info_if_enabled(f"[DividendService] Using calculated amount: ${dividend['amount']}", logger)
             
-            # Get shares held at ex-date from the notes field or recalculate
-            shares_held = self._extract_shares_from_notes(dividend.get('notes', ''))
-            if not shares_held:
+            # Get shares held at ex-date from the proper database field (no more regex parsing!)
+            shares_held = dividend.get('shares_held_at_ex_date')
+            if not shares_held or shares_held <= 0:
                 # Fallback: recalculate shares held at ex-date
                 if not user_token:
                     raise ValueError("User token is required for this operation")
@@ -901,11 +984,11 @@ class DividendService:
                 'symbol': dividend['symbol'],
                 'transaction_type': 'DIVIDEND',
                 'quantity': shares_held,
-                'price': float(per_share_amount),
+                'price': self._safe_decimal_conversion(per_share_amount, user_id),
                 # 'total_value' field doesn't exist - removed
                 'date': dividend['pay_date'],
                 'notes': f"Dividend payment - ${per_share_amount:.4f} per share × {shares_held} shares" + 
-                        (f" (edited total from ${float(Decimal(str(dividend['amount'])) * Decimal(str(shares_held))):.2f})" if edited_amount is not None else "")
+                        (f" (edited total from ${self._safe_decimal_conversion(Decimal(str(dividend['amount'])) * Decimal(str(shares_held)), user_id):.2f})" if edited_amount is not None else "")
             }
             
             # Insert transaction
@@ -937,9 +1020,9 @@ class DividendService:
                 "success": True,
                 "dividend_id": dividend_id,
                 "transaction_id": transaction_result.data[0]['id'],
-                "total_amount": float(total_amount_for_transaction),
+                "total_amount": self._safe_decimal_conversion(total_amount_for_transaction, user_id),
                 "shares": shares_held,
-                "per_share_amount": float(per_share_amount),
+                "per_share_amount": self._safe_decimal_conversion(per_share_amount, user_id),
                 "was_edited": edited_amount is not None,
                 "message": f"Dividend confirmed: ${total_amount_for_transaction:.2f} for {shares_held} shares"
             }
@@ -1088,17 +1171,17 @@ class DividendService:
                     user_token
                 )
             
-            # Handle amount calculations
+            # Handle amount calculations with Decimal precision
             if edited_data.get('amount_per_share') is not None:
-                amount_per_share = float(edited_data['amount_per_share'])
-                total_amount = round(float(Decimal(str(amount_per_share)) * Decimal(str(shares_held))), 2)
+                amount_per_share = self._safe_decimal_conversion(edited_data['amount_per_share'], user_id)
+                total_amount = amount_per_share * Decimal(str(shares_held))
             elif edited_data.get('total_amount') is not None:
-                total_amount = float(edited_data['total_amount'])
-                amount_per_share = round(total_amount / shares_held, 3) if shares_held > 0 else 0
+                total_amount = self._safe_decimal_conversion(edited_data['total_amount'], user_id)
+                amount_per_share = total_amount / Decimal(str(shares_held)) if shares_held > 0 else Decimal('0')
             else:
                 # Keep original amounts if not edited
-                amount_per_share = float(original_dividend['amount'])
-                total_amount = round(float(Decimal(str(amount_per_share)) * Decimal(str(shares_held))), 2)
+                amount_per_share = self._safe_decimal_conversion(original_dividend['amount'], user_id)
+                total_amount = amount_per_share * Decimal(str(shares_held))
             
             # SMART UPDATE LOGIC
             if ex_date_changing:
@@ -1106,15 +1189,10 @@ class DividendService:
                 # due to unique constraint on (user_id, symbol, ex_date, amount)
                 logger.info(f"[DividendService] Ex-date changing from {original_ex_date} to {new_ex_date}, using reject-then-create approach")
                 
-                # First reject the original
-                reject_result = await self.reject_dividend(user_id, original_dividend_id, user_token)
-                if not reject_result['success']:
-                    return {
-                        "success": False,
-                        "error": f"Failed to reject original dividend: {reject_result.get('error', 'Unknown error')}"
-                    }
+                # ATOMIC OPERATION: Create new dividend first, then reject original
+                # This ensures data consistency - if creation fails, original remains intact
                 
-                # Then create new dividend with edited data
+                # First, create new dividend with edited data
                 new_dividend_data = {
                     'user_id': user_id,
                     'symbol': original_dividend['symbol'],  # Symbol cannot be edited
@@ -1135,7 +1213,7 @@ class DividendService:
                     'rejected': False  # New dividend is not rejected
                 }
                 
-                # Insert new dividend
+                # Insert new dividend first
                 new_dividend_result = self.supa_client.table('user_dividends') \
                     .insert(new_dividend_data) \
                     .execute()
@@ -1144,6 +1222,24 @@ class DividendService:
                     return {
                         "success": False,
                         "error": "Failed to create edited dividend"
+                    }
+                
+                # Only after successful creation, reject the original
+                reject_result = await self.reject_dividend(user_id, original_dividend_id, user_token)
+                if not reject_result['success']:
+                    # ROLLBACK: Delete the new dividend since we failed to reject original
+                    logger.error(f"Failed to reject original dividend after creating new one. Rolling back...")
+                    try:
+                        self.supa_client.table('user_dividends') \
+                            .delete() \
+                            .eq('id', new_dividend_result.data[0]['id']) \
+                            .execute()
+                    except Exception as rollback_error:
+                        logger.error(f"Failed to rollback new dividend: {rollback_error}")
+                    
+                    return {
+                        "success": False,
+                        "error": f"Failed to reject original dividend: {reject_result.get('error', 'Unknown error')}"
                     }
                 
                 new_dividend_id = new_dividend_result.data[0]['id']
@@ -1304,14 +1400,14 @@ class DividendService:
                 if not div.get('rejected', False)
             ]
             
-            # Calculate totals
-            total_received = sum(float(div['amount']) for div in confirmed_dividends)
-            total_pending = sum(float(div['amount']) for div in pending_dividends)
+            # Calculate totals with Decimal precision
+            total_received = sum(self._safe_decimal_conversion(div['amount'], user_id) for div in confirmed_dividends)
+            total_pending = sum(self._safe_decimal_conversion(div['amount'], user_id) for div in pending_dividends)
             
             # Calculate YTD dividends
             current_year = datetime.now().year
             ytd_dividends = sum(
-                float(div['amount']) for div in confirmed_dividends
+                self._safe_decimal_conversion(div['amount'], user_id) for div in confirmed_dividends
                 if datetime.strptime(div['pay_date'], '%Y-%m-%d').year == current_year
             )
             
@@ -1412,31 +1508,40 @@ class DividendService:
     async def sync_dividends_for_all_holdings(self, user_id: str, user_token: str) -> Dict[str, Any]:
         """Efficiently sync dividends for all user's current holdings with race condition protection"""
         
-        # Check if this user sync is already in progress
-        if not self._acquire_user_sync_lock(user_id):
-            return {
-                "success": False,
-                "error": "Dividend sync already in progress for this user",
-                "code": "SYNC_IN_PROGRESS"
-            }
+        # Use distributed locking to prevent race conditions across multiple server instances
+        user_lock_name = f"dividend_sync_user_{user_id}"
         
         try:
-            # Check if global sync is running
-            with self._sync_lock:
-                if self._global_sync_in_progress:
+            async with distributed_lock(user_lock_name, timeout_seconds=300, max_wait_seconds=5):
+                logger.info(f"[DividendService] Acquired distributed lock for user {user_id} dividend sync")
+                
+                # Check if global sync is running (using distributed lock check)
+                if not await DividendSyncLocks.can_start_global_sync():
                     return {
                         "success": False,
                         "error": "Global dividend sync in progress, please try again later",
                         "code": "GLOBAL_SYNC_IN_PROGRESS"
                     }
-            
-            logger.info(f"[DividendService] Starting protected user sync for {user_id}")
-            
-            # Use the existing sync logic but with protection
-            return await self._sync_dividends_for_all_holdings_impl(user_id, user_token)
-            
-        finally:
-            self._release_user_sync_lock(user_id)
+                
+                logger.info(f"[DividendService] Starting protected user sync for {user_id}")
+                
+                # Use the existing sync logic but with distributed protection
+                return await self._sync_dividends_for_all_holdings_impl(user_id, user_token)
+                
+        except DistributedLockError as e:
+            logger.warning(f"[DividendService] Could not acquire user sync lock for {user_id}: {e}")
+            return {
+                "success": False,
+                "error": "Dividend sync already in progress for this user on another server instance",
+                "code": "SYNC_IN_PROGRESS_DISTRIBUTED"
+            }
+        except Exception as e:
+            logger.error(f"[DividendService] Unexpected error in user sync for {user_id}: {e}")
+            return {
+                "success": False,
+                "error": f"User sync failed: {str(e)}",
+                "code": "SYNC_ERROR"
+            }
     
     async def _sync_dividends_for_all_holdings_impl(self, user_id: str, user_token: str) -> Dict[str, Any]:
         """Implementation of user dividend sync (extracted from original method)"""
@@ -1563,19 +1668,26 @@ class DividendService:
         
         #DebugLogger.info_if_enabled("[dividend_service::background_dividend_sync_all_users] Starting protected global sync", logger)
         
+        # Use distributed locking to prevent race conditions across multiple server instances
         try:
-            return await self._background_dividend_sync_all_users_impl()
-        finally:
-            # Release global sync lock
-            try:
-                self.supa_client.rpc(
-                    'release_dividend_sync_lock',
-                    {
-                        'p_sync_type': 'global'
-                    }
-                ).execute()
-            except Exception as e:
-                logger.error(f"Failed to release global sync lock: {e}")
+            async with distributed_lock("dividend_sync_global", timeout_seconds=600, max_wait_seconds=5):
+                logger.info("[DividendService] Acquired distributed lock for global dividend sync")
+                return await self._background_dividend_sync_all_users_impl()
+                
+        except DistributedLockError as e:
+            logger.warning(f"[DividendService] Could not acquire global sync lock: {e}")
+            return {
+                "success": False,
+                "error": "Global dividend sync already in progress on another server instance",
+                "code": "SYNC_IN_PROGRESS_DISTRIBUTED"
+            }
+        except Exception as e:
+            logger.error(f"[DividendService] Unexpected error in global sync: {e}")
+            return {
+                "success": False,
+                "error": f"Global sync failed: {str(e)}",
+                "code": "SYNC_ERROR"
+            }
     
     async def _background_dividend_sync_all_users_impl(self) -> Dict[str, Any]:
         """Implementation of global background sync - OPTIMIZED with smart filtering"""
@@ -1702,11 +1814,11 @@ class DividendService:
         
         windows = []
         current_start = None
-        running_quantity = 0.0
+        running_quantity = Decimal('0')
         
         for tx in sorted_transactions:
             date_obj = datetime.strptime(tx['date'], '%Y-%m-%d').date()
-            quantity_change = float(tx['quantity']) if tx['transaction_type'] in ['BUY', 'Buy'] else -float(tx['quantity'])
+            quantity_change = self._safe_decimal_conversion(tx['quantity'], user_id) if tx['transaction_type'] in ['BUY', 'Buy'] else -self._safe_decimal_conversion(tx['quantity'], user_id)
             prev_quantity = running_quantity
             running_quantity += quantity_change
             
@@ -1731,7 +1843,11 @@ class DividendService:
     # Old method replaced with _upsert_global_dividend
     
     def _extract_shares_from_notes(self, notes: str) -> Optional[float]:
-        """Extract shares count from notes field (format: 'Calculated: X shares × $Y per share')"""
+        """
+        DEPRECATED: Extract shares count from notes field (format: 'Calculated: X shares × $Y per share')
+        This function is deprecated in favor of using the shares_held_at_ex_date database field directly.
+        TODO: Remove this function once all references are updated to use shares_held_at_ex_date.
+        """
         try:
             if not notes or 'shares' not in notes:
                 return None
@@ -1740,7 +1856,7 @@ class DividendService:
             # Match pattern: "Calculated: 123.45 shares"
             match = re.search(r'Calculated:\s*([\d.]+)\s*shares', notes)
             if match:
-                return float(match.group(1))
+                return self._safe_decimal_conversion(match.group(1), user_id)
                 
             return None
         except Exception as e:
@@ -1821,24 +1937,24 @@ class DividendService:
             all_transactions = await supa_api_get_user_transactions(user_id, limit=1000, user_token=user_token)
             
             if not all_transactions:
-                return 0.0
+                return Decimal('0')
             
             # Filter by symbol and calculate current holdings
             symbol_transactions = [txn for txn in all_transactions if txn['symbol'] == symbol]
             
-            total_shares = 0.0
+            total_shares = Decimal('0')
             for txn in symbol_transactions:
                 if txn['transaction_type'] in ['BUY', 'Buy']:
-                    total_shares += float(txn['quantity'])
+                    total_shares += self._safe_decimal_conversion(txn['quantity'], user_id)
                 elif txn['transaction_type'] in ['SELL', 'Sell']:
-                    total_shares -= float(txn['quantity'])
+                    total_shares -= self._safe_decimal_conversion(txn['quantity'], user_id)
                 # DIVIDEND transactions don't affect share count
             
-            return max(0.0, total_shares)
+            return max(Decimal('0'), total_shares)
             
         except Exception as e:
             logger.error(f"Failed to get current holdings for {symbol}: {e}")
-            return 0.0
+            return Decimal('0')
     
     async def _is_user_dividend_confirmed_async(self, user_id: str, dividend_id: str, symbol: str, pay_date: str) -> bool:
         """Check if user has confirmed this dividend by looking for a transaction"""
@@ -1872,19 +1988,19 @@ class DividendService:
         try:
             symbol_transactions = [txn for txn in transactions if txn['symbol'] == symbol]
             
-            total_shares = 0.0
+            total_shares = Decimal('0')
             for txn in symbol_transactions:
                 if txn['transaction_type'] in ['BUY', 'Buy']:
-                    total_shares += float(txn['quantity'])
+                    total_shares += self._safe_decimal_conversion(txn['quantity'], user_id)
                 elif txn['transaction_type'] in ['SELL', 'Sell']:
-                    total_shares -= float(txn['quantity'])
+                    total_shares -= self._safe_decimal_conversion(txn['quantity'], user_id)
                 # DIVIDEND transactions don't affect share count
             
-            return max(0.0, total_shares)
+            return max(Decimal('0'), total_shares)
             
         except Exception as e:
             logger.error(f"Failed to calculate current holdings for {symbol}: {e}")
-            return 0.0
+            return Decimal('0')
 
     def _calculate_shares_at_date(self, transactions: List[Dict[str, Any]], symbol: str, target_date: str) -> float:
         """Calculate shares held at a specific date from pre-loaded transactions"""
@@ -1898,19 +2014,19 @@ class DividendService:
                 datetime.strptime(str(txn['date']), '%Y-%m-%d').date() <= target_date_obj
             ]
             
-            total_shares = 0.0
+            total_shares = Decimal('0')
             for txn in symbol_transactions:
                 if txn['transaction_type'] in ['BUY', 'Buy']:
-                    total_shares += float(txn['quantity'])
+                    total_shares += self._safe_decimal_conversion(txn['quantity'], user_id)
                 elif txn['transaction_type'] in ['SELL', 'Sell']:
-                    total_shares -= float(txn['quantity'])
+                    total_shares -= self._safe_decimal_conversion(txn['quantity'], user_id)
                 # DIVIDEND transactions don't affect share count
             
-            return max(0.0, total_shares)
+            return max(Decimal('0'), total_shares)
             
         except Exception as e:
             logger.error(f"Failed to calculate shares at date {target_date} for {symbol}: {e}")
-            return 0.0
+            return Decimal('0')
 
     def _get_company_name(self, symbol: str) -> str:
         """Utility to get company name from a hardcoded list."""
@@ -1978,7 +2094,7 @@ class DividendService:
                                 if success:
                                     user_assigned += 1
                                     total_assigned += 1
-                                    #logger.info(f"[SIMPLE_DIVIDEND_ASSIGNMENT] ✓ Assigned {symbol} dividend ({dividend['ex_date']}) to user {user_id}: {shares_at_ex_date} shares * ${dividend['amount']} = ${float(Decimal(str(dividend['amount'])) * shares_at_ex_date)}")
+                                    #logger.info(f"[SIMPLE_DIVIDEND_ASSIGNMENT] ✓ Assigned {symbol} dividend ({dividend['ex_date']}) to user {user_id}: {shares_at_ex_date} shares * ${dividend['amount']} = ${self._safe_decimal_conversion(Decimal(str(dividend['amount'])) * shares_at_ex_date, user_id)}")
                     
                     assignment_results.append({
                         "user_id": user_id,
@@ -2156,7 +2272,7 @@ class DividendService:
                 'symbol': dividend['symbol'],
                 'ex_date': dividend['ex_date'],
                 'pay_date': dividend['pay_date'],
-                'amount': float(dividend['amount']),  # Per-share amount
+                'amount': self._safe_decimal_conversion(dividend['amount'], user_id),  # Per-share amount
                 'shares_held_at_ex_date': shares_held,
                 'total_amount': total_amount,
                 'currency': dividend.get('currency', 'USD'),

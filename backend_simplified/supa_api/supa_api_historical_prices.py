@@ -6,11 +6,30 @@ import logging
 from typing import Dict, Any, List, Optional
 from datetime import datetime, date, timedelta
 import asyncio
+from decimal import Decimal, InvalidOperation
 
 from .supa_api_client import get_supa_service_client
 from debug_logger import DebugLogger
 
 logger = logging.getLogger(__name__)
+
+def _safe_decimal_to_float(value: Any) -> float:
+    """
+    Safely convert financial values to float for JSON serialization only.
+    
+    NOTE: This should ONLY be used at the database storage boundary.
+    All financial calculations should remain in Decimal format until this final step.
+    """
+    try:
+        if isinstance(value, Decimal):
+            return float(value)
+        elif isinstance(value, (int, float)):
+            return float(value)
+        else:
+            return float(Decimal(str(value)))
+    except (ValueError, TypeError, InvalidOperation) as e:
+        logger.warning(f"Failed to convert {value} to float for JSON: {e}")
+        return 0.0
 
 @DebugLogger.log_api_call(api_name="SUPABASE", sender="BACKEND", receiver="SUPA_API", operation="STORE_HISTORICAL_PRICES")
 async def supa_api_store_historical_prices(symbol: str, price_data: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -35,14 +54,14 @@ async def supa_api_store_historical_prices(symbol: str, price_data: List[Dict[st
             db_record = {
                 'symbol': symbol.upper(),
                 'date': data_point['date'],
-                'open': float(data_point['open']),
-                'high': float(data_point['high']),
-                'low': float(data_point['low']),
-                'close': float(data_point['close']),
-                'adjusted_close': float(data_point.get('adjusted_close', data_point['close'])),
+                'open': _safe_float_conversion(data_point['open']),
+                'high': _safe_float_conversion(data_point['high']),
+                'low': _safe_float_conversion(data_point['low']),
+                'close': _safe_float_conversion(data_point['close']),
+                'adjusted_close': _safe_float_conversion(data_point.get('adjusted_close', data_point['close'])),
                 'volume': int(data_point.get('volume', 0)),
-                'dividend_amount': float(data_point.get('dividend_amount', 0)),
-                'split_coefficient': float(data_point.get('split_coefficient', 1))
+                'dividend_amount': _safe_float_conversion(data_point.get('dividend_amount', 0)),
+                'split_coefficient': _safe_float_conversion(data_point.get('split_coefficient', 1))
             }
             db_records.append(db_record)
         
@@ -117,11 +136,11 @@ async def supa_api_get_historical_price_for_date(symbol: str, target_date: str) 
                 'symbol': price_record['symbol'],
                 'date': str(price_record['date']),
                 'requested_date': target_date,
-                'open': float(price_record['open']),
-                'high': float(price_record['high']),
-                'low': float(price_record['low']),
-                'close': float(price_record['close']),
-                'adjusted_close': float(price_record['adjusted_close']),
+                'open': _safe_float_conversion(price_record['open']),
+                'high': _safe_float_conversion(price_record['high']),
+                'low': _safe_float_conversion(price_record['low']),
+                'close': _safe_float_conversion(price_record['close']),
+                'adjusted_close': _safe_float_conversion(price_record['adjusted_close']),
                 'volume': int(price_record['volume']),
                 'is_exact_date': bool(price_record['is_exact_date'])
             }
@@ -405,10 +424,10 @@ async def supa_api_store_historical_prices_batch(
             formatted_record = {
                 'symbol': record['symbol'].upper(),
                 'date': record['date'],
-                'open': float(record.get('open', 0)),
-                'high': float(record.get('high', 0)),
-                'low': float(record.get('low', 0)),
-                'close': float(record.get('close', 0)),
+                'open': _safe_decimal_to_float(record.get('open', 0)),
+                'high': _safe_decimal_to_float(record.get('high', 0)),
+                'low': _safe_decimal_to_float(record.get('low', 0)),
+                'close': _safe_decimal_to_float(record.get('close', 0)),
                 'volume': int(record.get('volume', 0)),
                 'created_at': datetime.utcnow().isoformat(),
                 'updated_at': datetime.utcnow().isoformat()
@@ -416,11 +435,11 @@ async def supa_api_store_historical_prices_batch(
             
             # Add optional fields if present
             if 'adjusted_close' in record:
-                formatted_record['adjusted_close'] = float(record['adjusted_close'])
+                formatted_record['adjusted_close'] = _safe_decimal_to_float(record['adjusted_close'])
             if 'dividend_amount' in record:
-                formatted_record['dividend_amount'] = float(record['dividend_amount'])
+                formatted_record['dividend_amount'] = _safe_decimal_to_float(record['dividend_amount'])
             if 'split_coefficient' in record:
-                formatted_record['split_coefficient'] = float(record['split_coefficient'])
+                formatted_record['split_coefficient'] = _safe_decimal_to_float(record['split_coefficient'])
                 
             formatted_data.append(formatted_record)
         

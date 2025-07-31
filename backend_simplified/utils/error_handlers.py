@@ -145,11 +145,11 @@ def handle_calculation_error(
         )
 
 
-def async_error_handler(operation: str):
+def async_error_handler(operation: str) -> Callable:
     """Decorator for consistent async error handling."""
-    def decorator(func: Callable):
+    def decorator(func: Callable) -> Callable:
         @wraps(func)
-        async def wrapper(*args, **kwargs):
+        async def wrapper(*args, **kwargs) -> Any:
             try:
                 return await func(*args, **kwargs)
             except HTTPException:
@@ -184,11 +184,11 @@ def async_error_handler(operation: str):
     return decorator
 
 
-def sync_error_handler(operation: str):
+def sync_error_handler(operation: str) -> Callable:
     """Decorator for consistent sync error handling."""
-    def decorator(func: Callable):
+    def decorator(func: Callable) -> Callable:
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args, **kwargs) -> Any:
             try:
                 return func(*args, **kwargs)
             except HTTPException:

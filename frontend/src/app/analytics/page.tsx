@@ -8,8 +8,7 @@ import { usePortfolioAllocation } from '@/hooks/usePortfolioAllocation';
 
 // Components
 import AnalyticsKPIGrid from './components/AnalyticsKPIGrid';
-import AnalyticsHoldingsTable from './components/AnalyticsHoldingsTable';
-import AnalyticsDividendsTabRefactored from './components/AnalyticsDividendsTabRefactored';
+import { LazyAnalyticsHoldingsTable, LazyAnalyticsDividendsTab } from '../dashboard/components/LazyComponents';
 
 // Types
 interface AnalyticsSummary {
@@ -103,7 +102,7 @@ export default function AnalyticsPage() {
           isLoading: allocationLoading
         });
         return (
-          <AnalyticsHoldingsTable
+          <LazyAnalyticsHoldingsTable
             holdings={holdingsData || []}
             isLoading={allocationLoading}
             error={allocationError}
@@ -113,7 +112,7 @@ export default function AnalyticsPage() {
         );
       
       case 'dividends':
-        return <AnalyticsDividendsTabRefactored />;
+        return <LazyAnalyticsDividendsTab />;
       
       case 'general':
         return (

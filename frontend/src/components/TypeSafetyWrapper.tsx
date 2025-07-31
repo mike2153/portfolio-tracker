@@ -5,13 +5,13 @@
  * providing gradual rollout and emergency fallback capabilities.
  */
 
-import React, { ErrorBoundary, ReactNode, Component, ErrorInfo } from 'react';
-import { useFeatureFlag, FeatureGate } from './FeatureFlagProvider';
-import { DashboardErrorState, DashboardErrorActions } from '@/types/dashboard';
+import React, { ReactNode, Component, ErrorInfo } from 'react';
+import { FeatureGate } from './FeatureFlagProvider';
+import { DashboardErrorState, DashboardErrorActions as _DashboardErrorActions } from '@/types/dashboard';
 
 interface TypeSafetyWrapperProps {
   children: ReactNode;
-  fallbackComponent?: React.ComponentType;
+  fallbackComponent?: React.ComponentType<Record<string, unknown>>;
   featureFlag: 'typeStrictMode' | 'errorBoundaries';
   componentName: string;
 }
@@ -27,7 +27,11 @@ class TypeSafetyErrorBoundary extends Component<
   },
   DashboardErrorState
 > {
-  constructor(props: any) {
+  constructor(props: {
+    children: ReactNode;
+    fallback: ReactNode;
+    onError: (error: Error, errorInfo: ErrorInfo) => void;
+  }) {
     super(props);
     this.state = {
       hasError: false,
@@ -46,7 +50,7 @@ class TypeSafetyErrorBoundary extends Component<
       hasError: true,
       error,
       errorInfo: {
-        componentStack: errorInfo.componentStack,
+        componentStack: errorInfo.componentStack ?? '',
       },
     });
 
@@ -105,7 +109,7 @@ export const TypeSafetyWrapper: React.FC<TypeSafetyWrapperProps> = ({
   featureFlag,
   componentName,
 }) => {
-  const isTypeSafetyEnabled = useFeatureFlag(featureFlag);
+  // Feature flag is handled by FeatureGate component
   const [retryKey, setRetryKey] = React.useState(0);
 
   const handleError = React.useCallback((error: Error, errorInfo: ErrorInfo) => {
@@ -173,7 +177,7 @@ export function withTypeSafety<P extends object>(
       <TypeSafetyWrapper
         featureFlag={config.featureFlag}
         componentName={config.componentName}
-        fallbackComponent={config.fallbackComponent}
+        {...(config.fallbackComponent && { fallbackComponent: config.fallbackComponent as React.ComponentType<Record<string, unknown>> })}
       >
         <Component {...props} />
       </TypeSafetyWrapper>

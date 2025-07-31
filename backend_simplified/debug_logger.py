@@ -6,7 +6,7 @@ import logging
 import json
 import traceback
 from functools import wraps
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Callable
 import time
 from datetime import datetime
 from config import DEBUG_INFO_LOGGING
@@ -25,13 +25,13 @@ class LoggingConfig:
     _info_logging_enabled = DEBUG_INFO_LOGGING  # Start with env var setting
     
     @classmethod
-    def enable_info_logging(cls):
+    def enable_info_logging(cls) -> None:
         """Enable info logging at runtime"""
         cls._info_logging_enabled = True
         logging.info("🔧 Info logging ENABLED")
     
     @classmethod
-    def disable_info_logging(cls):
+    def disable_info_logging(cls) -> None:
         """Disable info logging at runtime"""
         logging.info("🔧 Info logging DISABLED")
         cls._info_logging_enabled = False
@@ -51,13 +51,13 @@ class LoggingConfig:
         return cls._info_logging_enabled
 
     @classmethod
-    def set_log_level_info(cls):
+    def set_log_level_info(cls) -> None:
         """Set logging level to INFO (shows info, warning, error)"""
         logging.getLogger().setLevel(logging.INFO)
         logging.info("🔧 Logging level set to INFO")
     
     @classmethod
-    def set_log_level_warning(cls):
+    def set_log_level_warning(cls) -> None:
         """Set logging level to WARNING (shows only warning, error)"""
         logging.info("🔧 Logging level set to WARNING")
         logging.getLogger().setLevel(logging.WARNING)
@@ -77,11 +77,11 @@ class DebugLogger:
     """Comprehensive debug logging for all API operations"""
     
     @staticmethod
-    def log_api_call(api_name: str, sender: str, receiver: str, operation: str = ""):
+    def log_api_call(api_name: str, sender: str, receiver: str, operation: str = "") -> Callable[[Callable], Callable]:
         """Decorator for logging API calls with extensive details"""
-        def decorator(func):
+        def decorator(func) -> Callable:
             @wraps(func)
-            async def async_wrapper(*args, **kwargs):
+            async def async_wrapper(*args, **kwargs) -> Any:
                 start_time = time.time()
                 file_name = func.__module__
                 function_name = func.__name__
@@ -140,7 +140,7 @@ TRACEBACK:
                     raise
                     
             @wraps(func)
-            def sync_wrapper(*args, **kwargs):
+            def sync_wrapper(*args, **kwargs) -> Any:
                 start_time = time.time()
                 file_name = func.__module__
                 function_name = func.__name__
@@ -205,11 +205,11 @@ TRACEBACK:
         return decorator
     
     @staticmethod
-    def log_database_query(query_type: str, table: str):
+    def log_database_query(query_type: str, table: str) -> Callable[[Callable], Callable]:
         """Log database operations"""
-        def decorator(func):
+        def decorator(func) -> Callable:
             @wraps(func)
-            async def wrapper(*args, **kwargs):
+            async def wrapper(*args, **kwargs) -> Any:
                 file_name = func.__module__
                 function_name = func.__name__
                 
@@ -236,11 +236,11 @@ ROWS_AFFECTED: {len(result) if isinstance(result, list) else 1}
         return decorator
     
     @staticmethod
-    def log_cache_operation(operation: str):
+    def log_cache_operation(operation: str) -> Callable[[Callable], Callable]:
         """Log cache operations"""
-        def decorator(func):
+        def decorator(func) -> Callable:
             @wraps(func)
-            async def wrapper(*args, **kwargs):
+            async def wrapper(*args, **kwargs) -> Any:
                 file_name = func.__module__
                 function_name = func.__name__
                 
@@ -281,13 +281,13 @@ CACHE_HIT: {cache_hit}
             return str(obj)
     
     @staticmethod
-    def log_info(file_name: str, function_name: str, message: str, **kwargs):
+    def log_info(file_name: str, function_name: str, message: str, **kwargs) -> None:
         """Log general info messages with context"""
         extra_info = " ".join([f"{k}={v}" for k, v in kwargs.items()])
         logger.info(f"[{file_name}::{function_name}] {message} {extra_info}")
     
     @staticmethod
-    def log_error(file_name: str, function_name: str, error: Exception, **kwargs):
+    def log_error(file_name: str, function_name: str, error: Exception, **kwargs) -> None:
         """Log errors with full context"""
         extra_info = " ".join([f"{k}={v}" for k, v in kwargs.items()])
         logger.error(f"""
@@ -302,7 +302,7 @@ TRACEBACK:
 ===========================""")
 
     @staticmethod
-    def info_if_enabled(message: str, logger_instance: Optional[logging.Logger] = None):
+    def info_if_enabled(message: str, logger_instance: Optional[logging.Logger] = None) -> None:
         """
         Log info message only if info logging is enabled
         

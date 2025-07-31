@@ -13,26 +13,31 @@ import {
   front_api_health_check
 } from '@/lib/front_api_client';
 
+interface APIResult {
+  [key: string]: unknown;
+  error?: string;
+}
+
 export default function FrontApiDemo() {
-  const [results, setResults] = useState<any>({});
+  const [results, setResults] = useState<Record<string, APIResult>>({});
   const [loading, setLoading] = useState<Record<string, boolean>>({});
 
-  const runApiTest = async (testName: string, apiFunction: () => Promise<any>) => {
+  const runApiTest = async (testName: string, apiFunction: () => Promise<unknown>) => {
     // Commenting out verbose logs
     // console.log(`[FrontApiDemo] Starting ${testName} test...`);
-    setLoading(prev => ({ ...prev, [testName]: true }));
+    setLoading((prev: Record<string, boolean>) => ({ ...prev, [testName]: true }));
     
     try {
       const result = await apiFunction();
-      setResults(prev => ({ ...prev, [testName]: result }));
+      setResults((prev: Record<string, APIResult>) => ({ ...prev, [testName]: result as APIResult }));
       // Commenting out verbose logs
       // console.log(`[FrontApiDemo] ✅ ${testName} completed successfully:`, result);
-    } catch (error) {
+    } catch (error: unknown) {
       // Commenting out verbose logs
       // console.error(`[FrontApiDemo] ❌ ${testName} failed:`, error);
-      setResults(prev => ({ ...prev, [testName]: { error: error.message } }));
+      setResults((prev: Record<string, APIResult>) => ({ ...prev, [testName]: { error: error instanceof Error ? error.message : 'Unknown error' } }));
     } finally {
-      setLoading(prev => ({ ...prev, [testName]: false }));
+      setLoading((prev: Record<string, boolean>) => ({ ...prev, [testName]: false }));
     }
   };
 

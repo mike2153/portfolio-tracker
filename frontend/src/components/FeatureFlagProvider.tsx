@@ -5,7 +5,7 @@
  * and user management for the Portfolio Tracker system.
  */
 
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
 import { 
   initializeFeatureFlags, 
   getFeatureFlagManager, 
@@ -93,14 +93,14 @@ export function FeatureFlagProvider({
   }, [userId, mockFlags]);
 
   // Refresh flags function
-  const refreshFlags = () => {
+  const refreshFlags = useCallback(() => {
     if (isInitialized) {
       const manager = getFeatureFlagManager();
       const newFlags = manager.getAllFlags();
       const finalFlags = mockFlags ? { ...newFlags, ...mockFlags } : newFlags;
       setFlags(finalFlags);
     }
-  };
+  }, [isInitialized, mockFlags]);
 
   // Get configuration function
   const getConfig = () => {
@@ -116,7 +116,7 @@ export function FeatureFlagProvider({
 
     const interval = setInterval(refreshFlags, 60000); // Every minute
     return () => clearInterval(interval);
-  }, [isInitialized, mockFlags]);
+  }, [isInitialized, refreshFlags]);
 
   const contextValue: FeatureFlagContextType = {
     isInitialized,
@@ -205,6 +205,9 @@ export function withFeatureFlag<P extends object>(
 export function FeatureFlagDebugger() {
   const { flags, isInitialized, userId, getConfig } = useFeatureFlagContext();
   
+  // Hook must be called unconditionally - move useState before early returns
+  const [isExpanded, setIsExpanded] = useState(false);
+  
   // Only show in development
   if (process.env.NODE_ENV !== 'development' || !flags.debugMode) {
     return null;
@@ -227,8 +230,6 @@ export function FeatureFlagDebugger() {
       </div>
     );
   }
-  
-  const [isExpanded, setIsExpanded] = useState(false);
   
   const enabledFlags = Object.entries(flags).filter(([_, enabled]) => enabled);
   const config = getConfig();
@@ -259,7 +260,7 @@ export function FeatureFlagDebugger() {
           {enabledFlags.length === 0 ? (
             <div style={{ fontStyle: 'italic', color: '#888' }}>None active</div>
           ) : (
-            enabledFlags.map(([flag, enabled]) => (
+            enabledFlags.map(([flag, _enabled]) => (
               <div key={flag} style={{ marginBottom: '2px' }}>
                 ✅ {flag}
                 {config[flag as keyof FeatureFlags]?.rollout.description && (

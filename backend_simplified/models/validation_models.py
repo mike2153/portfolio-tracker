@@ -19,7 +19,7 @@ class StrictModel(BaseModel):
         validate_assignment=True,
         use_enum_values=True,
         json_encoders={
-            Decimal: lambda v: float(v),  # Convert Decimal to float for JSON
+            Decimal: lambda v: str(v),  # Keep Decimal precision as string for JSON
             date: lambda v: v.isoformat(),
             datetime: lambda v: v.isoformat()
         }

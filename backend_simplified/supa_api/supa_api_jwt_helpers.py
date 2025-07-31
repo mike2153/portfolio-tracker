@@ -36,7 +36,7 @@ def create_authenticated_client(user_token: str) -> Client:
 # - auto_inject_jwt: Placeholder that was never implemented
 
 # Utility function for consistent logging
-def log_jwt_operation(operation: str, user_id: str, has_token: bool):
+def log_jwt_operation(operation: str, user_id: str, has_token: bool) -> None:
     """Log JWT-related operations for debugging and security auditing"""
     #logger.info(f"[supa_api_jwt_helpers] === JWT OPERATION LOG ===")
     #logger.info(f"[supa_api_jwt_helpers] Operation: {operation}")

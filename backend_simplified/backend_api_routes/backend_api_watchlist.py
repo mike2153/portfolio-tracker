@@ -74,9 +74,14 @@ async def backend_api_get_watchlist(
                 symbol = item['symbol']
                 if symbol in quotes and quotes[symbol]:
                     quote = quotes[symbol]
-                    item['current_price'] = float(quote.get('price', 0))
-                    item['change'] = float(quote.get('change', 0))
-                    item['change_percent'] = float(quote.get('change_percent', 0))
+                    # Convert to Decimal first for precision, then to float for JSON
+                    price_decimal = Decimal(str(quote.get('price', 0)))
+                    change_decimal = Decimal(str(quote.get('change', 0)))
+                    change_percent_decimal = Decimal(str(quote.get('change_percent', 0)))
+                    
+                    item['current_price'] = float(price_decimal)
+                    item['change'] = float(change_decimal)
+                    item['change_percent'] = float(change_percent_decimal)
                     item['volume'] = int(quote.get('volume', 0))
                 else:
                     # Default values if quote not available
@@ -139,7 +144,12 @@ async def backend_api_add_to_watchlist(
         
         # Extract notes and target price if provided
         notes = data.notes if data else None
-        target_price = float(data.target_price) if data and data.target_price else None
+        # Convert to Decimal first for precision, then to float
+        if data and data.target_price:
+            target_price_decimal = Decimal(str(data.target_price))
+            target_price = float(target_price_decimal)
+        else:
+            target_price = None
         
         # Add to watchlist
         watchlist_item = await supa_api_add_to_watchlist(
@@ -268,7 +278,7 @@ async def backend_api_update_watchlist_item(
             symbol=symbol,
             user_token=user_token,
             notes=data.notes,
-            target_price=float(data.target_price) if data.target_price else None
+            target_price=float(Decimal(str(data.target_price))) if data.target_price else None
         )
         
         response_data = {

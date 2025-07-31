@@ -78,7 +78,7 @@ export interface UsePerformanceResult {
 
 
 // === DEBUGGING UTILITIES ===
-function logPerformanceRequest(range: RangeKey, benchmark: BenchmarkTicker, userId?: string) {
+function logPerformanceRequest(_range: RangeKey, _benchmark: BenchmarkTicker, _userId?: string) {
   //console.log('[usePerformance] === PERFORMANCE REQUEST START ===');
   //console.log('[usePerformance] Timestamp:', new Date().toISOString());
   //console.log('[usePerformance] Range:', range);
@@ -87,7 +87,7 @@ function logPerformanceRequest(range: RangeKey, benchmark: BenchmarkTicker, user
   //console.log('[usePerformance] React Query key:', ['performance', range, benchmark, userId]);
 }
 
-function logPerformanceResponse(data: PerformanceResponse | undefined, error: Error | null) {
+function _logPerformanceResponse(data: PerformanceResponse | undefined, error: Error | null) {
   if (data) {
     //console.log('[usePerformance] ✅ Performance data received:');
     //console.log('[usePerformance] - Success:', data.success);
@@ -149,31 +149,18 @@ export function usePerformance(
   //console.log('[usePerformance] - User ID:', userId);
   //console.log('[usePerformance] - User email:', user?.email);
   
-  // Validate inputs
+  // Validate inputs - store validation result instead of early return
+  let validationError: Error | null = null;
   try {
     validateInputs(range, benchmark);
   } catch (error) {
     //console.error('[usePerformance] Input validation failed:', error);
-    // Return error state immediately for invalid inputs
-    return {
-      data: undefined,
-      isLoading: false,
-      isError: true,
-      error: error as Error,
-      refetch: () => {},
-      portfolioData: [],
-      benchmarkData: [],
-      metrics: undefined,
-      isSuccess: false,
-      noData: false,
-      isIndexOnly: false,
-      userGuidance: ''
-    };
+    validationError = error as Error;
   }
   
   // Optimized cache settings for portfolio charts (historical data doesn't change frequently)
   const queryOptions = {
-    enabled: options.enabled !== false && !!user && !!userId,
+    enabled: options.enabled !== false && !!user && !!userId && !validationError,
     staleTime: options.staleTime || 30 * 60 * 1000, // 30 minutes for charts (historical data)
     cacheTime: 60 * 60 * 1000, // 1 hour cache retention
     refetchOnWindowFocus: options.refetchOnWindowFocus !== undefined ? options.refetchOnWindowFocus : false,
@@ -250,10 +237,17 @@ export function usePerformance(
           }
           
           // Ensure value exists and is numeric
-          let value = pointObj.value ?? pointObj.total_value ?? 0;
-          if (typeof value === 'string') {
-            value = parseFloat(value);
+          let value: number = 0;
+          const rawValue = pointObj.value ?? pointObj.total_value ?? 0;
+          
+          if (typeof rawValue === 'string') {
+            value = parseFloat(rawValue);
+          } else if (typeof rawValue === 'number') {
+            value = rawValue;
+          } else {
+            value = 0;
           }
+          
           if (typeof value !== 'number' || isNaN(value)) {
             console.warn(`[usePerformance] ⚠️ Invalid value in ${arrayName} point at index ${index}:`, pointObj.value, pointObj.total_value);
             value = 0;
@@ -364,6 +358,24 @@ export function usePerformance(
   
   //console.log('[usePerformance] === HOOK RESULT READY ===');
   
+  // Handle validation errors by returning error state
+  if (validationError) {
+    return {
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      error: validationError,
+      refetch: () => {},
+      portfolioData: [],
+      benchmarkData: [],
+      metrics: undefined,
+      isSuccess: false,
+      noData: false,
+      isIndexOnly: false,
+      userGuidance: ''
+    };
+  }
+  
   return {
     data,
     isLoading,
@@ -400,7 +412,7 @@ export function usePerformanceComparison(
     spy: spyData,
     qqq: qqqData,
     // Add helper function to switch active benchmark
-    switchBenchmark: (benchmark: BenchmarkTicker) => {
+    switchBenchmark: (_benchmark: BenchmarkTicker) => {
   
       // This would trigger re-fetch with new benchmark
       // Implementation depends on how we want to handle benchmark switching

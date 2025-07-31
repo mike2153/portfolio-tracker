@@ -1,17 +1,35 @@
 # Portfolio Tracker API Master Documentation
 
+📋 **CURRENT STATE**: This documentation reflects the actual implementation as of July 2025. Updated to match the current codebase structure and eliminate outdated automation references.
+
+## 📋 Documentation Status
+
+**Implementation Status**: Fully operational backend with comprehensive API endpoints
+
+### Current Implementation
+
+- **Backend**: FastAPI (Python) with complete route implementation
+- **Database**: Supabase with Row Level Security (RLS)
+- **External APIs**: Alpha Vantage integration for market data
+- **Authentication**: Supabase Auth with JWT tokens
+- **Frontend**: Next.js with shared API client
+- **Type Safety**: Pydantic models with Decimal precision for financial data
+
+---
+
 ## Table of Contents
-1. [Architecture & Design Principles](#architecture--design-principles)
-2. [Complete Endpoint Reference](#complete-endpoint-reference)
-3. [Request/Response Formats](#requestresponse-formats)
-4. [Authentication & Authorization](#authentication--authorization)
-5. [Error Handling & Status Codes](#error-handling--status-codes)
-6. [Rate Limiting & Security](#rate-limiting--security)
-7. [External API Integrations](#external-api-integrations)
-8. [Data Validation & Input Sanitization](#data-validation--input-sanitization)
-9. [API Versioning & Compatibility](#api-versioning--compatibility)
-10. [Performance & Caching](#performance--caching)
-11. [Code Examples](#code-examples)
+1. [Documentation Automation](#-documentation-automation) 🤖
+2. [Architecture & Design Principles](#architecture--design-principles)
+3. [Complete Endpoint Reference](#complete-endpoint-reference)
+4. [Request/Response Formats](#requestresponse-formats)
+5. [Authentication & Authorization](#authentication--authorization)
+6. [Error Handling & Status Codes](#error-handling--status-codes)
+7. [Rate Limiting & Security](#rate-limiting--security)
+8. [External API Integrations](#external-api-integrations)
+9. [Data Validation & Input Sanitization](#data-validation--input-sanitization)
+10. [API Versioning & Compatibility](#api-versioning--compatibility)
+11. [Performance & Caching](#performance--caching)
+12. [Code Examples](#code-examples)
 
 ---
 
@@ -26,12 +44,18 @@
 
 ### Data Flow Architecture
 ```
-Frontend → Backend API → Supabase Database
-                     ↓
-               Alpha Vantage API (when data missing)
-                     ↓
-               Update Supabase → Return to Frontend
+Frontend (Next.js) → Backend API (FastAPI) → Supabase Database
+                                          ↓
+                                    Alpha Vantage API (when data missing)
+                                          ↓
+                                    Update Supabase → Return to Frontend
 ```
+
+**Key Principles**:
+- All frontend requests go through the backend API
+- Backend queries Supabase first, then Alpha Vantage if data is missing
+- All external API data is cached in Supabase
+- Strong type safety with Pydantic models and Decimal financial calculations
 
 ### Design Principles
 1. **Type Safety First**: Complete Pydantic validation for all inputs/outputs
@@ -71,7 +95,7 @@ GET /api/auth/validate
 ```
 **Description**: Validate JWT token and get user info
 **Auth**: Required (JWT in Authorization header)
-**Response v1**: 
+**Response**: 
 ```json
 {
   "valid": true,
@@ -89,12 +113,15 @@ GET /api/auth/validate
 GET /api/dashboard
 ```
 **Description**: Comprehensive dashboard data with portfolio snapshot
-**Auth**: Required
-**Query Parameters**:
-- `force_refresh` (boolean): Force cache refresh
-- `X-API-Version` (header): "v1" or "v2"
+**Auth**: Required (JWT Bearer token)
+**Headers**:
+- `Authorization: Bearer <jwt_token>`
+- `X-API-Version: v1|v2` (optional, defaults to v1)
 
-**Response v1**:
+**Query Parameters**:
+- `force_refresh` (boolean): Force cache refresh (default: false)
+
+**Response v1 (Legacy)**:
 ```json
 {
   "success": true,
@@ -115,6 +142,8 @@ GET /api/dashboard
       "current_price": 175.00,
       "current_value": 17500.00,
       "allocation": 11.67,
+      "total_gain_loss": 2500.00,
+      "total_gain_loss_percent": 16.67,
       "gain_loss": 2500.00,
       "gain_loss_percent": 16.67
     }
@@ -130,11 +159,15 @@ GET /api/dashboard
 }
 ```
 
-**Response v2**:
+**Response v2 (Standardized)**:
 ```json
 {
   "success": true,
-  "data": { /* same data structure */ },
+  "data": {
+    "portfolio": { /* same portfolio structure */ },
+    "top_holdings": [ /* same holdings structure */ ],
+    "transaction_summary": { /* same summary structure */ }
+  },
   "message": "Dashboard data retrieved successfully",
   "metadata": {
     "cache_status": "hit",
@@ -149,13 +182,13 @@ GET /api/dashboard
 ```http
 GET /api/dashboard/performance
 ```
-**Description**: Time-series performance comparison with benchmark
-**Auth**: Required
+**Description**: Time-series performance comparison with benchmark (supports index-only mode for users without portfolio data)
+**Auth**: Required (JWT Bearer token)
 **Query Parameters**:
-- `period` (string): "1D", "1W", "1M", "3M", "6M", "1Y", "ALL"
-- `benchmark` (string): Benchmark symbol (default: "SPY")
+- `period` (string): "1D", "1W", "1M", "3M", "6M", "1Y", "ALL" (default: "1M")
+- `benchmark` (string): Benchmark symbol (default: "SPY", regex: `^[A-Z]{1,5}$`)
 
-**Response**:
+**Response (with portfolio data)**:
 ```json
 {
   "success": true,
@@ -178,7 +211,37 @@ GET /api/dashboard/performance
     "trading_days_count": 65,
     "start_date": "2024-01-01",
     "end_date": "2024-03-31",
-    "benchmark_name": "SPY"
+    "benchmark_name": "SPY",
+    "calculation_timestamp": "2024-01-15T10:30:00Z",
+    "chart_type": "discrete_trading_days"
+  }
+}
+```
+
+**Response (index-only mode - no portfolio data)**:
+```json
+{
+  "success": true,
+  "period": "3M",
+  "benchmark": "SPY",
+  "portfolio_performance": [],
+  "benchmark_performance": [
+    {"date": "2024-01-01", "value": 100000.00},
+    {"date": "2024-01-02", "value": 100750.00}
+  ],
+  "performance_metrics": {
+    "portfolio_return_pct": 0,
+    "index_return_pct": 12.3,
+    "outperformance_pct": 0,
+    "index_only_mode": true
+  },
+  "metadata": {
+    "no_data": false,
+    "index_only": true,
+    "reason": "no_portfolio_data",
+    "user_guidance": "Add transactions to see portfolio comparison",
+    "benchmark_name": "SPY",
+    "chart_type": "index_only_mode"
   }
 }
 ```
@@ -187,10 +250,10 @@ GET /api/dashboard/performance
 ```http
 GET /api/dashboard/gainers
 ```
-**Description**: Top 5 gaining holdings
-**Auth**: Required
+**Description**: Top 5 gaining holdings (positive gains only)
+**Auth**: Required (JWT Bearer token)
 **Query Parameters**:
-- `force_refresh` (boolean): Force cache refresh
+- `force_refresh` (boolean): Force cache refresh (default: false)
 
 **Response**:
 ```json
@@ -215,12 +278,29 @@ GET /api/dashboard/gainers
 ```http
 GET /api/dashboard/losers
 ```
-**Description**: Top 5 losing holdings
-**Auth**: Required
+**Description**: Top 5 losing holdings (negative gains, returned as absolute values)
+**Auth**: Required (JWT Bearer token)
 **Query Parameters**:
-- `force_refresh` (boolean): Force cache refresh
+- `force_refresh` (boolean): Force cache refresh (default: false)
 
-**Response**: Similar structure to gainers
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "items": [
+      {
+        "ticker": "PLTR",
+        "name": "PLTR",
+        "value": 15000.00,
+        "changePercent": 12.5,
+        "changeValue": 1875.00
+      }
+    ]
+  },
+  "cache_status": "hit"
+}
+```
 
 ---
 
@@ -230,12 +310,12 @@ GET /api/dashboard/losers
 ```http
 GET /api/portfolio
 ```
-**Description**: Current portfolio holdings with calculations
-**Auth**: Required
+**Description**: Current portfolio holdings calculated from transactions using PortfolioMetricsManager
+**Auth**: Required (JWT Bearer token)
 **Query Parameters**:
-- `force_refresh` (boolean): Force cache refresh
+- `force_refresh` (boolean): Force cache refresh (default: false)
 
-**Response v1**:
+**Response v1 (Legacy)**:
 ```json
 {
   "success": true,
@@ -265,17 +345,37 @@ GET /api/portfolio
 }
 ```
 
+**Response v2 (Standardized)**:
+```json
+{
+  "success": true,
+  "data": {
+    "holdings": [ /* same holdings structure */ ],
+    "total_value": 150000.00,
+    "total_cost": 120000.00,
+    "total_gain_loss": 30000.00,
+    "total_gain_loss_percent": 25.0,
+    "base_currency": "USD"
+  },
+  "message": "Portfolio data retrieved successfully",
+  "metadata": {
+    "cache_status": "hit",
+    "computation_time_ms": 32
+  }
+}
+```
+
 #### Get Transactions
 ```http
 GET /api/transactions
 ```
-**Description**: User's transaction history
-**Auth**: Required
+**Description**: User's transaction history with RLS enforcement
+**Auth**: Required (JWT Bearer token)
 **Query Parameters**:
 - `limit` (int): Max transactions (default: 100)
 - `offset` (int): Pagination offset (default: 0)
 
-**Response**:
+**Response v1 (Legacy)**:
 ```json
 {
   "success": true,
@@ -298,39 +398,59 @@ GET /api/transactions
 }
 ```
 
+**Response v2 (Standardized)**:
+```json
+{
+  "success": true,
+  "data": {
+    "transactions": [ /* same transaction structure */ ],
+    "count": 25
+  },
+  "message": "Transactions retrieved successfully"
+}
+```
+
 #### Add Transaction
 ```http
 POST /api/transactions
 ```
-**Description**: Add new buy/sell transaction
-**Auth**: Required
-**Request Body**:
+**Description**: Add new buy/sell transaction with automatic dividend sync and market info lookup
+**Auth**: Required (JWT Bearer token)
+**Content-Type**: `application/json`
+
+**Request Body (Pydantic model: TransactionCreate)**:
 ```json
 {
   "symbol": "AAPL",
   "transaction_type": "Buy",
-  "quantity": 50.0,
-  "price": 150.00,
-  "commission": 1.99,
+  "quantity": "50.0",
+  "price": "150.00",
+  "commission": "1.99",
   "currency": "USD",
-  "exchange_rate": 1.0,
+  "exchange_rate": "1.0",
   "date": "2024-01-15",
   "notes": "Optional notes"
 }
 ```
 
-**Validation Rules**:
-- `symbol`: 1-8 characters, alphanumeric + dots/hyphens
-- `transaction_type`: "Buy" or "Sell"
-- `quantity`: Must be positive decimal
-- `price`: Must be non-negative decimal
-- `commission`: Must be non-negative decimal (default: 0)
-- `currency`: 3-letter ISO code (default: "USD")
-- `exchange_rate`: Must be positive (default: 1.0)
+**Validation Rules (Pydantic with Field validators)**:
+- `symbol`: 1-8 characters, regex `^[A-Z0-9.-]{1,8}$`, auto-uppercased
+- `transaction_type`: Literal["Buy", "Sell"]
+- `quantity`: Decimal > 0
+- `price`: Decimal >= 0
+- `commission`: Decimal >= 0 (default: 0)
+- `currency`: 3-letter ISO pattern `^[A-Z]{3}$` (default: "USD")
+- `exchange_rate`: Decimal > 0 (default: 1.0)
 - `date`: Cannot be future date, not before 1970-01-01
 - `notes`: Max 500 characters, HTML sanitized
 
-**Response**:
+**Auto-Processing**:
+- Market info lookup via Alpha Vantage symbol search
+- Automatic dividend sync for Buy transactions from transaction date onward
+- Portfolio cache invalidation
+- user_id forced from JWT token (security)
+
+**Response v1 (Legacy)**:
 ```json
 {
   "success": true,
@@ -339,24 +459,60 @@ POST /api/transactions
 }
 ```
 
+**Response v2 (Standardized)**:
+```json
+{
+  "success": true,
+  "data": {
+    "transaction": { /* created transaction object */ }
+  },
+  "message": "Buy transaction added successfully"
+}
+```
+
 #### Update Transaction
 ```http
 PUT /api/transactions/{transaction_id}
 ```
-**Description**: Update existing transaction
-**Auth**: Required (RLS enforced)
-**Request Body**: Same as add transaction
+**Description**: Update existing transaction with RLS enforcement
+**Auth**: Required (JWT Bearer token)
+**Path Parameters**:
+- `transaction_id` (string): UUID of transaction to update
+**Request Body**: TransactionUpdate model (same structure as TransactionCreate)
+
+**Response v1 (Legacy)**:
+```json
+{
+  "success": true,
+  "transaction": { /* updated transaction object */ },
+  "message": "Transaction updated successfully"
+}
+```
 
 #### Delete Transaction
 ```http
 DELETE /api/transactions/{transaction_id}
 ```
-**Description**: Delete transaction
-**Auth**: Required (RLS enforced)
-**Response**:
+**Description**: Delete transaction with RLS enforcement and cache invalidation
+**Auth**: Required (JWT Bearer token)
+**Path Parameters**:
+- `transaction_id` (string): UUID of transaction to delete
+
+**Response v1 (Legacy)**:
 ```json
 {
   "success": true,
+  "message": "Transaction deleted successfully"
+}
+```
+
+**Response v2 (Standardized)**:
+```json
+{
+  "success": true,
+  "data": {
+    "deleted": true
+  },
   "message": "Transaction deleted successfully"
 }
 ```
@@ -365,12 +521,12 @@ DELETE /api/transactions/{transaction_id}
 ```http
 GET /api/allocation
 ```
-**Description**: Detailed portfolio allocation with sector/region breakdown
-**Auth**: Required
+**Description**: Comprehensive portfolio allocation with sector/region breakdown using built-in mappings
+**Auth**: Required (JWT Bearer token)
 **Query Parameters**:
-- `force_refresh` (boolean): Force cache refresh
+- `force_refresh` (boolean): Force cache refresh (default: false)
 
-**Response**:
+**Response v1 (Legacy)**:
 ```json
 {
   "success": true,
@@ -406,16 +562,47 @@ GET /api/allocation
 }
 ```
 
+**Response v2 (Standardized)**:
+```json
+{
+  "success": true,
+  "data": {
+    "allocations": [ /* same allocation structure */ ],
+    "summary": { /* same summary structure */ }
+  },
+  "message": "Portfolio allocation data retrieved successfully",
+  "metadata": {
+    "cache_status": "hit",
+    "computation_time_ms": 28
+  }
+}
+```
+
+**Built-in Sector Mappings**: Technology, Finance, Healthcare, Consumer, Energy, ETF, Industrial, Real Estate, Other
+**Built-in Region Mappings**: US, Europe, Asia, Canada, International, Emerging Markets
+
 #### Clear Portfolio Cache
 ```http
 POST /api/cache/clear
 ```
-**Description**: Invalidate all portfolio caches for user
-**Auth**: Required
-**Response**:
+**Description**: Invalidate all portfolio metrics cache entries for the current user
+**Auth**: Required (JWT Bearer token)
+
+**Response v1 (Legacy)**:
 ```json
 {
   "success": true,
+  "message": "Portfolio cache cleared successfully"
+}
+```
+
+**Response v2 (Standardized)**:
+```json
+{
+  "success": true,
+  "data": {
+    "cleared": true
+  },
   "message": "Portfolio cache cleared successfully"
 }
 ```
@@ -428,13 +615,13 @@ POST /api/cache/clear
 ```http
 GET /api/symbol_search
 ```
-**Description**: Search for stock symbols with intelligent scoring
-**Auth**: Required
+**Description**: Combined search for stock symbols with intelligent scoring (cache + Alpha Vantage)
+**Auth**: Required (JWT Bearer token)
 **Query Parameters**:
-- `q` (string): Search query (required)
+- `q` (string): Search query (required, min 1 character)
 - `limit` (int): Max results (default: 50)
 
-**Response**:
+**Response v1 (Legacy)**:
 ```json
 {
   "ok": true,
@@ -457,16 +644,30 @@ GET /api/symbol_search
 }
 ```
 
+**Response v2 (Standardized)**:
+```json
+{
+  "success": true,
+  "data": {
+    "results": [ /* same results structure */ ],
+    "total": 15,
+    "query": "apple",
+    "limit": 50
+  },
+  "message": "Found 15 results for 'apple'"
+}
+```
+
 #### Stock Overview
 ```http
 GET /api/stock_overview
 ```
-**Description**: Comprehensive stock data (quote + fundamentals)
-**Auth**: Required
+**Description**: Comprehensive stock data combining real-time quote and company fundamentals
+**Auth**: Required (JWT Bearer token)
 **Query Parameters**:
 - `symbol` (string): Stock symbol (required)
 
-**Response**:
+**Response v1 (Legacy)**:
 ```json
 {
   "success": true,
@@ -496,12 +697,29 @@ GET /api/stock_overview
 }
 ```
 
+**Response v2 (Standardized)**:
+```json
+{
+  "success": true,
+  "data": {
+    "symbol": "AAPL",
+    "price_data": { /* same price data structure */ },
+    "fundamentals": { /* same fundamentals structure */ },
+    "price_metadata": { /* same metadata structure */ }
+  },
+  "message": "Stock overview data retrieved successfully"
+}
+```
+
 #### Get Quote
 ```http
 GET /api/quote/{symbol}
 ```
-**Description**: Real-time stock quote
-**Auth**: Required
+**Description**: Real-time stock quote with price manager integration
+**Auth**: Required (JWT Bearer token)
+**Path Parameters**:
+- `symbol` (string): Stock symbol (required)
+
 **Response**:
 ```json
 {
@@ -528,12 +746,14 @@ GET /api/quote/{symbol}
 ```http
 GET /api/stock_prices/{symbol}
 ```
-**Description**: Historical price data with flexible periods  
-**Auth**: Required
+**Description**: Historical price data with flexible periods using vantage_api_get_historical_price
+**Auth**: Required (JWT Bearer token)
+**Path Parameters**:
+- `symbol` (string): Stock symbol (required)
 **Query Parameters**:
-- `days` (int): Number of days back
-- `years` (int): Number of years back  
-- `ytd` (boolean): Year-to-date data
+- `days` (int): Number of days back (optional)
+- `years` (int): Number of years back (optional)
+- `ytd` (boolean): Year-to-date data (optional)
 
 **Response**:
 ```json
@@ -567,11 +787,13 @@ GET /api/stock_prices/{symbol}
 ```http
 GET /api/financials/{symbol}
 ```
-**Description**: Company financial data with intelligent caching
-**Auth**: Required
+**Description**: Company financial data with intelligent caching via FinancialsService
+**Auth**: Required (JWT Bearer token)
+**Path Parameters**:
+- `symbol` (string): Stock symbol (required)
 **Query Parameters**:
-- `data_type` (string): "OVERVIEW", "INCOME_STATEMENT", "BALANCE_SHEET", "CASH_FLOW"
-- `force_refresh` (boolean): Force API refresh
+- `data_type` (string): "OVERVIEW", "INCOME_STATEMENT", "BALANCE_SHEET", "CASH_FLOW" (optional, defaults to "OVERVIEW")
+- `force_refresh` (boolean): Force API refresh (optional, default: false)
 
 **Response**:
 ```json
@@ -596,24 +818,6 @@ GET /api/financials/{symbol}
     "DividendPerShare": "0.24",
     "DividendYield": "0.0014",
     "EPS": "6.15",
-    "RevenuePerShareTTM": "24.32",
-    "ProfitMargin": "0.253",
-    "OperatingMarginTTM": "0.298",
-    "ReturnOnAssetsTTM": "0.204",
-    "ReturnOnEquityTTM": "1.479",
-    "RevenueTTM": "394000000000",
-    "GrossProfitTTM": "170000000000",
-    "DilutedEPSTTM": "6.15",
-    "QuarterlyEarningsGrowthYOY": "0.135",
-    "QuarterlyRevenueGrowthYOY": "0.081",
-    "AnalystTargetPrice": "185.50",
-    "TrailingPE": "28.5",
-    "ForwardPE": "25.2",
-    "PriceToSalesRatioTTM": "6.98",
-    "PriceToBookRatio": "36.1",
-    "EVToRevenue": "7.1",
-    "EVToEBITDA": "20.5",
-    "Beta": "1.25",
     "52WeekHigh": "198.23",
     "52WeekLow": "150.12",
     "50DayMovingAverage": "172.45",
@@ -631,24 +835,16 @@ GET /api/financials/{symbol}
 }
 ```
 
-#### Force Refresh Financials
-```http
-POST /api/financials/force-refresh
-```
-**Description**: Force refresh financial data from Alpha Vantage
-**Auth**: Required
-**Query Parameters**:
-- `symbol` (string): Stock symbol (required)
-- `data_type` (string): Data type to refresh
-
 #### Get News
 ```http
 GET /api/news/{symbol}
 ```
-**Description**: News and sentiment data for symbol
-**Auth**: Required
+**Description**: News and sentiment data for symbol via vantage_api_get_news_sentiment
+**Auth**: Required (JWT Bearer token)
+**Path Parameters**:
+- `symbol` (string): Stock symbol (required)
 **Query Parameters**:
-- `limit` (int): Max articles (default: 50)
+- `limit` (int): Max articles (optional, default: 50)
 
 **Response**:
 ```json
@@ -1210,14 +1406,49 @@ GET /api/debug/logging-status
 }
 ```
 
-#### Reset Circuit Breaker
+#### Debug: Toggle Info Logging
+```http
+POST /api/debug/toggle-info-logging
+```
+**Description**: Toggle info logging on/off at runtime
+**Auth**: Required (JWT Bearer token)
+**Response**:
+```json
+{
+  "success": true,
+  "info_logging_enabled": true,
+  "message": "Info logging enabled"
+}
+```
+
+#### Debug: Get Logging Status
+```http
+GET /api/debug/logging-status
+```
+**Description**: Get current logging configuration
+**Auth**: Required (JWT Bearer token)
+**Response**:
+```json
+{
+  "info_logging_enabled": true
+}
+```
+
+#### Debug: Reset Circuit Breaker
 ```http
 POST /api/debug/reset-circuit-breaker
 ```
 **Description**: Reset circuit breaker for price services
-**Auth**: Required
+**Auth**: Required (JWT Bearer token)
 **Query Parameters**:
-- `service` (string): Service name or "all" (optional)
+- `service` (string): Service name ("alpha_vantage", "dividend_api") or None for all (optional)
+**Response**:
+```json
+{
+  "success": true,
+  "message": "Circuit breaker reset for all services"
+}
+```
 
 ---
 
@@ -1265,23 +1496,39 @@ The API supports two response formats via the `X-API-Version` header:
 ## Authentication & Authorization
 
 ### Authentication Method
-- **Type**: JWT Bearer Token
+- **Type**: JWT Bearer Token from Supabase Auth
 - **Header**: `Authorization: Bearer <jwt_token>`
-- **Provider**: Supabase Auth
+- **Provider**: Supabase Auth with session management
+- **Frontend Integration**: Automatic token refresh via `authFetch` wrapper
 
 ### Token Requirements
-- All endpoints (except health check) require authentication
-- JWT tokens contain user ID and access permissions
-- Tokens are validated on every request
+- All endpoints (except `/` health check) require authentication
+- JWT tokens contain user ID, email, and access permissions
+- Tokens validated using `require_authenticated_user` dependency
+- Session refresh handled automatically by frontend API client
+
+### Helper Functions
+- **`require_authenticated_user`**: FastAPI dependency for auth validation
+- **`extract_user_credentials`**: Extracts user_id and token from auth data
+- **Validation**: user_id is NEVER Optional - always validated as non-empty string
 
 ### Row Level Security (RLS)
-- Database-level security enforced on all tables
-- Users can only access their own data
-- RLS policies automatically filter based on JWT claims
+- **Database-level security**: Enforced on ALL user data tables
+- **Automatic filtering**: Users can only access their own data
+- **JWT-based policies**: RLS policies automatically filter based on JWT claims
+- **Security guarantee**: No data leakage between users possible
+- **Validation tools**: `scripts/validate_rls_policies.py` for testing
 
-### Example Authentication Header
+### API Version Headers
+- **`X-API-Version: v1|v2`**: Controls response format
+- **Default**: v1 (legacy) for backward compatibility
+- **v2**: Standardized format with metadata
+
+### Example Authentication Headers
 ```http
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+X-API-Version: v2
+Content-Type: application/json
 ```
 
 ### Authentication Errors
@@ -1293,6 +1540,12 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
   "timestamp": "2024-01-15T10:30:00Z"
 }
 ```
+
+### Frontend Integration
+- **Automatic token handling**: `authFetch` wrapper manages tokens
+- **Session refresh**: Automatic refresh on token expiry
+- **Fallback behavior**: Graceful handling of authentication failures
+- **Multi-platform support**: Works with Next.js and React Native
 
 ---
 
@@ -1410,27 +1663,41 @@ All sensitive configuration stored in environment variables:
 
 ### Alpha Vantage Integration
 
-#### Endpoints Used
-- **Symbol Search**: `SYMBOL_SEARCH` function
-- **Real-time Quotes**: `GLOBAL_QUOTE` function
-- **Historical Data**: `TIME_SERIES_DAILY_ADJUSTED` function
-- **Company Overview**: `OVERVIEW` function
-- **Financial Statements**: `INCOME_STATEMENT`, `BALANCE_SHEET`, `CASH_FLOW`
-- **Dividend Data**: `DIVIDENDS` function
-- **News & Sentiment**: `NEWS_SENTIMENT` function
-- **Forex Data**: `FX_DAILY`, `CURRENCY_EXCHANGE_RATE`
+#### Current Implementation
+- **Module Structure**: Organized in `vantage_api/` directory
+- **Main Modules**: 
+  - `vantage_api_search.py` - Symbol search with combined results
+  - `vantage_api_quotes.py` - Real-time quotes and historical data
+  - `vantage_api_financials.py` - Company financials via FinancialsService
+  - `vantage_api_news.py` - News and sentiment data
+  - `vantage_api_client.py` - Base client with circuit breaker
 
-#### Rate Limiting
-- **Free Tier**: 25 requests per day
+#### Endpoints Used
+- **Symbol Search**: `SYMBOL_SEARCH` function with intelligent scoring
+- **Real-time Quotes**: `GLOBAL_QUOTE` function via price_manager
+- **Historical Data**: `TIME_SERIES_DAILY_ADJUSTED` function
+- **Company Overview**: `OVERVIEW` function with intelligent caching
+- **Financial Statements**: `INCOME_STATEMENT`, `BALANCE_SHEET`, `CASH_FLOW`
+- **Dividend Data**: `DIVIDENDS` function for dividend_service
+- **News & Sentiment**: `NEWS_SENTIMENT` function
+- **Forex Data**: `FX_DAILY`, `CURRENCY_EXCHANGE_RATE` via forex_manager
+
+#### Rate Limiting & Circuit Breaker
+- **Free Tier**: 25 requests per day (strict enforcement)
 - **Premium**: 75+ requests per minute
-- **Circuit Breaker**: Automatic retry with exponential backoff
+- **Circuit Breaker**: Built into `vantage_api_client.py`
+  - Automatic failure detection
+  - Exponential backoff on failures
+  - Manual reset via `/api/debug/reset-circuit-breaker`
+- **Request Queuing**: Intelligent request spacing
 
 #### Caching Strategy
-- **Symbol Search**: 24 hours
-- **Company Financials**: 24 hours
-- **Historical Prices**: 4 hours
-- **Real-time Quotes**: 5 minutes
-- **Dividend Data**: 24 hours
+- **Symbol Search**: 24 hours (cached in combined_symbol_search)
+- **Company Financials**: 24 hours via FinancialsService
+- **Historical Prices**: 4 hours in Supabase
+- **Real-time Quotes**: 5 minutes during market hours, 1 hour after close
+- **Dividend Data**: 24 hours via dividend_service
+- **News Data**: Minimal caching (real-time preference)
 
 #### Error Handling
 ```json
@@ -1447,27 +1714,42 @@ All sensitive configuration stored in environment variables:
 }
 ```
 
+#### Integration Patterns
+- **Cache-First**: Always check Supabase before Alpha Vantage
+- **Background Updates**: Async price updates don't block responses
+- **Graceful Degradation**: System works with stale data during API outages
+- **Market Info Enrichment**: Transaction creation triggers symbol lookup
+
 ### Supabase Integration
 
-#### Database Tables
-- `transactions` - User transactions
-- `user_dividends` - Dividend tracking
-- `watchlist` - User watchlists
-- `user_profiles` - User preferences
-- `historical_prices` - Cached price data
-- `company_financials` - Cached financial data
+#### Database Tables (Current Schema)
+- `transactions` - User buy/sell transactions with RLS
+- `user_dividends` - Dividend tracking and confirmation
+- `watchlist` - User watchlists with target prices
+- `user_profiles` - User preferences and base currency
+- `historical_prices` - Cached price data from Alpha Vantage
+- `company_financials` - Cached financial data with TTL
 - `forex_rates` - Cached exchange rates
+- `global_dividends` - Master dividend data from Alpha Vantage
+
+#### Row Level Security (RLS)
+- **Comprehensive Policies**: All tables have user-specific RLS
+- **JWT-Based Filtering**: Automatic data isolation by user_id
+- **Policy Validation**: Scripts available in `scripts/validate_rls_policies.py`
+- **Security Enforcement**: No data leakage between users
 
 #### Real-time Features
-- **Row Level Security**: Automatic data filtering
-- **Triggers**: Automatic timestamp updates
-- **Functions**: Server-side business logic
+- **Row Level Security**: Automatic data filtering per user
+- **Triggers**: Automatic timestamp updates on data changes
+- **Functions**: Server-side business logic and constraints
+- **Migrations**: Versioned schema changes with rollback support
 
 #### Authentication Flow
-1. Frontend authenticates with Supabase Auth
-2. JWT token passed to backend API
-3. Backend validates token with Supabase
-4. RLS policies enforce data access
+1. Frontend authenticates with Supabase Auth (email/password or OAuth)
+2. JWT token stored in browser and passed to backend API
+3. Backend validates token with Supabase using `require_authenticated_user`
+4. RLS policies automatically enforce data access based on JWT claims
+5. All API routes use `extract_user_credentials` helper for consistent auth
 
 ---
 
@@ -1475,9 +1757,9 @@ All sensitive configuration stored in environment variables:
 
 ### Pydantic Model Validation
 
-#### Transaction Validation
+#### Transaction Models (models/validation_models.py)
 ```python
-class TransactionCreate(StrictModel):
+class TransactionCreate(BaseModel):
     symbol: str = Field(..., min_length=1, max_length=8)
     transaction_type: Literal["Buy", "Sell"]
     quantity: Decimal = Field(..., gt=0)
@@ -1487,6 +1769,19 @@ class TransactionCreate(StrictModel):
     exchange_rate: Decimal = Field(default=Decimal("1.0"), gt=0)
     date: date
     notes: Optional[str] = Field(default=None, max_length=500)
+    
+    @field_validator('date')
+    @classmethod
+    def validate_date(cls, v: date) -> date:
+        if v > date.today():
+            raise ValueError('Transaction date cannot be in the future')
+        if v < date(1970, 1, 1):
+            raise ValueError('Transaction date cannot be before 1970-01-01')
+        return v
+
+class TransactionUpdate(TransactionCreate):
+    """Same validation as create for updates"""
+    pass
 ```
 
 #### Symbol Validation
@@ -1512,15 +1807,28 @@ def sanitize_notes(cls, v: Optional[str]) -> Optional[str]:
     return v if v else None
 ```
 
-### Date Validation
-- Future dates not allowed for transactions
-- Date range validation (not before 1970-01-01)
-- ISO 8601 format enforcement
+### Financial Data Type Safety
+- **Decimal Precision**: All monetary values use `Decimal` type (never float/int)
+- **Type Conversion**: Pydantic models automatically convert string inputs to Decimal
+- **Precision Guarantee**: No floating-point precision errors in financial calculations
+- **Serialization**: Models convert Decimal to float for JSON responses
 
-### Financial Data Validation
-- Decimal precision for monetary values
-- Non-negative constraints for prices/quantities
-- Currency code format validation (3-letter ISO)
+### Validation Enforcement
+- **API Layer**: All endpoints use Pydantic models for request validation
+- **Database Layer**: Additional constraints at database level
+- **Client-side**: Frontend performs basic validation before API calls
+- **Error Responses**: Structured validation errors with field-specific messages
+
+### Date & Time Validation
+- **Future Date Prevention**: Transaction dates cannot be in the future
+- **Historical Range**: Dates must be after 1970-01-01
+- **ISO Format**: All dates in YYYY-MM-DD format
+- **Timezone Handling**: UTC timestamps with proper timezone conversion
+
+### Currency & Exchange Rate Validation
+- **ISO Currency Codes**: 3-letter format validation (USD, EUR, etc.)
+- **Exchange Rate Range**: Must be positive (> 0)
+- **Default Values**: USD currency and 1.0 exchange rate defaults
 
 ---
 

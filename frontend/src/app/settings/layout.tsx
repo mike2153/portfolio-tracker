@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { User, CreditCard, Shield, Bell } from 'lucide-react';
+import { User, CreditCard, Shield as _Shield, Bell as _Bell } from 'lucide-react';
 import GradientText from '@/components/ui/GradientText';
 
 interface SettingsLayoutProps {

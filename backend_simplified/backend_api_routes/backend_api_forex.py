@@ -222,6 +222,7 @@ async def convert_currency(
         amount_decimal = Decimal(str(amount))
         converted_amount = amount_decimal * rate
         
+        # Convert Decimal to float only at final serialization
         conversion_data = {
             "original_amount": amount,
             "converted_amount": float(converted_amount),

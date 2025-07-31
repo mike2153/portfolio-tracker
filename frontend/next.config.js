@@ -1,9 +1,21 @@
 /** @type {import('next').NextConfig} */
 
-// Bundle analyzer configuration for bulletproof monitoring
-const withBundleAnalyzer = require('@next/bundle-analyzer')({
-  enabled: process.env.ANALYZE === 'true',
-});
+// Bundle analyzer configuration for bulletproof monitoring (conditional loading)
+let withBundleAnalyzer;
+try {
+  // Only attempt to load bundle analyzer in development or when explicitly requested
+  if (process.env.NODE_ENV === 'development' || process.env.ANALYZE === 'true') {
+    withBundleAnalyzer = require('@next/bundle-analyzer')({
+      enabled: process.env.ANALYZE === 'true',
+    });
+  } else {
+    withBundleAnalyzer = (config) => config;
+  }
+} catch (error) {
+  // Fallback if @next/bundle-analyzer is not available (production builds)
+  console.warn('Bundle analyzer not available, using fallback...');
+  withBundleAnalyzer = (config) => config;
+}
 
 const nextConfig = {
   // 🛡️ BULLETPROOF TYPE SAFETY - NO TOLERANCE FOR ERRORS
@@ -24,6 +36,9 @@ const nextConfig = {
       'lucide-react',
       '@heroicons/react',
       'react-icons',
+      'apexcharts',
+      'react-apexcharts',
+      '@tanstack/react-query',
     ],
   },
 
@@ -41,8 +56,8 @@ const nextConfig = {
     if (!dev && !isServer) {
       // Bundle size limits (STRICT)
       const BUNDLE_SIZE_LIMITS = {
-        maxAssetSize: 500000, // 500 KB max per asset
-        maxEntrypointSize: 500000, // 500 KB max per entry point
+        maxAssetSize: 362000, // 362 KB target (was 500KB)
+        maxEntrypointSize: 362000, // 362 KB target per entry point
       };
 
       config.performance = {
@@ -51,6 +66,50 @@ const nextConfig = {
         maxEntrypointSize: BUNDLE_SIZE_LIMITS.maxEntrypointSize,
         assetFilter: (assetFilename) => {
           return assetFilename.endsWith('.js');
+        },
+      };
+
+      // Advanced code splitting for large libraries
+      config.optimization = {
+        ...config.optimization,
+        splitChunks: {
+          ...config.optimization.splitChunks,
+          chunks: 'all',
+          cacheGroups: {
+            ...config.optimization.splitChunks.cacheGroups,
+            // ApexCharts vendor chunk
+            apexcharts: {
+              test: /[\\/]node_modules[\\/](apexcharts|react-apexcharts)[\\/]/,
+              name: 'apexcharts',
+              chunks: 'all',
+              priority: 30,
+              reuseExistingChunk: true,
+            },
+            // React Query vendor chunk  
+            reactQuery: {
+              test: /[\\/]node_modules[\\/]@tanstack[\\/]react-query[\\/]/,
+              name: 'react-query',
+              chunks: 'all',
+              priority: 25,
+              reuseExistingChunk: true,
+            },
+            // Lucide icons chunk
+            icons: {
+              test: /[\\/]node_modules[\\/]lucide-react[\\/]/,
+              name: 'icons',
+              chunks: 'all',
+              priority: 20,
+              reuseExistingChunk: true,
+            },
+            // Common vendor libraries
+            vendor: {
+              test: /[\\/]node_modules[\\/]/,
+              name: 'vendors',
+              chunks: 'all',
+              priority: 10,
+              reuseExistingChunk: true,
+            },
+          },
         },
       };
 

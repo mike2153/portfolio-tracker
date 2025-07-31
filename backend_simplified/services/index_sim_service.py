@@ -612,11 +612,11 @@ class IndexSimulationService:
                 logger.warning(f"[index_sim_service] ⚠️ No index series generated")
                 return await IndexSimulationService._generate_zero_series(start_date, end_date)
             
-            # Calculate return for verification
-            initial_value = float(index_series[0][1])
-            final_value = float(index_series[-1][1])
-            if initial_value > 0:
-                index_return = ((final_value - initial_value) / initial_value) * 100
+            # Calculate return for verification using Decimal precision
+            initial_value_decimal = index_series[0][1] if isinstance(index_series[0][1], Decimal) else Decimal(str(index_series[0][1]))
+            final_value_decimal = index_series[-1][1] if isinstance(index_series[-1][1], Decimal) else Decimal(str(index_series[-1][1]))
+            if initial_value_decimal > 0:
+                index_return = ((final_value_decimal - initial_value_decimal) / initial_value_decimal) * 100
             
             
             return index_series
@@ -687,6 +687,7 @@ class IndexSimulationUtils:
         outperformance = portfolio_return - index_return
         outperformance_pct = outperformance * 100
 
+        # Convert Decimal to float only at final serialization
         metrics = {
             'portfolio_start_value': float(portfolio_start),
             'portfolio_end_value': float(portfolio_end),

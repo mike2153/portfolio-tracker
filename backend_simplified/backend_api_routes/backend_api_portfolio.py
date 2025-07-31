@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Body, Query, Header
 from typing import Dict, Any, List, Optional, Union
 import logging
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from debug_logger import DebugLogger
 from supa_api.supa_api_auth import require_authenticated_user
@@ -71,29 +71,86 @@ async def backend_api_get_portfolio(
         logger.info(f"[backend_api_portfolio.py::backend_api_get_portfolio] Holdings count: {len(metrics.holdings)}")
         logger.info(f"[backend_api_portfolio.py::backend_api_get_portfolio] Computation time: {metrics.computation_time_ms}ms")
         
-        # Convert holdings to expected format
+        # Convert holdings to expected format with Decimal safety
         holdings_list = []
         for holding in metrics.holdings:
-            holdings_list.append({
-                "symbol": holding.symbol,
-                "quantity": float(holding.quantity),
-                "avg_cost": float(holding.avg_cost),
-                "total_cost": float(holding.total_cost),
-                "current_price": float(holding.current_price),
-                "current_value": float(holding.current_value),
-                "gain_loss": float(holding.gain_loss),
-                "gain_loss_percent": holding.gain_loss_percent,
-                "dividends_received": float(holding.dividends_received) if hasattr(holding, 'dividends_received') else 0,
-                "price_date": holding.price_date,
-                "currency": holding.currency if hasattr(holding, 'currency') else "USD",
-                "base_currency_value": float(holding.base_currency_value) if hasattr(holding, 'base_currency_value') and holding.base_currency_value else float(holding.current_value)
-            })
+            try:
+                # Use Decimal internally, convert to float only for JSON serialization
+                quantity_decimal = holding.quantity if isinstance(holding.quantity, Decimal) else Decimal(str(holding.quantity))
+                avg_cost_decimal = holding.avg_cost if isinstance(holding.avg_cost, Decimal) else Decimal(str(holding.avg_cost))
+                total_cost_decimal = holding.total_cost if isinstance(holding.total_cost, Decimal) else Decimal(str(holding.total_cost))
+                current_price_decimal = holding.current_price if isinstance(holding.current_price, Decimal) else Decimal(str(holding.current_price))
+                current_value_decimal = holding.current_value if isinstance(holding.current_value, Decimal) else Decimal(str(holding.current_value))
+                gain_loss_decimal = holding.gain_loss if isinstance(holding.gain_loss, Decimal) else Decimal(str(holding.gain_loss))
+                
+                # Handle optional dividends_received field
+                dividends_received_decimal = Decimal('0')
+                if hasattr(holding, 'dividends_received') and holding.dividends_received is not None:
+                    try:
+                        dividends_received_decimal = holding.dividends_received if isinstance(holding.dividends_received, Decimal) else Decimal(str(holding.dividends_received))
+                    except (InvalidOperation, TypeError, ValueError) as e:
+                        logger.warning(f"Invalid dividends_received value for {holding.symbol}: {holding.dividends_received}, using 0. Error: {e}")
+                        dividends_received_decimal = Decimal('0')
+                
+                # Handle optional base_currency_value field
+                base_currency_value_decimal = current_value_decimal  # Default to current_value
+                if hasattr(holding, 'base_currency_value') and holding.base_currency_value is not None:
+                    try:
+                        base_currency_value_decimal = holding.base_currency_value if isinstance(holding.base_currency_value, Decimal) else Decimal(str(holding.base_currency_value))
+                    except (InvalidOperation, TypeError, ValueError) as e:
+                        logger.warning(f"Invalid base_currency_value for {holding.symbol}: {holding.base_currency_value}, using current_value. Error: {e}")
+                        base_currency_value_decimal = current_value_decimal
+                
+                # Convert Decimal to float only at final serialization
+                holdings_list.append({
+                    "symbol": holding.symbol,
+                    "quantity": float(quantity_decimal),
+                    "avg_cost": float(avg_cost_decimal),
+                    "total_cost": float(total_cost_decimal),
+                    "current_price": float(current_price_decimal),
+                    "current_value": float(current_value_decimal),
+                    "gain_loss": float(gain_loss_decimal),
+                    "gain_loss_percent": holding.gain_loss_percent,
+                    "dividends_received": float(dividends_received_decimal),
+                    "price_date": holding.price_date,
+                    "currency": holding.currency if hasattr(holding, 'currency') else "USD",
+                    "base_currency_value": float(base_currency_value_decimal)
+                })
+            except (InvalidOperation, TypeError, ValueError) as e:
+                logger.error(f"Error converting holding {holding.symbol} financial data to Decimal: {e}")
+                # Fallback with zero values
+                holdings_list.append({
+                    "symbol": holding.symbol,
+                    "quantity": 0.0,
+                    "avg_cost": 0.0,
+                    "total_cost": 0.0,
+                    "current_price": 0.0,
+                    "current_value": 0.0,
+                    "gain_loss": 0.0,
+                    "gain_loss_percent": 0.0,
+                    "dividends_received": 0.0,
+                    "price_date": holding.price_date,
+                    "currency": holding.currency if hasattr(holding, 'currency') else "USD",
+                    "base_currency_value": 0.0
+                })
         
+        # Convert portfolio summary data with Decimal safety
+        try:
+            total_value_decimal = metrics.performance.total_value if isinstance(metrics.performance.total_value, Decimal) else Decimal(str(metrics.performance.total_value))
+            total_cost_decimal = metrics.performance.total_cost if isinstance(metrics.performance.total_cost, Decimal) else Decimal(str(metrics.performance.total_cost))
+            total_gain_loss_decimal = metrics.performance.total_gain_loss if isinstance(metrics.performance.total_gain_loss, Decimal) else Decimal(str(metrics.performance.total_gain_loss))
+        except (InvalidOperation, TypeError, ValueError) as e:
+            logger.error(f"Error converting portfolio summary financial data to Decimal: {e}")
+            total_value_decimal = Decimal('0')
+            total_cost_decimal = Decimal('0')
+            total_gain_loss_decimal = Decimal('0')
+        
+        # Convert Decimal to float only at final serialization
         portfolio_data = {
             "holdings": holdings_list,
-            "total_value": float(metrics.performance.total_value),
-            "total_cost": float(metrics.performance.total_cost),
-            "total_gain_loss": float(metrics.performance.total_gain_loss),
+            "total_value": float(total_value_decimal),
+            "total_cost": float(total_cost_decimal),
+            "total_gain_loss": float(total_gain_loss_decimal),
             "total_gain_loss_percent": metrics.performance.total_gain_loss_percent,
             "base_currency": metrics.performance.base_currency if hasattr(metrics.performance, 'base_currency') else "USD"
         }
@@ -281,11 +338,21 @@ async def backend_api_add_transaction(
         transaction_data = transaction.model_dump()
         transaction_data["user_id"] = user["id"]  # 🔒 SECURITY: Force user_id from auth token
         
-        # Convert Decimal fields to float for JSON serialization
-        transaction_data["quantity"] = float(transaction_data["quantity"])
-        transaction_data["price"] = float(transaction_data["price"])
-        transaction_data["commission"] = float(transaction_data["commission"])
-        transaction_data["exchange_rate"] = float(transaction_data["exchange_rate"])
+        # Convert Decimal fields to float for JSON serialization with error handling
+        # Convert to Decimal first, then to float for JSON serialization
+        try:
+            quantity_decimal = Decimal(str(transaction_data["quantity"]))
+            price_decimal = Decimal(str(transaction_data["price"]))
+            commission_decimal = Decimal(str(transaction_data["commission"]))
+            exchange_rate_decimal = Decimal(str(transaction_data["exchange_rate"]))
+            
+            transaction_data["quantity"] = float(quantity_decimal)
+            transaction_data["price"] = float(price_decimal)
+            transaction_data["commission"] = float(commission_decimal)
+            transaction_data["exchange_rate"] = float(exchange_rate_decimal)
+        except (TypeError, ValueError, InvalidOperation) as e:
+            logger.error(f"Error converting transaction data to Decimal/float for JSON serialization: {e}")
+            raise ValueError(f"Invalid transaction data for JSON serialization: {e}")
         
         # Convert date to string format
         transaction_data["date"] = transaction_data["date"].strftime('%Y-%m-%d')
@@ -438,11 +505,20 @@ async def backend_api_update_transaction(
         # Convert Pydantic model to dict with proper serialization
         transaction_data = transaction.model_dump()
         
-        # Convert Decimal fields to float for JSON serialization
-        transaction_data["quantity"] = float(transaction_data["quantity"])
-        transaction_data["price"] = float(transaction_data["price"])
-        transaction_data["commission"] = float(transaction_data["commission"])
-        transaction_data["exchange_rate"] = float(transaction_data["exchange_rate"])
+        # Convert to Decimal first, then to float for JSON serialization
+        try:
+            quantity_decimal = Decimal(str(transaction_data["quantity"]))
+            price_decimal = Decimal(str(transaction_data["price"]))
+            commission_decimal = Decimal(str(transaction_data["commission"]))
+            exchange_rate_decimal = Decimal(str(transaction_data["exchange_rate"]))
+            
+            transaction_data["quantity"] = float(quantity_decimal)
+            transaction_data["price"] = float(price_decimal)
+            transaction_data["commission"] = float(commission_decimal)
+            transaction_data["exchange_rate"] = float(exchange_rate_decimal)
+        except (TypeError, ValueError, InvalidOperation) as e:
+            logger.error(f"Error converting transaction update data to Decimal/float for JSON serialization: {e}")
+            raise ValueError(f"Invalid transaction update data for JSON serialization: {e}")
         
         # Convert date to string format
         transaction_data["date"] = transaction_data["date"].strftime('%Y-%m-%d')
@@ -667,31 +743,95 @@ async def backend_api_get_allocation(
         for idx, holding in enumerate(metrics.holdings):
             if holding.quantity > 0:  # Only include current holdings
                 symbol = holding.symbol
-                allocations.append({
-                    'symbol': symbol,
-                    'company_name': symbol,  # We don't store company names
-                    'quantity': float(holding.quantity),
-                    'current_price': float(holding.current_price),
-                    'cost_basis': float(holding.total_cost),
-                    'current_value': float(holding.current_value),
-                    'gain_loss': float(holding.gain_loss),
-                    'gain_loss_percent': holding.gain_loss_percent,
-                    'dividends_received': float(holding.dividends_received) if hasattr(holding, 'dividends_received') else 0,
-                    'realized_pnl': float(holding.realized_pnl) if hasattr(holding, 'realized_pnl') else 0,
-                    'allocation_percent': holding.allocation_percent,
-                    'color': colors[idx % len(colors)],
-                    'sector': sector_mapping.get(symbol, 'Other'),
-                    'region': region_mapping.get(symbol, 'US')  # Default to US if not found
-                })
+                try:
+                    # Convert financial data to Decimal first, then to float for JSON
+                    quantity_decimal = holding.quantity if isinstance(holding.quantity, Decimal) else Decimal(str(holding.quantity))
+                    current_price_decimal = holding.current_price if isinstance(holding.current_price, Decimal) else Decimal(str(holding.current_price))
+                    total_cost_decimal = holding.total_cost if isinstance(holding.total_cost, Decimal) else Decimal(str(holding.total_cost))
+                    current_value_decimal = holding.current_value if isinstance(holding.current_value, Decimal) else Decimal(str(holding.current_value))
+                    gain_loss_decimal = holding.gain_loss if isinstance(holding.gain_loss, Decimal) else Decimal(str(holding.gain_loss))
+                    
+                    # Handle optional fields with Decimal safety
+                    dividends_received_decimal = Decimal('0')
+                    if hasattr(holding, 'dividends_received') and holding.dividends_received is not None:
+                        try:
+                            dividends_received_decimal = holding.dividends_received if isinstance(holding.dividends_received, Decimal) else Decimal(str(holding.dividends_received))
+                        except (InvalidOperation, TypeError, ValueError):
+                            dividends_received_decimal = Decimal('0')
+                    
+                    realized_pnl_decimal = Decimal('0')
+                    if hasattr(holding, 'realized_pnl') and holding.realized_pnl is not None:
+                        try:
+                            realized_pnl_decimal = holding.realized_pnl if isinstance(holding.realized_pnl, Decimal) else Decimal(str(holding.realized_pnl))
+                        except (InvalidOperation, TypeError, ValueError):
+                            realized_pnl_decimal = Decimal('0')
+                    
+                    # Convert Decimal to float only at final serialization
+                    allocations.append({
+                        'symbol': symbol,
+                        'company_name': symbol,  # We don't store company names
+                        'quantity': float(quantity_decimal),
+                        'current_price': float(current_price_decimal),
+                        'cost_basis': float(total_cost_decimal),
+                        'current_value': float(current_value_decimal),
+                        'gain_loss': float(gain_loss_decimal),
+                        'gain_loss_percent': holding.gain_loss_percent,
+                        'dividends_received': float(dividends_received_decimal),
+                        'realized_pnl': float(realized_pnl_decimal),
+                        'allocation_percent': holding.allocation_percent,
+                        'color': colors[idx % len(colors)],
+                        'sector': sector_mapping.get(symbol, 'Other'),
+                        'region': region_mapping.get(symbol, 'US')  # Default to US if not found
+                    })
+                except (InvalidOperation, TypeError, ValueError) as e:
+                    logger.error(f"Error converting allocation data for {symbol} to Decimal: {e}")
+                    # Add allocation with fallback zero values
+                    allocations.append({
+                        'symbol': symbol,
+                        'company_name': symbol,
+                        'quantity': 0.0,
+                        'current_price': 0.0,
+                        'cost_basis': 0.0,
+                        'current_value': 0.0,
+                        'gain_loss': 0.0,
+                        'gain_loss_percent': 0.0,
+                        'dividends_received': 0.0,
+                        'realized_pnl': 0.0,
+                        'allocation_percent': 0.0,
+                        'color': colors[idx % len(colors)],
+                        'sector': sector_mapping.get(symbol, 'Other'),
+                        'region': region_mapping.get(symbol, 'US')
+                    })
         
+        # Convert allocation summary data with Decimal safety
+        try:
+            total_value_decimal = metrics.performance.total_value if isinstance(metrics.performance.total_value, Decimal) else Decimal(str(metrics.performance.total_value))
+            total_cost_decimal = metrics.performance.total_cost if isinstance(metrics.performance.total_cost, Decimal) else Decimal(str(metrics.performance.total_cost))
+            total_gain_loss_decimal = metrics.performance.total_gain_loss if isinstance(metrics.performance.total_gain_loss, Decimal) else Decimal(str(metrics.performance.total_gain_loss))
+            
+            # Handle optional dividends_total field
+            dividends_total_decimal = Decimal('0')
+            if hasattr(metrics.performance, 'dividends_total') and metrics.performance.dividends_total is not None:
+                try:
+                    dividends_total_decimal = metrics.performance.dividends_total if isinstance(metrics.performance.dividends_total, Decimal) else Decimal(str(metrics.performance.dividends_total))
+                except (InvalidOperation, TypeError, ValueError):
+                    dividends_total_decimal = Decimal('0')
+        except (InvalidOperation, TypeError, ValueError) as e:
+            logger.error(f"Error converting allocation summary financial data to Decimal: {e}")
+            total_value_decimal = Decimal('0')
+            total_cost_decimal = Decimal('0')
+            total_gain_loss_decimal = Decimal('0')
+            dividends_total_decimal = Decimal('0')
+        
+        # Convert Decimal to float only at final serialization
         allocation_data = {
             "allocations": allocations,
             "summary": {
-                "total_value": float(metrics.performance.total_value),
-                "total_cost": float(metrics.performance.total_cost),
-                "total_gain_loss": float(metrics.performance.total_gain_loss),
+                "total_value": float(total_value_decimal),
+                "total_cost": float(total_cost_decimal),
+                "total_gain_loss": float(total_gain_loss_decimal),
                 "total_gain_loss_percent": metrics.performance.total_gain_loss_percent,
-                "total_dividends": float(metrics.performance.dividends_total),
+                "total_dividends": float(dividends_total_decimal),
                 "cache_status": metrics.cache_status,
                 "computation_time_ms": metrics.computation_time_ms
             }

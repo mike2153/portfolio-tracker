@@ -217,7 +217,7 @@ class FeatureFlagManager {
     this.saveConfig();
     this.logAdminAction('emergency_disable', flag, { reason });
     
-    // Also disable any dependent features
+    // Also disable all dependent features
     Object.entries(this.config).forEach(([otherFlag, otherConfig]) => {
       if (otherConfig.dependencies?.includes(flag)) {
         this.emergencyDisable(otherFlag as keyof FeatureFlags, `Dependency ${flag} disabled`);
@@ -373,7 +373,14 @@ class FeatureFlagManager {
         dependencies: ['decimalMigration'],
       },
       typeStrictMode: {
-        rollout: { ...defaultRollout, description: 'Strict TypeScript mode enforcement' },
+        rollout: { 
+          ...defaultRollout, 
+          description: 'Strict TypeScript mode enforcement with zero tolerance for type errors',
+          canaryUsers: ['dev_team_lead', 'qa_lead'], // Initial canary users for Phase 1
+          rolloutPercentage: 0, // 0% general rollout - canary only
+          killSwitch: false, // Enabled for canary testing
+          startDate: new Date().toISOString(), // Start immediately
+        },
       },
       
       // Phase 2 Architecture Features

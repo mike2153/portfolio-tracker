@@ -1,0 +1,25 @@
+{
+  "quality_gate_status": "FAIL",
+  "timestamp": "2025-07-31T21:30:06.261053",
+  "strict_mode": false,
+  "metrics": {
+    "typescript_coverage": 0.0,
+    "python_type_errors": 0,
+    "any_type_count": 0,
+    "security_violations_count": 0,
+    "code_duplication_percent": 0.0,
+    "bundle_size_kb": 0,
+    "load_time_ms": 0
+  },
+  "thresholds": {
+    "typescript_coverage_min": 0.0,
+    "python_type_errors_max": 999,
+    "any_type_count_max": 0,
+    "sql_injection_vulns_max": 999,
+    "duplication_percent_max": 3.0,
+    "bundle_size_kb_max": 500,
+    "load_time_ms_max": 2000,
+    "rls_policy_coverage_min": 100
+  },
+  "overall_status": "FAIL"
+}

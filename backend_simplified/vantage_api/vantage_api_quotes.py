@@ -7,14 +7,61 @@ import logging
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta
 import json
+from decimal import Decimal, InvalidOperation
 
 from .vantage_api_client import get_vantage_client
 from debug_logger import DebugLogger
+from services.feature_flag_service import is_feature_enabled
+from utils.auth_helpers import validate_user_id
 
 logger = logging.getLogger(__name__)
 
+def _safe_decimal_conversion(value: Any, user_id: Optional[str] = None) -> Decimal:
+    """
+    Safely convert Alpha Vantage API values to Decimal with feature flag support.
+    
+    Args:
+        value: Value to convert to Decimal
+        user_id: Optional user ID for feature flag evaluation
+        
+    Returns:
+        Decimal representation of the value
+    """
+    try:
+        # Validate user_id if provided
+        if user_id:
+            user_id = validate_user_id(user_id)
+        
+        if is_feature_enabled("decimal_migration", user_id):
+            # Precise conversion - maintain original precision
+            if isinstance(value, Decimal):
+                return value
+            elif isinstance(value, str):
+                # Clean up percentage strings and other formats
+                cleaned_value = value.replace('%', '').replace(',', '').strip()
+                return Decimal(cleaned_value) if cleaned_value else Decimal('0')
+            elif isinstance(value, (int, float)):
+                return Decimal(str(value))
+            else:
+                return Decimal(str(value))
+        else:
+            # Legacy fallback - preserve precision without float conversion
+            if isinstance(value, Decimal):
+                return value
+            elif isinstance(value, str):
+                cleaned_value = value.replace('%', '').replace(',', '').strip()
+                return Decimal(cleaned_value) if cleaned_value else Decimal('0')
+            elif isinstance(value, (int, float)):
+                return Decimal(str(value))
+            else:
+                return Decimal(str(value))
+                
+    except (ValueError, TypeError, InvalidOperation) as e:
+        logger.error(f"Failed to convert Alpha Vantage value {value} to Decimal: {e}")
+        return Decimal('0')
+
 @DebugLogger.log_api_call(api_name="ALPHA_VANTAGE", sender="BACKEND", receiver="VANTAGE_API", operation="GLOBAL_QUOTE")
-async def vantage_api_get_quote(symbol: str) -> Dict[str, Any]:
+async def vantage_api_get_quote(symbol: str, user_id: Optional[str] = None) -> Dict[str, Any]:
     """Get real-time quote data for a stock symbol"""
     
     client = get_vantage_client()
@@ -40,18 +87,18 @@ async def vantage_api_get_quote(symbol: str) -> Dict[str, Any]:
         
         quote = response['Global Quote']
         
-        # Parse and format the data
+        # Parse and format the data with Decimal precision
         formatted_quote = {
             'symbol': quote.get('01. symbol', symbol),
-            'price': float(quote.get('05. price', 0)),
-            'change': float(quote.get('09. change', 0)),
-            'change_percent': float(quote.get('10. change percent', '0%').replace('%', '') or 0),
+            'price': _safe_decimal_conversion(quote.get('05. price', 0), user_id),
+            'change': _safe_decimal_conversion(quote.get('09. change', 0), user_id),
+            'change_percent': _safe_decimal_conversion(quote.get('10. change percent', '0%'), user_id),
             'volume': int(quote.get('06. volume', 0)),
             'latest_trading_day': quote.get('07. latest trading day', ''),
-            'previous_close': float(quote.get('08. previous close', 0)),
-            'open': float(quote.get('02. open', 0)),
-            'high': float(quote.get('03. high', 0)),
-            'low': float(quote.get('04. low', 0))
+            'previous_close': _safe_decimal_conversion(quote.get('08. previous close', 0), user_id),
+            'open': _safe_decimal_conversion(quote.get('02. open', 0), user_id),
+            'high': _safe_decimal_conversion(quote.get('03. high', 0), user_id),
+            'low': _safe_decimal_conversion(quote.get('04. low', 0), user_id)
         }
         
         # Cache the result
@@ -71,7 +118,7 @@ async def vantage_api_get_quote(symbol: str) -> Dict[str, Any]:
         raise
 
 @DebugLogger.log_api_call(api_name="ALPHA_VANTAGE", sender="BACKEND", receiver="VANTAGE_API", operation="OVERVIEW")
-async def vantage_api_get_overview(symbol: str) -> Dict[str, Any]:
+async def vantage_api_get_overview(symbol: str, user_id: Optional[str] = None) -> Dict[str, Any]:
     """Get company overview and fundamental data"""
     client = get_vantage_client()
     
@@ -109,42 +156,42 @@ async def vantage_api_get_overview(symbol: str) -> Dict[str, Any]:
             'industry': response.get('Industry', ''),
             
             # Valuation metrics
-            'market_cap': _safe_float(response.get('MarketCapitalization', 0)),
-            'pe_ratio': _safe_float(response.get('PERatio', 0)),
-            'peg_ratio': _safe_float(response.get('PEGRatio', 0)),
-            'book_value': _safe_float(response.get('BookValue', 0)),
-            'price_to_book': _safe_float(response.get('PriceToBookRatio', 0)),
-            'price_to_sales': _safe_float(response.get('PriceToSalesRatioTTM', 0)),
-            'enterprise_value': _safe_float(response.get('EnterpriseValue', 0)),
-            'enterprise_to_revenue': _safe_float(response.get('EnterpriseValueToRevenueTTM', 0)),
-            'enterprise_to_ebitda': _safe_float(response.get('EnterpriseValueToEBITDA', 0)),
+            'market_cap': _safe_decimal_conversion(response.get('MarketCapitalization', 0), user_id),
+            'pe_ratio': _safe_decimal_conversion(response.get('PERatio', 0), user_id),
+            'peg_ratio': _safe_decimal_conversion(response.get('PEGRatio', 0), user_id),
+            'book_value': _safe_decimal_conversion(response.get('BookValue', 0), user_id),
+            'price_to_book': _safe_decimal_conversion(response.get('PriceToBookRatio', 0), user_id),
+            'price_to_sales': _safe_decimal_conversion(response.get('PriceToSalesRatioTTM', 0), user_id),
+            'enterprise_value': _safe_decimal_conversion(response.get('EnterpriseValue', 0), user_id),
+            'enterprise_to_revenue': _safe_decimal_conversion(response.get('EnterpriseValueToRevenueTTM', 0), user_id),
+            'enterprise_to_ebitda': _safe_decimal_conversion(response.get('EnterpriseValueToEBITDA', 0), user_id),
             
             # Financial metrics
-            'revenue_ttm': _safe_float(response.get('RevenueTTM', 0)),
-            'profit_margin': _safe_float(response.get('ProfitMargin', 0)),
-            'operating_margin': _safe_float(response.get('OperatingMarginTTM', 0)),
-            'return_on_assets': _safe_float(response.get('ReturnOnAssetsTTM', 0)),
-            'return_on_equity': _safe_float(response.get('ReturnOnEquityTTM', 0)),
-            'revenue_per_share': _safe_float(response.get('RevenuePerShareTTM', 0)),
-            'quarterly_earnings_growth': _safe_float(response.get('QuarterlyEarningsGrowthYOY', 0)),
-            'quarterly_revenue_growth': _safe_float(response.get('QuarterlyRevenueGrowthYOY', 0)),
+            'revenue_ttm': _safe_decimal_conversion(response.get('RevenueTTM', 0), user_id),
+            'profit_margin': _safe_decimal_conversion(response.get('ProfitMargin', 0), user_id),
+            'operating_margin': _safe_decimal_conversion(response.get('OperatingMarginTTM', 0), user_id),
+            'return_on_assets': _safe_decimal_conversion(response.get('ReturnOnAssetsTTM', 0), user_id),
+            'return_on_equity': _safe_decimal_conversion(response.get('ReturnOnEquityTTM', 0), user_id),
+            'revenue_per_share': _safe_decimal_conversion(response.get('RevenuePerShareTTM', 0), user_id),
+            'quarterly_earnings_growth': _safe_decimal_conversion(response.get('QuarterlyEarningsGrowthYOY', 0), user_id),
+            'quarterly_revenue_growth': _safe_decimal_conversion(response.get('QuarterlyRevenueGrowthYOY', 0), user_id),
             
             # Per share data
-            'eps': _safe_float(response.get('EPS', 0)),
-            'eps_diluted': _safe_float(response.get('DilutedEPSTTM', 0)),
-            'dividend_per_share': _safe_float(response.get('DividendPerShare', 0)),
-            'dividend_yield': _safe_float(response.get('DividendYield', 0)),
+            'eps': _safe_decimal_conversion(response.get('EPS', 0), user_id),
+            'eps_diluted': _safe_decimal_conversion(response.get('DilutedEPSTTM', 0), user_id),
+            'dividend_per_share': _safe_decimal_conversion(response.get('DividendPerShare', 0), user_id),
+            'dividend_yield': _safe_decimal_conversion(response.get('DividendYield', 0), user_id),
             
             # Trading information
-            'beta': _safe_float(response.get('Beta', 0)),
-            '52_week_high': _safe_float(response.get('52WeekHigh', 0)),
-            '52_week_low': _safe_float(response.get('52WeekLow', 0)),
-            '50_day_ma': _safe_float(response.get('50DayMovingAverage', 0)),
-            '200_day_ma': _safe_float(response.get('200DayMovingAverage', 0)),
+            'beta': _safe_decimal_conversion(response.get('Beta', 0), user_id),
+            '52_week_high': _safe_decimal_conversion(response.get('52WeekHigh', 0), user_id),
+            '52_week_low': _safe_decimal_conversion(response.get('52WeekLow', 0), user_id),
+            '50_day_ma': _safe_decimal_conversion(response.get('50DayMovingAverage', 0), user_id),
+            '200_day_ma': _safe_decimal_conversion(response.get('200DayMovingAverage', 0), user_id),
             
             # Shares data
-            'shares_outstanding': _safe_float(response.get('SharesOutstanding', 0)),
-            'shares_float': _safe_float(response.get('SharesFloat', 0)),
+            'shares_outstanding': _safe_decimal_conversion(response.get('SharesOutstanding', 0), user_id),
+            'shares_float': _safe_decimal_conversion(response.get('SharesFloat', 0), user_id),
             
             # Dates
             'dividend_date': response.get('DividendDate', ''),
@@ -172,7 +219,7 @@ async def vantage_api_get_overview(symbol: str) -> Dict[str, Any]:
         return {}
 
 @DebugLogger.log_api_call(api_name="ALPHA_VANTAGE", sender="BACKEND", receiver="VANTAGE_API", operation="FETCH_AND_STORE_HISTORICAL_DATA")
-async def vantage_api_fetch_and_store_historical_data(symbol: str, start_date: Optional[str] = None) -> Dict[str, Any]:
+async def vantage_api_fetch_and_store_historical_data(symbol: str, start_date: Optional[str] = None, user_id: Optional[str] = None) -> Dict[str, Any]:
     
     client = get_vantage_client()
     
@@ -219,11 +266,11 @@ async def vantage_api_fetch_and_store_historical_data(symbol: str, start_date: O
                 
             record = {
                 'date': date_str,
-                'open': float(price_data.get('1. open', 0)),
-                'high': float(price_data.get('2. high', 0)),
-                'low': float(price_data.get('3. low', 0)),
-                'close': float(price_data.get('4. close', 0)),
-                'adjusted_close': float(price_data.get('5. adjusted close', price_data.get('4. close', 0))),
+                'open': _safe_decimal_conversion(price_data.get('1. open', 0), user_id),
+                'high': _safe_decimal_conversion(price_data.get('2. high', 0), user_id),
+                'low': _safe_decimal_conversion(price_data.get('3. low', 0), user_id),
+                'close': _safe_decimal_conversion(price_data.get('4. close', 0), user_id),
+                'adjusted_close': _safe_decimal_conversion(price_data.get('5. adjusted close', price_data.get('4. close', 0)), user_id),
                 'volume': int(price_data.get('5. volume', 0)) if '5. volume' in price_data else int(price_data.get('6. volume', 0))
             }
             price_records.append(record)
@@ -331,7 +378,7 @@ async def vantage_api_get_historical_price(symbol: str, date: str) -> Dict[str, 
         raise
 
 @DebugLogger.log_api_call(api_name="ALPHA_VANTAGE", sender="BACKEND", receiver="VANTAGE_API", operation="TIME_SERIES_DAILY_ADJUSTED")
-async def vantage_api_get_daily_adjusted(symbol: str, outputsize: str = 'compact') -> Dict[str, Any]:
+async def vantage_api_get_daily_adjusted(symbol: str, outputsize: str = 'compact', user_id: Optional[str] = None) -> Dict[str, Any]:
     """
     Get daily adjusted time series data from Alpha Vantage
     
@@ -416,7 +463,7 @@ async def vantage_api_get_daily_adjusted(symbol: str, outputsize: str = 'compact
         }
 
 @DebugLogger.log_api_call(api_name="ALPHA_VANTAGE", sender="BACKEND", receiver="VANTAGE_API", operation="DIVIDENDS")
-async def vantage_api_get_dividends(symbol: str) -> List[Dict[str, Any]]:
+async def vantage_api_get_dividends(symbol: str, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
     """Get dividend data for a stock symbol from Alpha Vantage"""
     client = get_vantage_client()
     
@@ -450,7 +497,7 @@ async def vantage_api_get_dividends(symbol: str) -> List[Dict[str, Any]]:
                 'declaration_date': item.get('declaration_date'),
                 'record_date': item.get('record_date'),
                 'payment_date': item.get('payment_date'),
-                'amount': float(item.get('amount', 0)),
+                'amount': _safe_decimal_conversion(item.get('amount', 0), user_id),
                 'currency': 'USD'  # Assume USD or add from response if available
             })
         
@@ -472,7 +519,8 @@ async def vantage_api_get_dividends(symbol: str) -> List[Dict[str, Any]]:
         return []
 
 def _safe_float(value: Any) -> float:
-    """Safely convert value to float, return 0 if not possible"""
+    """Legacy function - use _safe_decimal_conversion instead"""
+    logger.warning("_safe_float is deprecated, use _safe_decimal_conversion instead")
     if value is None or value == 'None' or value == '':
         return 0.0
     try:

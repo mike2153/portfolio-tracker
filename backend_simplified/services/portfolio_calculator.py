@@ -6,19 +6,21 @@ Uses PriceDataService for all price data - NO direct price fetching.
 import logging
 from typing import Dict, Any, List, Optional, Tuple, DefaultDict
 from datetime import date, datetime, timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from collections import defaultdict
 
 from services.price_manager import price_manager
+from services.feature_flag_service import is_feature_enabled
 from supa_api.supa_api_transactions import supa_api_get_user_transactions
 from supa_api.supa_api_jwt_helpers import create_authenticated_client
+from utils.auth_helpers import validate_user_id
 
 logger = logging.getLogger(__name__)
 
 
 class PortfolioSummary:
     """Data class for portfolio summary metrics."""
-    def __init__(self):
+    def __init__(self) -> None:
         self.total_value: Decimal = Decimal('0')
         self.total_cost: Decimal = Decimal('0')
         self.total_gain_loss: Decimal = Decimal('0')
@@ -48,7 +50,16 @@ class XIRRCalculator:
             XIRR as a decimal (e.g., 0.15 for 15%) or None if calculation fails
         """
         # Convert Decimal cash flows to float for mathematical operations
-        cash_flows_float = [float(cf) for cf in cash_flows]
+        cash_flows_float = []
+        for cf in cash_flows:
+            try:
+                if isinstance(cf, Decimal):
+                    cash_flows_float.append(float(cf))
+                else:
+                    cash_flows_float.append(float(Decimal(str(cf))))
+            except (ValueError, InvalidOperation) as e:
+                logger.error(f"Invalid cash flow conversion: {cf}, error: {e}")
+                return None
         if len(cash_flows) != len(dates):
             logger.error("Cash flows and dates must have the same length")
             return None
@@ -161,6 +172,48 @@ class PortfolioCalculator:
     """
     
     @staticmethod
+    def _safe_decimal_conversion(value: Any, user_id: Optional[str] = None) -> Decimal:
+        """
+        Safely convert values to Decimal with feature flag support.
+        
+        Args:
+            value: Value to convert to Decimal
+            user_id: Optional user ID for feature flag evaluation
+            
+        Returns:
+            Decimal representation of the value
+        """
+        try:
+            # Validate user_id if provided
+            if user_id:
+                user_id = validate_user_id(user_id)
+            
+            if is_feature_enabled("decimal_migration", user_id):
+                # Precise conversion - maintain original precision
+                if isinstance(value, Decimal):
+                    return value
+                elif isinstance(value, str):
+                    return Decimal(value) if value else Decimal('0')
+                elif isinstance(value, (int, float)):
+                    return Decimal(str(value))
+                else:
+                    return Decimal(str(value))
+            else:
+                # Legacy fallback - preserve precision without float conversion
+                if isinstance(value, Decimal):
+                    return value
+                elif isinstance(value, str):
+                    return Decimal(value) if value else Decimal('0')
+                elif isinstance(value, (int, float)):
+                    return Decimal(str(value))
+                else:
+                    return Decimal(str(value))
+                    
+        except (ValueError, TypeError, InvalidOperation) as e:
+            logger.error(f"Failed to convert {value} to Decimal: {e}")
+            return Decimal('0')
+    
+    @staticmethod
     async def calculate_holdings(user_id: str, user_token: str, transactions: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
         """
         Calculate current holdings from user transactions.
@@ -223,14 +276,14 @@ class PortfolioCalculator:
                 
                 holdings.append({
                     'symbol': symbol,
-                    'quantity': float(holding_data['quantity']),
-                    'avg_cost': float(cost_basis / holding_data['quantity']) if holding_data['quantity'] > 0 else 0,
-                    'total_cost': float(cost_basis),
-                    'current_price': float(current_price),
-                    'current_value': float(current_value),
-                    'gain_loss': float(gain_loss),
-                    'gain_loss_percent': float(gain_loss_percent),
-                    'dividends_received': float(holding_data['dividends_received']),
+                    'quantity': PortfolioCalculator._safe_decimal_conversion(holding_data['quantity'], user_id),
+                    'avg_cost': PortfolioCalculator._safe_decimal_conversion(cost_basis / holding_data['quantity'], user_id) if holding_data['quantity'] > 0 else Decimal('0'),
+                    'total_cost': PortfolioCalculator._safe_decimal_conversion(cost_basis, user_id),
+                    'current_price': PortfolioCalculator._safe_decimal_conversion(current_price, user_id),
+                    'current_value': PortfolioCalculator._safe_decimal_conversion(current_value, user_id),
+                    'gain_loss': PortfolioCalculator._safe_decimal_conversion(gain_loss, user_id),
+                    'gain_loss_percent': PortfolioCalculator._safe_decimal_conversion(gain_loss_percent, user_id),
+                    'dividends_received': PortfolioCalculator._safe_decimal_conversion(holding_data['dividends_received'], user_id),
                     'price_date': price_data['date']
                 })
                 
@@ -247,11 +300,11 @@ class PortfolioCalculator:
             
             return {
                 "holdings": holdings,
-                "total_value": float(total_value),
-                "total_cost": float(total_cost),
-                "total_gain_loss": float(total_gain_loss),
-                "total_gain_loss_percent": float(total_gain_loss_percent),
-                "total_dividends": float(total_dividends)
+                "total_value": PortfolioCalculator._safe_decimal_conversion(total_value, user_id),
+                "total_cost": PortfolioCalculator._safe_decimal_conversion(total_cost, user_id),
+                "total_gain_loss": PortfolioCalculator._safe_decimal_conversion(total_gain_loss, user_id),
+                "total_gain_loss_percent": PortfolioCalculator._safe_decimal_conversion(total_gain_loss_percent, user_id),
+                "total_dividends": PortfolioCalculator._safe_decimal_conversion(total_dividends, user_id)
             }
             
         except Exception as e:
@@ -317,8 +370,8 @@ class PortfolioCalculator:
                     "realized_pnl": holding.get("realized_pnl", 0),
                     "allocation_percent": (holding['current_value'] / total_value * 100) if total_value > 0 else 0,
                     "color": colors[i % len(colors)],
-                    "daily_change": float(daily_change),
-                    "daily_change_percent": float(daily_change / (Decimal(str(holding['current_value'])) - daily_change) * 100) if (Decimal(str(holding['current_value'])) - daily_change) != 0 else 0,
+                    "daily_change": PortfolioCalculator._safe_decimal_conversion(daily_change, user_id),
+                    "daily_change_percent": PortfolioCalculator._safe_decimal_conversion(daily_change / (Decimal(str(holding['current_value'])) - daily_change) * 100, user_id) if (Decimal(str(holding['current_value'])) - daily_change) != 0 else Decimal('0'),
                 })
             
             summary = {
@@ -551,8 +604,9 @@ class PortfolioCalculator:
     @staticmethod
     async def calculate_daily_change(
         holdings: List[Dict[str, Any]],
-        user_token: str
-    ) -> Tuple[float, float]:
+        user_token: str,
+        user_id: Optional[str] = None
+    ) -> Tuple[Decimal, Decimal]:
         """
         Calculate portfolio's daily change based on previous day's closing prices.
 
@@ -593,7 +647,7 @@ class PortfolioCalculator:
         daily_change_value = total_current_value - total_previous_value
         daily_change_percent = (daily_change_value / total_previous_value) * 100
 
-        return float(daily_change_value), float(daily_change_percent)
+        return PortfolioCalculator._safe_decimal_conversion(daily_change_value, user_id), PortfolioCalculator._safe_decimal_conversion(daily_change_percent, user_id)
 
     # ========================================================================
     # Time Series Calculations (Migrated from portfolio_service.py)
@@ -897,12 +951,21 @@ class PortfolioCalculator:
                 else:
                     continue
                 
-                cash_flows.append(float(cash_flow))
+                try:
+                    cash_flows.append(float(cash_flow))
+                except (ValueError, TypeError) as e:
+                    logger.warning(f"Invalid cash flow conversion: {cash_flow}, error: {e}")
+                    continue
                 dates.append(txn_date)
             
             # Add current portfolio value as final cash flow
             if holdings_data['total_value'] > 0:
-                cash_flows.append(float(holdings_data['total_value']))
+                try:
+                    # Convert to Decimal first for precision, then to float for XIRR calculation
+                    total_value_decimal = Decimal(str(holdings_data['total_value']))
+                    cash_flows.append(float(total_value_decimal))
+                except (ValueError, TypeError, InvalidOperation) as e:
+                    logger.warning(f"Invalid total_value conversion: {holdings_data['total_value']}, error: {e}")
                 dates.append(date.today())
             
             # Calculate portfolio XIRR
@@ -988,12 +1051,21 @@ class PortfolioCalculator:
             else:
                 continue
             
-            cash_flows.append(float(cash_flow))
+            try:
+                cash_flows.append(float(cash_flow))
+            except (ValueError, TypeError) as e:
+                logger.warning(f"Invalid cash flow conversion: {cash_flow}, error: {e}")
+                continue
             dates.append(txn_date)
         
         # Add current value if still holding
         if current_quantity > 0:
-            cash_flows.append(float(current_price * current_quantity))
+            try:
+                # Convert to Decimal first for precision, then to float for XIRR calculation
+                current_value_decimal = Decimal(str(current_price)) * Decimal(str(current_quantity))
+                cash_flows.append(float(current_value_decimal))
+            except (ValueError, TypeError, InvalidOperation) as e:
+                logger.warning(f"Invalid current value conversion: {current_price * current_quantity}, error: {e}")
             dates.append(date.today())
         
         if len(cash_flows) > 1:
@@ -1124,7 +1196,8 @@ class PortfolioCalculator:
     @staticmethod
     def format_series_for_response(
         portfolio_series: List[Tuple[date, Decimal]], 
-        index_series: List[Tuple[date, Decimal]]
+        index_series: List[Tuple[date, Decimal]],
+        user_id: Optional[str] = None
     ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
         """
         Format time series data for API response.
@@ -1138,13 +1211,13 @@ class PortfolioCalculator:
         """
         # Format portfolio series
         formatted_portfolio = [
-            {"date": d.isoformat(), "value": float(v)}
+            {"date": d.isoformat(), "value": PortfolioCalculator._safe_decimal_conversion(v, user_id)}
             for d, v in portfolio_series
         ]
         
         # Format index series
         formatted_index = [
-            {"date": d.isoformat(), "value": float(v)}
+            {"date": d.isoformat(), "value": PortfolioCalculator._safe_decimal_conversion(v, user_id)}
             for d, v in index_series
         ]
         

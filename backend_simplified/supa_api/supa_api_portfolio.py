@@ -10,6 +10,7 @@ Functions in this module are still being used by:
 from typing import Dict, Any, List, Optional, TypedDict
 import logging
 from collections import defaultdict
+from decimal import Decimal, InvalidOperation
 
 from .supa_api_client import get_supa_client
 from .supa_api_transactions import supa_api_get_user_transactions
@@ -39,9 +40,14 @@ async def supa_api_calculate_portfolio(user_id: str, user_token: Optional[str] =
         
         for transaction in transactions:
             symbol = transaction['symbol']
-            quantity = float(transaction['quantity'])
-            price = float(transaction['price'])
-            commission = float(transaction.get('commission', 0))
+            # Convert to Decimal first for precision, then to float
+            quantity_decimal = Decimal(str(transaction['quantity']))
+            price_decimal = Decimal(str(transaction['price']))
+            commission_decimal = Decimal(str(transaction.get('commission', 0)))
+            
+            quantity = float(quantity_decimal)
+            price = float(price_decimal)
+            commission = float(commission_decimal)
             
             if transaction['transaction_type'] == 'Buy':
                 holdings_map[symbol]['quantity'] += quantity
@@ -190,24 +196,24 @@ async def supa_api_get_holdings_by_symbol(user_id: str, symbol: str, user_token:
             user_token=user_token
         )
         
-        # Calculate position
-        quantity = 0.0
-        total_cost = 0.0
+        # Calculate position using Decimal for precision
+        quantity = Decimal('0')
+        total_cost = Decimal('0')
         buy_transactions = []
         sell_transactions = []
         
         for transaction in transactions:
-            qty = float(transaction['quantity'])
-            price = float(transaction['price'])
-            commission = float(transaction.get('commission', 0))
+            qty_decimal = Decimal(str(transaction['quantity']))
+            price_decimal = Decimal(str(transaction['price']))
+            commission_decimal = Decimal(str(transaction.get('commission', 0)))
             
             if transaction['transaction_type'] == 'Buy':
-                quantity += qty
-                total_cost += (qty * price) + commission
+                quantity += qty_decimal
+                total_cost += (qty_decimal * price_decimal) + commission_decimal
                 buy_transactions.append(transaction)
             else:  # Sell
-                quantity -= qty
-                total_cost -= (qty * price) - commission
+                quantity -= qty_decimal
+                total_cost -= (qty_decimal * price_decimal) - commission_decimal
                 sell_transactions.append(transaction)
         
         if quantity <= 0:

@@ -18,7 +18,7 @@ import json
 import hashlib
 from datetime import datetime, date, timedelta, timezone, time
 from typing import Dict, Any, List, Optional, Tuple, Set
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 import time as time_module
 from zoneinfo import ZoneInfo
 from collections import defaultdict
@@ -70,7 +70,7 @@ class CircuitBreaker:
             # Fail open - allow service calls if circuit breaker check fails
             return False
     
-    def record_failure(self, service: str):
+    def record_failure(self, service: str) -> None:
         """Record service failure"""
         try:
             self.db_client.rpc('record_service_failure', {
@@ -81,7 +81,7 @@ class CircuitBreaker:
         except Exception as e:
             logger.error(f"Failed to record service failure: {e}")
     
-    def record_success(self, service: str):
+    def record_success(self, service: str) -> None:
         """Record service success"""
         try:
             self.db_client.rpc('record_service_success', {
@@ -90,7 +90,7 @@ class CircuitBreaker:
         except Exception as e:
             logger.error(f"Failed to record service success: {e}")
     
-    def reset(self, service: Optional[str] = None):
+    def reset(self, service: Optional[str] = None) -> None:
         """Reset circuit breaker for a service or all services"""
         try:
             self.db_client.rpc('reset_circuit_breaker', {
@@ -149,7 +149,7 @@ class PriceManager:
     
     # ========== Request-Level Cache Management ==========
     
-    def enable_request_cache(self):
+    def enable_request_cache(self) -> None:
         """Enable request-level caching for the current request"""
         self._request_cache_enabled = True
         # Generate a unique session ID for this request
@@ -157,7 +157,7 @@ class PriceManager:
         self._session_id = str(uuid.uuid4())
         logger.debug(f"[PriceManager] Request cache enabled with session {self._session_id}")
     
-    def disable_request_cache(self):
+    def disable_request_cache(self) -> None:
         """Disable request-level caching and clear cache"""
         self._request_cache_enabled = False
         self._session_id = None
@@ -288,7 +288,7 @@ class PriceManager:
         
         return prices
     
-    def _cleanup_old_cache_entries(self):
+    def _cleanup_old_cache_entries(self) -> None:
         """Remove cache entries older than 7 days - handled by database expiration."""
         # Database handles cleanup via expires_at column
         # This method is kept for compatibility but does nothing
@@ -428,7 +428,7 @@ class PriceManager:
             logger.error(f"[PriceManager] Error getting missed sessions for {symbol}: {e}")
             return []
     
-    async def load_market_holidays(self):
+    async def load_market_holidays(self) -> None:
         """Load market holidays from database into cache"""
         try:
             result = self.db_client.table('market_holidays') \
@@ -476,7 +476,11 @@ class PriceManager:
                 if cached_quote.data:
                     cached_data = cached_quote.data
                     cache_time = datetime.fromisoformat(cached_data.get('cached_at', now.isoformat()))
-                    cached_price = float(cached_data.get('cached_price', 0))
+                    try:
+                        cached_price = Decimal(str(cached_data.get('cached_price', '0')))
+                    except (ValueError, InvalidOperation) as e:
+                        logger.warning(f"Invalid cached_price conversion for {symbol}: {e}")
+                        cached_price = Decimal('0')
                     age_seconds = (now - cache_time).total_seconds()
                 else:
                     cached_data = None
@@ -500,7 +504,7 @@ class PriceManager:
                     # Get fresh quote
                     fresh_quote = await self._get_current_price_data(symbol)
                     
-                    if fresh_quote and fresh_quote.get('price') == cached_price:
+                    if fresh_quote and Decimal(str(fresh_quote.get('price', '0'))) == cached_price:
                         # Price hasn't changed, update cache timestamp
                         # Update cache timestamp in database
                         try:
@@ -853,13 +857,13 @@ class PriceManager:
             
             return {
                 'symbol': symbol.upper(),
-                'price': float(latest_price_data['close']),
+                'price': self._safe_decimal_to_float(latest_price_data['close']),
                 'date': latest_price_data['date'],
                 'volume': int(latest_price_data.get('volume', 0)),
-                'open': float(latest_price_data.get('open', latest_price_data['close'])),
-                'high': float(latest_price_data.get('high', latest_price_data['close'])),
-                'low': float(latest_price_data.get('low', latest_price_data['close'])),
-                'close': float(latest_price_data['close'])
+                'open': self._safe_decimal_to_float(latest_price_data.get('open', latest_price_data['close'])),
+                'high': self._safe_decimal_to_float(latest_price_data.get('high', latest_price_data['close'])),
+                'low': self._safe_decimal_to_float(latest_price_data.get('low', latest_price_data['close'])),
+                'close': self._safe_decimal_to_float(latest_price_data['close'])
             }
             
         except Exception as e:
@@ -946,13 +950,13 @@ class PriceManager:
                     latest_price_data = max(price_list, key=lambda x: x['date'])
                     prices[symbol] = {
                         'symbol': symbol,
-                        'price': float(latest_price_data['close']),
+                        'price': self._safe_decimal_to_float(latest_price_data['close']),
                         'date': latest_price_data['date'],
                         'volume': int(latest_price_data.get('volume', 0)),
-                        'open': float(latest_price_data.get('open', latest_price_data['close'])),
-                        'high': float(latest_price_data.get('high', latest_price_data['close'])),
-                        'low': float(latest_price_data.get('low', latest_price_data['close'])),
-                        'close': float(latest_price_data['close'])
+                        'open': self._safe_decimal_to_float(latest_price_data.get('open', latest_price_data['close'])),
+                        'high': self._safe_decimal_to_float(latest_price_data.get('high', latest_price_data['close'])),
+                        'low': self._safe_decimal_to_float(latest_price_data.get('low', latest_price_data['close'])),
+                        'close': self._safe_decimal_to_float(latest_price_data['close'])
                     }
             
             # Log any missing symbols
@@ -1044,7 +1048,7 @@ class PriceManager:
             
             return {
                 'symbol': symbol.upper(),
-                'price': float(closest_price['close']),
+                'price': self._safe_decimal_to_float(closest_price['close']),
                 'date': closest_price['date'],
                 'volume': int(closest_price.get('volume', 0)),
                 'requested_date': target_date.isoformat(),
@@ -1092,10 +1096,10 @@ class PriceManager:
                 formatted_prices.append({
                     'symbol': symbol.upper(),
                     'date': price_data['date'],
-                    'open': float(price_data.get('open', price_data['close'])),
-                    'high': float(price_data.get('high', price_data['close'])),
-                    'low': float(price_data.get('low', price_data['close'])),
-                    'close': float(price_data['close']),
+                    'open': self._safe_decimal_to_float(price_data.get('open', price_data['close'])),
+                    'high': self._safe_decimal_to_float(price_data.get('high', price_data['close'])),
+                    'low': self._safe_decimal_to_float(price_data.get('low', price_data['close'])),
+                    'close': self._safe_decimal_to_float(price_data['close']),
                     'volume': int(price_data.get('volume', 0))
                 })
             
@@ -1467,8 +1471,13 @@ class PriceManager:
             
             quote_data = quote_response.get('data', {})
             
-            # Validate and format the data
-            price = float(quote_data.get('price', 0))
+            # Validate and format the data with Decimal conversion
+            try:
+                price = Decimal(str(quote_data.get('price', '0')))
+            except (ValueError, InvalidOperation) as e:
+                logger.warning(f"[PriceManager] Invalid price conversion for {symbol}: {e}")
+                price = Decimal('0')
+                
             if not self._is_valid_price(price):
                 logger.warning(f"[PriceManager] Invalid price for {symbol}: {price}")
                 return None
@@ -1477,15 +1486,15 @@ class PriceManager:
             
             return {
                 'symbol': symbol,
-                'price': price,
-                'change': float(quote_data.get('change', 0)),
+                'price': self._safe_decimal_to_float(price),
+                'change': self._safe_decimal_to_float(quote_data.get('change', '0')),
                 'change_percent': quote_data.get('change_percent', '0%'),
                 'volume': int(quote_data.get('volume', 0)),
                 'latest_trading_day': quote_data.get('latest_trading_day'),
-                'previous_close': float(quote_data.get('previous_close', price)),
-                'open': float(quote_data.get('open', price)),
-                'high': float(quote_data.get('high', price)),
-                'low': float(quote_data.get('low', price))
+                'previous_close': self._safe_decimal_to_float(quote_data.get('previous_close', price)),
+                'open': self._safe_decimal_to_float(quote_data.get('open', price)),
+                'high': self._safe_decimal_to_float(quote_data.get('high', price)),
+                'low': self._safe_decimal_to_float(quote_data.get('low', price))
             }
             
         except Exception as e:
@@ -1519,16 +1528,21 @@ class PriceManager:
             # Filter out invalid prices and sort by date
             valid_prices = []
             for price_data in sorted(historical_prices, key=lambda x: x['date']):
-                close_price = float(price_data.get('close', 0))
+                try:
+                    close_price = Decimal(str(price_data.get('close', '0')))
+                except (ValueError, InvalidOperation) as e:
+                    logger.warning(f"Invalid close price for {symbol} on {price_data.get('date')}: {e}")
+                    continue
+                    
                 if self._is_valid_price(close_price):
                     valid_prices.append({
                         'date': price_data['date'],
-                        'open': float(price_data.get('open', close_price)),
-                        'high': float(price_data.get('high', close_price)),
-                        'low': float(price_data.get('low', close_price)),
-                        'close': close_price,
+                        'open': self._safe_decimal_to_float(price_data.get('open', close_price)),
+                        'high': self._safe_decimal_to_float(price_data.get('high', close_price)),
+                        'low': self._safe_decimal_to_float(price_data.get('low', close_price)),
+                        'close': self._safe_decimal_to_float(close_price),
                         'volume': int(price_data.get('volume', 0)),
-                        'adjusted_close': float(price_data.get('adjusted_close', close_price))
+                        'adjusted_close': self._safe_decimal_to_float(price_data.get('adjusted_close', close_price))
                     })
             
             return valid_prices
@@ -1540,10 +1554,50 @@ class PriceManager:
     def _is_valid_price(self, price: Any) -> bool:
         """Check if a price value is valid"""
         try:
-            price_float = float(price)
-            return price_float > 0 and not math.isnan(price_float) and not math.isinf(price_float)
-        except (ValueError, TypeError):
+            if isinstance(price, Decimal):
+                return price > 0 and price.is_finite()
+            price_decimal = Decimal(str(price))
+            return price_decimal > 0 and price_decimal.is_finite()
+        except (ValueError, TypeError, InvalidOperation):
             return False
+    
+    def _safe_decimal_conversion(self, value: Any) -> Decimal:
+        """
+        Safely convert any value to Decimal with precision preservation.
+        Use this for internal calculations and database storage.
+        """
+        try:
+            if isinstance(value, Decimal):
+                return value
+            elif isinstance(value, str):
+                # Clean up percentage strings and other formats
+                cleaned_value = value.replace('%', '').replace(',', '').strip()
+                return Decimal(cleaned_value) if cleaned_value else Decimal('0')
+            elif isinstance(value, (int, float)):
+                return Decimal(str(value))
+            else:
+                return Decimal(str(value))
+        except (ValueError, TypeError, InvalidOperation) as e:
+            logger.warning(f"Failed to convert {value} to Decimal: {e}")
+            return Decimal('0')
+
+    def _safe_decimal_to_float(self, value: Any) -> float:
+        """
+        Safely convert Decimal or other numeric values to float for API responses only.
+        
+        NOTE: This function should ONLY be used for final API response serialization.
+        All financial calculations should remain in Decimal format until this final step.
+        """
+        try:
+            if isinstance(value, Decimal):
+                return float(value)
+            elif isinstance(value, (int, float)):
+                return float(value)
+            else:
+                return float(Decimal(str(value)))
+        except (ValueError, TypeError, InvalidOperation) as e:
+            logger.warning(f"Failed to convert {value} to float: {e}")
+            return 0.0
     
     async def _ensure_data_current(self, symbol: str, user_token: Optional[str]) -> bool:
         """Ensure price data is current, filling gaps if needed"""
@@ -1628,10 +1682,14 @@ class PriceManager:
                     if start_date <= price_date <= end_date:
                         records_in_range += 1
                         
-                        # Extract price data from Alpha Vantage format
+                        # Extract price data from Alpha Vantage format with Decimal conversion
                         if isinstance(day_data, dict):
                             # Alpha Vantage returns keys like '5. adjusted close' and '4. close'
-                            close_price = float(day_data.get('5. adjusted close', day_data.get('4. close', 0)))
+                            try:
+                                close_price = Decimal(str(day_data.get('5. adjusted close', day_data.get('4. close', '0'))))
+                            except (ValueError, InvalidOperation) as e:
+                                logger.warning(f"Invalid close price conversion for {symbol} on {date_str}: {e}")
+                                continue
                         else:
                             # If day_data is not a dict, it might be the price value directly
                             logger.error(f"Unexpected data type for {date_str}: {type(day_data)}")
@@ -1640,18 +1698,22 @@ class PriceManager:
                         if not self._is_valid_price(close_price):
                             logger.warning(f"Invalid price for {symbol} on {date_str}: {close_price}")
                         else:
-                            price_records.append({
-                                'symbol': symbol,
-                                'date': date_str,
-                                'open': float(day_data.get('1. open', close_price)),
-                                'high': float(day_data.get('2. high', close_price)),
-                                'low': float(day_data.get('3. low', close_price)),
-                                'close': float(day_data.get('4. close', close_price)),
-                                'adjusted_close': close_price,
-                                'volume': int(day_data.get('6. volume', 0)),
-                                'dividend_amount': float(day_data.get('7. dividend amount', 0)),
-                                'split_coefficient': float(day_data.get('8. split coefficient', 1))
-                            })
+                            try:
+                                price_records.append({
+                                    'symbol': symbol,
+                                    'date': date_str,
+                                    'open': self._safe_decimal_conversion(day_data.get('1. open', close_price)),
+                                    'high': self._safe_decimal_conversion(day_data.get('2. high', close_price)),
+                                    'low': self._safe_decimal_conversion(day_data.get('3. low', close_price)),
+                                    'close': self._safe_decimal_conversion(day_data.get('4. close', close_price)),
+                                    'adjusted_close': self._safe_decimal_conversion(close_price),
+                                    'volume': int(day_data.get('6. volume', 0)),
+                                    'dividend_amount': self._safe_decimal_conversion(day_data.get('7. dividend amount', '0')),
+                                    'split_coefficient': self._safe_decimal_conversion(day_data.get('8. split coefficient', '1'))
+                                })
+                            except (ValueError, InvalidOperation) as e:
+                                logger.warning(f"Invalid price data conversion for {symbol} on {date_str}: {e}")
+                                continue
                 except (ValueError, KeyError) as e:
                     logger.warning(f"[PriceManager] Skipping invalid data for {symbol} on {date_str}: {e}")
                     continue
@@ -1727,7 +1789,7 @@ class PriceManager:
         
         return current
     
-    async def clear_cache(self):
+    async def clear_cache(self) -> None:
         """Clear all caches"""
         try:
             self.db_client.rpc('cleanup_expired_price_caches').execute()
@@ -2072,7 +2134,7 @@ class PriceManager:
         
         return filtered
     
-    def reset_circuit_breaker(self, service: Optional[str] = None):
+    def reset_circuit_breaker(self, service: Optional[str] = None) -> None:
         """Reset circuit breaker for Alpha Vantage or all services
         
         Args:

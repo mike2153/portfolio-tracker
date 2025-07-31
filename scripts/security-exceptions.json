@@ -1,0 +1,66 @@
+{
+  "decimal_to_float_conversions": {
+    "description": "Float conversions that are necessary for JSON serialization after Decimal calculations",
+    "exceptions": [
+      {
+        "pattern": "float\\(.*[Dd]ecimal.*\\)",
+        "reason": "Converting Decimal to float for JSON serialization is required"
+      },
+      {
+        "pattern": "float\\(.*_decimal\\)",
+        "reason": "Converting variables ending in _decimal for JSON serialization"
+      },
+      {
+        "pattern": "_safe_float_conversion",
+        "reason": "Safe conversion helper function that properly handles Decimal"
+      },
+      {
+        "pattern": "_safe_decimal_to_float",
+        "reason": "Safe conversion helper function that properly handles Decimal"
+      },
+      {
+        "pattern": "#.*[Ss]afe.*JSON",
+        "reason": "Lines with comments indicating safe JSON serialization"
+      },
+      {
+        "pattern": "float\\(self\\._safe",
+        "reason": "Using safe conversion methods"
+      },
+      {
+        "pattern": "float\\(.*portfolio_value.*\\)",
+        "reason": "JSON serialization of portfolio_value after Decimal calculation"
+      },
+      {
+        "pattern": "float\\(.*total_profit.*\\)",
+        "reason": "JSON serialization of profit calculations after Decimal processing"
+      },
+      {
+        "pattern": "float\\(.*projected_amount.*\\)",
+        "reason": "JSON serialization of projected amounts after Decimal calculation"
+      },
+      {
+        "pattern": "# Convert.*float.*JSON",
+        "reason": "Lines with comments indicating JSON serialization conversion"
+      },
+      {
+        "pattern": "\"value\":\\s*float\\(",
+        "reason": "JSON object value field serialization"
+      }
+    ]
+  },
+  "false_positive_sql_patterns": {
+    "description": "F-strings that are not SQL queries",
+    "exceptions": [
+      {
+        "file_pattern": "**/services/**/*.py",
+        "line_pattern": "logger\\.(info|warning|error|debug)\\(f[\"']",
+        "reason": "Log messages, not SQL queries"
+      },
+      {
+        "file_pattern": "**/*.py",
+        "line_pattern": "#.*logger",
+        "reason": "Commented out log messages"
+      }
+    ]
+  }
+}

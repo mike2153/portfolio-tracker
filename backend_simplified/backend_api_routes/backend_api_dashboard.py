@@ -20,7 +20,8 @@ from services.portfolio_calculator import portfolio_calculator
 from services.portfolio_metrics_manager import portfolio_metrics_manager
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from utils.response_factory import ResponseFactory
-from models.response_models import APIResponse 
+from models.response_models import APIResponse
+from utils.task_utils import create_safe_background_task 
 
 logger = logging.getLogger(__name__)
 
@@ -111,8 +112,11 @@ async def backend_api_get_dashboard(
         # This runs in the background and doesn't block the dashboard response
         # Always check for price updates to ensure we have the latest data
         logger.info(f"[Dashboard] Triggering background price update for user {uid}")
-        asyncio.create_task(
-            price_manager.update_user_portfolio_prices(uid, jwt)
+        create_safe_background_task(
+            price_manager.update_user_portfolio_prices,
+            uid, jwt,
+            task_name="dashboard_price_update",
+            user_id=uid
         )
         
         # --- Build response for backward compatibility ---------------------
@@ -122,30 +126,66 @@ async def backend_api_get_dashboard(
             holdings_dicts, jwt
         )
         
-        # Transform holdings to match existing format
+        # Transform holdings to match existing format with Decimal safety
         holdings_with_allocation = []
         for holding in metrics.holdings[:5]:  # Top 5 holdings
-            holding_dict = {
-                "symbol": holding.symbol,
-                "quantity": float(holding.quantity),
-                "avg_cost": float(holding.avg_cost),
-                "total_cost": float(holding.total_cost),
-                "current_price": float(holding.current_price),
-                "current_value": float(holding.current_value),
-                "allocation": holding.allocation_percent,
-                "total_gain_loss": float(holding.gain_loss),
-                "total_gain_loss_percent": holding.gain_loss_percent,
-                "gain_loss": float(holding.gain_loss),  # Keep both for compatibility
-                "gain_loss_percent": holding.gain_loss_percent,
-            }
-            holdings_with_allocation.append(holding_dict)
+            try:
+                # Convert financial data to Decimal first, then to float for JSON
+                quantity_decimal = holding.quantity if isinstance(holding.quantity, Decimal) else Decimal(str(holding.quantity))
+                avg_cost_decimal = holding.avg_cost if isinstance(holding.avg_cost, Decimal) else Decimal(str(holding.avg_cost))
+                total_cost_decimal = holding.total_cost if isinstance(holding.total_cost, Decimal) else Decimal(str(holding.total_cost))
+                current_price_decimal = holding.current_price if isinstance(holding.current_price, Decimal) else Decimal(str(holding.current_price))
+                current_value_decimal = holding.current_value if isinstance(holding.current_value, Decimal) else Decimal(str(holding.current_value))
+                gain_loss_decimal = holding.gain_loss if isinstance(holding.gain_loss, Decimal) else Decimal(str(holding.gain_loss))
+                
+                holding_dict = {
+                    "symbol": holding.symbol,
+                    "quantity": float(quantity_decimal),
+                    "avg_cost": float(avg_cost_decimal),
+                    "total_cost": float(total_cost_decimal),
+                    "current_price": float(current_price_decimal),
+                    "current_value": float(current_value_decimal),
+                    "allocation": holding.allocation_percent,
+                    "total_gain_loss": float(gain_loss_decimal),
+                    "total_gain_loss_percent": holding.gain_loss_percent,
+                    "gain_loss": float(gain_loss_decimal),  # Keep both for compatibility
+                    "gain_loss_percent": holding.gain_loss_percent,
+                }
+                holdings_with_allocation.append(holding_dict)
+            except (InvalidOperation, TypeError, ValueError) as e:
+                logger.error(f"Error converting dashboard holding {holding.symbol} financial data to Decimal: {e}")
+                # Fallback with zero values
+                holding_dict = {
+                    "symbol": holding.symbol,
+                    "quantity": 0.0,
+                    "avg_cost": 0.0,
+                    "total_cost": 0.0,
+                    "current_price": 0.0,
+                    "current_value": 0.0,
+                    "allocation": 0.0,
+                    "total_gain_loss": 0.0,
+                    "total_gain_loss_percent": 0.0,
+                    "gain_loss": 0.0,
+                    "gain_loss_percent": 0.0,
+                }
+                holdings_with_allocation.append(holding_dict)
         
-        # Prepare data for response
+        # Prepare data for response with Decimal safety
+        try:
+            total_value_decimal = metrics.performance.total_value if isinstance(metrics.performance.total_value, Decimal) else Decimal(str(metrics.performance.total_value))
+            total_cost_decimal = metrics.performance.total_cost if isinstance(metrics.performance.total_cost, Decimal) else Decimal(str(metrics.performance.total_cost))
+            total_gain_loss_decimal = metrics.performance.total_gain_loss if isinstance(metrics.performance.total_gain_loss, Decimal) else Decimal(str(metrics.performance.total_gain_loss))
+        except (InvalidOperation, TypeError, ValueError) as e:
+            logger.error(f"Error converting dashboard portfolio summary financial data to Decimal: {e}")
+            total_value_decimal = Decimal('0')
+            total_cost_decimal = Decimal('0')
+            total_gain_loss_decimal = Decimal('0')
+        
         dashboard_data = {
             "portfolio": {
-                "total_value": float(metrics.performance.total_value),
-                "total_cost": float(metrics.performance.total_cost),
-                "total_gain_loss": float(metrics.performance.total_gain_loss),
+                "total_value": float(total_value_decimal),
+                "total_cost": float(total_cost_decimal),
+                "total_gain_loss": float(total_gain_loss_decimal),
                 "total_gain_loss_percent": metrics.performance.total_gain_loss_percent,
                 "daily_change": daily_change,
                 "daily_change_percent": daily_change_pct,
@@ -256,8 +296,11 @@ async def backend_api_get_performance(
     
     # --- Trigger background price update for user's portfolio -------------
     logger.info(f"[Performance] Triggering background price update for user {uid}")
-    asyncio.create_task(
-        price_manager.update_user_portfolio_prices(uid, jwt)
+    create_safe_background_task(
+        price_manager.update_user_portfolio_prices,
+        uid, jwt,
+        task_name="performance_price_update",
+        user_id=uid
     )
         
     # --- Portfolio calculation in background -----------------------------
@@ -360,7 +403,7 @@ async def backend_api_get_performance(
                 },
                 "performance_metrics": {
                     "portfolio_return_pct": 0,
-                    "index_return_pct": ((float(index_only_series[-1][1]) - float(index_only_series[0][1])) / float(index_only_series[0][1])) * 100 if len(index_only_series) >= 2 and index_only_series[0][1] != 0 else 0,
+                    "index_return_pct": float((Decimal(str(index_only_series[-1][1])) - Decimal(str(index_only_series[0][1]))) / Decimal(str(index_only_series[0][1])) * 100) if len(index_only_series) >= 2 and index_only_series[0][1] != 0 else 0,
                     "outperformance_pct": 0,
                     "index_only_mode": True
                 },
@@ -438,7 +481,9 @@ async def backend_api_get_performance(
     ]
 
     if portfolio_series_dec and index_series_dec:
-        value_difference = abs(float(portfolio_series_dec[0][1]) - float(index_series_dec[0][1]))
+        # Keep calculation in Decimal for precision
+        value_difference_decimal = abs(portfolio_series_dec[0][1] - index_series_dec[0][1])
+        value_difference = float(value_difference_decimal)
         
         if value_difference > 1.0:  # More than $1 difference suggests an issue
             logger.warning(f"⚠️ Large start value difference detected: ${value_difference:.2f}")
@@ -464,6 +509,7 @@ async def backend_api_get_performance(
     index_chart_data = []
     for d, v in final_index_series_dec:
         if d in portfolio_dates:
+            # Convert Decimal to float only for JSON serialization
             chart_point = {"date": d.isoformat(), "value": float(v)}
             index_chart_data.append(chart_point)
     
@@ -503,7 +549,7 @@ async def backend_api_get_performance(
         return {"success": True, **performance_data}
 
 @dashboard_router.post("/debug/toggle-info-logging")
-async def toggle_info_logging(current_user: dict = Depends(require_authenticated_user)):
+async def toggle_info_logging(current_user: dict = Depends(require_authenticated_user)) -> Dict[str, Any]:
     """
     Toggle info logging on/off at runtime
     Requires authentication for security
@@ -523,7 +569,7 @@ async def toggle_info_logging(current_user: dict = Depends(require_authenticated
         }
 
 @dashboard_router.get("/debug/logging-status")
-async def get_logging_status(current_user: dict = Depends(require_authenticated_user)):
+async def get_logging_status(current_user: dict = Depends(require_authenticated_user)) -> Dict[str, Any]:
     """
     Get current logging configuration status
     """
@@ -535,7 +581,7 @@ async def get_logging_status(current_user: dict = Depends(require_authenticated_
 async def reset_circuit_breaker(
     service: Optional[str] = Query(None, description="Service name (alpha_vantage, dividend_api) or None for all"),
     current_user: dict = Depends(require_authenticated_user)
-):
+) -> Dict[str, Any]:
     """
     Reset circuit breaker for price services
     Useful when the circuit breaker is blocking API calls after failures
@@ -604,16 +650,30 @@ async def backend_api_get_gainers(
         ]
         gainers.sort(key=lambda x: x.gain_loss_percent, reverse=True)
         
-        # Format top 5 gainers
+        # Format top 5 gainers with Decimal safety
         top_gainers = []
         for holding in gainers[:5]:
-            top_gainers.append({
-                "ticker": holding.symbol,
-                "name": holding.symbol, 
-                "value": float(holding.current_value),
-                "changePercent": holding.gain_loss_percent,
-                "changeValue": float(holding.gain_loss)
-            })
+            try:
+                current_value_decimal = holding.current_value if isinstance(holding.current_value, Decimal) else Decimal(str(holding.current_value))
+                gain_loss_decimal = holding.gain_loss if isinstance(holding.gain_loss, Decimal) else Decimal(str(holding.gain_loss))
+                
+                top_gainers.append({
+                    "ticker": holding.symbol,
+                    "name": holding.symbol, 
+                    "value": float(current_value_decimal),
+                    "changePercent": holding.gain_loss_percent,
+                    "changeValue": float(gain_loss_decimal)
+                })
+            except (InvalidOperation, TypeError, ValueError) as e:
+                logger.error(f"Error converting gainer {holding.symbol} financial data to Decimal: {e}")
+                # Add with fallback zero values
+                top_gainers.append({
+                    "ticker": holding.symbol,
+                    "name": holding.symbol,
+                    "value": 0.0,
+                    "changePercent": 0.0,
+                    "changeValue": 0.0
+                })
         
         # Prepare response data
         gainers_data = {"items": top_gainers}
@@ -703,16 +763,30 @@ async def backend_api_get_losers(
         ]
         losers.sort(key=lambda x: x.gain_loss_percent)
         
-        # Format top 5 losers
+        # Format top 5 losers with Decimal safety
         top_losers = []
         for holding in losers[:5]:
-            top_losers.append({
-                "ticker": holding.symbol,
-                "name": holding.symbol, 
-                "value": float(holding.current_value),
-                "changePercent": abs(holding.gain_loss_percent), 
-                "changeValue": abs(float(holding.gain_loss)) 
-            })
+            try:
+                current_value_decimal = holding.current_value if isinstance(holding.current_value, Decimal) else Decimal(str(holding.current_value))
+                gain_loss_decimal = holding.gain_loss if isinstance(holding.gain_loss, Decimal) else Decimal(str(holding.gain_loss))
+                
+                top_losers.append({
+                    "ticker": holding.symbol,
+                    "name": holding.symbol, 
+                    "value": float(current_value_decimal),
+                    "changePercent": abs(holding.gain_loss_percent), 
+                    "changeValue": abs(float(gain_loss_decimal))
+                })
+            except (InvalidOperation, TypeError, ValueError) as e:
+                logger.error(f"Error converting loser {holding.symbol} financial data to Decimal: {e}")
+                # Add with fallback zero values
+                top_losers.append({
+                    "ticker": holding.symbol,
+                    "name": holding.symbol,
+                    "value": 0.0,
+                    "changePercent": 0.0,
+                    "changeValue": 0.0
+                })
         
         # Prepare response data
         losers_data = {"items": top_losers}

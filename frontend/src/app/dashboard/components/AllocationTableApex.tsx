@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import ApexListView from '@/components/charts/ApexListView';
 import type { ListViewColumn, ListViewAction } from '@/components/charts/ApexListView';
 import { cn } from '@/lib/utils';
@@ -38,7 +38,7 @@ const AllocationTableApex = () => {
     }
   };
 
-  const handleWatchlistToggle = async (item: AllocationRowExtended) => {
+  const handleWatchlistToggle = useCallback(async (item: AllocationRowExtended) => {
     try {
       if (watchlistItems.has(item.symbol)) {
         await front_api_remove_from_watchlist(item.symbol);
@@ -69,7 +69,7 @@ const AllocationTableApex = () => {
         message: "Failed to update watchlist"
       });
     }
-  };
+  }, [watchlistItems, addToast]);
 
   // Transform data for ApexListView
   const { listViewData, columns, actions } = useMemo(() => {
@@ -94,7 +94,7 @@ const AllocationTableApex = () => {
         render: (value, item) => (
           <div className="flex items-center">
             <span className={cn("mr-3 h-4 w-1 rounded-full", item.accentColorClass)}></span>
-            <span className="font-medium text-white">{value}</span>
+            <span className="font-medium text-white">{String(value)}</span>
           </div>
         ),
         width: '150px'

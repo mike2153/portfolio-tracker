@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import ApexChart from '@/components/charts/ApexChart'
-import { ChartSkeleton } from './Skeletons'
+import { ApexChart } from '@/components/charts'
+// Removed unused import: ChartSkeleton
 import { useDashboard } from '../contexts/DashboardContext'
 import { usePerformance, type RangeKey, type BenchmarkTicker } from '@/hooks/usePerformance'
 
@@ -44,7 +44,7 @@ export default function PortfolioChartApex({
     benchmarkData,
     metrics,
     refetch,
-    isSuccess,
+    isSuccess: _isSuccess,
     isIndexOnly,
     userGuidance
   } = usePerformance(selectedRange, selectedBenchmark, {
@@ -189,10 +189,10 @@ export default function PortfolioChartApex({
     }
     
     return result;
-  }, [alignedPortfolio, alignedBenchmark, displayMode, portfolioPercentReturns, benchmarkPercentReturns, selectedBenchmark, getValue]);
+  }, [alignedPortfolio, alignedBenchmark, displayMode, portfolioPercentReturns, benchmarkPercentReturns, selectedBenchmark, selectedRange, getValue]);
 
   // Format currency values
-  const formatCurrency = (value: number) => {
+  const _formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',

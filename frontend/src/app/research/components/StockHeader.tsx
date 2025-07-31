@@ -38,7 +38,7 @@ const StockHeader: React.FC<StockHeaderProps> = ({ ticker, data, isLoading }) =>
     }
   };
 
-  const formatPercentage = (value: string | number) => {
+  const _formatPercentage = (value: string | number) => {
     const num = typeof value === 'string' ? parseFloat(value) : value;
     if (isNaN(num)) return 'N/A';
     return `${(num * 100).toFixed(2)}%`;
@@ -77,9 +77,9 @@ const StockHeader: React.FC<StockHeaderProps> = ({ ticker, data, isLoading }) =>
   }
 
   const { overview, quote } = data;
-  const currentPrice = quote?.price ? parseFloat(quote.price) : 0;
-  const priceChange = quote?.change ? parseFloat(quote.change) : 0;
-  const priceChangePercent = quote?.change_percent ? quote.change_percent.replace('%', '') : '0';
+  const currentPrice = quote?.price ? parseFloat(String(quote.price)) : 0;
+  const priceChange = quote?.change ? parseFloat(String(quote.change)) : 0;
+  const priceChangePercent = quote?.change_percent ? String(quote.change_percent).replace('%', '') : '0';
 
   return (
     <div className="bg-gray-800 rounded-xl p-6 mb-6 flex flex-col md:flex-row md:items-end md:justify-between">

@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import {
   DashboardContextType,
-  DashboardContextState,
+  // DashboardContextState - removed unused import
   PerformanceData,
   PerformanceDataPoint,
   getPerformanceValue
@@ -31,7 +31,7 @@ interface DashboardProviderProps {
 }
 
 export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }) => {
-  const { user } = useAuth();
+  const { user: _user } = useAuth();
   const searchParams = useSearchParams();
   const initialPeriod = searchParams.get('period') || '1Y';
   
@@ -75,29 +75,41 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
   // Calculate dollar and percent gains from performance data
   const portfolioDollarGain = React.useMemo(() => {
     if (!performanceData?.portfolioPerformance?.length) return 0;
-    const first = getValue(performanceData.portfolioPerformance[0]);
-    const last = getValue(performanceData.portfolioPerformance[performanceData.portfolioPerformance.length - 1]);
+    const firstPoint = performanceData.portfolioPerformance[0];
+    const lastPoint = performanceData.portfolioPerformance[performanceData.portfolioPerformance.length - 1];
+    if (!firstPoint || !lastPoint) return 0;
+    const first = getValue(firstPoint);
+    const last = getValue(lastPoint);
     return last - first;
   }, [performanceData]);
 
   const portfolioPercentGain = React.useMemo(() => {
     if (!performanceData?.portfolioPerformance?.length) return 0;
-    const first = getValue(performanceData.portfolioPerformance[0]);
-    const last = getValue(performanceData.portfolioPerformance[performanceData.portfolioPerformance.length - 1]);
+    const firstPoint = performanceData.portfolioPerformance[0];
+    const lastPoint = performanceData.portfolioPerformance[performanceData.portfolioPerformance.length - 1];
+    if (!firstPoint || !lastPoint) return 0;
+    const first = getValue(firstPoint);
+    const last = getValue(lastPoint);
     return first > 0 ? ((last - first) / first) * 100 : 0;
   }, [performanceData]);
 
   const benchmarkDollarGain = React.useMemo(() => {
     if (!performanceData?.benchmarkPerformance?.length) return 0;
-    const first = getValue(performanceData.benchmarkPerformance[0]);
-    const last = getValue(performanceData.benchmarkPerformance[performanceData.benchmarkPerformance.length - 1]);
+    const firstPoint = performanceData.benchmarkPerformance[0];
+    const lastPoint = performanceData.benchmarkPerformance[performanceData.benchmarkPerformance.length - 1];
+    if (!firstPoint || !lastPoint) return 0;
+    const first = getValue(firstPoint);
+    const last = getValue(lastPoint);
     return last - first;
   }, [performanceData]);
 
   const benchmarkPercentGain = React.useMemo(() => {
     if (!performanceData?.benchmarkPerformance?.length) return 0;
-    const first = getValue(performanceData.benchmarkPerformance[0]);
-    const last = getValue(performanceData.benchmarkPerformance[performanceData.benchmarkPerformance.length - 1]);
+    const firstPoint = performanceData.benchmarkPerformance[0];
+    const lastPoint = performanceData.benchmarkPerformance[performanceData.benchmarkPerformance.length - 1];
+    if (!firstPoint || !lastPoint) return 0;
+    const first = getValue(firstPoint);
+    const last = getValue(lastPoint);
     return first > 0 ? ((last - first) / first) * 100 : 0;
   }, [performanceData]);
 

@@ -40,7 +40,7 @@ const StockChart: React.FC<StockChartProps> = ({
   data,
   height = 400,
   width = 800,
-  showVolume = false,
+  showVolume: _showVolume = false,
   chartType = 'line',
   timePeriod = '1Y',
   showLegend = true,
@@ -48,14 +48,14 @@ const StockChart: React.FC<StockChartProps> = ({
   title,
   compareMode = false,
 }) => {
-  const chartColors = [
+  const chartColors = useMemo(() => [
     '#3b82f6', // blue
     '#10b981', // green
     '#f59e0b', // amber
     '#ef4444', // red
     '#8b5cf6', // purple
     '#06b6d4', // cyan
-  ];
+  ], []);
 
   const isDark = theme === 'dark';
   const textColor = isDark ? '#d1d5db' : '#374151';
@@ -90,7 +90,7 @@ const StockChart: React.FC<StockChartProps> = ({
         ...(point.low && { low: point.low }),
         ...(point.close && { close: point.close }),
       })),
-      color: series.color || chartColors[index],
+      color: series.color || chartColors[index] || '#3b82f6',
     }));
 
     return {
@@ -111,7 +111,7 @@ const StockChart: React.FC<StockChartProps> = ({
       },
       series,
       xaxis: {
-        type: 'datetime',
+        type: 'datetime' as const,
         labels: {
           style: {
             colors: textColor,
@@ -175,12 +175,16 @@ const StockChart: React.FC<StockChartProps> = ({
       },
       fill: {
         type: chartType === 'area' ? 'gradient' : 'solid',
-        gradient: chartType === 'area' ? {
-          shadeIntensity: 1,
-          opacityFrom: 0.7,
-          opacityTo: 0.1,
-          stops: [0, 100],
-        } : undefined,
+        ...(chartType === 'area' ? {
+          gradient: {
+            shade: 'light',
+            type: 'vertical',
+            shadeIntensity: 1,
+            opacityFrom: 0.7,
+            opacityTo: 0.1,
+            stops: [0, 100],
+          }
+        } : {}),
       },
     };
   }, [processedData, chartType, height, width, backgroundColor, textColor, gridColor, showLegend, data.length, isDark, compareMode, chartColors]);

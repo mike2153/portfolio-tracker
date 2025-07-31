@@ -4,7 +4,7 @@ import { useAuth } from './AuthProvider'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useState, useRef, useEffect } from 'react'
-import { Home, BarChart2, Briefcase, Wrench, Users, Plus, Search, PlusCircle, Star, Menu, X, Settings, ChevronDown, DollarSign } from 'lucide-react'
+import { Home, BarChart2, Briefcase, Wrench as _Wrench, Users as _Users, Plus, Search, PlusCircle, Star, Menu, X, Settings, ChevronDown, DollarSign } from 'lucide-react'
 import Image from 'next/image'
 
 interface ConditionalLayoutProps {

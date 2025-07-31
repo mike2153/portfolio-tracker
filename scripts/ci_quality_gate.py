@@ -16,7 +16,7 @@ import json
 import sys
 import argparse
 from pathlib import Path
-from quality_monitor import BulletproofQualityMonitor
+from quality_monitor_safe import QualityMonitor
 
 
 class CIQualityGate:
@@ -25,19 +25,20 @@ class CIQualityGate:
     def __init__(self, project_root: str = None, strict_mode: bool = False):
         self.project_root = Path(project_root) if project_root else Path.cwd()
         self.strict_mode = strict_mode
-        self.monitor = BulletproofQualityMonitor()
+        self.monitor = QualityMonitor(str(self.project_root))
         
         print(f"CI/CD Quality Gate initialized")
         print(f"Project root: {self.project_root}")
         print(f"Strict mode: {'ENABLED' if strict_mode else 'DISABLED'}")
+        print(f"Excluded from analysis: node_modules, .next, dist, build, coverage")
 
     def run_quality_gate(self) -> bool:
         """Run quality gate check and return pass/fail status"""
         print("\nRunning CI/CD Quality Gate Check")
         print("=" * 60)
         
-        # Run comprehensive quality scan
-        metrics = self.monitor.run_comprehensive_scan()
+        # Run comprehensive quality scan (excluding node_modules and build artifacts)
+        metrics = self.monitor.run_quality_scan()
         
         # Save metrics for CI artifacts
         self.monitor.save_metrics(metrics)

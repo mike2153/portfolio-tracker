@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
+import Image from 'next/image';
 import { StockResearchData, NewsArticle } from '@/types/stock-research';
 import { front_api_client } from '@/lib/front_api_client';
 import { RefreshCw, ExternalLink, TrendingUp, TrendingDown, Minus } from 'lucide-react';
@@ -64,7 +65,7 @@ const NewsCard: React.FC<{ article: NewsArticle }> = ({ article }) => {
   const [imageError, setImageError] = useState(false);
   const sentiment = SENTIMENT_CONFIG[article.overall_sentiment_label as keyof typeof SENTIMENT_CONFIG] || SENTIMENT_CONFIG.Neutral;
   const SentimentIcon = sentiment.icon;
-  const sentimentScore = Math.round(article.overall_sentiment_score * 100);
+  const _sentimentScore = Math.round(article.overall_sentiment_score * 100);
   
   return (
     <a
@@ -76,11 +77,11 @@ const NewsCard: React.FC<{ article: NewsArticle }> = ({ article }) => {
       {/* Image Container */}
       <div className="relative h-48 overflow-hidden bg-gray-900">
         {article.banner_image && !imageError ? (
-          <img
+          <Image
             src={article.banner_image}
             alt={article.title}
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-            loading="lazy"
+            fill
+            className="object-cover transition-transform duration-500 group-hover:scale-110"
             onError={() => setImageError(true)}
           />
         ) : (
@@ -153,7 +154,7 @@ const NewsTab: React.FC<NewsTabProps> = ({ ticker, data, isLoading, onRefresh })
     }
   }, [ticker]);
   
-  const fetchNews = async () => {
+  const fetchNews = useCallback(async () => {
     console.log('[NewsTab] fetchNews called for ticker:', ticker);
     setFetchingNews(true);
     setError(null);
@@ -177,7 +178,7 @@ const NewsTab: React.FC<NewsTabProps> = ({ ticker, data, isLoading, onRefresh })
     } finally {
       setFetchingNews(false);
     }
-  };
+  }, [ticker]);
   
   const loading = isLoading || fetchingNews;
   

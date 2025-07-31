@@ -6,7 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { front_api_client } from "@/lib/front_api_client";
 import { Trash2, Edit, X, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
-import { StockSymbol, AddHoldingFormData, FormErrors } from "@/types/api";
+import { StockSymbol as _StockSymbol, AddHoldingFormData } from "@/types/api";
 import { supabase } from "@/lib/supabaseClient";
 import { User } from "@/types";
 import { StockSearchInput } from "@/components/StockSearchInput";
@@ -86,7 +86,7 @@ const formatDate = (iso: string) => {
 };
 
 // Debounce utility function - As this is a small helper, it's fine to keep it here.
-function debounce<T extends unknown[]>(func: (...args: T) => void, delay: number) {
+function _debounce<T extends unknown[]>(func: (...args: T) => void, delay: number) {
   let timeoutId: NodeJS.Timeout;
   return (...args: T) => {
     clearTimeout(timeoutId);
@@ -105,12 +105,12 @@ const TransactionsPage = () => {
   const searchParams = useSearchParams();
   const [rawTransactions, setRawTransactions] = useState<BackendTx[]>([]);
   const [summary, setSummary] = useState<TransactionSummary | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [_loading, setLoading] = useState(true);
+  const [_error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [typeFilter, setTypeFilter] = useState<"ALL" | "BUY" | "SELL" | "DIVIDEND">("ALL");
+  const [_typeFilter, _setTypeFilter] = useState<"ALL" | "BUY" | "SELL" | "DIVIDEND">("ALL");
   const [showAddForm, setShowAddForm] = useState(false);
-  const [formErrors, setFormErrors] = useState<FormErrors>({});
+  // Form errors removed for simplicity - validation can be added later
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadingPrice, setLoadingPrice] = useState(false);
   const { addToast } = useToast();
@@ -181,7 +181,7 @@ const TransactionsPage = () => {
       } else {
         setError(response.message || "Failed to load transactions");
       }
-    } catch (err) {
+    } catch {
       setError("Error fetching transactions");
     } finally {
       setLoading(false);
@@ -234,7 +234,7 @@ const TransactionsPage = () => {
         message: "Portfolio, dashboard, and chart data updated successfully!" 
       });
       
-    } catch (error) {
+    } catch {
       // Commenting out verbose debug logs
       // console.error('[RefreshData] ❌ Error during data refresh:', error);
       addToast({ 
@@ -285,19 +285,18 @@ const TransactionsPage = () => {
                       ...prev, 
                       purchase_price: closingPrice.toString() 
                   }));
-                  const message = response.is_exact_date 
-                      ? `Found closing price: $${closingPrice} on ${response.actual_date}`
-                      : `Found closing price: $${closingPrice} on ${response.actual_date} (closest trading day to ${date})`;
+                  const message = `Found closing price: $${closingPrice} for ${ticker}`;
                   addToast({ type: 'success', title: 'Price Fetched', message: message });
               } else {
                   addToast({ type: 'error', title: 'Price Data Invalid', message: `Received invalid price data for ${ticker}.`});
               }
           } else {
-              const errorMessage = response?.message || response?.error || `Could not fetch price for ${ticker}.`;
+              const errorMessage = `Could not fetch price for ${ticker}.`;
               addToast({ type: 'error', title: 'Price Fetch Failed', message: errorMessage });
           }
       } catch (error: unknown) {
-          addToast({ type: 'error', title: 'Price Fetch Error', message: `Error fetching price: ${error.message || 'Unknown error'}.` });
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          addToast({ type: 'error', title: 'Price Fetch Error', message: `Error fetching price: ${errorMessage}.` });
       } finally {
           setLoadingPrice(false);
       }
@@ -315,7 +314,7 @@ const TransactionsPage = () => {
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
       const { name, value, type } = e.target;
       const isCheckbox = type === 'checkbox';
-      // @ts-ignore
+      // @ts-expect-error - checkbox property exists on input elements
       const val = isCheckbox ? e.target.checked : value;
       setForm(prev => ({ ...prev, [name]: val }));
   };
@@ -347,11 +346,11 @@ const TransactionsPage = () => {
     try {
       addToast({ type: 'info', title: 'Submitting', message: `${isEditing ? 'Updating' : 'Adding'} transaction...` });
       
-      let response;
+      let _response;
       if (isEditing) {
-        response = await front_api_client.front_api_update_transaction(editingTransaction.id.toString(), transactionData);
+        _response = await front_api_client.front_api_update_transaction(editingTransaction.id.toString(), transactionData);
       } else {
-        response = await front_api_client.front_api_add_transaction(transactionData);
+        _response = await front_api_client.front_api_add_transaction(transactionData);
       }
 
       addToast({ type: 'success', title: `Transaction ${isEditing ? 'Updated' : 'Added'}`, message: `${transactionData.symbol} has been successfully processed.` });
@@ -363,8 +362,9 @@ const TransactionsPage = () => {
 
     } catch (err: unknown) {
       console.error('[Submit] ERROR CAUGHT:', err);
-      setError(err.message || `Error ${isEditing ? 'creating' : 'updating'} transaction`);
-      addToast({ type: 'error', title: 'Submission Failed', message: err.message });
+      const errorMessage = err instanceof Error ? err.message : `Error ${isEditing ? 'creating' : 'updating'} transaction`;
+      setError(errorMessage);
+      addToast({ type: 'error', title: 'Submission Failed', message: errorMessage });
     } finally {
       setIsSubmitting(false);
     }
@@ -381,7 +381,7 @@ const TransactionsPage = () => {
       exchange: '', // Not available on transaction object
       shares: txn.shares.toString(),
       purchase_price: txn.price_per_share.toString(),
-      purchase_date: txn.transaction_date.split('T')[0], // Format for date input
+      purchase_date: txn.transaction_date.split('T')[0] || txn.transaction_date, // Format for date input
       commission: txn.commission.toString(),
       currency: txn.transaction_currency,
       fx_rate: '1.0', // Default value
@@ -396,11 +396,12 @@ const TransactionsPage = () => {
     if (window.confirm('Are you sure you want to delete this transaction? This action cannot be undone.')) {
       try {
         addToast({ type: 'info', title: 'Deleting...', message: 'Removing transaction.' });
-        const response = await front_api_client.front_api_delete_transaction(txnId);
+        const _response = await front_api_client.front_api_delete_transaction(txnId);
         addToast({ type: 'success', title: 'Transaction Deleted', message: 'The transaction has been removed.' });
         await refreshData();
       } catch (err: unknown) {
-        addToast({ type: 'error', title: 'Client-side Error', message: err.message });
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        addToast({ type: 'error', title: 'Client-side Error', message: errorMessage });
       }
     }
   };
@@ -607,9 +608,9 @@ const TransactionsPage = () => {
                     // Don't automatically fetch price - wait for user to select date
                   }}
                   placeholder="e.g., AAPL"
-                  inputClassName={`w-full p-2 bg-gray-800 border rounded-lg ${formErrors.ticker ? 'border-red-500' : 'border-gray-600'}`}
+                  inputClassName="w-full p-2 bg-gray-800 border border-gray-600 rounded-lg"
                   required
-                  error={formErrors.ticker}
+                  error=""
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -617,9 +618,8 @@ const TransactionsPage = () => {
                   <label className="block text-sm font-medium text-[#8B949E] mb-1">
                     {form.transaction_type === 'DIVIDEND' ? 'Total Shares Owned' : 'Number of Shares'}
                   </label>
-                  <input type="number" name="shares" step="1" min="0" value={form.shares} onChange={handleFormChange} className={`w-full p-2 bg-[#0D1117] border ${formErrors.shares ? 'border-red-500' : 'border-[#30363D]'} rounded-lg`} required />
-                  {formErrors.shares && <p className="text-red-500 text-xs mt-1">{formErrors.shares}</p>}
-                </div>
+                  <input type="number" name="shares" step="1" min="0" value={form.shares} onChange={handleFormChange} className="w-full p-2 bg-[#0D1117] border border-[#30363D] rounded-lg" required />
+                                  </div>
                 <div>
                   <label className="block text-sm font-medium text-[#8B949E] mb-1">
                     {form.transaction_type === 'DIVIDEND' ? 'Dividend per Share' : 'Price per Share'}
@@ -633,7 +633,7 @@ const TransactionsPage = () => {
                       min="0" 
                       value={form.purchase_price} 
                       onChange={handleFormChange} 
-                      className={`w-full p-2 bg-[#0D1117] border ${formErrors.purchase_price ? 'border-red-500' : 'border-[#30363D]'} rounded-lg ${loadingPrice ? 'opacity-50' : ''}`} 
+                      className={`w-full p-2 bg-[#0D1117] border border-[#30363D] rounded-lg ${loadingPrice ? 'opacity-50' : ''}`} 
                       disabled={loadingPrice}
                       required 
                     />
@@ -643,8 +643,7 @@ const TransactionsPage = () => {
                       </div>
                     )}
                   </div>
-                  {formErrors.purchase_price && <p className="text-red-500 text-xs mt-1">{formErrors.purchase_price}</p>}
-                </div>
+                                  </div>
               </div>
               {/* Amount Invested (read-only) */}
               <div>
@@ -663,9 +662,8 @@ const TransactionsPage = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-[#8B949E] mb-1">Transaction Date</label>
-                <input type="date" name="purchase_date" value={form.purchase_date} onChange={handleFormChange} onBlur={handleDateBlur} className={`w-full p-2 bg-[#0D1117] border ${formErrors.purchase_date ? 'border-red-500' : 'border-[#30363D]'} rounded-lg`} required />
-                {formErrors.purchase_date && <p className="text-red-500 text-xs mt-1">{formErrors.purchase_date}</p>}
-              </div>
+                <input type="date" name="purchase_date" value={form.purchase_date} onChange={handleFormChange} onBlur={handleDateBlur} className="w-full p-2 bg-[#0D1117] border border-[#30363D] rounded-lg" required />
+                              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                     <label className="block text-sm font-medium text-[#8B949E] mb-1">Currency</label>
@@ -682,9 +680,8 @@ const TransactionsPage = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-[#8B949E] mb-1">Commission</label>
-                  <input type="number" name="commission" step="0.01" min="0" value={form.commission} onChange={handleFormChange} className={`w-full p-2 bg-[#0D1117] border ${formErrors.commission ? 'border-red-500' : 'border-[#30363D]'} rounded-lg`} placeholder="0.00" />
-                  {formErrors.commission && <p className="text-red-500 text-xs mt-1">{formErrors.commission}</p>}
-                </div>
+                  <input type="number" name="commission" step="0.01" min="0" value={form.commission} onChange={handleFormChange} className="w-full p-2 bg-[#0D1117] border border-[#30363D] rounded-lg" placeholder="0.00" />
+                                  </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-[#8B949E] mb-1">Notes</label>

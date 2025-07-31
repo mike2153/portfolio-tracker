@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { RefreshCw, DollarSign, TrendingUp } from 'lucide-react';
-import ApexListView from './ApexListView';
+import _ApexListView from './ApexListView';
 import type { ListViewColumn } from './ApexListView';
 
 export interface FinancialSpreadsheetApexProps {
@@ -126,7 +126,7 @@ const FinancialSpreadsheetApex: React.FC<FinancialSpreadsheetApexProps> = ({
   };
 
   // Transform data for ApexListView
-  const { listViewData, columns, categoryGroups } = useMemo(() => {
+  const { listViewData, columns, _categoryGroups } = useMemo(() => {
     const fieldDefinitions = getFieldDefinitions();
     const financialData = getFinancialData();
     
@@ -148,7 +148,7 @@ const FinancialSpreadsheetApex: React.FC<FinancialSpreadsheetApexProps> = ({
       sortable: true,
       render: (value) => (
         <span className="text-white">
-          {formatNumber(value || 0)}
+          {formatNumber(Number(value) || 0)}
         </span>
       ),
       width: '120px'
@@ -161,7 +161,7 @@ const FinancialSpreadsheetApex: React.FC<FinancialSpreadsheetApexProps> = ({
         sortable: true,
         searchable: true,
         render: (value) => (
-          <span className="text-gray-300">{value}</span>
+          <span className="text-gray-300">{String(value)}</span>
         ),
         width: '250px'
       },
@@ -189,7 +189,7 @@ const FinancialSpreadsheetApex: React.FC<FinancialSpreadsheetApexProps> = ({
       if (!acc[field.category]) {
         acc[field.category] = [];
       }
-      acc[field.category].push(field.key);
+      acc[field.category]!.push(field.key);
       return acc;
     }, {} as Record<string, string[]>);
 
@@ -210,9 +210,9 @@ const FinancialSpreadsheetApex: React.FC<FinancialSpreadsheetApexProps> = ({
     return {
       listViewData: rowData,
       columns: baseColumns,
-      categoryGroups: categories
+      _categoryGroups: categories
     };
-  }, [selectedType, data]);
+  }, [selectedType, data, getFieldDefinitions, getFinancialData]);
 
   const emptyMessage = `No ${selectedType === 'balance' ? 'balance sheet' : 'cash flow'} data available`;
 

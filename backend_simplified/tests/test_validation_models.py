@@ -25,7 +25,7 @@ from models.validation_models import (
 class TestTransactionValidation:
     """Test transaction validation models"""
     
-    def test_valid_transaction_create(self):
+    def test_valid_transaction_create(self) -> None:
         """Test creating a valid transaction"""
         transaction = TransactionCreate(
             transaction_type="Buy",
@@ -41,7 +41,7 @@ class TestTransactionValidation:
         assert transaction.currency == "USD"  # Default
         assert transaction.exchange_rate == Decimal("1.0")  # Default
     
-    def test_invalid_transaction_type(self):
+    def test_invalid_transaction_type(self) -> None:
         """Test invalid transaction type"""
         with pytest.raises(ValidationError) as exc_info:
             TransactionCreate(
@@ -53,7 +53,7 @@ class TestTransactionValidation:
             )
         assert "transaction_type" in str(exc_info.value)
     
-    def test_symbol_validation(self):
+    def test_symbol_validation(self) -> None:
         """Test symbol format validation"""
         # Valid symbols
         valid_symbols = ["AAPL", "BRK.B", "TSM", "123", "X"]
@@ -79,7 +79,7 @@ class TestTransactionValidation:
                     date=date.today()
                 )
     
-    def test_quantity_validation(self):
+    def test_quantity_validation(self) -> None:
         """Test quantity constraints"""
         # Valid quantity
         transaction = TransactionCreate(
@@ -110,7 +110,7 @@ class TestTransactionValidation:
                 date=date.today()
             )
     
-    def test_date_validation(self):
+    def test_date_validation(self) -> None:
         """Test transaction date validation"""
         # Valid date
         transaction = TransactionCreate(
@@ -144,7 +144,7 @@ class TestTransactionValidation:
             )
         assert "10 years" in str(exc_info.value)
     
-    def test_notes_sanitization(self):
+    def test_notes_sanitization(self) -> None:
         """Test notes field sanitization"""
         transaction = TransactionCreate(
             transaction_type="Buy",
@@ -159,7 +159,7 @@ class TestTransactionValidation:
         assert ">" not in transaction.notes
         assert "'" not in transaction.notes
     
-    def test_extra_fields_forbidden(self):
+    def test_extra_fields_forbidden(self) -> None:
         """Test that extra fields are forbidden"""
         with pytest.raises(ValidationError) as exc_info:
             TransactionCreate(
@@ -176,7 +176,7 @@ class TestTransactionValidation:
 class TestWatchlistValidation:
     """Test watchlist validation models"""
     
-    def test_valid_watchlist_add(self):
+    def test_valid_watchlist_add(self) -> None:
         """Test valid watchlist addition"""
         watchlist = WatchlistAdd(
             symbol="aapl",  # lowercase
@@ -186,12 +186,12 @@ class TestWatchlistValidation:
         assert watchlist.symbol == "AAPL"  # Should be uppercase
         assert watchlist.target_price == Decimal("140.50")
     
-    def test_symbol_normalization(self):
+    def test_symbol_normalization(self) -> None:
         """Test symbol is normalized to uppercase"""
         watchlist = WatchlistAdd(symbol="msft")
         assert watchlist.symbol == "MSFT"
     
-    def test_invalid_target_price(self):
+    def test_invalid_target_price(self) -> None:
         """Test target price validation"""
         with pytest.raises(ValidationError):
             WatchlistAdd(
@@ -209,7 +209,7 @@ class TestWatchlistValidation:
 class TestUserProfileValidation:
     """Test user profile validation models"""
     
-    def test_valid_profile_create(self):
+    def test_valid_profile_create(self) -> None:
         """Test valid profile creation"""
         profile = UserProfileCreate(
             first_name="John",
@@ -221,7 +221,7 @@ class TestUserProfileValidation:
         assert profile.country == "US"
         assert profile.base_currency == "EUR"
     
-    def test_name_sanitization(self):
+    def test_name_sanitization(self) -> None:
         """Test name field sanitization"""
         profile = UserProfileCreate(
             first_name="John123",  # Numbers should be removed
@@ -231,7 +231,7 @@ class TestUserProfileValidation:
         assert profile.first_name == "John"  # Numbers removed
         assert profile.last_name == "O'Brien-Smith"  # Special chars preserved
     
-    def test_invalid_country_code(self):
+    def test_invalid_country_code(self) -> None:
         """Test country code validation"""
         with pytest.raises(ValidationError):
             UserProfileCreate(
@@ -247,7 +247,7 @@ class TestUserProfileValidation:
                 country="us"  # Should be uppercase
             )
     
-    def test_invalid_currency_code(self):
+    def test_invalid_currency_code(self) -> None:
         """Test currency code validation"""
         with pytest.raises(ValidationError):
             UserProfileCreate(
@@ -261,7 +261,7 @@ class TestUserProfileValidation:
 class TestCurrencyConversion:
     """Test currency conversion validation"""
     
-    def test_valid_conversion(self):
+    def test_valid_conversion(self) -> None:
         """Test valid currency conversion request"""
         conversion = CurrencyConvert(
             amount=Decimal("100.50"),
@@ -272,7 +272,7 @@ class TestCurrencyConversion:
         assert conversion.amount == Decimal("100.50")
         assert conversion.from_currency == "USD"
     
-    def test_invalid_amount(self):
+    def test_invalid_amount(self) -> None:
         """Test amount validation"""
         with pytest.raises(ValidationError):
             CurrencyConvert(
@@ -292,19 +292,19 @@ class TestCurrencyConversion:
 class TestSymbolSearch:
     """Test symbol search validation"""
     
-    def test_valid_search(self):
+    def test_valid_search(self) -> None:
         """Test valid symbol search"""
         search = SymbolSearch(query="AAPL", limit=25)
         assert search.query == "AAPL"
         assert search.limit == 25
     
-    def test_query_sanitization(self):
+    def test_query_sanitization(self) -> None:
         """Test query sanitization"""
         search = SymbolSearch(query="AAPL<script>")
         assert "<" not in search.query
         assert ">" not in search.query
     
-    def test_limit_constraints(self):
+    def test_limit_constraints(self) -> None:
         """Test limit validation"""
         # Default limit
         search = SymbolSearch(query="AAPL")

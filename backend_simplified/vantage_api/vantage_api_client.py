@@ -32,7 +32,7 @@ API: ALPHA_VANTAGE
 BASE_URL: {self.base_url}
 =============================================""")
     
-    async def _ensure_session(self):
+    async def _ensure_session(self) -> None:
         """Ensure aiohttp session is created"""
         if not self.session or self.session.closed:
             self.session = aiohttp.ClientSession()
@@ -140,7 +140,7 @@ BASE_URL: {self.base_url}
             logger.warning(f"[vantage_api_client.py::_get_from_cache] Cache lookup failed: {e}")
             return None
     
-    async def _save_to_cache(self, cache_key: str, data: Dict[str, Any]):
+    async def _save_to_cache(self, cache_key: str, data: Dict[str, Any]) -> None:
         """Save data to Supabase cache"""
         # logger.info(f"""
 # ========== CACHE SAVE ==========
@@ -165,7 +165,7 @@ BASE_URL: {self.base_url}
         except Exception as e:
             logger.warning(f"[vantage_api_client.py::_save_to_cache] Cache save failed: {e}")
     
-    async def close(self):
+    async def close(self) -> None:
         """Close the aiohttp session"""
         if self.session and not self.session.closed:
             await self.session.close()

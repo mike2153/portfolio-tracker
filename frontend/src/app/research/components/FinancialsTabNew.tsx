@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { TabContentProps, FinancialStatementType, FinancialPeriodType } from '@/types/stock-research';
+import React, { useState, useEffect, useCallback } from 'react';
+import { TabContentProps, FinancialStatementType as _FinancialStatementType, FinancialPeriodType } from '@/types/stock-research';
 import { front_api_client } from '@/lib/front_api_client';
 import { DollarSign, TrendingUp, BarChart3, RefreshCw, ChevronDown } from 'lucide-react';
 import FinancialsChart from './FinancialsChart';
@@ -9,7 +9,7 @@ interface FinancialMetric {
   key: string;
   label: string;
   description: string;
-  values: Record<string, number | string>;
+  values: Record<string, number>;
   section: string;
 }
 
@@ -19,7 +19,7 @@ interface FinancialMetric {
  * Comprehensive financials page with interactive chart and table.
  * Features tabs, dropdowns, ApexCharts integration, and multi-select table.
  */
-const FinancialsTabNew: React.FC<TabContentProps> = ({ ticker, data, isLoading, onRefresh }) => {
+const FinancialsTabNew: React.FC<TabContentProps> = ({ ticker, data: _data, isLoading, onRefresh: _onRefresh }) => {
   // State for tab navigation and controls
   const [activeStatement, setActiveStatement] = useState<'INCOME_STATEMENT' | 'BALANCE_SHEET' | 'CASH_FLOW'>('INCOME_STATEMENT');
   const [activePeriod, setActivePeriod] = useState<FinancialPeriodType>('annual');
@@ -34,7 +34,7 @@ const FinancialsTabNew: React.FC<TabContentProps> = ({ ticker, data, isLoading, 
   const [selectedMetrics, setSelectedMetrics] = useState<string[]>([]);
 
   // Load financial data from API
-  const loadFinancialData = async (statement: 'INCOME_STATEMENT' | 'BALANCE_SHEET' | 'CASH_FLOW', forceRefresh: boolean = false) => {
+  const loadFinancialData = useCallback(async (statement: 'INCOME_STATEMENT' | 'BALANCE_SHEET' | 'CASH_FLOW', forceRefresh: boolean = false) => {
     if (!ticker) return;
     
     setFinancialsLoading(true);
@@ -63,7 +63,7 @@ const FinancialsTabNew: React.FC<TabContentProps> = ({ ticker, data, isLoading, 
     } finally {
       setFinancialsLoading(false);
     }
-  };
+  }, [ticker]);
 
   // Transform API data to component format
   const transformFinancialData = (): FinancialMetric[] => {
@@ -107,10 +107,10 @@ const FinancialsTabNew: React.FC<TabContentProps> = ({ ticker, data, isLoading, 
           const rawValue = report[metric.key];
           value = rawValue === 'None' || rawValue === null || rawValue === undefined 
             ? 0 
-            : parseFloat(rawValue);
+            : parseFloat(String(rawValue));
         }
         
-        values[period] = isNaN(value) ? 0 : value;
+        values[period] = isNaN(value) ? 0 : Number(value);
       });
       
       console.log(`[FinancialsTabNew] Metric ${metric.key} values:`, values);
@@ -275,7 +275,7 @@ const FinancialsTabNew: React.FC<TabContentProps> = ({ ticker, data, isLoading, 
     : [];
 
   // Prepare data for chart
-  const chartFinancialData = currentFinancialData.reduce((acc: Record<string, Record<string, number>>, metric: FinancialMetric) => {
+  const chartFinancialData = currentFinancialData.reduce((acc: Record<string, Record<string, string | number>>, metric: FinancialMetric) => {
     acc[metric.key] = metric.values;
     return acc;
   }, {});

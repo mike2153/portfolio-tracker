@@ -59,21 +59,47 @@ async def backend_api_analytics_summary(
             force_refresh=False
         )
         
-        # Extract portfolio metrics
-        portfolio_value = float(metrics.performance.total_value)
-        total_cost = float(metrics.performance.total_cost)
-        total_gain_loss = float(metrics.performance.total_gain_loss)
-        total_gain_loss_percent = metrics.performance.total_gain_loss_percent
+        # Extract portfolio metrics with Decimal safety
+        try:
+            portfolio_value_decimal = metrics.performance.total_value if isinstance(metrics.performance.total_value, Decimal) else Decimal(str(metrics.performance.total_value))
+            total_cost_decimal = metrics.performance.total_cost if isinstance(metrics.performance.total_cost, Decimal) else Decimal(str(metrics.performance.total_cost))
+            total_gain_loss_decimal = metrics.performance.total_gain_loss if isinstance(metrics.performance.total_gain_loss, Decimal) else Decimal(str(metrics.performance.total_gain_loss))
+            
+            # Keep as Decimal until final serialization
+            portfolio_value = portfolio_value_decimal
+            total_cost = total_cost_decimal
+            total_gain_loss = total_gain_loss_decimal
+            total_gain_loss_percent = metrics.performance.total_gain_loss_percent
+        except (InvalidOperation, TypeError, ValueError) as e:
+            logger.error(f"Error converting analytics summary financial data to Decimal: {e}")
+            portfolio_value = Decimal('0')
+            total_cost = Decimal('0')
+            total_gain_loss = Decimal('0')
+            total_gain_loss_percent = 0.0
         
         # Use dividend summary from metrics if available, otherwise get lightweight version
         if metrics.dividend_summary:
-            dividend_summary = {
-                "ytd_received": float(metrics.dividend_summary.ytd_received),
-                "total_received": float(metrics.dividend_summary.total_received),
-                "total_pending": float(metrics.dividend_summary.total_pending),
-                "confirmed_count": metrics.dividend_summary.count_received,  # Note: model uses count_received
-                "pending_count": metrics.dividend_summary.count_pending
-            }
+            try:
+                ytd_received_decimal = metrics.dividend_summary.ytd_received if isinstance(metrics.dividend_summary.ytd_received, Decimal) else Decimal(str(metrics.dividend_summary.ytd_received))
+                total_received_decimal = metrics.dividend_summary.total_received if isinstance(metrics.dividend_summary.total_received, Decimal) else Decimal(str(metrics.dividend_summary.total_received))
+                total_pending_decimal = metrics.dividend_summary.total_pending if isinstance(metrics.dividend_summary.total_pending, Decimal) else Decimal(str(metrics.dividend_summary.total_pending))
+                
+                dividend_summary = {
+                    "ytd_received": ytd_received_decimal,
+                    "total_received": total_received_decimal,
+                    "total_pending": total_pending_decimal,
+                    "confirmed_count": metrics.dividend_summary.count_received,  # Note: model uses count_received
+                    "pending_count": metrics.dividend_summary.count_pending
+                }
+            except (InvalidOperation, TypeError, ValueError) as e:
+                logger.error(f"Error converting dividend summary financial data to Decimal: {e}")
+                dividend_summary = {
+                    "ytd_received": Decimal('0'),
+                    "total_received": Decimal('0'),
+                    "total_pending": Decimal('0'),
+                    "confirmed_count": 0,
+                    "pending_count": 0
+                }
         else:
             # Fallback to lightweight summary
             dividend_summary = await _get_lightweight_dividend_summary(user_id)
@@ -86,17 +112,24 @@ async def backend_api_analytics_summary(
         irr_percent = float(irr_data.get("irr_percent", 0))
         
         # Calculate total profit including dividends
-        total_dividends = dividend_summary.get("ytd_received", 0)  # This year's dividends
+        total_dividends = dividend_summary.get("ytd_received", Decimal('0'))  # This year's dividends
         total_profit_with_dividends = total_gain_loss + total_dividends
         
+        # Convert Decimal values to float only at final serialization
         summary = {
-            "portfolio_value": portfolio_value,
-            "total_profit": total_profit_with_dividends,  # Include dividends in total profit
+            "portfolio_value": float(portfolio_value),
+            "total_profit": float(total_profit_with_dividends),  # Include dividends in total profit
             "total_profit_percent": total_gain_loss_percent,  # Keep original percentage for now
             "irr_percent": irr_percent,
-            "passive_income_ytd": dividend_summary.get("ytd_received", 0),
+            "passive_income_ytd": float(dividend_summary.get("ytd_received", Decimal('0'))),
             "cash_balance": 0,  # TODO: Implement cash tracking
-            "dividend_summary": dividend_summary
+            "dividend_summary": {
+                "ytd_received": float(dividend_summary.get("ytd_received", Decimal('0'))),
+                "total_received": float(dividend_summary.get("total_received", Decimal('0'))),
+                "total_pending": float(dividend_summary.get("total_pending", Decimal('0'))),
+                "confirmed_count": dividend_summary.get("confirmed_count", 0),
+                "pending_count": dividend_summary.get("pending_count", 0)
+            }
         }
         
         # Calculate total computation time
@@ -831,16 +864,16 @@ async def _get_portfolio_summary(user_id: str, user_token: str) -> Dict[str, Any
         if not portfolio_result[0] or len(portfolio_result[0]) == 0:
             return {"total_value": 0, "total_gain_loss": 0, "total_gain_loss_percent": 0, "total_invested": 0}
         
-        # Get the latest value from the series
-        latest_value = float(portfolio_result[0][-1][1])  # Last [date, value] pair
+        # Get the latest value from the series - keep as Decimal
+        latest_value_decimal = Decimal(str(portfolio_result[0][-1][1]))  # Last [date, value] pair
         
         # Simple approximation of total invested (could be enhanced)
         # For now, just return current value as we're optimizing for speed
         return {
-            "total_value": latest_value,
+            "total_value": float(latest_value_decimal),
             "total_gain_loss": 0,  # Skip complex calculation for summary
             "total_gain_loss_percent": 0,  # Skip complex calculation for summary
-            "total_invested": latest_value  # Simplified
+            "total_invested": float(latest_value_decimal)  # Simplified
         }
         
     except Exception as e:
@@ -871,26 +904,77 @@ async def _get_detailed_holdings(user_id: str, user_token: str, include_sold: bo
             if not include_sold and holding.quantity <= 0:
                 continue
                 
-            holding_dict = {
-                'symbol': holding.symbol,
-                'quantity': float(holding.quantity),
-                'avg_cost': float(holding.avg_cost),
-                'current_price': float(holding.current_price),
-                'cost_basis': float(holding.total_cost),
-                'current_value': float(holding.current_value),
-                'unrealized_gain': float(holding.gain_loss),
-                'unrealized_gain_percent': holding.gain_loss_percent,
-                'realized_pnl': float(holding.realized_pnl) if hasattr(holding, 'realized_pnl') else 0,
-                'dividends_received': float(holding.dividends_received) if hasattr(holding, 'dividends_received') else 0,
-                'total_profit': float(holding.gain_loss) + float(getattr(holding, 'realized_pnl', 0)) + float(getattr(holding, 'dividends_received', 0)),
-                'total_profit_percent': holding.gain_loss_percent,  # Simplified for now
-                'total_bought': float(holding.total_cost),  # Simplified
-                'total_sold': 0,  # TODO: Track sold amounts
-                'daily_change': 0,  # TODO: Implement daily change calculation
-                'daily_change_percent': 0,  # TODO: Implement daily change percent
-                'irr_percent': 0  # TODO: Implement IRR per holding
-            }
-            detailed_holdings.append(holding_dict)
+            try:
+                # Convert financial data to Decimal first, then to float for JSON
+                quantity_decimal = holding.quantity if isinstance(holding.quantity, Decimal) else Decimal(str(holding.quantity))
+                avg_cost_decimal = holding.avg_cost if isinstance(holding.avg_cost, Decimal) else Decimal(str(holding.avg_cost))
+                current_price_decimal = holding.current_price if isinstance(holding.current_price, Decimal) else Decimal(str(holding.current_price))
+                total_cost_decimal = holding.total_cost if isinstance(holding.total_cost, Decimal) else Decimal(str(holding.total_cost))
+                current_value_decimal = holding.current_value if isinstance(holding.current_value, Decimal) else Decimal(str(holding.current_value))
+                gain_loss_decimal = holding.gain_loss if isinstance(holding.gain_loss, Decimal) else Decimal(str(holding.gain_loss))
+                
+                # Handle optional fields with Decimal safety
+                realized_pnl_decimal = Decimal('0')
+                if hasattr(holding, 'realized_pnl') and holding.realized_pnl is not None:
+                    try:
+                        realized_pnl_decimal = holding.realized_pnl if isinstance(holding.realized_pnl, Decimal) else Decimal(str(holding.realized_pnl))
+                    except (InvalidOperation, TypeError, ValueError):
+                        realized_pnl_decimal = Decimal('0')
+                
+                dividends_received_decimal = Decimal('0')
+                if hasattr(holding, 'dividends_received') and holding.dividends_received is not None:
+                    try:
+                        dividends_received_decimal = holding.dividends_received if isinstance(holding.dividends_received, Decimal) else Decimal(str(holding.dividends_received))
+                    except (InvalidOperation, TypeError, ValueError):
+                        dividends_received_decimal = Decimal('0')
+                
+                # Calculate total profit with Decimal precision
+                total_profit_decimal = gain_loss_decimal + realized_pnl_decimal + dividends_received_decimal
+                
+                # Keep calculations in Decimal until final serialization
+                holding_dict = {
+                    'symbol': holding.symbol,
+                    'quantity': float(quantity_decimal),
+                    'avg_cost': float(avg_cost_decimal),
+                    'current_price': float(current_price_decimal),
+                    'cost_basis': float(total_cost_decimal),
+                    'current_value': float(current_value_decimal),
+                    'unrealized_gain': float(gain_loss_decimal),
+                    'unrealized_gain_percent': holding.gain_loss_percent,
+                    'realized_pnl': float(realized_pnl_decimal),
+                    'dividends_received': float(dividends_received_decimal),
+                    'total_profit': float(total_profit_decimal),
+                    'total_profit_percent': holding.gain_loss_percent,  # Simplified for now
+                    'total_bought': float(total_cost_decimal),  # Simplified
+                    'total_sold': 0,  # TODO: Track sold amounts
+                    'daily_change': 0,  # TODO: Implement daily change calculation
+                    'daily_change_percent': 0,  # TODO: Implement daily change percent
+                    'irr_percent': 0  # TODO: Implement IRR per holding
+                }
+                detailed_holdings.append(holding_dict)
+            except (InvalidOperation, TypeError, ValueError) as e:
+                logger.error(f"Error converting detailed holding {holding.symbol} financial data to Decimal: {e}")
+                # Fallback with zero values
+                holding_dict = {
+                    'symbol': holding.symbol,
+                    'quantity': 0.0,
+                    'avg_cost': 0.0,
+                    'current_price': 0.0,
+                    'cost_basis': 0.0,
+                    'current_value': 0.0,
+                    'unrealized_gain': 0.0,
+                    'unrealized_gain_percent': 0.0,
+                    'realized_pnl': 0.0,
+                    'dividends_received': 0.0,
+                    'total_profit': 0.0,
+                    'total_profit_percent': 0.0,
+                    'total_bought': 0.0,
+                    'total_sold': 0.0,
+                    'daily_change': 0.0,
+                    'daily_change_percent': 0.0,
+                    'irr_percent': 0.0
+                }
+                detailed_holdings.append(holding_dict)
         
         logger.info(f"[backend_api_analytics.py::_get_detailed_holdings] Returning {len(detailed_holdings)} holdings")
         
@@ -934,6 +1018,7 @@ async def _enrich_dividend_data(user_id: str, dividends: List[Dict[str, Any]]) -
         
         # Calculate projected dividend amount
         if not dividend['confirmed'] and enriched_dividend['current_holdings'] > 0:
+            # Keep calculation in Decimal precision until final serialization
             projected_amount = Decimal(str(dividend['amount'])) * Decimal(str(enriched_dividend['current_holdings']))
             enriched_dividend['projected_amount'] = float(projected_amount)  # Convert to float for JSON serialization
         
@@ -1009,15 +1094,16 @@ async def _calculate_simple_irr(user_id: str, user_token: str) -> Dict[str, Any]
         if start_value <= 0:
             return {"irr_percent": 0}
         
-        # Convert to float for calculation
-        start_val_float = float(start_value)
-        end_val_float = float(end_value)
+        # Convert to Decimal for precise calculation
+        start_val_decimal = Decimal(str(start_value))
+        end_val_decimal = Decimal(str(end_value))
         
-        total_return = (end_val_float - start_val_float) / start_val_float
+        total_return = (end_val_decimal - start_val_decimal) / start_val_decimal
         days = len(series_data)
         
-        # Simple annualized return calculation
-        annualized_return = ((1 + total_return) ** (365 / days)) - 1
+        # Simple annualized return calculation - keep Decimal precision until final step
+        from decimal import Decimal
+        annualized_return = float(((Decimal('1') + total_return) ** (Decimal('365') / Decimal(str(days)))) - Decimal('1'))
         
         return {"irr_percent": annualized_return * 100}
         
@@ -1053,8 +1139,17 @@ async def backend_api_add_manual_dividend(
     payment_date = body.get('payment_date')
     total_received = body.get('total_received')
     amount_per_share = body.get('amount_per_share', 0)
-    fee = float(body.get('fee', 0))
-    tax = float(body.get('tax', 0))
+    # Convert fee and tax to Decimal for precision
+    try:
+        fee_decimal = Decimal(str(body.get('fee', 0)))
+        tax_decimal = Decimal(str(body.get('tax', 0)))
+        # Keep as Decimal for calculations
+        fee = fee_decimal
+        tax = tax_decimal
+    except (InvalidOperation, TypeError, ValueError) as e:
+        logger.error(f"Error converting fee/tax to Decimal: {e}")
+        fee = Decimal('0')
+        tax = Decimal('0')
     note = body.get('note', '')
     update_cash_balance = body.get('update_cash_balance', True)
     
@@ -1063,15 +1158,30 @@ async def backend_api_add_manual_dividend(
         raise HTTPException(status_code=400, detail="Ticker is required")
     if not payment_date:
         raise HTTPException(status_code=400, detail="Payment date is required")
-    if not total_received or float(total_received) <= 0:
-        raise HTTPException(status_code=400, detail="Total received must be greater than 0")
+    
+    # Safe validation of total_received
+    if not total_received:
+        raise HTTPException(status_code=400, detail="Total received is required")
     
     try:
-        total_received = float(total_received)
-        amount_per_share = float(amount_per_share) if amount_per_share else 0
+        total_received_decimal = Decimal(str(total_received))
+        if total_received_decimal <= 0:
+            raise HTTPException(status_code=400, detail="Total received must be greater than 0")
+    except (InvalidOperation, ValueError, TypeError) as e:
+        raise HTTPException(status_code=400, detail=f"Invalid total_received value: must be a valid number")
+    
+    try:
+        # Convert financial amounts to Decimal for precision
+        if not isinstance(total_received, Decimal):
+            total_received_decimal = Decimal(str(total_received))
+        else:
+            total_received_decimal = total_received
+        amount_per_share_decimal = Decimal(str(amount_per_share)) if amount_per_share else Decimal('0')
         
-        # Calculate net amount after fees and taxes
-        net_amount = total_received - fee - tax
+        # Calculate net amount after fees and taxes using Decimal precision
+        net_amount_decimal = total_received_decimal - fee - tax
+        # Convert to float only when passing to the service
+        net_amount = float(net_amount_decimal)
         
         logger.info(f"[backend_api_analytics.py::backend_api_add_manual_dividend] Adding manual dividend for {ticker} on {payment_date}, user: {user_id}")
         
@@ -1081,10 +1191,10 @@ async def backend_api_add_manual_dividend(
             user_token=user_token,
             ticker=ticker,
             payment_date=payment_date,
-            total_amount=total_received,
-            amount_per_share=amount_per_share,
-            fee=fee,
-            tax=tax,
+            total_amount=float(total_received_decimal),
+            amount_per_share=float(amount_per_share_decimal),
+            fee=float(fee),
+            tax=float(tax),
             note=note,
             company_name=company_name
         )

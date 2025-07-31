@@ -142,7 +142,7 @@ class PortfolioSnapshot(BaseModel):
     cash_balance: Decimal = Field(default=Decimal("0"))
     
     @validator('holdings')
-    def validate_holdings(cls, v):
+    def validate_holdings(cls, v) -> List[PortfolioHolding]:
         """Ensure holdings are valid"""
         return v if v else []
 
@@ -221,7 +221,7 @@ class PortfolioMetricsManager:
     4. Handles partial failures gracefully
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         self.dividend_service = DividendService()
         self.cache_config = CacheConfig()
         
@@ -235,6 +235,24 @@ class PortfolioMetricsManager:
         self._recovery_timeout = 60  # seconds
         
         logger.info("[PortfolioMetricsManager] Initialized")
+    
+    def _safe_decimal_to_float(self, value: Any) -> float:
+        """
+        Safely convert Decimal or other numeric values to float for API responses only.
+        
+        NOTE: This function should ONLY be used for final API response serialization.
+        All financial calculations should remain in Decimal format until this final step.
+        """
+        try:
+            if isinstance(value, Decimal):
+                return float(value)
+            elif isinstance(value, (int, float)):
+                return float(value)
+            else:
+                return float(Decimal(str(value)))
+        except (ValueError, TypeError, InvalidOperation) as e:
+            logger.warning(f"Failed to convert {value} to float: {e}")
+            return 0.0
     
     # ========================================================================
     # Currency Conversion Methods
@@ -491,7 +509,7 @@ class PortfolioMetricsManager:
         if isinstance(dividend_result, DividendSummary):
             dividend_summary = dividend_result
             data_completeness["dividends"] = True
-            logger.info(f"[PortfolioMetricsManager] Dividends fetched successfully: ${float(dividend_summary.total_received):.2f} total")
+            logger.info(f"[PortfolioMetricsManager] Dividends fetched successfully: ${self._safe_decimal_to_float(dividend_summary.total_received):.2f} total")
         elif isinstance(dividend_result, BaseException):
             logger.warning(f"[PortfolioMetricsManager] Dividend fetch failed: {dividend_result}")
         
@@ -521,7 +539,7 @@ class PortfolioMetricsManager:
         
         logger.info(f"[PortfolioMetricsManager] === METRICS CALCULATION COMPLETE ===")
         logger.info(f"[PortfolioMetricsManager] Data completeness: {data_completeness}")
-        logger.info(f"[PortfolioMetricsManager] Total portfolio value: ${float(performance.total_value):.2f}")
+        logger.info(f"[PortfolioMetricsManager] Total portfolio value: ${self._safe_decimal_to_float(performance.total_value):.2f}")
         logger.info(f"[PortfolioMetricsManager] Cache status: {cache_status}")
         
         return PortfolioMetrics(
@@ -604,11 +622,11 @@ class PortfolioMetricsManager:
                         current_price=Decimal(str(h.get("current_price", 0))),
                         current_value=current_value,
                         gain_loss=Decimal(str(h.get("gain_loss", 0))),
-                        gain_loss_percent=float(h.get("gain_loss_percent", 0.0)),
+                        gain_loss_percent=self._safe_decimal_to_float(h.get("gain_loss_percent", 0.0)),
                         dividends_received=Decimal(str(h.get("dividends_received", 0))),
                         realized_pnl=Decimal(str(h.get("realized_pnl", 0))),
                         price_date=datetime.fromisoformat(h["price_date"]) if h.get("price_date") else None,
-                        allocation_percent=float((current_value / total_value * 100)) if total_value > 0 else 0.0,
+                        allocation_percent=self._safe_decimal_to_float((current_value / total_value * Decimal('100'))) if total_value > 0 else 0.0,
                         currency=stock_currency,
                         base_currency_value=base_currency_value
                     )
@@ -826,7 +844,7 @@ class PortfolioMetricsManager:
             total_value=total_value,
             total_cost=total_cost,
             total_gain_loss=total_gain_loss,
-            total_gain_loss_percent=float(total_gain_loss_percent),
+            total_gain_loss_percent=self._safe_decimal_to_float(total_gain_loss_percent),
             realized_gains=Decimal("0"),  # TODO: Get from calculator in Step 3
             unrealized_gains=total_gain_loss,
             dividends_total=dividend_summary.total_received,
@@ -863,8 +881,8 @@ class PortfolioMetricsManager:
             {
                 "symbol": h.symbol,
                 "gain_loss_percent": h.gain_loss_percent,
-                "gain_loss": float(h.gain_loss),
-                "current_value": float(h.current_value)
+                "gain_loss": self._safe_decimal_to_float(h.gain_loss),
+                "current_value": self._safe_decimal_to_float(h.current_value)
             }
             for h in sorted_holdings[:limit]
         ]

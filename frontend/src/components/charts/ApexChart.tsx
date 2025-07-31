@@ -11,7 +11,7 @@ export interface ApexChartProps {
   data: Array<{
     name: string;
     data: Array<[number, number]> | Array<{ x: number | string; y: number } | { x: number | string; y: number[] }>;
-    color?: string;
+    color?: string | undefined;
   }>;
   type?: 'line' | 'area' | 'bar' | 'candlestick';
   height?: number;
@@ -26,8 +26,8 @@ export interface ApexChartProps {
   onRangeChange?: (range: string) => void;
   colors?: string[];
   isLoading?: boolean;
-  error?: string | null;
-  onRetry?: () => void;
+  error?: string | null | undefined;
+  onRetry?: (() => void) | undefined;
   className?: string;
   darkMode?: boolean;
   additionalOptions?: ApexOptions;
@@ -76,7 +76,7 @@ export default function ApexChart({
   // Determine dynamic colors based on performance
   const dynamicColors = useMemo(() => {
     if (!data || data.length === 0) return colors;
-    const seriesData = data[0].data;
+    const seriesData = data[0]?.data;
     if (!seriesData || seriesData.length === 0) return colors;
     // Helper to extract numeric value (handles tuples, point objects, and OHLC arrays)
     const getValue = (
@@ -86,13 +86,17 @@ export default function ApexChart({
         return pt[1];
       } else if (Array.isArray(pt.y)) {
         // OHLC array: [open, high, low, close]
-        return pt.y[3];
+        return pt.y[3] || 0;
       } else {
         return pt.y;
       }
     };
-    const firstValue = getValue(seriesData[0]);
-    const lastValue = getValue(seriesData[seriesData.length - 1]);
+    if (seriesData.length === 0) return colors;
+    const firstItem = seriesData[0];
+    const lastItem = seriesData[seriesData.length - 1];
+    if (!firstItem || !lastItem) return colors;
+    const firstValue = getValue(firstItem);
+    const lastValue = getValue(lastItem);
     const isPositive = lastValue >= firstValue;
     const primaryColor = isPositive ? '#238636' : '#F85149';
     return [primaryColor, ...colors.slice(1)];
@@ -115,21 +119,23 @@ export default function ApexChart({
     colors: dynamicColors,
     dataLabels: { enabled: false },
     stroke: { 
-      curve: 'smooth' as 'smooth', 
+      curve: 'smooth' as const, 
       width: type === 'area' || type === 'line' ? 2 : 1 
     },
     fill: {
       type: type === 'area' ? 'gradient' : 'solid',
       opacity: type === 'bar' ? 1 : (type === 'area' ? 1 : 0.85),
-      gradient: type === 'area' ? {
-        shade: darkMode ? 'dark' : 'light',
-        type: 'vertical',
-        shadeIntensity: 0.3,
-        gradientToColors: [darkMode ? '#0D1117' : '#f9fafb'],
-        opacityFrom: 0.6,
-        opacityTo: 0.1,
-        stops: [0, 100]
-      } : undefined
+      ...(type === 'area' ? {
+        gradient: {
+          shade: darkMode ? 'dark' : 'light',
+          type: 'vertical',
+          shadeIntensity: 0.3,
+          gradientToColors: [darkMode ? '#0D1117' : '#f9fafb'],
+          opacityFrom: 0.6,
+          opacityTo: 0.1,
+          stops: [0, 100]
+        }
+      } : {})
     },
     plotOptions: {
       bar: {
@@ -187,9 +193,9 @@ export default function ApexChart({
     tooltip: {
       enabled: true,
       theme: darkMode ? 'dark' : 'light',
-      x: {
-        format: xAxisType === 'datetime' ? 'dd MMM yyyy' : undefined
-      },
+      ...(xAxisType === 'datetime' ? {
+        x: { format: 'dd MMM yyyy' }
+      } : {}),
       y: {
         formatter: tooltipFormatter
       },
@@ -215,7 +221,7 @@ export default function ApexChart({
     const mappedSeries = data.map(item => ({
       name: item.name,
       data: item.data,
-      color: item.color,
+      ...(item.color ? { color: item.color } : {}),
       type: type // Explicitly set the chart type for each series
     }));
     console.log('[ApexChart] Series prepared:', {

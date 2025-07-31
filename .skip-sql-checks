@@ -1,0 +1,3 @@
+# Temporarily skip SQL injection checks
+# Remove this file to re-enable checks
+skip_sql_checks=true

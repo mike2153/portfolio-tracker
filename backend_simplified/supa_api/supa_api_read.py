@@ -28,7 +28,7 @@ __all__ = [
 # 🔧 ————————————————————————————————————————————————————————————
 # internal helper
 
-def _jwt_client(jwt: str):
+def _jwt_client(jwt: str) -> Any:
     """Return a Supabase client whose PostgREST layer forwards *jwt*.
 
     We keep this tiny so it's easy to swap out if we ever migrate to a

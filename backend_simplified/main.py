@@ -2,12 +2,13 @@
 Main FastAPI application entry point
 Simplified architecture with clear route organization
 """
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import uvicorn
 import logging
 from contextlib import asynccontextmanager
+from typing import Dict, Any, AsyncGenerator
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from services.dividend_service import dividend_service
@@ -51,7 +52,7 @@ logging.getLogger("apscheduler").setLevel(logging.WARNING)
 logging.getLogger("services.dividend_service").setLevel(logging.WARNING)
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Startup and shutdown events"""
     # Startup
     
@@ -124,7 +125,7 @@ app.add_middleware(
 
 # Root endpoint
 @app.get("/")
-async def root():
+async def root() -> Dict[str, Any]:
     """Health check endpoint"""
     logger.info("[main.py::root] Health check requested")
     return {
@@ -145,7 +146,7 @@ app.include_router(forex_router, prefix="/api", tags=["Forex"])
 
 # Request logging middleware
 @app.middleware("http")
-async def log_requests(request: Request, call_next):
+async def log_requests(request: Request, call_next) -> Response:
     """Log all incoming requests"""
     #DebugLogger.info_if_enabled(f"[main.py::log_requests] Incoming request: {request.method} {request.url.path}", logger)
     response = await call_next(request)

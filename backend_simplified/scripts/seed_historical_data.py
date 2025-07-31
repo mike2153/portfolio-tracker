@@ -230,7 +230,7 @@ DRY_RUN: {self.dry_run}
                 'error': str(e)
             }
 
-async def main():
+async def main() -> None:
     """Main entry point for the script"""
     parser = argparse.ArgumentParser(description='Seed historical price data for portfolio calculations')
     parser.add_argument('--symbol', type=str, help='Only process specific symbol')

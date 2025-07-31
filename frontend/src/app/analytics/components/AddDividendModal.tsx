@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, ChangeEvent } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, ChangeEvent } from 'react';
 import { Loader2 } from 'lucide-react';
 import { front_api_search_symbols } from '@/lib/front_api_client';
 import { StockSymbol } from '@/types/api';
@@ -37,7 +37,7 @@ interface AddDividendModalProps {
 
 export const AddDividendModal: React.FC<AddDividendModalProps> = ({ isOpen, onClose, onSave, isSubmitting }) => {
     const { addToast } = useToast();
-    const initialFormState: ManualDividendFormState = {
+    const initialFormState: ManualDividendFormState = useMemo(() => ({
         ticker: '',
         company_name: '',
         payment_date: new Date().toISOString().split('T')[0] as string,
@@ -47,7 +47,7 @@ export const AddDividendModal: React.FC<AddDividendModalProps> = ({ isOpen, onCl
         tax: '0',
         note: '',
         update_cash_balance: true,
-    };
+    }), []);
 
     const [form, setForm] = useState<ManualDividendFormState>(initialFormState);
     const [showSuggestions, setShowSuggestions] = useState(false);
@@ -95,7 +95,7 @@ export const AddDividendModal: React.FC<AddDividendModalProps> = ({ isOpen, onCl
         } finally {
             setSearchLoading(false);
         }
-    }, 300), [searchCache]);
+    }, 300), []);
 
     const handleSuggestionClick = (symbol: StockSymbol) => {
         setForm(prev => ({
@@ -116,8 +116,10 @@ export const AddDividendModal: React.FC<AddDividendModalProps> = ({ isOpen, onCl
             addToast({ type: 'error', title: 'Validation Error', message: 'Payment date is required.' });
             return;
         }
-        if (Number(form.total_received) <= 0) {
-            addToast({ type: 'error', title: 'Validation Error', message: 'Total Received must be greater than zero.' });
+        // Validate total_received with NaN check
+        const totalReceivedNum = Number(form.total_received);
+        if (isNaN(totalReceivedNum) || totalReceivedNum <= 0) {
+            addToast({ type: 'error', title: 'Validation Error', message: 'Total Received must be a valid number greater than zero.' });
             return;
         }
         await onSave(form, saveAndNew);

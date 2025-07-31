@@ -56,7 +56,7 @@ export const useCompanyIcon = (symbol: string): UseCompanyIconReturn => {
           setLoading(false);
           return;
         }
-      } catch (err) {
+      } catch {
         // Continue to next path
       }
     }

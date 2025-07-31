@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import ApexChart from '@/components/charts/ApexChart';
+import { ApexChart } from '@/components/charts';
 
 interface DividendData {
   date: string;
@@ -49,10 +49,10 @@ export default function DividendChartApex({
     // Sort data by date
     const sortedData = [...data].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-    // Create dividend amount series
-    const dividendSeries = sortedData.map(item => {
+    // Create dividend amount series with proper tuple typing
+    const dividendSeries: Array<[number, number]> = sortedData.map(item => {
       const timestamp = new Date(item.date).getTime();
-      return [timestamp, item.amount];
+      return [timestamp, item.amount] as [number, number];
     });
 
     const series = [
@@ -65,11 +65,11 @@ export default function DividendChartApex({
 
     // Add yield series if requested and data is available
     if (showYield && sortedData.some(item => item.yield !== undefined)) {
-      const yieldSeries = sortedData
+      const yieldSeries: Array<[number, number]> = sortedData
         .filter(item => item.yield !== undefined)
         .map(item => {
           const timestamp = new Date(item.date).getTime();
-          return [timestamp, item.yield!];
+          return [timestamp, item.yield!] as [number, number];
         });
 
       series.push({

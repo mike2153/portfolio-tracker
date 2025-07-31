@@ -24,7 +24,7 @@ export function enableTypeSafetyCanary(canaryUserIds: string[]) {
     FeatureFlagAdmin.canaryRollout('errorBoundaries', canaryUserIds);
     
     console.log('✅ Type safety enabled for canary users:', canaryUserIds);
-    console.log('📊 Monitor dashboard for any issues');
+    console.log('📊 Monitor dashboard for potential issues');
     
   } catch (error) {
     console.error('❌ Failed to enable canary rollout:', error);

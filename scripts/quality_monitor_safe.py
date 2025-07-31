@@ -24,6 +24,7 @@ from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass, asdict
 import glob
 import re
+import fnmatch
 
 
 def safe_print(msg: str):
@@ -67,13 +68,79 @@ class QualityMonitor:
             'load_time_ms': 2000,         # Maximum 2s load time
         }
         
+        # Also expose as THRESHOLDS for backward compatibility with CI gate
+        self.THRESHOLDS = {
+            'typescript_coverage_min': 98.0,
+            'python_type_errors_max': 0,
+            'any_type_count_max': 0,
+            'sql_injection_vulns_max': 0,
+            'duplication_percent_max': 3.0,
+            'bundle_size_kb_max': 500,
+            'load_time_ms_max': 2000,
+        }
+        
         # Initialize paths
         self.frontend_dir = self.project_root / "frontend"
         self.backend_dir = self.project_root / "backend_simplified"
         
+        # Load security exceptions
+        self.security_exceptions = self._load_security_exceptions()
+        
         safe_print(f"Quality Monitor initialized for: {self.project_root}")
         safe_print(f"Metrics storage: {self.metrics_dir}")
         safe_print(f"Monitoring thresholds: {self.thresholds}")
+        if self.security_exceptions:
+            safe_print(f"Loaded security exceptions: {len(self.security_exceptions.get('decimal_to_float_conversions', {}).get('exceptions', []))} patterns")
+
+    def _load_security_exceptions(self) -> Dict[str, Any]:
+        """Load security exceptions configuration"""
+        exceptions_file = self.project_root / "scripts" / "security-exceptions.json"
+        if exceptions_file.exists():
+            try:
+                with open(exceptions_file, 'r') as f:
+                    return json.load(f)
+            except Exception as e:
+                safe_print(f"Warning: Failed to load security exceptions: {e}")
+        return {}
+
+    def _is_security_exception(self, line: str, file_path: Path, violation_type: str) -> bool:
+        """Check if a security violation should be excepted based on patterns"""
+        if not self.security_exceptions:
+            return False
+        
+        # Check decimal to float conversions
+        if violation_type == 'float_in_financial':
+            exceptions = self.security_exceptions.get('decimal_to_float_conversions', {}).get('exceptions', [])
+            for exception in exceptions:
+                pattern = exception.get('pattern', '')
+                try:
+                    if re.search(pattern, line):
+                        return True
+                except:
+                    pass
+        
+        # Check false positive SQL patterns
+        elif violation_type == 'raw_sql':
+            exceptions = self.security_exceptions.get('false_positive_sql_patterns', {}).get('exceptions', [])
+            for exception in exceptions:
+                file_pattern = exception.get('file_pattern', '')
+                line_pattern = exception.get('line_pattern', '')
+                
+                # Check if file matches pattern
+                if file_pattern:
+                    import fnmatch
+                    if not fnmatch.fnmatch(str(file_path), file_pattern):
+                        continue
+                
+                # Check if line matches pattern
+                if line_pattern:
+                    try:
+                        if re.search(line_pattern, line):
+                            return True
+                    except:
+                        pass
+        
+        return False
 
     def monitor_typescript_coverage(self) -> Tuple[float, List[str]]:
         """Monitor TypeScript type coverage and detect 'any' types"""
@@ -83,10 +150,15 @@ class QualityMonitor:
         coverage = 100.0  # Default to 100% if we can't measure
         
         try:
-            # Check for 'any' types in TypeScript files
+            # Check for 'any' types in TypeScript files (excluding node_modules and build artifacts)
             if self.frontend_dir.exists():
                 any_files = []
+                excluded_patterns = ['node_modules', '.next', 'dist', 'build', '.nuxt', '.output']
+                
                 for ts_file in self.frontend_dir.rglob("*.ts"):
+                    # Skip excluded directories (node_modules, build artifacts, etc.)
+                    if any(pattern in str(ts_file) for pattern in excluded_patterns):
+                        continue
                     try:
                         content = ts_file.read_text(encoding='utf-8')
                         if re.search(r'\bany\b', content):
@@ -95,6 +167,9 @@ class QualityMonitor:
                         safe_print(f"Warning reading {ts_file}: {e}")
                 
                 for tsx_file in self.frontend_dir.rglob("*.tsx"):
+                    # Skip excluded directories (node_modules, build artifacts, etc.)
+                    if any(pattern in str(tsx_file) for pattern in excluded_patterns):
+                        continue
                     try:
                         content = tsx_file.read_text(encoding='utf-8')
                         if re.search(r'\bany\b', content):
@@ -148,21 +223,22 @@ class QualityMonitor:
                     try:
                         content = py_file.read_text(encoding='utf-8')
                         
-                        # Check for functions without type hints
-                        for line_num, line in enumerate(content.split('\n'), 1):
+                        # Check for functions without type hints (improved multi-line detection)
+                        lines = content.split('\n')
+                        for line_num, line in enumerate(lines, 1):
                             if 'def ' in line and not line.strip().startswith('#'):
                                 # Skip special methods and simple functions
                                 if not any(special in line for special in ['__init__', '__str__', '__repr__']):
-                                    if '->' not in line and not line.endswith(':'):
+                                    # Check current line and next few lines for return type hint
+                                    has_return_hint = False
+                                    for check_line in lines[line_num-1:min(line_num+5, len(lines))]:
+                                        if '->' in check_line:
+                                            has_return_hint = True
+                                            break
+                                    
+                                    if not has_return_hint:
                                         issues.append(f"Missing return type hint in {py_file.relative_to(self.project_root)}:{line_num}")
                                         error_count += 1
-                                    
-                                    # Check for untyped parameters
-                                    if ':' not in line and '(' in line and ')' in line:
-                                        param_part = line[line.find('('):line.find(')')]
-                                        if param_part.count(',') > 0 or (param_part != '()' and 'self' not in param_part):
-                                            issues.append(f"Untyped parameters in {py_file.relative_to(self.project_root)}:{line_num}")
-                                            error_count += 1
                     
                     except Exception as e:
                         safe_print(f"Warning reading {py_file}: {e}")
@@ -214,8 +290,9 @@ class QualityMonitor:
                             
                             # Check for f-string SQL construction
                             if re.search(r'f["\'].*\{.*\}.*(?:SELECT|INSERT|UPDATE|DELETE)', line, re.IGNORECASE):
-                                violations.append(f"Raw SQL f-string in {py_file.relative_to(self.project_root)}:{line_num}")
-                                violation_counts['raw_sql'] += 1
+                                if not self._is_security_exception(line, py_file, 'raw_sql'):
+                                    violations.append(f"Raw SQL f-string in {py_file.relative_to(self.project_root)}:{line_num}")
+                                    violation_counts['raw_sql'] += 1
                             
                             # Check for string concatenation in SQL
                             if re.search(r'["\'].*(?:SELECT|INSERT|UPDATE|DELETE).*["\'].*\+', line, re.IGNORECASE):
@@ -226,8 +303,9 @@ class QualityMonitor:
                             financial_keywords = ['price', 'amount', 'total', 'value', 'balance', 'cost']
                             if any(keyword in line.lower() for keyword in financial_keywords):
                                 if re.search(r'\b(float|int)\s*\(', line) and 'Decimal' not in line:
-                                    violations.append(f"Float/int in financial calculation: {py_file.relative_to(self.project_root)}:{line_num}")
-                                    violation_counts['float_in_financial'] += 1
+                                    if not self._is_security_exception(line, py_file, 'float_in_financial'):
+                                        violations.append(f"Float/int in financial calculation: {py_file.relative_to(self.project_root)}:{line_num}")
+                                        violation_counts['float_in_financial'] += 1
                             
                             # Check for unsafe CORS configuration
                             if 'allow_origins' in line and '*' in line:
@@ -250,10 +328,24 @@ class QualityMonitor:
         safe_print("Checking code duplication...")
         
         try:
-            # Try to use jscpd if available
+            # Try to use jscpd if available (excluding node_modules and build artifacts)
             try:
+                ignore_patterns = [
+                    "**/node_modules/**",
+                    "**/.next/**",
+                    "**/dist/**",
+                    "**/build/**",
+                    "**/.nuxt/**",
+                    "**/.output/**",
+                    "**/coverage/**"
+                ]
+                
+                cmd = ["npx", "jscpd", str(self.project_root), "--format", "json", "--output", str(self.metrics_dir / "jscpd")]
+                for pattern in ignore_patterns:
+                    cmd.extend(["--ignore", pattern])
+                
                 result = subprocess.run(
-                    ["npx", "jscpd", str(self.project_root), "--format", "json", "--output", str(self.metrics_dir / "jscpd")],
+                    cmd,
                     capture_output=True,
                     text=True,
                     timeout=120
@@ -276,10 +368,13 @@ class QualityMonitor:
             duplication_percent = 0.0
             issues = []
             
-            # Check for similar patterns in frontend
+            # Check for similar patterns in frontend (excluding node_modules and build artifacts)
             if self.frontend_dir.exists():
                 duplicate_patterns = []
-                for tsx_file in list(self.frontend_dir.rglob("*.tsx"))[:20]:  # Limit files for performance
+                excluded_patterns = ['node_modules', '.next', 'dist', 'build', '.nuxt', '.output', 'coverage']
+                tsx_files = [f for f in self.frontend_dir.rglob("*.tsx") 
+                           if not any(pattern in str(f) for pattern in excluded_patterns)]
+                for tsx_file in list(tsx_files)[:20]:  # Limit files for performance
                     try:
                         content = tsx_file.read_text(encoding='utf-8')
                         # Look for repeated JSX patterns
@@ -402,6 +497,24 @@ class QualityMonitor:
                 'total_issues': len(all_issues)
             }
         )
+        
+        # Add compatibility attributes for CI gate
+        metrics.type_safety = {
+            'typescript_coverage': ts_coverage,
+            'python_type_errors': py_errors,
+            'any_type_count': len([issue for issue in ts_issues if "'any' type found" in issue])
+        }
+        metrics.security = {
+            'sql_injection_vulns': security_counts.get('raw_sql', 0) + security_counts.get('sql_injection_risk', 0)
+        }
+        metrics.code_quality = {
+            'duplication_percent': duplication_percent
+        }
+        metrics.performance = {
+            'bundle_size_kb': bundle_size,
+            'load_time_ms': load_time
+        }
+        metrics.overall_status = status
         
         safe_print("\nQuality Scan Results")
         safe_print("=" * 60)

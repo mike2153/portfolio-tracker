@@ -4,7 +4,7 @@ Provides standardized error responses following the JSON_STANDARDIZATION_PLAN.
 """
 
 from typing import Dict, Any, Optional, List
-from fastapi import Request, HTTPException
+from fastapi import Request, HTTPException, FastAPI
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
@@ -37,7 +37,7 @@ class APIException(HTTPException):
         message: str,
         details: Optional[Dict[str, Any]] = None,
         request_id: Optional[str] = None
-    ):
+    ) -> None:
         self.error = error
         self.message = message
         self.details = details or {}
@@ -53,7 +53,7 @@ class ErrorDetail:
         message: str,
         field: Optional[str] = None,
         details: Optional[Dict[str, Any]] = None
-    ):
+    ) -> None:
         self.code = code
         self.message = message
         self.field = field
@@ -256,7 +256,7 @@ async def api_exception_handler(request: Request, exc: Exception) -> JSONRespons
         )
 
 
-def register_exception_handlers(app) -> None:
+def register_exception_handlers(app: FastAPI) -> None:
     """
     Register all exception handlers with the FastAPI app.
     

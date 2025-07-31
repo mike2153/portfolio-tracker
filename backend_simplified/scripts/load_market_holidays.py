@@ -92,7 +92,7 @@ async def load_holidays_for_exchange(exchange: str, years_ahead: int = 2) -> Lis
         logger.error(f"Error loading holidays for {exchange}: {e}")
         return []
 
-async def load_all_holidays():
+async def load_all_holidays() -> None:
     """
     Load holidays for all configured exchanges
     """
@@ -144,7 +144,7 @@ async def load_all_holidays():
         logger.error(f"Error loading holidays: {e}")
         raise
 
-async def main():
+async def main() -> None:
     """
     Main entry point
     """

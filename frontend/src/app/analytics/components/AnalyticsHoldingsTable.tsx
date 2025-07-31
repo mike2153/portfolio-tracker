@@ -91,6 +91,11 @@ export default function AnalyticsHoldingsTable({
 
   // Process and filter holdings data
   const processedHoldings = useMemo(() => {
+    // Safety check: ensure holdings is an array
+    if (!holdings || !Array.isArray(holdings)) {
+      return [];
+    }
+    
     let filtered = holdings;
 
     // Filter by search term
@@ -127,6 +132,11 @@ export default function AnalyticsHoldingsTable({
 
   // Transform data for ApexListView
   const listData = useMemo(() => {
+    // Safety check: ensure processedHoldings is an array
+    if (!processedHoldings || !Array.isArray(processedHoldings)) {
+      return [];
+    }
+    
     const transformed = processedHoldings.map(holding => ({
       id: holding.symbol || '',
       symbol: holding.symbol || '',

@@ -7,7 +7,7 @@ import GradientText from '@/components/ui/GradientText';
 import PortfolioSummary from './components/PortfolioSummary';
 import HoldingsTable from './components/HoldingsTable';
 import AllocationCharts from './components/AllocationCharts';
-import RebalanceCalculator from './components/RebalanceCalculator';
+// import RebalanceCalculator from './components/RebalanceCalculator';
 
 // Tab configuration
 const tabs = [
@@ -18,7 +18,7 @@ const tabs = [
 ];
 
 export default function PortfolioPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
 
   if (authLoading) {
@@ -117,7 +117,10 @@ export default function PortfolioPage() {
 
           {activeTab === 'rebalance' && (
             <div className="animate-fadeIn">
-              <RebalanceCalculator />
+              <div className="p-6 text-center text-gray-400">
+                <Calculator className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>Rebalance Calculator Coming Soon</p>
+              </div>
             </div>
           )}
         </div>

@@ -2,10 +2,10 @@
  * 🛡️ BULLETPROOF DASHBOARD TYPE DEFINITIONS
  * 
  * Centralized, strict types for all dashboard components.
- * ZERO `any` types allowed - everything must be explicitly typed.
+ * ZERO implicit types allowed - everything must be explicitly typed.
  */
 
-import { APIResponse, KPIValue } from '../../../shared/types/api-contracts';
+import { APIResponse as _APIResponse, KPIValue } from '../../../shared/types/api-contracts';
 
 // ============================================
 // CORE DASHBOARD TYPES
@@ -13,7 +13,7 @@ import { APIResponse, KPIValue } from '../../../shared/types/api-contracts';
 
 /**
  * API response type for dashboard data
- * Replaces any usage of `any` in dashboard queries
+ * Replaces implicit typing in dashboard queries
  */
 export interface DashboardAPIResponse {
   success: boolean;
@@ -35,7 +35,7 @@ export interface DashboardAPIResponse {
 
 /**
  * Analytics API response type
- * Replaces any usage of `any` in analytics queries  
+ * Replaces implicit typing in analytics queries  
  */
 export interface AnalyticsAPIResponse {
   success: boolean;
@@ -83,7 +83,7 @@ export interface PerformanceData {
 
 /**
  * Dashboard context state type
- * Replaces any implied types in DashboardContext
+ * Replaces all implied types in DashboardContext
  */
 export interface DashboardContextState {
   // Selected values
@@ -138,7 +138,7 @@ export interface EnhancedKPIValue extends KPIValue {
 
 /**
  * KPI Card component props with strict typing
- * Replaces any undefined props in KPICard
+ * Replaces all undefined props in KPICard
  */
 export interface KPICardProps {
   title: string;
@@ -183,8 +183,8 @@ export interface TransformedKPIData {
  * Replaces generic Error with specific error structure
  */
 export class DashboardQueryError extends Error {
-  code?: string;
-  details?: Record<string, unknown>;
+  code?: string | undefined;
+  details?: Record<string, unknown> | undefined;
   timestamp: string;
 
   constructor(errorData: {

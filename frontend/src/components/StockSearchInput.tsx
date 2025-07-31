@@ -98,7 +98,10 @@ export function StockSearchInput({
       case 'Enter':
         e.preventDefault();
         if (highlightedIndex >= 0 && highlightedIndex < suggestions.length) {
-          handleSuggestionClick(suggestions[highlightedIndex]);
+          const selectedSuggestion = suggestions[highlightedIndex];
+          if (selectedSuggestion) {
+            handleSuggestionClick(selectedSuggestion);
+          }
         }
         break;
       case 'Escape':
@@ -167,7 +170,7 @@ export function StockSearchInput({
        // console.log(`🔄 [StockSearchInput] Rendering loading state`);
       } else if (suggestions.length > 0) {
         //console.log(`📋 [StockSearchInput] Rendering ${suggestions.length} suggestions`);
-        suggestions.forEach((symbol, index) => {
+        suggestions.forEach((_symbol, _index) => {
           //console.log(`🎯 [StockSearchInput] Suggestion ${index}: ${symbol.symbol} - ${symbol.name}`);
         });
       } else if (searchQuery.length > 0) {
@@ -251,7 +254,7 @@ export function StockSearchInput({
             </div>
           ) : searchQuery.length > 0 ? (
             <div className="p-4 text-center text-[#8B949E]">
-              No results found for "{searchQuery}"
+              No results found for &quot;{searchQuery}&quot;
             </div>
           ) : null}
         </div>
