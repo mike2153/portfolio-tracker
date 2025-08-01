@@ -32,21 +32,8 @@ interface AnalyticsHoldingsTableProps {
 
 // Use the ListViewColumn type from ApexListView directly
 import { ListViewColumn } from '@/components/charts/ApexListView';
-
-const formatCurrency = (value: number | null | undefined): string => {
-  if (value === null || value === undefined || isNaN(value)) return '$0.00';
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value);
-};
-
-const formatPercentage = (value: number | null | undefined): string => {
-  if (value === null || value === undefined || isNaN(value)) return '0.00%';
-  return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
-};
+// Import centralized formatters to eliminate duplication
+import { formatCurrency, formatPercentage } from '@/utils/formatters';
 
 const getChangeColor = (value: number | null | undefined): string => {
   if (value === null || value === undefined || isNaN(value)) return 'text-gray-400';

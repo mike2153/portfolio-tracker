@@ -5,6 +5,8 @@ import { ApexChart } from '@/components/charts'
 // Removed unused import: ChartSkeleton
 import { useDashboard } from '../contexts/DashboardContext'
 import { usePerformance, type RangeKey, type BenchmarkTicker } from '@/hooks/usePerformance'
+// Import centralized formatters
+import { formatCurrency } from '@/utils/formatters'
 
 // === CONFIGURATION ===
 const ranges: RangeKey[] = ['7D', '1M', '3M', '1Y', 'YTD', 'MAX']
@@ -191,14 +193,10 @@ export default function PortfolioChartApex({
     return result;
   }, [alignedPortfolio, alignedBenchmark, displayMode, portfolioPercentReturns, benchmarkPercentReturns, selectedBenchmark, selectedRange, getValue]);
 
-  // Format currency values
+  // Format currency values using centralized formatter
   const _formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(value);
+    return formatCurrency(value, { minimumFractionDigits: 0, maximumFractionDigits: 0
+    });
   };
   
   // Format percentage values with null safety

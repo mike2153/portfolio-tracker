@@ -56,7 +56,8 @@
       "Bash(timeout 45 npm run build)",
       "Bash(timeout 30 npm run build)",
       "Bash(timeout 15 npm run build)",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "Bash(true)"
     ],
     "deny": []
   },

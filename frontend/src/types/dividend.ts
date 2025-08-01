@@ -95,31 +95,17 @@ export function dividendToTableRow(dividend: UserDividendData): DividendTableRow
   return tableRow;
 }
 
-/**
- * Format currency with proper symbol and precision
- */
-export function formatDividendCurrency(amount: number | null | undefined, currency: string = 'USD'): string {
-  // Handle null/undefined/NaN values safely
-  const safeAmount = (amount === null || amount === undefined || isNaN(Number(amount))) ? 0 : Number(amount);
-  
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 4
-  }).format(safeAmount);
-}
+// Import centralized formatters to avoid duplication
+import { formatCurrency, formatDate } from '../utils/formatters';
 
 /**
- * Format date for dividend display
+ * Legacy aliases for backward compatibility - redirect to centralized formatters
+ * @deprecated Use formatters from utils/formatters.ts directly
  */
-export function formatDividendDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  });
-}
+export const formatDividendCurrency = (amount: number | null | undefined, currency: string = 'USD') => 
+  formatCurrency(amount, { currency, maximumFractionDigits: 4 });
+
+export const formatDividendDate = (dateString: string) => formatDate(dateString);
 
 /**
  * Validate dividend data before sending to API

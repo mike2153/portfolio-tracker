@@ -262,44 +262,15 @@ export function getPerformanceValue(dataPoint: PerformanceDataPoint): number {
   return dataPoint.value ?? dataPoint.total_value ?? 0;
 }
 
-/**
- * Helper to safely format currency values
- */
-export function formatCurrencyValue(
-  value: number, 
-  options: {
-    currency?: string;
-    minimumFractionDigits?: number;
-    maximumFractionDigits?: number;
-  } = {}
-): string {
-  const {
-    currency = 'USD',
-    minimumFractionDigits = 2,
-    maximumFractionDigits = 2
-  } = options;
-
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency,
-    minimumFractionDigits,
-    maximumFractionDigits,
-  }).format(value);
-}
+// Import centralized formatters to avoid duplication
+import { formatCurrency, formatPercentage } from '../utils/formatters';
 
 /**
- * Helper to safely format percentage values
+ * Legacy aliases for backward compatibility - redirect to centralized formatters
+ * @deprecated Use formatters from utils/formatters.ts directly
  */
-export function formatPercentageValue(
-  value: number,
-  decimalPlaces: number = 2
-): string {
-  if (!Number.isFinite(value)) {
-    return '0.00%';
-  }
-  
-  return `${value.toFixed(decimalPlaces)}%`;
-}
+export const formatCurrencyValue = formatCurrency;
+export const formatPercentageValue = formatPercentage;
 
 // ============================================
 // FEATURE FLAG INTEGRATION

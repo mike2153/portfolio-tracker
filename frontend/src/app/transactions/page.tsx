@@ -12,6 +12,8 @@ import { User } from "@/types";
 import { StockSearchInput } from "@/components/StockSearchInput";
 import CompanyIcon from "@/components/ui/CompanyIcon";
 import { useSearchParams } from 'next/navigation';
+// Import centralized formatters
+import { formatCurrency, formatDate } from '@/utils/formatters';
 
 /* ------------------------------------------------------------------
  * Types
@@ -75,15 +77,9 @@ const parseNum = (v: unknown): number => {
   return isNaN(n) ? 0 : n;
 };
 
-const formatCurrency = (amount: number, currency = "USD") =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency }).format(amount);
-
-const formatDate = (iso: string) => {
-  const d = new Date(iso);
-  return isNaN(d.getTime())
-    ? "—"
-    : d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
-};
+// Local wrapper for currency formatting with specific default
+const formatTransactionCurrency = (amount: number, currency = "USD"): string =>
+  formatCurrency(amount, { currency });
 
 // Debounce utility function - As this is a small helper, it's fine to keep it here.
 function _debounce<T extends unknown[]>(func: (...args: T) => void, delay: number) {
@@ -509,7 +505,7 @@ const TransactionsPage = () => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div className="bg-[#0D1117] border border-[#30363D] p-4 rounded-lg shadow-sm">
               <h3 className="text-sm font-medium text-[#8B949E]">Total Invested</h3>
-              <p className="text-2xl font-bold text-green-400">{formatCurrency(summary.total_invested)}</p>
+              <p className="text-2xl font-bold text-green-400">{formatTransactionCurrency(summary.total_invested)}</p>
             </div>
             <div className="bg-[#0D1117] border border-[#30363D] p-4 rounded-lg shadow-sm">
               <h3 className="text-sm font-medium text-[#8B949E]">Total Transactions</h3>
@@ -522,7 +518,7 @@ const TransactionsPage = () => {
             <div className="bg-[#0D1117] border border-[#30363D] p-4 rounded-lg shadow-sm">
               <h3 className="text-sm font-medium text-[#8B949E]">Net Invested</h3>
               <p className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-                {formatCurrency(summary.net_invested)}
+                {formatTransactionCurrency(summary.net_invested)}
               </p>
             </div>
           </div>
@@ -561,8 +557,8 @@ const TransactionsPage = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap"><span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${t.transaction_type === 'BUY' ? 'bg-green-900 text-green-300' : t.transaction_type === 'SELL' ? 'bg-red-900 text-red-300' : 'bg-blue-900 text-blue-300'}`}>{t.transaction_type}</span></td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{Math.round(t.shares).toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(t.price_per_share, t.transaction_currency)}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(t.total_amount, t.transaction_currency)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatTransactionCurrency(t.price_per_share, t.transaction_currency)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatTransactionCurrency(t.total_amount, t.transaction_currency)}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatDate(t.transaction_date)}</td>
                       <td className="px-6 py-4 whitespace-nowrap flex space-x-2">
                         <Edit onClick={() => handleEditClick(t)} className="h-5 w-5 cursor-pointer text-[#8B949E] hover:text-white" />
@@ -652,7 +648,7 @@ const TransactionsPage = () => {
                 </label>
                 <input
                   type="text"
-                  value={formatCurrency(amountInvested, form.currency || 'USD')}
+                  value={formatTransactionCurrency(amountInvested, form.currency || 'USD')}
                   readOnly
                   tabIndex={-1}
                   className="w-full p-2 bg-[#0D1117] border border-[#30363D] rounded-lg text-[#8B949E] opacity-80 cursor-not-allowed"

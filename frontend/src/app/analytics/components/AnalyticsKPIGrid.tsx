@@ -1,6 +1,8 @@
 "use client";
 
 import React from 'react';
+// Import centralized formatters to eliminate duplication
+import { formatCurrency, formatPercentage } from '@/utils/formatters';
 
 interface DividendSummary {
   total_received: number;
@@ -26,19 +28,9 @@ interface AnalyticsKPIGridProps {
   error: Error | null;
 }
 
-const formatCurrency = (value: number | null | undefined): string => {
-  const numValue = Number(value) || 0;
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(numValue);
-};
-
-const formatPercentage = (value: number | null | undefined): string => {
-  const numValue = Number(value) || 0;
-  return `${numValue >= 0 ? '+' : ''}${numValue.toFixed(2)}%`;
+// Create local wrapper for integer formatting requirement
+const formatCompactCurrency = (value: number | null | undefined): string => {
+  return formatCurrency(value, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 };
 
 const getChangeColor = (value: number | null | undefined): string => {
@@ -112,7 +104,7 @@ export default function AnalyticsKPIGrid({ summary, isLoading, error }: Analytic
       {/* Portfolio Value */}
       <KPICard
         title="Portfolio Value"
-        value={formatCurrency(summary?.portfolio_value || 0)}
+        value={formatCompactCurrency(summary?.portfolio_value || 0)}
         icon="💼"
         isLoading={isLoading}
       />
@@ -120,7 +112,7 @@ export default function AnalyticsKPIGrid({ summary, isLoading, error }: Analytic
       {/* Total Profit */}
       <KPICard
         title="Total Profit"
-        value={formatCurrency(summary?.total_profit || 0)}
+        value={formatCompactCurrency(summary?.total_profit || 0)}
         change={formatPercentage(summary?.total_profit_percent || 0)}
         changeColor={getChangeColor(summary?.total_profit || 0)}
         icon="📈"
@@ -139,7 +131,7 @@ export default function AnalyticsKPIGrid({ summary, isLoading, error }: Analytic
       {/* Passive Income (YTD) */}
       <KPICard
         title="Passive Income"
-        value={formatCurrency(summary?.passive_income_ytd || 0)}
+        value={formatCompactCurrency(summary?.passive_income_ytd || 0)}
         change={`${summary?.dividend_summary?.confirmed_count || 0} dividends`}
         changeColor="text-blue-400"
         icon="💰"
@@ -149,7 +141,7 @@ export default function AnalyticsKPIGrid({ summary, isLoading, error }: Analytic
       {/* Cash Balance */}
       <KPICard
         title="Cash Balance"
-        value={formatCurrency(summary?.cash_balance || 0)}
+        value={formatCompactCurrency(summary?.cash_balance || 0)}
         change="Available"
         changeColor="text-gray-400"
         icon="🏦"

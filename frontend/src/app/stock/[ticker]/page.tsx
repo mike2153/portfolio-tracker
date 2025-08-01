@@ -6,6 +6,8 @@ import dynamic from 'next/dynamic'
 import { FinancialStatements } from '@/types'
 // BalanceSheet component to be implemented
 import AdvancedFinancialsComponent from '@/components/AdvancedFinancials'
+// Import centralized formatters
+import { formatCompactNumber } from '@/utils/formatters'
 
 // Dynamically import ApexChart
 const ApexChart = dynamic(() => import('@/components/charts/ApexChart'), { ssr: false })
@@ -162,12 +164,8 @@ export default function StockAnalysisPage({ params }: StockAnalysisPageProps) {
     }
   }, [selectedTab, fetchHistoricalData, fetchFinancials, fetchNews])
 
-  const formatCurrency = (value: number) => {
-    if (value >= 1e12) return `$${(value / 1e12).toFixed(1)}T`
-    if (value >= 1e9) return `$${(value / 1e9).toFixed(1)}B`
-    if (value >= 1e6) return `$${(value / 1e6).toFixed(1)}M`
-    return `$${value?.toLocaleString()}`
-  }
+  // Use centralized compact number formatter for large values
+  const formatCurrency = (value: number) => `$${formatCompactNumber(value)}`
 
   const formatPercent = (value: string | number) => {
     const num = typeof value === 'string' ? parseFloat(value) : value
