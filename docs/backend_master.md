@@ -83,12 +83,14 @@ backend_simplified/
 
 **Business Logic (`services/`)**:
 - `portfolio_calculator.py` - Portfolio calculations and metrics
-- `portfolio_metrics_manager.py` - Cached portfolio analytics
-- `price_manager.py` - Unified price data management
-- `dividend_service.py` - Dividend processing and assignment
-- `financials_service.py` - Financial data processing
-- `forex_manager.py` - Currency conversion operations
-- `index_sim_service.py` - Index simulation and benchmarking
+- `portfolio_metrics_manager.py` - Cached portfolio analytics with TTL management
+- `user_performance_manager.py` - Comprehensive user data aggregation (planned for Load Everything Once architecture)
+- `background_performance_refresher.py` - Background cache refresh jobs (planned)
+- `price_manager.py` - Unified price data management with circuit breaker
+- `dividend_service.py` - Dividend processing and assignment with transaction integration
+- `financials_service.py` - Financial data processing with 24-hour caching
+- `forex_manager.py` - Currency conversion operations with Alpha Vantage
+- `index_sim_service.py` - Index simulation and benchmarking for performance comparison
 
 **Data Access (`supa_api/`)**:
 - `supa_api_client.py` - Supabase client configuration
@@ -119,30 +121,67 @@ app.include_router(analytics_router, prefix="/api/analytics", tags=["Analytics"]
 ### Endpoint Structure by Domain
 
 **Authentication (`/api/auth`)**:
-- `POST /register` - User registration
-- `POST /login` - User authentication
-- `POST /logout` - Session termination
-- `GET /profile` - Get user profile
-- `PUT /profile` - Update user profile
+- `GET /validate` - Validate JWT token and get user info
 
 **Portfolio Management (`/api`)**:
-- `GET /portfolio` - Get current portfolio holdings
-- `GET /transactions` - List user transactions
-- `POST /transactions` - Add new transaction
-- `PUT /transactions/{id}` - Update transaction
+- `GET /portfolio` - Get current portfolio holdings with performance
+- `GET /transactions` - List user transactions with pagination
+- `POST /transactions` - Add new buy/sell transaction
+- `PUT /transactions/{id}` - Update existing transaction
 - `DELETE /transactions/{id}` - Delete transaction
+- `GET /allocation` - Portfolio allocation data for charts
+- `POST /cache/clear` - Clear portfolio metrics cache
 
-**Dashboard (`/api`)**:
-- `GET /dashboard` - Complete dashboard data
-- `GET /performance` - Portfolio performance metrics
-- `GET /allocation` - Asset allocation breakdown
+**Dashboard (`/api/dashboard`)**:
+- `GET /dashboard` - Complete dashboard snapshot
+- `GET /dashboard/performance` - Portfolio vs benchmark performance
+- `GET /dashboard/gainers` - Top gaining holdings
+- `GET /dashboard/losers` - Top losing holdings
 
 **Research (`/api`)**:
-- `GET /search` - Symbol search
-- `GET /quote/{symbol}` - Real-time quote
-- `GET /historical/{symbol}` - Historical price data
-- `GET /financials/{symbol}` - Company financials
-- `GET /news/{symbol}` - Stock news
+- `GET /symbol_search` - Symbol search with relevance scoring
+- `GET /stock_overview` - Comprehensive stock data (quote + fundamentals)
+- `GET /quote/{symbol}` - Real-time stock quote
+- `GET /historical_price/{symbol}` - Historical price for specific date
+- `GET /financials/{symbol}` - Company financial statements with caching
+- `POST /financials/force-refresh` - Force refresh financial data
+- `GET /stock_prices/{symbol}` - Historical price data with flexible periods
+- `GET /news/{symbol}` - News and sentiment data
+
+**Analytics (`/api/analytics`)**:
+- `GET /summary` - KPI cards data for analytics dashboard
+- `GET /holdings` - Detailed holdings data with P&L breakdown
+- `GET /dividends` - User dividend data with confirmation status
+- `POST /dividends/confirm` - Confirm pending dividend
+- `POST /dividends/sync` - Sync dividends for specific symbol
+- `POST /dividends/sync-all` - Sync dividends for all holdings
+- `GET /dividends/summary` - Lightweight dividend summary
+- `POST /dividends/reject` - Reject/hide dividend permanently
+- `POST /dividends/edit` - Edit dividend by creating new one
+- `POST /dividends/add-manual` - Manually add dividend entry
+
+**Watchlist (`/api/watchlist`)**:
+- `GET /watchlist` - Get user's watchlist with optional quotes
+- `POST /watchlist/{symbol}` - Add stock to watchlist
+- `DELETE /watchlist/{symbol}` - Remove stock from watchlist
+- `PUT /watchlist/{symbol}` - Update watchlist item notes/target price
+- `GET /watchlist/{symbol}/status` - Check if symbol is in watchlist
+
+**User Profile (`/api`)**:
+- `GET /profile` - Get current user's profile
+- `POST /profile` - Create user profile with currency preference
+- `PATCH /profile` - Update user profile fields
+- `GET /profile/currency` - Get user's base currency preference
+
+**Forex/Currency (`/api/forex`)**:
+- `GET /rate` - Get exchange rate between currencies
+- `GET /latest` - Get latest available exchange rate
+- `POST /convert` - Convert amount between currencies
+
+**Debug (`/api/debug`)**:
+- `POST /toggle-info-logging` - Toggle info logging on/off
+- `GET /logging-status` - Get current logging status
+- `POST /reset-circuit-breaker` - Reset price service circuit breaker
 
 ### Request/Response Patterns
 
@@ -861,6 +900,33 @@ The backend enforces strict type safety throughout:
 - **Parameterized queries**: SQL injection prevention through Supabase client
 - **JWT validation**: Comprehensive token validation with proper error handling
 - **Row Level Security**: Database-level access control for user data
+
+### Technology Stack (Current)
+
+**Core Framework & Runtime:**
+- **Python**: 3.11 (as specified in Dockerfile)
+- **FastAPI**: 0.104.1 - Modern async web framework
+- **Uvicorn**: 0.24.0 - ASGI server with hot reload support
+- **Pydantic**: 2.5.0 - Data validation and serialization
+
+**Database & External Services:**
+- **Supabase**: 2.10.0 - PostgreSQL database with auth and real-time features
+- **AsyncPG**: 0.29.0 - Async PostgreSQL operations
+- **Alpha Vantage API**: 2.3.1 - Market data integration
+- **Pandas Market Calendars**: 4.3.2 - Market timing operations
+
+**Development & Quality:**
+- **Testing**: pytest 7.4.3, pytest-asyncio, pytest-cov
+- **Code Quality**: black 23.11.0, flake8 6.1.0
+- **Monitoring**: APScheduler 3.10.4, prometheus-client 0.19.0
+- **Type Safety**: Complete type annotations with mypy validation
+
+**Security & Performance:**
+- **100% Row Level Security** coverage with 55 database policies
+- **DECIMAL precision** mandatory for all financial calculations
+- **Circuit breaker pattern** for external service resilience
+- **Intelligent caching** with TTL-based cache management
+- **Background jobs** for price updates and data synchronization
 
 ### Operational Excellence
 

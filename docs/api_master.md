@@ -1,6 +1,6 @@
 # Portfolio Tracker API Master Documentation
 
-📋 **CURRENT STATE**: This documentation reflects the actual implementation as of July 2025. Updated to match the current codebase structure and eliminate outdated automation references.
+📋 **CURRENT STATE**: This documentation reflects the actual implementation as of August 2025. Comprehensive update with all 70+ current API endpoints including new forex, profile, and analytics features.
 
 ## 📋 Documentation Status
 
@@ -886,6 +886,59 @@ GET /api/news/{symbol}
   }
 }
 ```
+
+#### Get Company Financials
+```http
+GET /api/financials/{symbol}
+```
+**Description**: Get company financial statements with intelligent caching
+**Auth**: Required (JWT Bearer token)
+**Path Parameters**:
+- `symbol` (string): Stock symbol (required)
+**Query Parameters**:
+- `data_type` (string): OVERVIEW, INCOME_STATEMENT, BALANCE_SHEET, CASH_FLOW (default: OVERVIEW)
+- `force_refresh` (boolean): Force API refresh (default: false)
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "symbol": "AAPL",
+    "data_type": "OVERVIEW",
+    "financial_data": {
+      "Symbol": "AAPL",
+      "AssetType": "Common Stock",
+      "Name": "Apple Inc",
+      "Exchange": "NASDAQ",
+      "Currency": "USD",
+      "Country": "USA",
+      "Sector": "TECHNOLOGY",
+      "Industry": "Electronic Equipment",
+      "MarketCapitalization": "3000000000000",
+      "BookValue": "4.84",
+      "DividendPerShare": "0.96"
+    }
+  },
+  "metadata": {
+    "cache_hit": true,
+    "cached_at": "2024-01-15T10:30:00Z",
+    "expires_at": "2024-01-16T10:30:00Z"
+  }
+}
+```
+
+#### Force Refresh Financials  
+```http
+POST /api/financials/force-refresh
+```
+**Description**: Force refresh financial data (admin/dev endpoint)
+**Auth**: Required (JWT Bearer token)
+**Query Parameters**:
+- `symbol` (string): Stock symbol (required)
+- `data_type` (string): Financial data type (default: OVERVIEW)
+
+**Response**: Same as GET /api/financials/{symbol} with fresh data
 
 ---
 

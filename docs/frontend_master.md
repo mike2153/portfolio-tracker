@@ -2,21 +2,37 @@
 
 ## Overview
 
-The Portfolio Tracker frontend is a modern **Next.js 14** application built with React 19, TypeScript, and Tailwind CSS. It provides a comprehensive financial analytics platform for investment portfolio management with real-time data visualization, portfolio tracking, and advanced analytics.
+The Portfolio Tracker frontend is a modern **Next.js 15.3.5** application built with React 19.1.0, TypeScript 5.8.3, and Tailwind CSS 3.4.1. It provides a comprehensive financial analytics platform for investment portfolio management with real-time data visualization, portfolio tracking, and advanced analytics.
 
 ## Architecture Overview
 
-### Technology Stack
-- **Framework**: Next.js 14 with App Router
-- **Runtime**: React 19
-- **Language**: TypeScript with strict mode enabled
-- **Styling**: Tailwind CSS with custom theme
-- **State Management**: React Query (@tanstack/react-query)
-- **Authentication**: Supabase Auth
-- **Charts**: ApexCharts (react-apexcharts) and Victory.js
-- **UI Components**: Custom components with Lucide React icons
-- **Testing**: Jest with React Testing Library
-- **Build**: Next.js built-in build system with Docker support
+### Technology Stack (Current)
+
+**Core Framework:**
+- **Next.js**: 15.3.5 with App Router
+- **React**: 19.1.0 (latest)
+- **TypeScript**: 5.8.3 with strict mode enabled
+- **Node.js**: 18+ required
+
+**State Management & Data:**
+- **React Query**: @tanstack/react-query 5.81.5 for server state
+- **Supabase Client**: @supabase/supabase-js 2.50.3 for auth and database
+
+**UI & Styling:**
+- **Tailwind CSS**: 3.4.1 with custom configuration
+- **Charts**: ApexCharts 4.7.0 with react-apexcharts 1.7.0
+- **Icons**: Heroicons, Lucide React, React Icons
+- **Utilities**: clsx, tailwind-merge for conditional styling
+
+**Build & Development:**
+- **Bundle Analysis**: @next/bundle-analyzer for performance monitoring
+- **Testing**: Jest 30.0.4 with Testing Library
+- **Linting**: ESLint 9.30.1 with TypeScript support
+- **Performance**: Bundle size limits (362KB target)
+
+**Cross-Platform Shared Module:**
+- **@portfolio-tracker/shared**: Unified API client and types
+- **Mobile Support**: Shared components for React Native/Expo
 
 ### Design Patterns
 - **App Router**: Next.js 13+ app directory structure with layout/page pattern
@@ -716,6 +732,58 @@ React Query provides intelligent caching:
 2. **Garbage Collection**: 10 minutes for query cleanup
 3. **Background Refetching**: Disabled to prevent excessive API calls
 4. **Query Invalidation**: Strategic invalidation on data mutations
+
+## Future Architecture: Load Everything Once Pattern
+
+### Planned Optimization
+The frontend is being refactored to implement a "Load Everything Once" pattern to dramatically improve performance and reduce complexity:
+
+**Current State (Multiple API Calls)**:
+- Dashboard requires 7-8 separate API calls
+- Individual hooks: `usePortfolioAllocation`, `usePerformance`, etc.
+- Multiple React Query cache entries
+- Slow page navigation due to new API calls
+
+**Planned State (Single API Call)**:
+- New `useSessionPortfolio` hook loads all data in one call
+- Single `/api/portfolio/complete` endpoint
+- 30-minute cache with cross-page persistence
+- Instant page navigation after initial load
+
+**Expected Improvements**:
+- **87.5% reduction** in API calls (8 calls → 1 call)
+- **80% faster** dashboard load times (3-5s → 0.5-1s)
+- **Instant page navigation** after initial load
+- **4,100+ lines of code eliminated** from data fetching complexity
+
+**Implementation Strategy**:
+```typescript
+// New unified hook
+const useSessionPortfolio = () => {
+  return useQuery({
+    queryKey: ['session-portfolio'],
+    queryFn: () => apiClient.get('/api/portfolio/complete'),
+    staleTime: 30 * 60 * 1000, // 30 minutes
+    cacheTime: 60 * 60 * 1000, // 1 hour in memory
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+  });
+};
+
+// Derived hooks for specific data sections
+const usePortfolioSummary = () => {
+  const { data } = useSessionPortfolio();
+  return { data: data?.portfolio_data };
+};
+```
+
+### Current Data Flow vs. Planned
+**Current**: Component → Individual Hook → API Call → Backend → Database
+**Planned**: Component → Session Hook → Single API Call → Aggregated Backend → Cached Data
+
+This architectural change will transform the application into a fast, maintainable system with significantly reduced complexity.
+
+---
 
 ## Build Configuration and Deployment Setup
 
