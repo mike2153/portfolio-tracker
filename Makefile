@@ -79,7 +79,7 @@ docs-clean:
 install-deps:
 	@echo "📦 Installing documentation dependencies..."
 	@echo "Backend dependencies..."
-	@cd backend_simplified && pip install -r requirements.txt
+	@cd backend && pip install -r requirements.txt
 	@echo "Frontend dependencies..."
 	@cd frontend && npm install
 	@echo "✅ Dependencies installed"

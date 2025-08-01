@@ -18,14 +18,14 @@ from datetime import datetime
 import re
 
 # Add backend to path for imports
-sys.path.append(str(Path(__file__).parent.parent / "backend_simplified"))
+sys.path.append(str(Path(__file__).parent.parent / "backend"))
 
 def extract_pydantic_models() -> Dict[str, Dict[str, Any]]:
     """Extract all Pydantic models from the backend."""
     print("🔍 Extracting Pydantic models from backend...")
     
     models = {}
-    backend_path = Path(__file__).parent.parent / "backend_simplified"
+    backend_path = Path(__file__).parent.parent / "backend"
     
     # Import validation models
     try:
@@ -344,7 +344,7 @@ export const TYPE_GENERATION_INFO = {
   generated_at: '{datetime.now().isoformat()}',
   source_models: {len(models)},
   generator_version: '1.0.0',
-  backend_source: 'backend_simplified/models/',
+  backend_source: 'backend/models/',
   manual_types_forbidden: true,
   validation_required: true
 } as const;

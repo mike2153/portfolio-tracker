@@ -45,7 +45,7 @@ class TypeGenerationPipeline:
         print("🚀 Starting backend for type generation...")
         
         # Try to start backend temporarily
-        backend_dir = self.root_dir / "backend_simplified"
+        backend_dir = self.root_dir / "backend"
         if backend_dir.exists():
             try:
                 # Start backend in background

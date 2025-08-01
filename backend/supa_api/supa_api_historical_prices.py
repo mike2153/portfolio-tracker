@@ -250,7 +250,7 @@ async def supa_api_get_symbols_needing_historical_data() -> List[Dict[str, Any]]
         # Get all unique symbols from transactions with their earliest dates
         response = client.table('transactions').select(
             'symbol, date'
-        ).order('symbol, date').execute()
+        ).order('symbol').order('date').execute()
         
         if not (hasattr(response, 'data') and response.data):
             return []
@@ -314,7 +314,7 @@ async def supa_api_get_price_history_for_portfolio(symbols: List[str], start_dat
             'symbol, date, open, high, low, close, adjusted_close, volume'
         ).in_('symbol', [s.upper() for s in symbols]).gte(
             'date', start_date
-        ).lte('date', end_date).order('symbol, date').execute()
+        ).lte('date', end_date).order('symbol').order('date').execute()
         
         # Group by symbol
         symbol_prices = {}
@@ -505,7 +505,7 @@ async def supa_api_get_historical_prices_batch(
             .in_('symbol', symbols_upper) \
             .gte('date', start_date) \
             .lte('date', end_date) \
-            .order('symbol,date', desc=True) \
+            .order('symbol', desc=True).order('date', desc=True) \
             .execute()
 
         if hasattr(response, 'data') and response.data:

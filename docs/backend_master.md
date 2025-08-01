@@ -51,7 +51,7 @@ The backend follows a **layered architecture** with clear separation of concerns
 ### Root Directory Structure
 
 ```
-backend_simplified/
+backend/
 ├── main.py                     # FastAPI application entry point
 ├── config.py                   # Environment configuration
 ├── debug_logger.py            # Logging utilities

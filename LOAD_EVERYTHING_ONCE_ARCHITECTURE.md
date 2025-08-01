@@ -215,7 +215,7 @@ CREATE INDEX CONCURRENTLY idx_user_performance_freshness
 
 #### New Endpoint: `/api/portfolio/complete`
 
-**File**: `backend_simplified/backend_api_routes/backend_api_portfolio.py`
+**File**: `backend/backend_api_routes/backend_api_portfolio.py`
 
 ```python
 @portfolio_router.get("/portfolio/complete")
@@ -266,7 +266,7 @@ async def get_complete_portfolio_data(
 
 #### New Service: `UserPerformanceManager`
 
-**File**: `backend_simplified/services/user_performance_manager.py`
+**File**: `backend/services/user_performance_manager.py`
 
 ```python
 class UserPerformanceManager:
@@ -337,7 +337,7 @@ class UserPerformanceManager:
 
 #### Background Refresh Service
 
-**File**: `backend_simplified/services/background_performance_refresher.py`
+**File**: `backend/services/background_performance_refresher.py`
 
 ```python
 class BackgroundPerformanceRefresher:

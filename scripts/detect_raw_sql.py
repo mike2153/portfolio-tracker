@@ -66,7 +66,7 @@ class SQLInjectionDetector:
     
     def scan_python_files(self) -> None:
         """Scan all Python files for SQL injection vulnerabilities."""
-        backend_dir = self.root_dir / "backend_simplified"
+        backend_dir = self.root_dir / "backend"
         
         if not backend_dir.exists():
             print(f"WARNING: Backend directory not found: {backend_dir}")
@@ -173,7 +173,7 @@ class SQLInjectionDetector:
     
     def check_supabase_client_usage(self) -> None:
         """Check for unsafe Supabase client usage patterns."""
-        backend_dir = self.root_dir / "backend_simplified"
+        backend_dir = self.root_dir / "backend"
         
         # Patterns specific to Supabase that could be unsafe
         supabase_unsafe_patterns = [

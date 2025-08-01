@@ -132,10 +132,10 @@ class BulletproofQualityMonitor:
             result['any_type_count'] = any_count
             
             # Check Python type errors
-            if (self.root_dir / "backend_simplified").exists():
+            if (self.root_dir / "backend").exists():
                 py_result = subprocess.run([
                     sys.executable, "-m", "mypy", ".", "--strict", "--no-error-summary"
-                ], cwd=self.root_dir / "backend_simplified", capture_output=True, text=True)
+                ], cwd=self.root_dir / "backend", capture_output=True, text=True)
                 
                 error_lines = [line for line in py_result.stdout.split('\n') 
                              if 'error:' in line]

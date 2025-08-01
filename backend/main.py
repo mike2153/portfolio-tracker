@@ -39,6 +39,11 @@ from backend_api_routes.backend_api_forex import forex_router
 # Import exception handler registration
 from middleware.error_handler import register_exception_handlers
 
+# Import decimal-safe JSON encoder
+from utils.decimal_json_encoder import DecimalSafeJSONEncoder
+from fastapi.encoders import jsonable_encoder
+import json
+
 # Configure logging
 logging.basicConfig(level=getattr(logging, LOG_LEVEL))
 logger = logging.getLogger(__name__)
@@ -101,12 +106,18 @@ FUNCTION: lifespan
 API: BACKEND
 ==========================================""")
 
+# Custom JSON Response class for Decimal handling
+class DecimalSafeJSONResponse(JSONResponse):
+    def render(self, content: Any) -> bytes:
+        return json.dumps(content, cls=DecimalSafeJSONEncoder, ensure_ascii=False).encode('utf-8')
+
 # Create FastAPI app
 app = FastAPI(
     title="Portfolio Tracker API (Simplified)",
     description="Simplified backend for portfolio tracking with extensive debugging",
     version="2.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
+    default_response_class=DecimalSafeJSONResponse
 )
 
 # Register exception handlers

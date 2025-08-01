@@ -3,14 +3,14 @@ version: '3.8'
 services:
   backend:
     build: 
-      context: ./backend_simplified
+      context: ./backend
       dockerfile: Dockerfile
     container_name: backend
     ports:
       - "8000:8000"
     # 🔧 Enable hot reload by mounting source code as volume
     volumes:
-      - ./backend_simplified:/app
+      - ./backend:/app
     env_file:
       - .env
     environment:

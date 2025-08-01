@@ -16,7 +16,7 @@ from datetime import datetime
 import requests
 
 # Add backend to path for imports
-sys.path.append(str(Path(__file__).parent.parent / "backend_simplified"))
+sys.path.append(str(Path(__file__).parent.parent / "backend"))
 
 def generate_openapi_spec() -> Dict[str, Any]:
     """Generate OpenAPI specification from FastAPI application."""
@@ -230,7 +230,7 @@ def generate_markdown_documentation(spec: Dict[str, Any]) -> str:
 ## Auto-Generation Information
 
 - **Generated**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}
-- **Source**: FastAPI application (`backend_simplified/main.py`)
+- **Source**: FastAPI application (`backend/main.py`)
 - **Generator**: `scripts/generate_api_docs.py`
 - **OpenAPI Spec**: `docs/openapi.json`
 

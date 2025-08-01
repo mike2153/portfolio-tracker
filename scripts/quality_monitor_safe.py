@@ -81,7 +81,7 @@ class QualityMonitor:
         
         # Initialize paths
         self.frontend_dir = self.project_root / "frontend"
-        self.backend_dir = self.project_root / "backend_simplified"
+        self.backend_dir = self.project_root / "backend"
         
         # Load security exceptions
         self.security_exceptions = self._load_security_exceptions()

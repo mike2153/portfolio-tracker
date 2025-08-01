@@ -196,7 +196,7 @@ def run_pre_generation_checks() -> bool:
     
     # Check if required directories exist
     required_dirs = [
-        "backend_simplified",
+        "backend",
         "frontend/src/types",
         "docs",
         ".github/workflows"
@@ -211,7 +211,7 @@ def run_pre_generation_checks() -> bool:
             print(f"✅ Directory exists: {dir_path}")
     
     # Check if backend can be imported
-    backend_path = project_root / "backend_simplified"
+    backend_path = project_root / "backend"
     if backend_path.exists():
         sys.path.insert(0, str(backend_path))
         try:

@@ -20,8 +20,8 @@ from debug_logger import DebugLogger
 logger = logging.getLogger(__name__)
 
 class Holding(TypedDict):
-    quantity: float
-    total_cost: float
+    quantity: Decimal
+    total_cost: Decimal
     transactions: List[dict]
 
 @DebugLogger.log_api_call(api_name="SUPABASE", sender="BACKEND", receiver="SUPA_API", operation="CALCULATE_PORTFOLIO")
@@ -35,19 +35,19 @@ async def supa_api_calculate_portfolio(user_id: str, user_token: Optional[str] =
         
         # Calculate holdings by symbol
         holdings_map: Dict[str, Holding] = defaultdict(  # type: ignore[arg-type]
-            lambda: Holding(quantity=0.0, total_cost=0.0, transactions=[])
+            lambda: Holding(quantity=Decimal('0'), total_cost=Decimal('0'), transactions=[])
         )
         
         for transaction in transactions:
             symbol = transaction['symbol']
-            # Convert to Decimal first for precision, then to float
+            # Convert to Decimal for precision in all calculations
             quantity_decimal = Decimal(str(transaction['quantity']))
             price_decimal = Decimal(str(transaction['price']))
             commission_decimal = Decimal(str(transaction.get('commission', 0)))
             
-            quantity = float(quantity_decimal)
-            price = float(price_decimal)
-            commission = float(commission_decimal)
+            quantity = quantity_decimal
+            price = price_decimal
+            commission = commission_decimal
             
             if transaction['transaction_type'] == 'Buy':
                 holdings_map[symbol]['quantity'] += quantity
@@ -67,19 +67,19 @@ async def supa_api_calculate_portfolio(user_id: str, user_token: Optional[str] =
         
         # Get current prices and calculate values
         holdings_list = []
-        total_value = 0.0
-        total_cost = 0.0
+        total_value = Decimal('0')
+        total_cost = Decimal('0')
         
         for symbol, data in active_holdings.items():
-            quantity = data['quantity']
-            cost = data['total_cost']
-            avg_cost = cost / quantity if quantity > 0 else 0
+            quantity = Decimal(str(data['quantity']))
+            cost = Decimal(str(data['total_cost']))
+            avg_cost = cost / quantity if quantity > 0 else Decimal('0')
             
             # Get current price from database
             try:
                 price_data = await price_manager.get_latest_price_from_db(symbol, user_token)
                 if price_data:
-                    current_price = price_data['price']
+                    current_price = Decimal(str(price_data['price']))
                 else:
                     logger.warning(f"[supa_api_portfolio.py::supa_api_calculate_portfolio] No price data for {symbol}, using avg cost")
                     current_price = avg_cost
@@ -89,7 +89,7 @@ async def supa_api_calculate_portfolio(user_id: str, user_token: Optional[str] =
             
             current_value = quantity * current_price
             gain_loss = current_value - cost
-            gain_loss_percent = (gain_loss / cost * 100) if cost > 0 else 0
+            gain_loss_percent = (gain_loss / cost * Decimal('100')) if cost > 0 else Decimal('0')
             
             holdings_list.append({
                 'symbol': symbol,
@@ -108,14 +108,14 @@ async def supa_api_calculate_portfolio(user_id: str, user_token: Optional[str] =
         
         # Calculate allocations
         for holding in holdings_list:
-            holding['allocation'] = (holding['current_value'] / total_value * 100) if total_value > 0 else 0
+            holding['allocation'] = (holding['current_value'] / total_value * Decimal('100')) if total_value > 0 else Decimal('0')
         
         # Sort by value descending
         holdings_list.sort(key=lambda x: x['current_value'], reverse=True)
         
         # Calculate total gain/loss
         total_gain_loss = total_value - total_cost
-        total_gain_loss_percent = (total_gain_loss / total_cost * 100) if total_cost > 0 else 0
+        total_gain_loss_percent = (total_gain_loss / total_cost * Decimal('100')) if total_cost > 0 else Decimal('0')
         
         portfolio_data = {
             'holdings': holdings_list,

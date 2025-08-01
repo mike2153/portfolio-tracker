@@ -32,7 +32,7 @@ async def supa_api_get_watchlist(user_id: str, user_token: str) -> List[Dict[str
         response = auth_client.table('watchlist') \
             .select('*') \
             .eq('user_id', user_id) \
-            .order('created_at.asc') \
+            .order('created_at', desc=False) \
             .execute()
         
         return response.data

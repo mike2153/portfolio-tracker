@@ -43,7 +43,7 @@ In the main portfolio-tracker directory:
 docker-compose up backend
 
 # Or directly with Python
-cd backend_simplified
+cd backend
 python main.py
 ```
 

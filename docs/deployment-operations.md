@@ -96,12 +96,12 @@ services:
 
   backend-dev:
     build:
-      context: ./backend_simplified
+      context: ./backend
       dockerfile: Dockerfile.dev
     ports:
       - "8000:8000"
     volumes:
-      - ./backend_simplified:/app
+      - ./backend:/app
     environment:
       - BACKEND_API_DEBUG=true
       - BACKEND_API_PORT=8000
@@ -177,7 +177,7 @@ services:
 
   backend:
     build:
-      context: ./backend_simplified
+      context: ./backend
       dockerfile: Dockerfile.prod
     ports:
       - "8000:8000"
@@ -846,7 +846,7 @@ npm audit --audit-level moderate
 pip-audit
 
 # Code security scanning
-bandit -r backend_simplified/ -f json -o security-report.json
+bandit -r backend/ -f json -o security-report.json
 
 # Database security validation
 python scripts/validate_rls_policies.py --security-audit
@@ -1135,7 +1135,7 @@ chrome://inspect
 
 # Backend memory profiling
 pip install memory-profiler
-python -m memory_profiler backend_simplified/main.py
+python -m memory_profiler backend/main.py
 ```
 
 #### Security Issues

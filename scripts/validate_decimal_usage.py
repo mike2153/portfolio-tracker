@@ -70,7 +70,7 @@ class FinancialPrecisionValidator:
     
     def scan_backend_files(self) -> None:
         """Scan backend Python files for financial precision violations."""
-        backend_dir = self.root_dir / "backend_simplified"
+        backend_dir = self.root_dir / "backend"
         
         if not backend_dir.exists():
             print(f"⚠️  Backend directory not found: {backend_dir}")
@@ -177,7 +177,7 @@ class FinancialPrecisionValidator:
     
     def check_decimal_imports(self) -> None:
         """Check if files with financial calculations import Decimal."""
-        backend_dir = self.root_dir / "backend_simplified"
+        backend_dir = self.root_dir / "backend"
         
         for py_file in backend_dir.rglob("*.py"):
             try:

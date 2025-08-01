@@ -399,7 +399,7 @@ class PortfolioMetricsManager:
             
             # Add computation time
             computation_time = datetime.now() - start_time
-            metrics.computation_time_ms = int(computation_time.total_seconds() * Decimal('1000'))
+            metrics.computation_time_ms = int(Decimal(str(computation_time.total_seconds())) * Decimal('1000'))
             logger.info(f"[PortfolioMetricsManager] Metrics calculation completed in {metrics.computation_time_ms}ms")
             
             # Step 3: Cache the results

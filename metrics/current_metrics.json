@@ -1,17 +1,17 @@
 {
-  "timestamp": "2025-08-01T18:09:12.035423",
+  "timestamp": "2025-08-01T20:30:45.898862",
   "typescript_coverage": 60,
   "python_type_errors": 636,
   "security_violations": [
-    "Raw SQL f-string in backend_simplified\\backend_api_routes\\backend_api_watchlist.py:286",
-    "Raw SQL f-string in backend_simplified\\services\\dividend_service.py:1784",
-    "Float/int in financial calculation: backend_simplified\\services\\feature_flag_service.py:452",
-    "Raw SQL f-string in backend_simplified\\services\\index_sim_service.py:112",
-    "Raw SQL f-string in backend_simplified\\services\\index_sim_service.py:114",
-    "Raw SQL f-string in backend_simplified\\services\\index_sim_service.py:129",
-    "SQL concatenation in backend_simplified\\services\\price_manager.py:1197",
-    "SQL concatenation in backend_simplified\\services\\price_manager.py:1313",
-    "Raw SQL f-string in backend_simplified\\supa_api\\supa_api_transactions.py:155"
+    "Raw SQL f-string in backend\\backend_api_routes\\backend_api_watchlist.py:286",
+    "Raw SQL f-string in backend\\services\\dividend_service.py:1784",
+    "Float/int in financial calculation: backend\\services\\feature_flag_service.py:452",
+    "Raw SQL f-string in backend\\services\\index_sim_service.py:112",
+    "Raw SQL f-string in backend\\services\\index_sim_service.py:114",
+    "Raw SQL f-string in backend\\services\\index_sim_service.py:129",
+    "SQL concatenation in backend\\services\\price_manager.py:1197",
+    "SQL concatenation in backend\\services\\price_manager.py:1313",
+    "Raw SQL f-string in backend\\supa_api\\supa_api_transactions.py:155"
   ],
   "code_duplication_percent": 1.0,
   "bundle_size_kb": 3981.861328125,
@@ -29,16 +29,16 @@
       "'any' type found in frontend\\src\\app\\analytics\\components\\AnalyticsDividendsTabRefactored.tsx"
     ],
     "python_issues": [
-      "backend_simplified\\config.py:6: error: Cannot find implementation or library stub for module named \"dotenv\"  [import-not-found]",
-      "backend_simplified\\utils\\exceptions.py:7: error: Cannot find implementation or library stub for module named \"fastapi\"  [import-not-found]",
-      "backend_simplified\\utils\\exceptions.py:9: error: Cannot find implementation or library stub for module named \"pydantic\"  [import-not-found]",
-      "backend_simplified\\utils\\exceptions.py:12: error: Class cannot subclass \"BaseModel\" (has type \"Any\")  [misc]",
-      "backend_simplified\\utils\\exceptions.py:20: error: Class cannot subclass \"HTTPException\" (has type \"Any\")  [misc]",
-      "backend_simplified\\utils\\exceptions.py:31: error: Incompatible default for argument \"details\" (default has type \"None\", argument has type \"dict[str, Any]\")  [assignment]",
-      "backend_simplified\\utils\\exceptions.py:128: error: Incompatible types in assignment (expression has type \"str\", target has type \"bool\")  [assignment]",
-      "backend_simplified\\utils\\exceptions.py:276: error: Incompatible default for argument \"context\" (default has type \"None\", argument has type \"dict[str, Any]\")  [assignment]",
-      "backend_simplified\\utils\\exceptions.py:287: error: Incompatible types in assignment (expression has type \"dict[str, Any]\", target has type \"str\")  [assignment]",
-      "backend_simplified\\utils\\auth_helpers.py:5: error: Cannot find implementation or library stub for module named \"fastapi\"  [import-not-found]"
+      "backend\\config.py:6: error: Cannot find implementation or library stub for module named \"dotenv\"  [import-not-found]",
+      "backend\\utils\\exceptions.py:7: error: Cannot find implementation or library stub for module named \"fastapi\"  [import-not-found]",
+      "backend\\utils\\exceptions.py:9: error: Cannot find implementation or library stub for module named \"pydantic\"  [import-not-found]",
+      "backend\\utils\\exceptions.py:12: error: Class cannot subclass \"BaseModel\" (has type \"Any\")  [misc]",
+      "backend\\utils\\exceptions.py:20: error: Class cannot subclass \"HTTPException\" (has type \"Any\")  [misc]",
+      "backend\\utils\\exceptions.py:31: error: Incompatible default for argument \"details\" (default has type \"None\", argument has type \"dict[str, Any]\")  [assignment]",
+      "backend\\utils\\exceptions.py:128: error: Incompatible types in assignment (expression has type \"str\", target has type \"bool\")  [assignment]",
+      "backend\\utils\\exceptions.py:276: error: Incompatible default for argument \"context\" (default has type \"None\", argument has type \"dict[str, Any]\")  [assignment]",
+      "backend\\utils\\exceptions.py:287: error: Incompatible types in assignment (expression has type \"dict[str, Any]\", target has type \"str\")  [assignment]",
+      "backend\\utils\\auth_helpers.py:5: error: Cannot find implementation or library stub for module named \"fastapi\"  [import-not-found]"
     ],
     "security_counts": {
       "raw_sql": 6,

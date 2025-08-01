@@ -63,7 +63,7 @@ def analyze_authentication_patterns() -> Dict[str, Any]:
     """Analyze authentication patterns in the backend."""
     print("🔐 Analyzing authentication patterns...")
     
-    backend_dir = Path(__file__).parent.parent / "backend_simplified"
+    backend_dir = Path(__file__).parent.parent / "backend"
     auth_info = {
         "auth_files": [],
         "jwt_usage": False,
@@ -121,7 +121,7 @@ def analyze_type_safety() -> Dict[str, Any]:
     """Analyze type safety implementation."""
     print("🔧 Analyzing type safety implementation...")
     
-    backend_dir = Path(__file__).parent.parent / "backend_simplified"
+    backend_dir = Path(__file__).parent.parent / "backend"
     frontend_dir = Path(__file__).parent.parent / "frontend"
     
     type_info = {
@@ -507,7 +507,7 @@ def validate_security_configuration() -> bool:
     issues = []
     
     # Check required security files
-    backend_dir = Path(__file__).parent.parent / "backend_simplified"
+    backend_dir = Path(__file__).parent.parent / "backend"
     required_files = [
         "supa_api/supa_api_auth.py",
         "utils/auth_helpers.py",

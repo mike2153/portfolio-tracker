@@ -54,7 +54,7 @@ A comprehensive financial portfolio management platform built with Next.js, Fast
 2. **Set up environment variables**
    ```bash
    # Backend
-   cp backend_simplified/.env.example backend_simplified/.env
+   cp backend/.env.example backend/.env
    
    # Frontend  
    cp frontend/.env.example frontend/.env.local
@@ -70,7 +70,7 @@ A comprehensive financial portfolio management platform built with Next.js, Fast
 4. **Or run manually**
    ```bash
    # Backend
-   cd backend_simplified
+   cd backend
    pip install -r requirements.txt
    uvicorn main:app --host 0.0.0.0 --port 8000 --reload
    
@@ -143,7 +143,7 @@ portfolio-tracker/
 │   ├── src/components/         # Reusable React components  
 │   ├── src/hooks/              # Custom React hooks
 │   └── src/types/              # TypeScript type definitions
-├── backend_simplified/          # FastAPI backend
+├── backend/          # FastAPI backend
 │   ├── backend_api_routes/     # API endpoint definitions
 │   ├── services/               # Business logic layer
 │   ├── supa_api/              # Database integration
@@ -336,11 +336,11 @@ python scripts/quality_monitor_safe.py
 
 # Type validation  
 npm run type-check                    # Frontend
-python -m mypy backend_simplified/    # Backend
+python -m mypy backend/    # Backend
 
 # Testing
 npm test                              # Frontend tests
-pytest backend_simplified/tests/     # Backend tests
+pytest backend/tests/     # Backend tests
 ```
 
 ## 📄 License

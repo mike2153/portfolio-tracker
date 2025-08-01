@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portfolio Tracker - Quality Dashboard</title>
+    <title>🛡️ Bulletproof Quality Dashboard</title>
     <meta http-equiv="refresh" content="300">
     <style>
         body {
@@ -24,99 +23,137 @@
             overflow: hidden;
         }
         .header {
-            background: linear-gradient(135deg, #2c3e50, #34495e);
+            background: linear-gradient(90deg, #4CAF50, #45a049);
             color: white;
             padding: 30px;
             text-align: center;
         }
-        .header h1 {
-            margin: 0;
-            font-size: 2.5em;
-            font-weight: 300;
+        .status-fail {
+            background: #f44336;
         }
         .metrics-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
             gap: 20px;
             padding: 30px;
         }
         .metric-card {
-            background: white;
+            background: #f8f9fa;
             border-radius: 10px;
-            padding: 25px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
-            border-left: 5px solid #3498db;
+            padding: 20px;
+            border-left: 5px solid #ddd;
         }
-        .metric-card.pass { border-left-color: #27ae60; }
-        .metric-card.warn { border-left-color: #f39c12; }
-        .metric-card.fail { border-left-color: #e74c3c; }
+        .metric-card.pass { border-left-color: #4CAF50; }
+        .metric-card.fail { border-left-color: #f44336; }
+        .metric-card.warn { border-left-color: #ff9800; }
         .metric-title {
-            font-size: 1.1em;
-            font-weight: 600;
+            font-size: 18px;
+            font-weight: bold;
             margin-bottom: 15px;
-            color: #2c3e50;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
         .metric-value {
-            font-size: 2.5em;
-            font-weight: 300;
-            color: #2c3e50;
-            margin-bottom: 10px;
+            font-size: 24px;
+            font-weight: bold;
+            margin: 10px 0;
         }
-        .metric-target {
-            color: #7f8c8d;
-            font-size: 0.9em;
+        .metric-status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
         }
-        .status-banner {
+        .status-pass { background: #4CAF50; color: white; }
+        .status-fail { background: #f44336; color: white; }
+        .status-warn { background: #ff9800; color: white; }
+        .timestamp {
             text-align: center;
             padding: 20px;
-            font-size: 1.5em;
-            font-weight: 600;
+            color: #666;
+            font-size: 14px;
         }
-        .status-pass { background: #d5edda; color: #155724; }
-        .status-warn { background: #fff3cd; color: #856404; }
-        .status-fail { background: #f8d7da; color: #721c24; }
+        .threshold {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>Portfolio Tracker Quality Dashboard</h1>
-            <p>Real-time code quality monitoring</p>
-            <div style="margin-top: 15px; font-size: 0.9em; opacity: 0.7;">
-                Last updated: 2025-08-01T18:09:12.035423
-            </div>
-        </div>
-        
-        <div class="status-banner status-fail">
-            System Status: FAIL
+        <div class="header status-fail">
+            <h1>🛡️ Bulletproof Quality Dashboard</h1>
+            <h2>Overall Status: FAIL</h2>
+            <p>Portfolio Tracker - Real-time Code Quality Monitoring</p>
         </div>
         
         <div class="metrics-grid">
+            <!-- Type Safety -->
             <div class="metric-card fail">
-                <div class="metric-title">TypeScript Coverage</div>
-                <div class="metric-value">60.0%</div>
-                <div class="metric-target">Target: ≥98%</div>
+                <div class="metric-title">
+                    🔒 Type Safety
+                    <span class="metric-status status-fail">FAIL</span>
+                </div>
+                <div class="metric-value">
+                    TS Coverage: 0.0%
+                </div>
+                <div>Python Errors: 0</div>
+                <div>'any' Types: 0</div>
+                <div class="threshold">Target: >98% coverage, 0 errors, 0 'any' types</div>
             </div>
             
-            <div class="metric-card fail">
-                <div class="metric-title">Python Type Errors</div>
-                <div class="metric-value">636</div>
-                <div class="metric-target">Target: 0 errors</div>
-            </div>
-            
-            <div class="metric-card fail">
-                <div class="metric-title">Security Violations</div>
-                <div class="metric-value">9</div>
-                <div class="metric-target">Target: 0 violations</div>
-            </div>
-            
+            <!-- Security -->
             <div class="metric-card pass">
-                <div class="metric-title">Code Duplication</div>
-                <div class="metric-value">1.0%</div>
-                <div class="metric-target">Target: ≤3%</div>
+                <div class="metric-title">
+                    🔐 Security
+                    <span class="metric-status status-pass">PASS</span>
+                </div>
+                <div class="metric-value">
+                    RLS Coverage: 100%
+                </div>
+                <div>SQL Injection Vulns: 0</div>
+                <div>Float in Financial: 0</div>
+                <div class="threshold">Target: 100% RLS coverage, 0 vulnerabilities</div>
             </div>
+            
+            <!-- Code Quality -->
+            <div class="metric-card fail">
+                <div class="metric-title">
+                    📊 Code Quality
+                    <span class="metric-status status-fail">FAIL</span>
+                </div>
+                <div class="metric-value">
+                    Duplication: 0.0%
+                </div>
+                <div>Test Coverage: 0.0%</div>
+                <div>Doc Drift: 0</div>
+                <div class="threshold">Target: <3% duplication, >90% test coverage</div>
+            </div>
+            
+            <!-- Performance -->
+            <div class="metric-card unknown">
+                <div class="metric-title">
+                    ⚡ Performance
+                    <span class="metric-status status-unknown">UNKNOWN</span>
+                </div>
+                <div class="metric-value">
+                    Bundle: 0 KB
+                </div>
+                <div>Load Time: 0 ms</div>
+                <div>Memory Leaks: 0</div>
+                <div class="threshold">Target: <500KB bundle, <2000ms load time</div>
+            </div>
+        </div>
+        
+        <div class="timestamp">
+            Last Updated: 2025-08-01 20:30:37
+            • Auto-refresh every 5 minutes
+            • History: 2 scans
         </div>
     </div>
 </body>
 </html>
-        
