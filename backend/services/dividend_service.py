@@ -13,6 +13,7 @@ import time
 from debug_logger import DebugLogger
 from supa_api.supa_api_client import get_supa_service_client
 from vantage_api.vantage_api_client import get_vantage_client
+from utils.decimal_json_encoder import convert_decimals_to_float
 from utils.distributed_lock import DividendSyncLocks, distributed_lock, DistributedLockError
 try:
     from .feature_flag_service import is_feature_enabled
@@ -625,8 +626,11 @@ class DividendService:
             logger.info(f"[DIVIDEND_DB_DEBUG] About to insert into user_dividends table:")
             logger.info(f"[DIVIDEND_DB_DEBUG] Insert data: {insert_data}")
             
+            # Convert Decimal objects to float for Supabase compatibility
+            clean_insert_data = convert_decimals_to_float(insert_data)
+            
             result = self.supa_client.table('user_dividends') \
-                .insert(insert_data) \
+                .insert(clean_insert_data) \
                 .execute()
             
             logger.info(f"[DIVIDEND_DB_DEBUG] Insert result: success={bool(result.data)}, data_count={len(result.data) if result.data else 0}")
@@ -723,9 +727,12 @@ class DividendService:
                     except ValueError:
                         logger.warning(f"Invalid {date_field} format for {symbol}: '{date_value}', skipping field")
             
+            # Convert Decimal objects to float for Supabase compatibility
+            clean_insert_data = convert_decimals_to_float(insert_data)
+            
             # Insert with error handling
             result = self.supa_client.table('user_dividends') \
-                .insert(insert_data) \
+                .insert(clean_insert_data) \
                 .execute()
             
             if result.data:
@@ -997,9 +1004,12 @@ class DividendService:
                         (f" (edited total from ${self._safe_decimal_conversion(Decimal(str(dividend['amount'])) * Decimal(str(shares_held)), user_id):.2f})" if edited_amount is not None else "")
             }
             
+            # Convert Decimal objects to float for Supabase compatibility
+            clean_transaction_data = convert_decimals_to_float(transaction_data)
+            
             # Insert transaction
             transaction_result = self.supa_client.table('transactions') \
-                .insert(transaction_data) \
+                .insert(clean_transaction_data) \
                 .execute()
             
             if not transaction_result.data:
@@ -1219,9 +1229,12 @@ class DividendService:
                     'rejected': False  # New dividend is not rejected
                 }
                 
+                # Convert Decimal objects to float for Supabase compatibility
+                clean_new_dividend_data = convert_decimals_to_float(new_dividend_data)
+                
                 # Insert new dividend first
                 new_dividend_result = self.supa_client.table('user_dividends') \
-                    .insert(new_dividend_data) \
+                    .insert(clean_new_dividend_data) \
                     .execute()
                 
                 if not new_dividend_result.data:
@@ -1322,8 +1335,11 @@ class DividendService:
                         'notes': f"Edited dividend payment - ${amount_per_share:.3f} per share × {shares_held} shares"
                     }
                     
+                    # Convert Decimal objects to float for Supabase compatibility
+                    clean_new_transaction = convert_decimals_to_float(new_transaction)
+                    
                     new_transaction_result = self.supa_client.table('transactions') \
-                        .insert(new_transaction) \
+                        .insert(clean_new_transaction) \
                         .execute()
                     
                     if not new_transaction_result.data:
@@ -2290,8 +2306,11 @@ class DividendService:
                 'record_date': dividend.get('record_date')
             }
             
+            # Convert Decimal objects to float for Supabase compatibility
+            clean_insert_data = convert_decimals_to_float(insert_data)
+            
             result = self.supa_client.table('user_dividends') \
-                .insert(insert_data) \
+                .insert(clean_insert_data) \
                 .execute()
             
             if result.data:
@@ -2386,9 +2405,12 @@ class DividendService:
                 'record_date': None
             }
             
+            # Convert Decimal objects to float for Supabase compatibility
+            clean_dividend_data = convert_decimals_to_float(dividend_data)
+            
             # Insert into user_dividends table
             result = self.supa_client.table('user_dividends') \
-                .insert(dividend_data) \
+                .insert(clean_dividend_data) \
                 .execute()
             
             if result.data and len(result.data) > 0:

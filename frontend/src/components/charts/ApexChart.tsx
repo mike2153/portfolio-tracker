@@ -64,7 +64,7 @@ export default function ApexChart({
   const [ChartComponent, setChartComponent] = useState<React.ComponentType<any> | null>(null);
 
   useEffect(() => {
-    loadChart(type).then(setChartComponent).catch(console.error);
+    loadChart(type).then(component => setChartComponent(() => component)).catch(console.error);
   }, [loadChart, type]);
   
   // Debug logging (development only)
@@ -223,12 +223,16 @@ export default function ApexChart({
 
   const series = useMemo(() => {
     if (!data || data.length === 0) return [];
-    const mappedSeries = data.map(item => ({
-      name: item.name,
-      data: item.data,
-      ...(item.color ? { color: item.color } : {}),
-      type: type // Explicitly set the chart type for each series
-    }));
+    const mappedSeries = data.map(item => {
+      // Destructure to exclude any React-specific props like 'key'
+      const { key, ...itemProps } = item as any;
+      return {
+        name: itemProps.name,
+        data: itemProps.data,
+        ...(itemProps.color ? { color: itemProps.color } : {}),
+        type: type // Explicitly set the chart type for each series
+      };
+    });
     if (process.env.NODE_ENV === 'development') {
       console.log('[ApexChart] Series prepared:', {
         seriesCount: mappedSeries.length,

@@ -150,14 +150,14 @@ CREATE TABLE public.user_performance (
 -- ============================================================================
 
 -- Primary cache lookup index (most frequent query)
+-- Note: Removed WHERE clause with NOW() as it's not immutable for index predicates
 CREATE INDEX idx_user_performance_cache_lookup 
-ON public.user_performance (user_id, expires_at DESC) 
-WHERE expires_at > NOW();
+ON public.user_performance (user_id, expires_at DESC);
 
 -- Stale cache detection and cleanup
+-- Note: Removed WHERE clause with NOW() as it's not immutable for index predicates
 CREATE INDEX idx_user_performance_stale_cleanup 
-ON public.user_performance (expires_at) 
-WHERE expires_at <= NOW();
+ON public.user_performance (expires_at);
 
 -- Background job coordination
 CREATE INDEX idx_user_performance_refresh_jobs 

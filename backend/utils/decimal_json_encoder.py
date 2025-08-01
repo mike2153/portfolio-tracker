@@ -36,6 +36,35 @@ def decimal_safe_dumps(obj: Any, **kwargs) -> str:
     return json.dumps(obj, **kwargs)
 
 
+def convert_decimals_to_float(obj: Any) -> Any:
+    """
+    Recursively convert Decimal objects to float for external API compatibility.
+    
+    This is needed for Supabase/HTTPX requests that don't handle Decimal serialization.
+    
+    Args:
+        obj: Any object that may contain Decimal values
+        
+    Returns:
+        Object with all Decimal values converted to float
+        
+    Usage:
+        data = {"price": Decimal("123.45"), "quantity": Decimal("10")}
+        clean_data = convert_decimals_to_float(data)
+        # Result: {"price": 123.45, "quantity": 10.0}
+    """
+    if isinstance(obj, Decimal):
+        return float(obj)
+    elif isinstance(obj, dict):
+        return {key: convert_decimals_to_float(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_decimals_to_float(item) for item in obj]
+    elif isinstance(obj, tuple):
+        return tuple(convert_decimals_to_float(item) for item in obj)
+    else:
+        return obj
+
+
 # Usage note for FastAPI:
 # In your FastAPI app, you can set this as the default JSON encoder:
 #

@@ -971,19 +971,29 @@ class PortfolioMetricsManager:
             # Extract dependencies for cache invalidation
             dependencies = self._extract_dependencies(metrics)
             
-            # Upsert to cache
-            client.table("portfolio_caches").upsert({
-                "user_id": user_id,
-                "cache_key": cache_key,
-                "metrics_json": metrics_json,
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "expires_at": expires_at.isoformat(),
-                "last_accessed": datetime.now(timezone.utc).isoformat(),
-                "hit_count": 0,
-                "cache_version": 1,
-                "dependencies": json.dumps(dependencies),
-                "computation_time_ms": metrics.computation_time_ms
-            }).execute()
+            # Try upsert first, handle duplicate key gracefully
+            try:
+                client.table("portfolio_caches").upsert({
+                    "user_id": user_id,
+                    "cache_key": cache_key,
+                    "metrics_json": metrics_json,
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "expires_at": expires_at.isoformat(),
+                    "last_accessed": datetime.now(timezone.utc).isoformat(),
+                    "hit_count": 0,
+                    "cache_version": 1,
+                    "dependencies": json.dumps(dependencies),
+                    "computation_time_ms": metrics.computation_time_ms
+                }).execute()
+                
+            except Exception as upsert_error:
+                # If duplicate key error, it means another process cached this already - that's fine
+                error_msg = str(upsert_error)
+                if "duplicate key value violates unique constraint" in error_msg and "portfolio_caches_user_cache_key_unique" in error_msg:
+                    logger.info(f"[PortfolioMetricsManager] Cache entry already exists for key {cache_key} - concurrent operation handled")
+                else:
+                    # Re-raise if it's a different error
+                    raise upsert_error
             
         except Exception as e:
             logger.error(f"[PortfolioMetricsManager] Cache write error: {str(e)}")

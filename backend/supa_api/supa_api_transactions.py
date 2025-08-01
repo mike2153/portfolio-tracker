@@ -10,6 +10,7 @@ from .supa_api_client import get_supa_client
 from supabase.client import create_client
 from config import SUPA_API_URL, SUPA_API_ANON_KEY
 from debug_logger import DebugLogger
+from utils.decimal_json_encoder import convert_decimals_to_float
 
 logger = logging.getLogger(__name__)
 
@@ -141,9 +142,12 @@ async def supa_api_add_transaction(transaction_data: Dict[str, Any], user_token:
             logger.error(f"❌ Missing required fields: {missing_fields}")
             raise ValueError(f"Missing required fields: {missing_fields}")
         
+        # Convert Decimal objects to float for Supabase compatibility
+        clean_transaction_data = convert_decimals_to_float(transaction_data)
+        
         # Insert transaction with authenticated client
         result = client.table('transactions') \
-            .insert(transaction_data) \
+            .insert(clean_transaction_data) \
             .execute()
         
         if result.data:
@@ -374,9 +378,12 @@ async def create_cash_transaction(
         else:
             raise ValueError("User token is required for cash transactions")
         
+        # Convert Decimal objects to float for Supabase compatibility  
+        clean_transaction_data = convert_decimals_to_float(transaction_data)
+        
         # Insert transaction
         result = client.table('transactions') \
-            .insert(transaction_data) \
+            .insert(clean_transaction_data) \
             .execute()
         
         if result.data and len(result.data) > 0:

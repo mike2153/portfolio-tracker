@@ -246,7 +246,7 @@ class PriceManager:
             result = self.db_client.rpc(
                 'get_previous_day_prices',
                 {
-                    'p_cache_date': last_trading_day,
+                    'p_cache_date': last_trading_day.isoformat(),
                     'p_symbols': symbols
                 }
             ).execute()
@@ -310,7 +310,7 @@ class PriceManager:
             cache_key = f"market_info:{symbol}"
             try:
                 result = self.db_client.table('market_info_cache').select(
-                    'market_data'
+                    'market_info'
                 ).eq(
                     'symbol', symbol
                 ).gte(
@@ -318,7 +318,7 @@ class PriceManager:
                 ).single().execute()
                 
                 if result.data:
-                    return result.data['market_data']
+                    return result.data['market_info']
             except:
                 pass  # Cache miss, continue to fetch
             
@@ -337,7 +337,7 @@ class PriceManager:
                 try:
                     self.db_client.table('market_info_cache').upsert({
                         'symbol': symbol,
-                        'market_data': market_data,
+                        'market_info': market_data,
                         'cached_at': datetime.now(timezone.utc).isoformat(),
                         'expires_at': (datetime.now(timezone.utc) + timedelta(seconds=self.cache_config.market_info_timeout)).isoformat()
                     }).execute()
@@ -360,7 +360,7 @@ class PriceManager:
                 try:
                     self.db_client.table('market_info_cache').upsert({
                         'symbol': symbol,
-                        'market_data': default_market_info,
+                        'market_info': default_market_info,
                         'cached_at': datetime.now(timezone.utc).isoformat(),
                         'expires_at': (datetime.now(timezone.utc) + timedelta(seconds=self.cache_config.market_info_timeout)).isoformat()
                     }).execute()
@@ -948,16 +948,20 @@ class PriceManager:
             for symbol, price_list in symbol_prices.items():
                 if price_list:
                     latest_price_data = max(price_list, key=lambda x: x['date'])
-                    prices[symbol] = {
+                    from utils.decimal_json_encoder import convert_decimals_to_float
+                    
+                    price_data = {
                         'symbol': symbol,
-                        'price': self._safe_decimal_to_float(latest_price_data['close']),
+                        'price': latest_price_data['close'],
                         'date': latest_price_data['date'],
-                        'volume': Decimal(str(latest_price_data.get('volume', 0))),
-                        'open': self._safe_decimal_to_float(latest_price_data.get('open', latest_price_data['close'])),
-                        'high': self._safe_decimal_to_float(latest_price_data.get('high', latest_price_data['close'])),
-                        'low': self._safe_decimal_to_float(latest_price_data.get('low', latest_price_data['close'])),
-                        'close': self._safe_decimal_to_float(latest_price_data['close'])
+                        'volume': latest_price_data.get('volume', 0),
+                        'open': latest_price_data.get('open', latest_price_data['close']),
+                        'high': latest_price_data.get('high', latest_price_data['close']),
+                        'low': latest_price_data.get('low', latest_price_data['close']),
+                        'close': latest_price_data['close']
                     }
+                    # Convert all Decimal values to float for JSON serialization at cache boundary
+                    prices[symbol] = convert_decimals_to_float(price_data)
             
             # Log any missing symbols
             missing_symbols = set(symbols_upper) - set(prices.keys())
@@ -1441,15 +1445,15 @@ class PriceManager:
     def _is_holiday(self, check_date: date, exchange: str) -> bool:
         """Check if date is a market holiday"""
         try:
-            result = self.db_client.rpc(
-                'is_market_holiday',
-                {
-                    'p_exchange': exchange,
-                    'p_check_date': check_date.isoformat()
-                }
-            ).execute()
+            result = self.db_client.table('market_holidays').select('id').eq(
+                'exchange', exchange
+            ).eq(
+                'holiday_date', check_date.isoformat()
+            ).eq(
+                'market_status', 'closed'
+            ).limit(1).execute()
             
-            return bool(result.data) if result.data is not None else False
+            return len(result.data) > 0 if result.data else False
         except Exception as e:
             logger.warning(f"Failed to check holiday: {e}")
             return False
@@ -2095,8 +2099,12 @@ class PriceManager:
                 return 0
             
             if symbols:
-                # Use existing batch method to fetch all prices
-                await self.get_portfolio_prices(symbols, user_token)
+                # Use existing batch method to fetch all prices for recent data
+                from datetime import date, timedelta
+                end_date = date.today()
+                start_date = end_date - timedelta(days=30)  # Get last 30 days for prefetch
+                
+                await self.get_portfolio_prices(symbols, start_date, end_date, user_token)
                 logger.info(f"[PriceManager] Prefetched {len(symbols)} symbols for user {user_id}")
                 return len(symbols)
             

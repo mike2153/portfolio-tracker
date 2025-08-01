@@ -24,45 +24,51 @@ interface ChartContextType {
 
 const ChartContext = createContext<ChartContextType | null>(null);
 
-// Dynamic chart loader with aggressive code splitting
-const createDynamicChart = (chartType: ChartType) => {
-  return dynamic(
-    async () => {
-      const ReactApexChart = await import('react-apexcharts');
-      
-      // Custom wrapper component for type safety
-      const ChartComponent: React.FC<ChartComponentProps> = ({ 
-        options, 
-        series, 
-        type, 
-        height = 350, 
-        width = '100%',
-        className = ''
-      }) => {
-        return (
-          <div className={className}>
-            <ReactApexChart.default
-              options={options}
-              series={series}
-              type={type}
-              height={height}
-              width={width}
-            />
-          </div>
-        );
-      };
+// Simple dynamic import without complex wrapping
+const ReactApexChart = dynamic(() => import('react-apexcharts'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center h-[350px] bg-gray-50 rounded-lg animate-pulse">
+      <div className="text-gray-500">Loading chart...</div>
+    </div>
+  )
+});
 
-      return { default: ChartComponent };
-    },
-    {
-      loading: () => (
-        <div className="flex items-center justify-center h-[350px] bg-gray-50 rounded-lg animate-pulse">
-          <div className="text-gray-500">Loading {chartType} chart...</div>
-        </div>
-      ),
-      ssr: false
+// Create a simple chart component
+const createChartComponent = (chartType: ChartType): React.FC<ChartComponentProps> => {
+  const ChartComponent: React.FC<ChartComponentProps> = (props) => {
+    // Guard against null or undefined props
+    if (!props) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(`ChartComponent of type '${chartType}' rendered with null props.`);
+      }
+      return null; // Render nothing if props are null
     }
-  );
+
+    const { 
+      options = {}, 
+      series = [], 
+      type = chartType, 
+      height = 350, 
+      width = '100%',
+      className = ''
+    } = props;
+
+    return (
+      <div className={className}>
+        <ReactApexChart
+          options={options}
+          series={series}
+          type={type}
+          height={height}
+          width={width}
+        />
+      </div>
+    );
+  };
+
+  ChartComponent.displayName = `ChartComponent(${chartType})`;
+  return ChartComponent;
 };
 
 // Chart loader cache to prevent duplicate imports
@@ -81,9 +87,10 @@ export const ChartProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setIsLoading(true);
     
     try {
-      const ChartComponent = createDynamicChart(chartType);
-      chartCache.set(chartType, ChartComponent);
+      // Create a simple chart component
+      const ChartComponent = createChartComponent(chartType);
       
+      chartCache.set(chartType, ChartComponent);
       setLoadedCharts(prev => new Set([...prev, chartType]));
       return ChartComponent;
     } finally {
@@ -114,8 +121,8 @@ export const useChart = (): ChartContextType => {
 };
 
 // Prebuilt chart components for common use cases
-export const LazyLineChart = createDynamicChart('line');
-export const LazyAreaChart = createDynamicChart('area');
-export const LazyBarChart = createDynamicChart('bar');
-export const LazyPieChart = createDynamicChart('pie');
-export const LazyCandlestickChart = createDynamicChart('candlestick');
+export const LazyLineChart = createChartComponent('line');
+export const LazyAreaChart = createChartComponent('area');
+export const LazyBarChart = createChartComponent('bar');
+export const LazyPieChart = createChartComponent('pie');
+export const LazyCandlestickChart = createChartComponent('candlestick');

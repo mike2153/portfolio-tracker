@@ -10,6 +10,7 @@ from decimal import Decimal, InvalidOperation
 
 from .supa_api_client import get_supa_service_client
 from debug_logger import DebugLogger
+from utils.decimal_json_encoder import convert_decimals_to_float
 
 logger = logging.getLogger(__name__)
 
@@ -57,20 +58,23 @@ async def supa_api_store_historical_prices(symbol: str, price_data: List[Dict[st
             db_record = {
                 'symbol': symbol.upper(),
                 'date': data_point['date'],
-                'open': _safe_float_conversion(data_point['open']),
-                'high': _safe_float_conversion(data_point['high']),
-                'low': _safe_float_conversion(data_point['low']),
-                'close': _safe_float_conversion(data_point['close']),
-                'adjusted_close': _safe_float_conversion(data_point.get('adjusted_close', data_point['close'])),
+                'open': data_point['open'],
+                'high': data_point['high'],
+                'low': data_point['low'],
+                'close': data_point['close'],
+                'adjusted_close': data_point.get('adjusted_close', data_point['close']),
                 'volume': int(data_point.get('volume', 0)),
-                'dividend_amount': _safe_float_conversion(data_point.get('dividend_amount', 0)),
-                'split_coefficient': _safe_float_conversion(data_point.get('split_coefficient', 1))
+                'dividend_amount': data_point.get('dividend_amount', 0),
+                'split_coefficient': data_point.get('split_coefficient', 1)
             }
             db_records.append(db_record)
         
+        # Convert Decimal objects to float for Supabase compatibility
+        clean_db_records = convert_decimals_to_float(db_records)
+        
         # Use upsert to handle duplicate dates
         response = client.table('historical_prices').upsert(
-            db_records,
+            clean_db_records,
             on_conflict='symbol,date'
         ).execute()
         
@@ -448,9 +452,12 @@ async def supa_api_store_historical_prices_batch(
         
         #logger.info(f"[supa_api_historical_prices.py::supa_api_store_historical_prices_batch] Storing {len(formatted_data)} price records")
         
+        # Convert Decimal objects to float for Supabase compatibility
+        clean_formatted_data = convert_decimals_to_float(formatted_data)
+        
         # Use upsert to handle duplicates (on conflict with symbol+date, update the record)
         response = client.table('historical_prices') \
-            .upsert(formatted_data, on_conflict='symbol,date') \
+            .upsert(clean_formatted_data, on_conflict='symbol,date') \
             .execute()
         
         if hasattr(response, 'data') and response.data:
