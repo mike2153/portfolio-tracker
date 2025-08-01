@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { front_api_get_stock_prices } from '@/lib/front_api_client';
 
 interface PriceDataPoint {
@@ -34,7 +34,7 @@ export function usePriceData(ticker: string | null, period: string = '?years=5')
   const [cacheStatus, setCacheStatus] = useState('');
   const [dataSources, setDataSources] = useState<string[]>([]);
 
-  const fetchPriceData = async () => {
+  const fetchPriceData = useCallback(async () => {
     if (!ticker) {
       setPriceData([]);
       setError(null);
@@ -76,12 +76,12 @@ export function usePriceData(ticker: string | null, period: string = '?years=5')
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [ticker, period]);
 
   // Fetch data when ticker or years change
   useEffect(() => {
     fetchPriceData();
-  }, [ticker, period]);
+  }, [fetchPriceData]);
 
   return {
     priceData,

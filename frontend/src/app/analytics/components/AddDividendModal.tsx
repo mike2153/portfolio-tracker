@@ -6,9 +6,9 @@ import { front_api_search_symbols } from '@/lib/front_api_client';
 import { StockSymbol } from '@/types/api';
 import { useToast } from '@/components/ui/Toast';
 
-const debounce = <T extends (...args: any[]) => void>(func: T, delay = 300) => {
+const debounce = <T extends (...args: Parameters<T>) => void>(func: T, delay = 300) => {
     let timeoutId: NodeJS.Timeout;
-    return (...args: any[]) => {
+    return (...args: Parameters<T>) => {
         clearTimeout(timeoutId);
         timeoutId = setTimeout(() => {
             func(...args);
@@ -72,7 +72,7 @@ export const AddDividendModal: React.FC<AddDividendModalProps> = ({ isOpen, onCl
         }));
     };
 
-    const handleTickerSearch = useCallback(debounce(async (query: string) => {
+    const searchFunction = useCallback(async (query: string) => {
         if (query.length < 1) {
             setTickerSuggestions([]);
             return;
@@ -95,7 +95,12 @@ export const AddDividendModal: React.FC<AddDividendModalProps> = ({ isOpen, onCl
         } finally {
             setSearchLoading(false);
         }
-    }, 300), []);
+    }, [searchCache]);
+
+    const handleTickerSearch = useMemo(
+        () => debounce(searchFunction, 300),
+        [searchFunction]
+    );
 
     const handleSuggestionClick = (symbol: StockSymbol) => {
         setForm(prev => ({

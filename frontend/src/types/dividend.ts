@@ -35,7 +35,7 @@ export type DividendSummaryResponse = APIResponse<{ dividend_summary: DividendSu
 /**
  * Utility types for frontend components
  */
-export interface DividendTableRow {
+export interface DividendTableRow extends Record<string, unknown> {
   id: string;
   symbol: string;
   company: string;

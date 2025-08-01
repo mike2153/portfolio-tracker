@@ -10,7 +10,7 @@ import { front_api_get_watchlist, front_api_remove_from_watchlist, WatchlistItem
 import { useToast } from '@/components/ui/Toast';
 import AuthGuard from '@/components/AuthGuard';
 
-interface WatchlistRow extends WatchlistItem {
+interface WatchlistRow extends WatchlistItem, Record<string, unknown> {
   id: string;
   company_name: string;
   accentColorClass: string;
@@ -43,11 +43,12 @@ export default function WatchlistPage() {
         
         setWatchlistData(transformedData);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to load watchlist:', err);
       
       // Check if it's an authentication error
-      if (err.message?.includes('authentication') || err.message?.includes('No credentials')) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      if (errorMessage?.includes('authentication') || errorMessage?.includes('No credentials')) {
         setError('Please log in to view your watchlist.');
         addToast({
           type: 'error',

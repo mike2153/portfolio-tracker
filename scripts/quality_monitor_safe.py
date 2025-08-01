@@ -231,7 +231,7 @@ class QualityMonitor:
                                 if not any(special in line for special in ['__init__', '__str__', '__repr__']):
                                     # Check current line and next few lines for return type hint
                                     has_return_hint = False
-                                    for check_line in lines[line_num-1:min(line_num+5, len(lines))]:
+                                    for check_line in lines[line_num-1:min(line_num+15, len(lines))]:
                                         if '->' in check_line:
                                             has_return_hint = True
                                             break

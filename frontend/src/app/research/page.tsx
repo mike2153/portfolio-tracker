@@ -60,14 +60,6 @@ function StockResearchPageContent() {
     }
   }, [searchParams]);
 
-  // Load stock data when selectedTicker changes
-  useEffect(() => {
-    if (selectedTicker && !stockData[selectedTicker]) {
-      console.log(`[ResearchPage] selectedTicker changed to: ${selectedTicker}, loading data...`);
-      loadStockData(selectedTicker);
-    }
-  }, [selectedTicker, stockData]);
-
   const loadStockData = useCallback(async (ticker: string) => {
     setIsLoading(true);
     try {
@@ -107,6 +99,14 @@ function StockResearchPageContent() {
       setIsLoading(false);
     }
   }, []);
+
+  // Load stock data when selectedTicker changes
+  useEffect(() => {
+    if (selectedTicker && !stockData[selectedTicker]) {
+      console.log(`[ResearchPage] selectedTicker changed to: ${selectedTicker}, loading data...`);
+      loadStockData(selectedTicker);
+    }
+  }, [selectedTicker, stockData, loadStockData]);
 
   // Load watchlist on mount
   useEffect(() => {

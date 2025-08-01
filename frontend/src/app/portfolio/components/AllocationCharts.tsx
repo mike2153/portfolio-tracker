@@ -1,16 +1,19 @@
 'use client';
 
-import React, { useMemo } from 'react';
-import dynamic from 'next/dynamic';
+import React, { useMemo, useEffect, useState } from 'react';
 import { ApexOptions } from 'apexcharts';
 import { usePortfolioAllocation } from '@/hooks/usePortfolioAllocation';
+import { useChart } from '@/components/ChartProvider';
 import { Loader2 } from 'lucide-react';
-
-// Dynamic import to avoid SSR issues
-const ReactApexChart = dynamic(() => import('react-apexcharts'), { ssr: false });
 
 export default function AllocationCharts() {
   const { data, isLoading, isError, error } = usePortfolioAllocation();
+  const { loadChart, isLoading: chartLoading } = useChart();
+  const [PieChartComponent, setPieChartComponent] = useState<React.ComponentType<any> | null>(null);
+
+  useEffect(() => {
+    loadChart('pie').then(setPieChartComponent).catch(console.error);
+  }, [loadChart]);
 
   // Process data for charts
   const { assetData, sectorData, regionData } = useMemo(() => {
@@ -108,7 +111,7 @@ export default function AllocationCharts() {
               fontSize: '14px',
               fontWeight: 600,
               color: '#8B949E',
-              formatter: (w: any) => {
+              formatter: (w: { globals: { seriesTotals: number[] } }) => {
                 const total = w.globals.seriesTotals.reduce((a: number, b: number) => a + b, 0);
                 return `$${total.toLocaleString()}`;
               }
@@ -122,7 +125,7 @@ export default function AllocationCharts() {
       labels: {
         colors: '#ffffff'
       },
-      formatter: (seriesName: string, opts: any) => {
+      formatter: (seriesName: string, opts: { seriesIndex: number }) => {
         const percent = data[opts.seriesIndex]?.percent || 0;
         return `${seriesName}: ${percent.toFixed(1)}%`;
       }
@@ -145,7 +148,7 @@ export default function AllocationCharts() {
     }
   });
 
-  if (isLoading) {
+  if (isLoading || chartLoading || !PieChartComponent) {
     return (
       <div className="mb-6">
         <h2 className="text-xl font-semibold text-white mb-4">Portfolio Allocation</h2>
@@ -180,8 +183,8 @@ export default function AllocationCharts() {
         {/* Asset Allocation Chart */}
         <div className="rounded-xl bg-[#161B22]/50 p-6 shadow-lg">
           <h3 className="text-lg font-medium text-[#8B949E] mb-4">Top Holdings</h3>
-          {assetData.length > 0 ? (
-            <ReactApexChart
+          {assetData.length > 0 && PieChartComponent ? (
+            <PieChartComponent
               options={createChartOptions('Asset Allocation', assetData)}
               series={assetData.map(item => item.value)}
               type="donut"
@@ -197,8 +200,8 @@ export default function AllocationCharts() {
         {/* Sector Allocation Chart */}
         <div className="rounded-xl bg-[#161B22]/50 p-6 shadow-lg">
           <h3 className="text-lg font-medium text-[#8B949E] mb-4">Sector Allocation</h3>
-          {sectorData.length > 0 ? (
-            <ReactApexChart
+          {sectorData.length > 0 && PieChartComponent ? (
+            <PieChartComponent
               options={createChartOptions('Sector Allocation', sectorData)}
               series={sectorData.map(item => item.value)}
               type="donut"
@@ -214,8 +217,8 @@ export default function AllocationCharts() {
         {/* Region Allocation Chart */}
         <div className="rounded-xl bg-[#161B22]/50 p-6 shadow-lg">
           <h3 className="text-lg font-medium text-[#8B949E] mb-4">Geographic Allocation</h3>
-          {regionData.length > 0 ? (
-            <ReactApexChart
+          {regionData.length > 0 && PieChartComponent ? (
+            <PieChartComponent
               options={createChartOptions('Region Allocation', regionData)}
               series={regionData.map(item => item.value)}
               type="donut"

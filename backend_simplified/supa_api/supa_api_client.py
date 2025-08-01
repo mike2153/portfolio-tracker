@@ -20,7 +20,7 @@ class SupaApiClient:
     _client: Optional[Client] = None
     _service_client: Optional[Client] = None
     
-    def __new__(cls):
+    def __new__(cls) -> 'SupaApiClient':
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._initialize_clients()

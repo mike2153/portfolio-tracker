@@ -83,10 +83,13 @@ export default function PortfolioChartApex({
   // Memoize heavy data processing operations
   const processedChartData = useMemo(() => {
     // Helper function to get value from data point
-    const getValue = (point: any) => point.value ?? point.total_value ?? 0;
+    const getValue = (point: { value?: number; total_value?: number }) => point.value ?? point.total_value ?? 0;
     
     // Date range alignment with early return for empty data
-    const alignDataRanges = (portfolioData: any[], benchmarkData: any[]) => {
+    const alignDataRanges = (
+      portfolioData: Array<{ date: string; value?: number; total_value?: number }>, 
+      benchmarkData: Array<{ date: string; value?: number; total_value?: number }>
+    ) => {
       if (portfolioData.length === 0 || benchmarkData.length === 0) {
         return { alignedPortfolio: portfolioData, alignedBenchmark: benchmarkData };
       }
@@ -96,6 +99,11 @@ export default function PortfolioChartApex({
       const portfolioEndDate = portfolioData[portfolioData.length - 1]?.date;
       const benchmarkStartDate = benchmarkData[0]?.date;
       const benchmarkEndDate = benchmarkData[benchmarkData.length - 1]?.date;
+      
+      // Check if we have valid dates
+      if (!portfolioStartDate || !portfolioEndDate || !benchmarkStartDate || !benchmarkEndDate) {
+        return { alignedPortfolio: portfolioData, alignedBenchmark: benchmarkData };
+      }
       
       // Find the overlapping date range (latest start date, earliest end date)
       const alignmentStartDate = portfolioStartDate > benchmarkStartDate ? portfolioStartDate : benchmarkStartDate;
@@ -117,7 +125,10 @@ export default function PortfolioChartApex({
     const calculatePercentageReturns = (data: Array<{ date: string; value?: number; total_value?: number }>) => {
       if (data.length === 0) return [];
       
-      const initialValue = getValue(data[0]);
+      const firstPoint = data[0];
+      if (!firstPoint) return [];
+      
+      const initialValue = getValue(firstPoint);
       if (initialValue === 0) return data.map(() => 0);
       
       return data.map(point => {
@@ -130,8 +141,8 @@ export default function PortfolioChartApex({
     const { alignedPortfolio, alignedBenchmark } = alignDataRanges(portfolioData, benchmarkData);
     
     // Calculate percentage returns
-    const portfolioPercentReturns = calculatePercentageReturns(alignedPortfolio as any);
-    const benchmarkPercentReturns = calculatePercentageReturns(alignedBenchmark as any);
+    const portfolioPercentReturns = calculatePercentageReturns(alignedPortfolio);
+    const benchmarkPercentReturns = calculatePercentageReturns(alignedBenchmark);
     
     return {
       alignedPortfolio,

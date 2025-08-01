@@ -8,7 +8,7 @@ import type { ListViewColumn } from './ApexListView';
 
 export interface FinancialBarChartApexEnhancedProps {
   data: Array<{
-    [key: string]: any;
+    [key: string]: string | number | undefined;
     fiscalDateEnding?: string;
   }>;
   statementType: 'income' | 'balance' | 'cashflow';

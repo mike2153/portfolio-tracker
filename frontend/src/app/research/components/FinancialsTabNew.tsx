@@ -26,7 +26,7 @@ const FinancialsTabNew: React.FC<TabContentProps> = ({ ticker, data: _data, isLo
   const [activeCurrency, setActiveCurrency] = useState<'USD' | 'EUR' | 'GBP'>('USD');
   
   // State for financial data
-  const [financialsData, setFinancialsData] = useState<Record<string, any>>({});
+  const [financialsData, setFinancialsData] = useState<Record<string, unknown>>({});
   const [financialsLoading, setFinancialsLoading] = useState(false);
   const [financialsError, setFinancialsError] = useState<string | null>(null);
   
@@ -49,7 +49,7 @@ const FinancialsTabNew: React.FC<TabContentProps> = ({ ticker, data: _data, isLo
       
       if (result.success && result.data) {
         console.log(`[FinancialsTabNew] Loaded ${statement} data:`, result.data);
-        setFinancialsData((prev: any) => ({
+        setFinancialsData((prev: Record<string, unknown>) => ({
           ...prev,
           [statement]: result.data
         }));
@@ -67,7 +67,7 @@ const FinancialsTabNew: React.FC<TabContentProps> = ({ ticker, data: _data, isLo
 
   // Transform API data to component format
   const transformFinancialData = (): FinancialMetric[] => {
-    const statementData = financialsData?.[activeStatement];
+    const statementData = financialsData?.[activeStatement] as { annual_reports?: unknown[]; quarterly_reports?: unknown[] } | undefined;
     console.log(`[FinancialsTabNew] Transforming data for ${activeStatement}:`, statementData);
     
     if (!statementData) return [];
@@ -90,17 +90,20 @@ const FinancialsTabNew: React.FC<TabContentProps> = ({ ticker, data: _data, isLo
     return metricDefinitions.map(metric => {
       const values: Record<string, number> = {};
       
-      reports.forEach((report: any) => {
+      (reports as Record<string, unknown>[]).forEach((report: Record<string, unknown>) => {
+        const fiscalDate = report.fiscalDateEnding;
+        if (typeof fiscalDate !== 'string') return;
+        
         const period = activePeriod === 'annual' 
-          ? new Date(report.fiscalDateEnding).getFullYear().toString()
-          : formatQuarterlyPeriod(report.fiscalDateEnding);
+          ? new Date(fiscalDate).getFullYear().toString()
+          : formatQuarterlyPeriod(fiscalDate);
         
         let value = 0;
         
         // Calculate free cash flow if needed
         if (metric.key === 'freeCashFlow' && activeStatement === 'CASH_FLOW') {
-          const operatingCashflow = parseFloat(report.operatingCashflow || '0');
-          const capitalExpenditures = parseFloat(report.capitalExpenditures || '0');
+          const operatingCashflow = parseFloat(String(report.operatingCashflow || '0'));
+          const capitalExpenditures = parseFloat(String(report.capitalExpenditures || '0'));
           value = operatingCashflow - Math.abs(capitalExpenditures); // CapEx is usually negative
         } else {
           // Handle "None" values from Alpha Vantage
@@ -239,7 +242,7 @@ const FinancialsTabNew: React.FC<TabContentProps> = ({ ticker, data: _data, isLo
       loadFinancialData('BALANCE_SHEET');
       loadFinancialData('CASH_FLOW');
     }
-  }, [ticker]);
+  }, [ticker, loadFinancialData]);
 
   // Handle metric selection toggle
   const handleMetricToggle = (metricKey: string) => {

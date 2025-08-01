@@ -78,12 +78,12 @@ export default function SmartImage({
     <Image
       src={imageSrc}
       alt={alt}
-      width={width}
-      height={height}
-      fill={fill}
+      {...(width ? { width } : {})}
+      {...(height ? { height } : {})}
+      {...(fill ? { fill } : {})}
       className={className}
       onError={handleImageError}
-      unoptimized={useProxy} // Disable optimization for proxied images
+      unoptimized={useProxy}
     />
-  )
+  );
 }

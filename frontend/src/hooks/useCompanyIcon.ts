@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 
 interface UseCompanyIconReturn {
   iconPath: string | null;
@@ -21,11 +21,11 @@ export const useCompanyIcon = (symbol: string): UseCompanyIconReturn => {
   const cleanSymbol = symbol.replace(/[^A-Z0-9]/g, '').toUpperCase();
 
   // Possible icon paths in order of preference
-  const iconPaths = [
+  const iconPaths = useMemo(() => [
     `/icons/ticker_icons/${cleanSymbol}.png`,
     `/icons/crypto_icons/${cleanSymbol}.png`,
     `/icons/forex_icons/${cleanSymbol}.png`
-  ];
+  ], [cleanSymbol]);
 
   const findIcon = useCallback(async () => {
     if (!cleanSymbol) {
@@ -66,7 +66,7 @@ export const useCompanyIcon = (symbol: string): UseCompanyIconReturn => {
     setIconPath(null);
     setError(true);
     setLoading(false);
-  }, [cleanSymbol]);
+  }, [cleanSymbol, iconPaths]);
 
   useEffect(() => {
     findIcon();

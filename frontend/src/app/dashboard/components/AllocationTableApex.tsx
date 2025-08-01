@@ -10,7 +10,7 @@ import { Star, StarOff } from 'lucide-react';
 import { front_api_get_watchlist, front_api_add_to_watchlist, front_api_remove_from_watchlist } from '@/hooks/api/front_api_watchlist';
 import { useToast } from '@/components/ui/Toast';
 
-interface AllocationRowExtended extends AllocationItem {
+interface AllocationRowExtended extends AllocationItem, Record<string, unknown> {
   id: string;
   accentColorClass: string;
 }
@@ -200,7 +200,7 @@ const AllocationTableApex = () => {
       showSearch={true}
       showPagination={false}
       searchPlaceholder="Search holdings..."
-      getItemKey={(item) => item.id}
+      getItemKey={(item) => item.id as string}
       className="rounded-xl bg-[#161B22] shadow-lg"
     />
   );

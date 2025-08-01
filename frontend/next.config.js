@@ -84,6 +84,18 @@ const nextConfig = {
       }
     }
 
+    // Production console log elimination
+    if (!dev && !isServer) {
+      config.optimization.minimizer = config.optimization.minimizer || [];
+      config.plugins.push(
+        new webpack.DefinePlugin({
+          'console.log': JSON.stringify(() => {}),
+          'console.debug': JSON.stringify(() => {}),
+          'console.info': JSON.stringify(() => {}),
+        })
+      );
+    }
+
     // Bundle size monitoring and type safety enforcement
     if (!dev && !isServer) {
       // Bundle size limits (STRICT)
@@ -105,16 +117,24 @@ const nextConfig = {
       config.optimization = {
         ...config.optimization,
         splitChunks: {
-          ...config.optimization.splitChunks,
           chunks: 'all',
+          maxSize: 244000, // 244KB max chunk size
+          minSize: 20000,  // 20KB min chunk size
           cacheGroups: {
-            ...config.optimization.splitChunks.cacheGroups,
-            // ApexCharts vendor chunk
+            // React framework chunk
+            react: {
+              test: /[\\/]node_modules[\\/](react|react-dom)[\\/]/,
+              name: 'react',
+              chunks: 'all',
+              priority: 40,
+              reuseExistingChunk: true,
+            },
+            // ApexCharts vendor chunk (dynamically loaded)
             apexcharts: {
               test: /[\\/]node_modules[\\/](apexcharts|react-apexcharts)[\\/]/,
               name: 'apexcharts',
-              chunks: 'all',
-              priority: 30,
+              chunks: 'async', // Only for dynamic imports
+              priority: 35,
               reuseExistingChunk: true,
             },
             // React Query vendor chunk  
@@ -122,24 +142,48 @@ const nextConfig = {
               test: /[\\/]node_modules[\\/]@tanstack[\\/]react-query[\\/]/,
               name: 'react-query',
               chunks: 'all',
+              priority: 30,
+              reuseExistingChunk: true,
+            },
+            // Icon libraries chunk
+            icons: {
+              test: /[\\/]node_modules[\\/](lucide-react|@heroicons\/react|react-icons)[\\/]/,
+              name: 'icons',
+              chunks: 'all',
               priority: 25,
               reuseExistingChunk: true,
             },
-            // Lucide icons chunk
-            icons: {
-              test: /[\\/]node_modules[\\/]lucide-react[\\/]/,
-              name: 'icons',
+            // Supabase chunk
+            supabase: {
+              test: /[\\/]node_modules[\\/]@supabase[\\/]/,
+              name: 'supabase',
+              chunks: 'all',
+              priority: 22,
+              reuseExistingChunk: true,
+            },
+            // Tailwind utilities
+            tailwind: {
+              test: /[\\/]node_modules[\\/](clsx|tailwind-merge)[\\/]/,
+              name: 'tailwind-utils',
               chunks: 'all',
               priority: 20,
               reuseExistingChunk: true,
             },
-            // Common vendor libraries
+            // Common vendor libraries (split further)
             vendor: {
               test: /[\\/]node_modules[\\/]/,
               name: 'vendors',
               chunks: 'all',
               priority: 10,
               reuseExistingChunk: true,
+              maxSize: 200000, // Split large vendor chunks
+            },
+            // Default group for app code
+            default: {
+              minChunks: 2,
+              priority: 5,
+              reuseExistingChunk: true,
+              maxSize: 200000,
             },
           },
         },

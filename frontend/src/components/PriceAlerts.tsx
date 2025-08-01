@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 
 // Plotly removed for bundle size optimization
 import { PriceAlert, AlertStatistics } from '@/types'
@@ -44,14 +44,7 @@ export default function PriceAlerts({ userId }: PriceAlertsProps) {
   })
   const [submitting, setSubmitting] = useState(false)
 
-  useEffect(() => {
-    if (userId) {
-      fetchAlerts()
-      fetchStatistics()
-    }
-  }, [userId])
-
-  const fetchAlerts = async () => {
+  const fetchAlerts = useCallback(async () => {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/price-alerts/${userId}`)
       if (!response.ok) {
@@ -62,9 +55,9 @@ export default function PriceAlerts({ userId }: PriceAlertsProps) {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch alerts')
     }
-  }
+  }, [userId])
 
-  const fetchStatistics = async () => {
+  const fetchStatistics = useCallback(async () => {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/price-alerts/${userId}/statistics`)
       if (!response.ok) {
@@ -77,7 +70,14 @@ export default function PriceAlerts({ userId }: PriceAlertsProps) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [userId])
+
+  useEffect(() => {
+    if (userId) {
+      fetchAlerts()
+      fetchStatistics()
+    }
+  }, [userId, fetchAlerts, fetchStatistics])
 
   const createAlert = async (e: React.FormEvent) => {
     e.preventDefault()

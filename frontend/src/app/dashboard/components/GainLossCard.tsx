@@ -59,7 +59,7 @@ const GainLossCard = ({ type, title }: GainLossCardProps) => {
     const items = data?.data?.items || [];
 
     // Add defensive function to safely format percentage
-    const safeFormatPercent = (changePercent: any): string => {
+    const safeFormatPercent = (changePercent: unknown): string => {
         // Handle null/undefined
         if (changePercent == null) {
             return '0.00';
@@ -85,7 +85,7 @@ const GainLossCard = ({ type, title }: GainLossCardProps) => {
     };
 
     // Add defensive function to safely format currency value
-    const safeFormatCurrency = (changeValue: any): string => {
+    const safeFormatCurrency = (changeValue: unknown): string => {
         // Handle null/undefined
         if (changeValue == null) {
             return '0';

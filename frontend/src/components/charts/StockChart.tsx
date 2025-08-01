@@ -1,11 +1,8 @@
 "use client";
 
-import React, { useMemo } from 'react';
-import dynamic from 'next/dynamic';
+import React, { useMemo, useEffect, useState } from 'react';
 import { formatCurrency, formatPercentage, formatDate } from '@/lib/front_api_client';
-
-// Dynamically import ApexCharts to avoid SSR issues
-const Chart = dynamic(() => import('react-apexcharts'), { ssr: false });
+import { useChart } from '../ChartProvider';
 
 interface StockData {
   date: Date | string;
@@ -48,6 +45,13 @@ const StockChart: React.FC<StockChartProps> = ({
   title,
   compareMode = false,
 }) => {
+  const { loadChart, isLoading: chartLoading } = useChart();
+  const [ChartComponent, setChartComponent] = useState<React.ComponentType<any> | null>(null);
+
+  useEffect(() => {
+    const apexType = chartType === 'candlestick' ? 'candlestick' : 'line';
+    loadChart(apexType).then(setChartComponent).catch(console.error);
+  }, [loadChart, chartType]);
   const chartColors = useMemo(() => [
     '#3b82f6', // blue
     '#10b981', // green
@@ -189,6 +193,21 @@ const StockChart: React.FC<StockChartProps> = ({
     };
   }, [processedData, chartType, height, width, backgroundColor, textColor, gridColor, showLegend, data.length, isDark, compareMode, chartColors]);
 
+  if (chartLoading || !ChartComponent) {
+    return (
+      <div style={{ backgroundColor, padding: '16px', borderRadius: '8px' }}>
+        {title && (
+          <h3 style={{ color: textColor, marginBottom: '16px', fontSize: '18px', fontWeight: 600 }}>
+            {title}
+          </h3>
+        )}
+        <div style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center', color: textColor }}>
+          Loading chart...
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ backgroundColor, padding: '16px', borderRadius: '8px' }}>
       {title && (
@@ -197,13 +216,15 @@ const StockChart: React.FC<StockChartProps> = ({
         </h3>
       )}
       
-      <Chart
-        options={chartOptions}
-        series={chartOptions.series}
-        type={chartType === 'candlestick' ? 'candlestick' : 'line'}
-        height={height}
-        width={width}
-      />
+      {ChartComponent && (
+        <ChartComponent
+          options={chartOptions}
+          series={chartOptions.series}
+          type={chartType === 'candlestick' ? 'candlestick' : 'line'}
+          height={height}
+          width={width}
+        />
+      )}
 
       {/* Time period selector */}
       <div style={{ marginTop: '16px', display: 'flex', gap: '8px', justifyContent: 'center' }}>

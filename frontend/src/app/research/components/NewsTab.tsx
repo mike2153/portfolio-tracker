@@ -147,13 +147,6 @@ const NewsTab: React.FC<NewsTabProps> = ({ ticker, data, isLoading, onRefresh })
   
   console.log('[NewsTab] Component rendered with:', { ticker, hasData: !!data, isLoading });
   
-  useEffect(() => {
-    console.log('[NewsTab] Component mounted/ticker changed:', ticker);
-    if (ticker) {
-      fetchNews();
-    }
-  }, [ticker]);
-  
   const fetchNews = useCallback(async () => {
     console.log('[NewsTab] fetchNews called for ticker:', ticker);
     setFetchingNews(true);
@@ -179,6 +172,13 @@ const NewsTab: React.FC<NewsTabProps> = ({ ticker, data, isLoading, onRefresh })
       setFetchingNews(false);
     }
   }, [ticker]);
+  
+  useEffect(() => {
+    console.log('[NewsTab] Component mounted/ticker changed:', ticker);
+    if (ticker) {
+      fetchNews();
+    }
+  }, [ticker, fetchNews]);
   
   const loading = isLoading || fetchingNews;
   

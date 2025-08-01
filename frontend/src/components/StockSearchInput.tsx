@@ -136,7 +136,7 @@ export function StockSearchInput({
     if (value !== undefined && value !== searchQuery) {
       handleSearch(value);
     }
-  }, [value]);
+  }, [value, handleSearch, searchQuery]);
 
   // 🔥 DEBUGGING - Log state changes
   useEffect(() => {

@@ -1,11 +1,8 @@
 'use client';
 
-import React, { useMemo } from 'react';
-import dynamic from 'next/dynamic';
+import React, { useMemo, useEffect, useState } from 'react';
 import { ApexOptions } from 'apexcharts';
-
-// Dynamic import to avoid SSR issues
-const ReactApexChart = dynamic(() => import('react-apexcharts'), { ssr: false });
+import { useChart } from '../ChartProvider';
 
 export interface ApexChartProps {
   data: Array<{
@@ -63,15 +60,23 @@ export default function ApexChart({
   darkMode = true,
   additionalOptions = {},
 }: ApexChartProps) {
+  const { loadChart, isLoading: chartLoading } = useChart();
+  const [ChartComponent, setChartComponent] = useState<React.ComponentType<any> | null>(null);
+
+  useEffect(() => {
+    loadChart(type).then(setChartComponent).catch(console.error);
+  }, [loadChart, type]);
   
-  // Debug logging
-  console.log('[ApexChart] Rendering with data:', {
-    dataLength: data?.length,
-    type,
-    height,
-    isLoading,
-    error: error?.substring(0, 100)
-  });
+  // Debug logging (development only)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[ApexChart] Rendering with data:', {
+      dataLength: data?.length,
+      type,
+      height,
+      isLoading,
+      error: error?.substring(0, 100)
+    });
+  }
 
   // Determine dynamic colors based on performance
   const dynamicColors = useMemo(() => {
@@ -224,17 +229,19 @@ export default function ApexChart({
       ...(item.color ? { color: item.color } : {}),
       type: type // Explicitly set the chart type for each series
     }));
-    console.log('[ApexChart] Series prepared:', {
-      seriesCount: mappedSeries.length,
-      firstSeriesName: mappedSeries[0]?.name,
-      firstSeriesDataLength: mappedSeries[0]?.data?.length,
-      firstSeriesType: mappedSeries[0]?.type
-    });
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[ApexChart] Series prepared:', {
+        seriesCount: mappedSeries.length,
+        firstSeriesName: mappedSeries[0]?.name,
+        firstSeriesDataLength: mappedSeries[0]?.data?.length,
+        firstSeriesType: mappedSeries[0]?.type
+      });
+    }
     return mappedSeries;
   }, [data, type]);
 
-  // Loading state
-  if (isLoading) {
+  // Loading state (including chart loading)
+  if (isLoading || chartLoading || !ChartComponent) {
     return (
       <div className={`rounded-xl bg-[#0D1117] border border-[#30363D] p-6 shadow-lg ${className}`}>
         {title && (
@@ -308,12 +315,14 @@ export default function ApexChart({
 
       {/* Chart */}
       <div className="w-full">
-        <ReactApexChart 
-          options={options} 
-          series={series} 
-          type={type as 'line' | 'area' | 'bar' | 'candlestick'} 
-          height={height} 
-        />
+        {ChartComponent && (
+          <ChartComponent
+            options={options}
+            series={series}
+            type={type}
+            height={height}
+          />
+        )}
       </div>
 
       {/* Debug info in development */}
