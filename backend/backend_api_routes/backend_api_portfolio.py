@@ -109,34 +109,34 @@ async def backend_api_get_portfolio(
                 # Convert Decimal to float only at final serialization
                 holdings_list.append({
                     "symbol": holding.symbol,
-                    "quantity": float(quantity_decimal),
-                    "avg_cost": float(avg_cost_decimal),
-                    "total_cost": float(total_cost_decimal),
-                    "current_price": float(current_price_decimal),
-                    "current_value": float(current_value_decimal),
-                    "gain_loss": float(gain_loss_decimal),
-                    "gain_loss_percent": holding.gain_loss_percent,
-                    "dividends_received": float(dividends_received_decimal),
+                    "quantity": str(quantity_decimal),
+                    "avg_cost": str(avg_cost_decimal),
+                    "total_cost": str(total_cost_decimal),
+                    "current_price": str(current_price_decimal),
+                    "current_value": str(current_value_decimal),
+                    "gain_loss": str(gain_loss_decimal),
+                    "gain_loss_percent": str(holding.gain_loss_percent),
+                    "dividends_received": str(dividends_received_decimal),
                     "price_date": holding.price_date,
                     "currency": holding.currency if hasattr(holding, 'currency') else "USD",
-                    "base_currency_value": float(base_currency_value_decimal)
+                    "base_currency_value": str(base_currency_value_decimal)
                 })
             except (InvalidOperation, TypeError, ValueError) as e:
                 logger.error(f"Error converting holding {holding.symbol} financial data to Decimal: {e}")
                 # Fallback with zero values
                 holdings_list.append({
                     "symbol": holding.symbol,
-                    "quantity": 0.0,
-                    "avg_cost": 0.0,
-                    "total_cost": 0.0,
-                    "current_price": 0.0,
-                    "current_value": 0.0,
-                    "gain_loss": 0.0,
-                    "gain_loss_percent": 0.0,
-                    "dividends_received": 0.0,
+                    "quantity": "0",
+                    "avg_cost": "0",
+                    "total_cost": "0",
+                    "current_price": "0",
+                    "current_value": "0",
+                    "gain_loss": "0",
+                    "gain_loss_percent": "0",
+                    "dividends_received": "0",
                     "price_date": holding.price_date,
                     "currency": holding.currency if hasattr(holding, 'currency') else "USD",
-                    "base_currency_value": 0.0
+                    "base_currency_value": "0"
                 })
         
         # Convert portfolio summary data with Decimal safety
@@ -150,13 +150,13 @@ async def backend_api_get_portfolio(
             total_cost_decimal = Decimal('0')
             total_gain_loss_decimal = Decimal('0')
         
-        # Convert Decimal to float only at final serialization
+        # Convert Decimal to string to preserve precision
         portfolio_data = {
             "holdings": holdings_list,
-            "total_value": float(total_value_decimal),
-            "total_cost": float(total_cost_decimal),
-            "total_gain_loss": float(total_gain_loss_decimal),
-            "total_gain_loss_percent": metrics.performance.total_gain_loss_percent,
+            "total_value": str(total_value_decimal),
+            "total_cost": str(total_cost_decimal),
+            "total_gain_loss": str(total_gain_loss_decimal),
+            "total_gain_loss_percent": str(metrics.performance.total_gain_loss_percent),
             "base_currency": metrics.performance.base_currency if hasattr(metrics.performance, 'base_currency') else "USD"
         }
         
@@ -1070,6 +1070,43 @@ async def backend_api_get_complete_portfolio(
                 total_cost_decimal = Decimal('0')
                 total_gain_loss_decimal = Decimal('0')
             
+            # Calculate top gainers and losers (3 each, mutually exclusive)
+            top_gainers = []
+            top_losers = []
+            
+            if holdings_list:
+                # Filter holdings by gain/loss and sort
+                holdings_with_gains = [h for h in holdings_list if h["gain_loss_percent"] > 0]
+                holdings_with_losses = [h for h in holdings_list if h["gain_loss_percent"] < 0]
+                
+                # Sort gainers by percentage (descending) and take top 3
+                holdings_with_gains.sort(key=lambda x: x["gain_loss_percent"], reverse=True)
+                top_gainers = [
+                    {
+                        "name": f"Stock {holding['symbol']}",
+                        "ticker": holding["symbol"],
+                        "value": holding["current_value"],
+                        "changePercent": holding["gain_loss_percent"],
+                        "changeValue": holding["gain_loss"]
+                    }
+                    for holding in holdings_with_gains[:3]
+                ]
+                
+                # Sort losers by percentage (ascending - most negative first) and take top 3
+                holdings_with_losses.sort(key=lambda x: x["gain_loss_percent"])
+                top_losers = [
+                    {
+                        "name": f"Stock {holding['symbol']}",
+                        "ticker": holding["symbol"],
+                        "value": holding["current_value"],
+                        "changePercent": holding["gain_loss_percent"],
+                        "changeValue": holding["gain_loss"]
+                    }
+                    for holding in holdings_with_losses[:3]
+                ]
+            
+            logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Calculated {len(top_gainers)} gainers and {len(top_losers)} losers")
+            
             # Construct complete API response data
             complete_response_data = {
                 # Core portfolio data
@@ -1089,9 +1126,9 @@ async def backend_api_get_complete_portfolio(
                     "ytd_return": float(getattr(portfolio_metrics.performance, 'ytd_return', Decimal('0'))),
                     "ytd_return_percent": getattr(portfolio_metrics.performance, 'ytd_return_percent', 0.0),
                     "total_return_percent": portfolio_metrics.performance.total_gain_loss_percent,
-                    "volatility": float(getattr(portfolio_metrics.performance, 'volatility', Decimal('0'))),
-                    "sharpe_ratio": float(getattr(portfolio_metrics.performance, 'sharpe_ratio', Decimal('0'))),
-                    "max_drawdown": float(getattr(portfolio_metrics.performance, 'max_drawdown', Decimal('0')))
+                    "volatility": float(getattr(portfolio_metrics.performance, 'volatility', Decimal('0')) or Decimal('0')),
+                    "sharpe_ratio": float(getattr(portfolio_metrics.performance, 'sharpe_ratio', Decimal('0')) or Decimal('0')),
+                    "max_drawdown": float(getattr(portfolio_metrics.performance, 'max_drawdown', Decimal('0')) or Decimal('0'))
                 },
                 
                 # Allocation breakdown (reuse existing allocation logic)
@@ -1135,7 +1172,11 @@ async def backend_api_get_complete_portfolio(
                 # Currency conversions
                 "currency_conversions": {
                     currency_pair: float(rate) for currency_pair, rate in complete_data.currency_conversions.items()
-                }
+                },
+                
+                # Top gainers and losers (3 each, mutually exclusive)
+                "top_gainers": top_gainers,
+                "top_losers": top_losers
             }
             
             transform_time_ms = int((datetime.utcnow() - transform_start).total_seconds() * 1000)
@@ -1298,4 +1339,63 @@ async def backend_api_get_complete_portfolio(
             raise ServiceUnavailableError(
                 "Complete Portfolio Service",
                 f"Failed to retrieve complete portfolio data: {str(e)}"
-            ) 
+            )
+
+@portfolio_router.get("/portfolio/performance/historical")
+@DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="GET_HISTORICAL_PERFORMANCE")
+async def backend_api_get_historical_performance(
+    user: Dict[str, Any] = Depends(require_authenticated_user),
+    period: str = Query("1Y", description="Time period: 7D, 1M, 3M, 1Y, YTD, MAX"),
+    benchmark: str = Query("SPY", description="Benchmark ticker: SPY, QQQ, A200, URTH, VTI, VXUS"),
+    api_version: Optional[str] = Header(None, alias="X-API-Version")
+) -> Dict[str, Any]:
+    """
+    Get historical portfolio performance data vs benchmark for charting.
+    
+    Returns time-series data showing portfolio value over time compared to benchmark index.
+    """
+    logger.info(f"[backend_api_portfolio.py::backend_api_get_historical_performance] === HISTORICAL PERFORMANCE REQUEST START ===")
+    logger.info(f"[backend_api_portfolio.py::backend_api_get_historical_performance] User ID: {user.get('id', 'unknown')}")
+    logger.info(f"[backend_api_portfolio.py::backend_api_get_historical_performance] Period: {period}, Benchmark: {benchmark}")
+    
+    try:
+        # Extract user credentials
+        user_id, user_token = extract_user_credentials(user)
+        
+        # Import the new service
+        from services.portfolio_performance_service import portfolio_performance_service
+        
+        # Get historical performance data
+        performance_data = await portfolio_performance_service.get_historical_performance(
+            user_id=user_id,
+            user_token=user_token,
+            period=period,
+            benchmark=benchmark
+        )
+        
+        logger.info(f"[backend_api_portfolio.py::backend_api_get_historical_performance] Retrieved {len(performance_data.get('portfolio_performance', []))} portfolio data points")
+        logger.info(f"[backend_api_portfolio.py::backend_api_get_historical_performance] Retrieved {len(performance_data.get('benchmark_performance', []))} benchmark data points")
+        
+        return {
+            "success": True,
+            "period": period,
+            "benchmark": benchmark,
+            "portfolio_performance": performance_data["portfolio_performance"],
+            "benchmark_performance": performance_data["benchmark_performance"],
+            "metadata": performance_data["metadata"],
+            "performance_metrics": performance_data["performance_metrics"]
+        }
+        
+    except Exception as e:
+        logger.error(f"[backend_api_portfolio.py::backend_api_get_historical_performance] Error: {e}")
+        DebugLogger.log_error(
+            file_name="backend_api_portfolio.py",
+            function_name="backend_api_get_historical_performance",
+            error=e,
+            user_id=user_id if 'user_id' in locals() else 'unknown'
+        )
+        
+        raise ServiceUnavailableError(
+            "Historical Performance Service",
+            f"Failed to retrieve historical performance data: {str(e)}"
+        ) 

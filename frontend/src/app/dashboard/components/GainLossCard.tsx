@@ -1,12 +1,9 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
 import { ListSkeleton } from './Skeletons';
-import { GainerLoserRow } from '@/types/api';
 import { ArrowUp, ArrowDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useDashboard } from '../contexts/DashboardContext';
-import { useAuth } from '@/components/AuthProvider';
+import { useSessionPortfolio, GainerLoserItem } from '@/hooks/useSessionPortfolio';
 import GradientText from '@/components/ui/GradientText';
 import CompanyIcon from '@/components/ui/CompanyIcon';
 
@@ -17,36 +14,9 @@ interface GainLossCardProps {
 
 const GainLossCard = ({ type, title }: GainLossCardProps) => {
     const isGainers = type === 'gainers';
-    const { userId } = useDashboard();
-    const { session } = useAuth();
-
-    // Use real API endpoint
-    const queryFn = async () => {
-        if (!session?.access_token) {
-            throw new Error('No authentication token available');
-        }
-        
-        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/dashboard/${type}`, {
-            headers: {
-                'Authorization': `Bearer ${session.access_token}`,
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        if (!response.ok) {
-            throw new Error(`Failed to fetch ${type}`);
-        }
-        
-        return response.json();
-    };
     
-    const { data, isLoading, isError } = useQuery({
-        queryKey: ['dashboard', type, userId],
-        queryFn,
-        enabled: !!session?.access_token,
-        staleTime: 5 * 60 * 1000,
-        refetchOnWindowFocus: false,
-    });
+    // Use consolidated portfolio data
+    const { topGainers, topLosers, isLoading, isError } = useSessionPortfolio();
 
     if (isLoading) {
         return <ListSkeleton title={title} />;
@@ -56,7 +26,7 @@ const GainLossCard = ({ type, title }: GainLossCardProps) => {
         return <div className="text-red-500">Error loading {type}</div>;
     }
 
-    const items = data?.data?.items || [];
+    const items: GainerLoserItem[] = isGainers ? (topGainers || []) : (topLosers || []);
 
     // Add defensive function to safely format percentage
     const safeFormatPercent = (changePercent: unknown): string => {
@@ -117,7 +87,7 @@ const GainLossCard = ({ type, title }: GainLossCardProps) => {
                 <button className="text-sm text-white hover:bg-white hover:text-[#0D1117] px-3 py-1 rounded transition-colors">See all</button>
             </div>
             <ul className="space-y-4">
-                {items.map((item: GainerLoserRow) => (
+                {items.map((item: GainerLoserItem) => (
                     <li key={item.ticker} className="flex items-center space-x-4">
                         <div className="flex-shrink-0">
                             <CompanyIcon 

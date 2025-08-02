@@ -4,10 +4,19 @@ import { useState, useEffect, useMemo } from 'react'
 import { ApexChart } from '@/components/charts'
 // Removed unused import: ChartSkeleton
 import { useDashboard } from '../contexts/DashboardContext'
-// PARTIAL MIGRATION: Keep usePerformance for now due to complex historical data requirements
-// TODO: Investigate if consolidated hook has sufficient historical data
-import { usePerformance, type RangeKey, type BenchmarkTicker } from '@/hooks/usePerformance'
-// import { usePerformanceData } from '@/hooks/useSessionPortfolio' // For basic metrics - currently unused
+// Using performance hook for historical data
+import { usePerformance } from '@/hooks/usePerformance'
+
+// Temporary types for backward compatibility 
+export type RangeKey = '7D' | '1M' | '3M' | '1Y' | 'YTD' | 'MAX';
+export type BenchmarkTicker = 'SPY' | 'QQQ' | 'A200' | 'URTH' | 'VTI' | 'VXUS';
+
+// Simple data point interface for portfolio chart (used by usePerformance hook)
+interface _PerformanceDataPoint {
+  date: string;
+  value: number;
+  total_value?: number;
+}
 // Import centralized formatters
 import { formatCurrency } from '../../../../../shared/utils/formatters'
 
@@ -40,22 +49,25 @@ export default function PortfolioChartApex({
   const [displayMode, setDisplayMode] = useState<DisplayMode>('value');
   
   // === DATA FETCHING ===
+  // Use performance hook for historical data
   const {
-    data: performanceData,
     isLoading,
     isError,
     error,
+    refetch,
     portfolioData,
     benchmarkData,
     metrics,
-    refetch,
-    isSuccess: _isSuccess,
+    noData,
     isIndexOnly,
     userGuidance
   } = usePerformance(selectedRange, selectedBenchmark, {
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false
   });
+
+  // Performance data is now available from usePerformance hook
+  // portfolioData and benchmarkData are already provided by the hook
   
   // === DASHBOARD CONTEXT INTEGRATION ===
   const { 
@@ -67,10 +79,10 @@ export default function PortfolioChartApex({
   useEffect(() => {
     setIsLoadingPerformance(isLoading);
     
-    if (portfolioData && portfolioData.length > 0 && benchmarkData && benchmarkData.length > 0) {
+    if (portfolioData && portfolioData.length > 0) {
       setPerformanceData({
         portfolioPerformance: portfolioData,
-        benchmarkPerformance: benchmarkData,
+        benchmarkPerformance: benchmarkData || [],
         ...(metrics && {
           comparison: {
             portfolio_return: metrics.portfolio_return_pct,
@@ -141,7 +153,7 @@ export default function PortfolioChartApex({
     };
     
     // Apply date range alignment
-    const { alignedPortfolio, alignedBenchmark } = alignDataRanges(portfolioData, benchmarkData);
+    const { alignedPortfolio, alignedBenchmark } = alignDataRanges(portfolioData || [], benchmarkData || []);
     
     // Calculate percentage returns
     const portfolioPercentReturns = calculatePercentageReturns(alignedPortfolio);
@@ -355,65 +367,22 @@ export default function PortfolioChartApex({
             onRetry={refetch}
           />
         </div>
-      ) : alignedPortfolio.length === 0 ? (
+      ) : noData ? (
         <div className="flex items-center justify-center h-96 text-[#8B949E]">
           <div className="text-center">
             <p className="text-lg font-semibold">No portfolio data available</p>
-            {performanceData?.metadata?.no_data ? (
-              <div className="text-sm mt-2 space-y-1">
-                <p>No portfolio data found for the selected period.</p>
-                <p className="text-xs text-[#8B949E]">
-                  This could mean:
-                </p>
-                <ul className="text-xs text-[#8B949E] list-disc list-inside space-y-1">
-                  <li>No transactions exist for this time period</li>
-                  <li>No historical price data available</li>
-                  <li>Portfolio calculation returned empty results</li>
-                </ul>
-                <div className="mt-3 space-y-2">
-                  <p className="text-xs text-[#58A6FF]">Try these solutions:</p>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedRange !== 'MAX' && (
-                      <button
-                        onClick={() => handleRangeChange('MAX')}
-                        className="px-2 py-1 text-xs bg-[#58A6FF] text-white rounded hover:bg-[#388BFD] transition-colors"
-                      >
-                        Show All Data
-                      </button>
-                    )}
-                    {selectedRange !== '3M' && (
-                      <button
-                        onClick={() => handleRangeChange('3M')}
-                        className="px-2 py-1 text-xs bg-[#238636] text-white rounded hover:bg-[#2EA043] transition-colors"
-                      >
-                        Try 3 Months
-                      </button>
-                    )}
-                    {selectedRange !== '1M' && (
-                      <button
-                        onClick={() => handleRangeChange('1M')}
-                        className="px-2 py-1 text-xs bg-[#F0883E] text-white rounded hover:bg-[#FB8532] transition-colors"
-                      >
-                        Try 1 Month
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="text-sm mt-2 space-y-2">
-                <p>Add some transactions to see your portfolio performance</p>
-                <p className="text-xs text-[#8B949E]">
-                  Once you add transactions, your portfolio chart will show here automatically.
-                </p>
-              </div>
-            )}
+            <div className="text-sm mt-2 space-y-2">
+              <p>Add some transactions to see your portfolio performance</p>
+              <p className="text-xs text-[#8B949E]">
+                Once you add transactions, your portfolio chart will show here automatically.
+              </p>
+            </div>
           </div>
         </div>
       ) : (
         <ApexChart
           data={chartData}
-          type="area"
+          type="line"
           height={400}
           yAxisFormatter={displayMode === 'value' ? 
             (value) => `$${value.toLocaleString()}` : 
@@ -422,7 +391,6 @@ export default function PortfolioChartApex({
             (value) => `$${value.toLocaleString()}` : 
             (value) => `${value.toFixed(2)}%`}
           showLegend={true}
-          colors={['#238636', '#58A6FF']}
           isLoading={isLoading}
           error={isError ? error?.message || 'Unknown error occurred' : null}
           onRetry={refetch}
@@ -432,8 +400,9 @@ export default function PortfolioChartApex({
       {/* Debug info in development */}
       {process.env.NODE_ENV === 'development' && (
         <div className="mt-2 text-xs text-[#8B949E]">
-          Debug: {alignedPortfolio.length} aligned portfolio points, {alignedBenchmark.length} aligned benchmark points, 
-          Range: {selectedRange}, Benchmark: {selectedBenchmark}, Mode: {displayMode}
+          Debug: Portfolio points: {portfolioData?.length || 0}, 
+          Benchmark points: {benchmarkData?.length || 0}, 
+          Range: {selectedRange}, Benchmark: {selectedBenchmark}
         </div>
       )}
     </div>

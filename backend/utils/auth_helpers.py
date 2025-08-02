@@ -44,7 +44,7 @@ def extract_user_credentials(user_data: Dict[str, Any]) -> Tuple[str, str]:
 
 def validate_user_id(user_id: Any) -> str:
     """
-    Validate that user_id is a non-empty string.
+    Validate that user_id is a non-empty string with proper format.
     
     Args:
         user_id: The user ID to validate
@@ -53,7 +53,7 @@ def validate_user_id(user_id: Any) -> str:
         The validated user_id as a string
         
     Raises:
-        HTTPException: If user_id is None, empty, or not a string
+        HTTPException: If user_id is None, empty, not a string, or invalid format
     """
     if not user_id:
         raise HTTPException(
@@ -65,6 +65,15 @@ def validate_user_id(user_id: Any) -> str:
         raise HTTPException(
             status_code=400,
             detail=f"User ID must be a string, got {type(user_id).__name__}"
+        )
+    
+    # Validate UUID format (Supabase uses UUIDs)
+    import re
+    uuid_pattern = r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+    if not re.match(uuid_pattern, user_id, re.IGNORECASE):
+        raise HTTPException(
+            status_code=400,
+            detail="User ID must be a valid UUID format"
         )
     
     return user_id

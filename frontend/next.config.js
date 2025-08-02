@@ -29,19 +29,22 @@ const nextConfig = {
       'assets.marketwatch.com',
       'cdn.marketaux.com',
       'cdn.benzinga.com',
+      'www.benzinga.com',
       
       // Stock photo and placeholder services
       'images.unsplash.com',
       'via.placeholder.com',
       
-      // Add more domains here as needed:
-      // 'cdn.benzinga.com',
-      // 'assets.bwbx.io', // Bloomberg
-      // 'static01.nyt.com', // NY Times
-      // 'images.wsj.net', // Wall Street Journal
-      // 'thumbs.dreamstime.com',
-      // 'cdn.cnn.com',
-      // 'assets.cnbc.com',
+      // Additional financial news providers (commonly used)
+      'assets.bwbx.io', // Bloomberg
+      'static01.nyt.com', // NY Times
+      'images.wsj.net', // Wall Street Journal
+      'thumbs.dreamstime.com',
+      'cdn.cnn.com',
+      'assets.cnbc.com',
+      'image.cnbcfm.com',
+      'media.cnn.com',
+      'graphics.reuters.com',
     ].map(hostname => ({
       protocol: 'https',
       hostname,

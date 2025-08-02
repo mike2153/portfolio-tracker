@@ -349,7 +349,7 @@ class UserPerformanceManager:
             client = get_supa_service_client()
             
             # Query the complete portfolio cache table
-            result = client.table("user_performance_cache").select("*").eq(
+            result = client.table("user_performance").select("*").eq(
                 "user_id", user_id
             ).eq(
                 "cache_key", cache_key
@@ -371,7 +371,7 @@ class UserPerformanceManager:
             complete_data = CompletePortfolioData(**complete_data_json)
             
             # Update access statistics
-            client.table("user_performance_cache").update({
+            client.table("user_performance").update({
                 "access_count": cache_data["access_count"] + 1,
                 "last_accessed": datetime.now(timezone.utc).isoformat()
             }).eq("user_id", user_id).eq("cache_key", cache_key).execute()
@@ -427,7 +427,7 @@ class UserPerformanceManager:
             }
             
             # Upsert to handle concurrent operations
-            client.table("user_performance_cache").upsert(cache_record).execute()
+            client.table("user_performance").upsert(cache_record).execute()
             
             logger.info(f"[UserPerformanceManager] Cached data for user {user_id} with TTL {ttl}")
             
@@ -453,7 +453,7 @@ class UserPerformanceManager:
         try:
             client = get_supa_service_client()
             
-            query = client.table("user_performance_cache").delete().eq("user_id", user_id)
+            query = client.table("user_performance").delete().eq("user_id", user_id)
             
             if cache_pattern:
                 query = query.like("cache_key", f"%{cache_pattern}%")
@@ -682,13 +682,14 @@ class UserPerformanceManager:
             if not holdings:
                 return {"diversification_score": 0.0, "concentration_risk": "high"}
             
-            # Calculate concentration
-            total_value = sum(h.current_value for h in holdings)
+            # Calculate concentration - ensure all values are Decimal
+            from decimal import Decimal
+            total_value = sum(Decimal(str(h.current_value)) for h in holdings)
             if total_value <= 0:
                 return {"diversification_score": 0.0, "concentration_risk": "high"}
             
-            # Calculate weights and concentration
-            weights = [h.current_value / total_value for h in holdings]
+            # Calculate weights and concentration - convert to float for calculations
+            weights = [float(Decimal(str(h.current_value)) / total_value) for h in holdings]
             max_weight = max(weights) if weights else 0
             
             # Simple diversification score (inverted concentration)
@@ -803,7 +804,7 @@ class UserPerformanceManager:
             # Check recent cache access patterns
             week_ago = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
             
-            result = client.table("user_performance_cache").select("access_count").eq(
+            result = client.table("user_performance").select("access_count").eq(
                 "user_id", user_id
             ).gte("last_accessed", week_ago).execute()
             
@@ -837,7 +838,7 @@ class UserPerformanceManager:
             client = get_supa_service_client()
             
             # Delete entries where expires_at < now
-            result = client.table("user_performance_cache").delete().lt(
+            result = client.table("user_performance").delete().lt(
                 "expires_at", datetime.now(timezone.utc).isoformat()
             ).execute()
             

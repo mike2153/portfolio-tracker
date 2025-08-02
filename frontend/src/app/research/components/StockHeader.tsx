@@ -77,9 +77,18 @@ const StockHeader: React.FC<StockHeaderProps> = ({ ticker, data, isLoading }) =>
   }
 
   const { overview, quote } = data;
-  const currentPrice = quote?.price ? parseFloat(String(quote.price)) : 0;
-  const priceChange = quote?.change ? parseFloat(String(quote.change)) : 0;
-  const priceChangePercent = quote?.change_percent ? String(quote.change_percent).replace('%', '') : '0';
+  
+  // Safely extract price data with better null handling
+  const safeParseFloat = (value: any): number => {
+    if (value === null || value === undefined || value === '' || value === 'None') return 0;
+    const parsed = parseFloat(String(value));
+    return isNaN(parsed) ? 0 : parsed;
+  };
+  
+  const currentPrice = quote?.price ? safeParseFloat(quote.price) : 0;
+  const priceChange = quote?.change ? safeParseFloat(quote.change) : 0;
+  const priceChangePercent = quote?.change_percent ? 
+    safeParseFloat(String(quote.change_percent).replace('%', '')) : 0;
 
   return (
     <div className="bg-gray-800 rounded-xl p-6 mb-6 flex flex-col md:flex-row md:items-end md:justify-between">
@@ -101,9 +110,13 @@ const StockHeader: React.FC<StockHeaderProps> = ({ ticker, data, isLoading }) =>
           {currentPrice > 0 ? `$${currentPrice.toFixed(2)}` : 'N/A'}
         </div>
         <div className={`text-sm font-medium ${
-          priceChange >= 0 ? 'text-green-400' : 'text-red-400'
+          currentPrice > 0 ? (priceChange >= 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-400'
         }`}>
-          {priceChange >= 0 ? '+' : ''}${priceChange.toFixed(2)} ({priceChangePercent}%)
+          {currentPrice > 0 ? (
+            `${priceChange >= 0 ? '+' : ''}$${priceChange.toFixed(2)} (${priceChangePercent.toFixed(2)}%)`
+          ) : (
+            'Price data unavailable'
+          )}
         </div>
       </div>
 

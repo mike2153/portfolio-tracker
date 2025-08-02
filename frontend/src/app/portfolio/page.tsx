@@ -6,7 +6,7 @@ import { BarChart3, PieChart, Calculator, List, Loader2 } from 'lucide-react';
 import GradientText from '@/components/ui/GradientText';
 import PortfolioSummary from './components/PortfolioSummary';
 import HoldingsTable from './components/HoldingsTable';
-import AllocationCharts from './components/AllocationCharts';
+// import AllocationCharts from './components/AllocationCharts';
 // import RebalanceCalculator from './components/RebalanceCalculator';
 
 // Tab configuration
@@ -95,7 +95,10 @@ export default function PortfolioPage() {
 
           {activeTab === 'allocation' && (
             <div className="animate-fadeIn">
-              <AllocationCharts />
+              {/* <AllocationCharts /> */}
+              <div className="p-4 text-center text-gray-500">
+                Allocation charts coming soon...
+              </div>
               <div className="mt-6">
                 <HoldingsTable />
               </div>

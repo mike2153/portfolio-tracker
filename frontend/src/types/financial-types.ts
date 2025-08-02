@@ -1,5 +1,32 @@
 // Financial and portfolio-specific types for Portfolio Tracker
 
+// Raw types from backend (with string decimals for precision)
+export interface HoldingRaw {
+  symbol: string;
+  quantity: string;
+  avg_cost: string;
+  total_cost: string;
+  current_price: string;
+  current_value: string;
+  gain_loss: string;
+  gain_loss_percent: string;
+  dividends_received: string;
+  price_date: string;
+  currency: string;
+  base_currency_value: string;
+}
+
+export interface PortfolioSummaryRaw {
+  holdings: HoldingRaw[];
+  total_value: string;
+  total_cost: string;
+  total_gain_loss: string;
+  total_gain_loss_percent: string;
+  base_currency: string;
+}
+
+// Processed types for frontend use (converted to numbers)
+
 export interface AssetAllocation {
   symbol: string;
   name: string;

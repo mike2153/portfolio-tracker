@@ -7,6 +7,7 @@ orchestrating calculations and managing a persistent cache of computed results.
 """
 
 import asyncio
+import threading
 import logging
 import hashlib
 import json
@@ -225,10 +226,86 @@ class PortfolioMetricsManager:
         self.dividend_service = DividendService()
         self.cache_config = CacheConfig()
         
+        # Initialize thread-safe cache manager
+        self._cache_manager = None
+        self._user_cache_manager = None
+        self._calculation_locks: Dict[str, asyncio.Lock] = {}
+        self._lock_creation_lock = threading.Lock()
+        
         # Initialize ForexManager with Alpha Vantage key
         alpha_vantage_key = os.getenv("ALPHA_VANTAGE_API_KEY", "")
         supabase_client = get_supa_service_client()
         self.forex_manager = ForexManager(supabase_client, alpha_vantage_key)
+    
+    async def _get_cache_manager(self):
+        """Get or initialize the thread-safe cache manager."""
+        if self._cache_manager is None:
+            from services.cache_manager import get_cache_manager
+            self._cache_manager = await get_cache_manager()
+        return self._cache_manager
+    
+    async def _get_user_cache_manager(self):
+        """Get or initialize the user cache manager."""
+        if self._user_cache_manager is None:
+            from services.cache_manager import get_user_cache_manager
+            self._user_cache_manager = await get_user_cache_manager()
+        return self._user_cache_manager
+    
+    def _get_calculation_lock(self, user_id: str) -> asyncio.Lock:
+        """Get user-specific calculation lock to prevent duplicate work."""
+        with self._lock_creation_lock:
+            if user_id not in self._calculation_locks:
+                self._calculation_locks[user_id] = asyncio.Lock()
+            return self._calculation_locks[user_id]
+    
+    async def _get_cached_metrics(self, user_id: str, metric_type: str, params: Dict[str, Any]) -> Optional[PortfolioMetrics]:
+        """Get cached metrics using thread-safe cache."""
+        try:
+            cache_key = self._generate_cache_key(user_id, metric_type, params)
+            user_cache = await self._get_user_cache_manager()
+            
+            cached_data = await user_cache.get_user_cache(user_id, cache_key)
+            if cached_data:
+                # Deserialize the cached PortfolioMetrics
+                return PortfolioMetrics.parse_obj(cached_data)
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error getting cached metrics for user {user_id}: {e}")
+            return None
+    
+    async def _set_cached_metrics(self, user_id: str, metric_type: str, params: Dict[str, Any], metrics: PortfolioMetrics, ttl_seconds: int = 300) -> None:
+        """Set cached metrics using thread-safe cache."""
+        try:
+            cache_key = self._generate_cache_key(user_id, metric_type, params)
+            user_cache = await self._get_user_cache_manager()
+            
+            # Serialize the PortfolioMetrics for caching
+            serialized_data = metrics.dict()
+            await user_cache.set_user_cache(user_id, cache_key, serialized_data, ttl_seconds)
+            
+            logger.debug(f"Cached portfolio metrics for user {user_id}, key {cache_key}")
+            
+        except Exception as e:
+            logger.error(f"Error caching metrics for user {user_id}: {e}")
+    
+    async def invalidate_user_cache(self, user_id: str, pattern: Optional[str] = None) -> int:
+        """Invalidate all cache entries for a specific user."""
+        try:
+            user_cache = await self._get_user_cache_manager()
+            invalidated_count = await user_cache.invalidate_user_cache(user_id, pattern)
+            
+            # Also clear the calculation lock for this user
+            with self._lock_creation_lock:
+                self._calculation_locks.pop(user_id, None)
+            
+            logger.info(f"Invalidated {invalidated_count} cache entries for user {user_id}")
+            return invalidated_count
+            
+        except Exception as e:
+            logger.error(f"Error invalidating cache for user {user_id}: {e}")
+            return 0
         
         # Circuit breaker configuration
         self._max_failures = 3
@@ -355,7 +432,7 @@ class PortfolioMetricsManager:
         force_refresh: bool = False
     ) -> PortfolioMetrics:
         """
-        Get comprehensive portfolio metrics with intelligent caching.
+        Get comprehensive portfolio metrics with thread-safe caching.
         
         Args:
             user_id: User's UUID
@@ -373,55 +450,58 @@ class PortfolioMetricsManager:
         start_time = datetime.now()
         params = params or {}
         
-        try:
-            # Generate cache key
-            cache_key = self._generate_cache_key(user_id, metric_type, params)
+        # Use user-specific calculation lock to prevent duplicate work
+        calculation_lock = self._get_calculation_lock(user_id)
+        async with calculation_lock:
+            try:
+                # Check thread-safe cache first (unless force refresh)
+                if not force_refresh:
+                    cached_metrics = await self._get_cached_metrics(user_id, metric_type, params)
+                    if cached_metrics:
+                        logger.info(f"Portfolio metrics cache hit for user {user_id}, type {metric_type}")
+                        return cached_metrics
+                
+                # Double-check cache after acquiring lock (another thread might have calculated it)
+                if not force_refresh:
+                    cached_metrics = await self._get_cached_metrics(user_id, metric_type, params)
+                    if cached_metrics:
+                        logger.info(f"Portfolio metrics cache hit after lock for user {user_id}, type {metric_type}")
+                        cached_metrics.cache_status = MetricsCacheStatus.HIT
+                        return cached_metrics
             
-            # Step 1: Check cache unless force refresh
-            if not force_refresh:
-                cached_metrics = await self._get_cached_metrics(user_id, cache_key)
-                if cached_metrics:
-                    logger.info(f"[PortfolioMetricsManager] === CACHE HIT ===")
-                    logger.info(f"[PortfolioMetricsManager] User ID: {user_id}")
-                    logger.info(f"[PortfolioMetricsManager] Metric type: {metric_type}")
-                    logger.info(f"[PortfolioMetricsManager] Cache key: {cache_key}")
-                    logger.info(f"[PortfolioMetricsManager] Cached at: {cached_metrics.calculated_at}")
-                    cached_metrics.cache_status = MetricsCacheStatus.HIT
-                    return cached_metrics
-            
-            # Step 2: Calculate fresh metrics
-            logger.info(f"[PortfolioMetricsManager] === CACHE MISS ===")
-            logger.info(f"[PortfolioMetricsManager] User ID: {user_id}")
-            logger.info(f"[PortfolioMetricsManager] Metric type: {metric_type}")
-            logger.info(f"[PortfolioMetricsManager] Force refresh: {force_refresh}")
-            logger.info(f"[PortfolioMetricsManager] Calculating fresh metrics...")
-            metrics = await self._calculate_metrics(user_id, user_token, metric_type, params)
-            
-            # Add computation time
-            computation_time = datetime.now() - start_time
-            metrics.computation_time_ms = int(Decimal(str(computation_time.total_seconds())) * Decimal('1000'))
-            logger.info(f"[PortfolioMetricsManager] Metrics calculation completed in {metrics.computation_time_ms}ms")
-            
-            # Step 3: Cache the results
-            logger.info(f"[PortfolioMetricsManager] Caching metrics for user {user_id}")
-            await self._cache_metrics(user_id, cache_key, metrics)
-            
-            return metrics
-            
-        except Exception as e:
-            logger.error(f"[PortfolioMetricsManager] === ERROR ===")
-            logger.error(f"[PortfolioMetricsManager] Error type: {type(e).__name__}")
-            logger.error(f"[PortfolioMetricsManager] Error message: {str(e)}")
-            logger.error(f"[PortfolioMetricsManager] Full stack trace:", exc_info=True)
-            # Try to return partial cached data on error
-            if not force_refresh:
-                logger.info(f"[PortfolioMetricsManager] Attempting to retrieve stale cache data...")
-                stale_metrics = await self._get_cached_metrics(user_id, cache_key, allow_stale=True)
-                if stale_metrics:
-                    logger.info(f"[PortfolioMetricsManager] Returning stale cache data from {stale_metrics.calculated_at}")
-                    stale_metrics.cache_status = MetricsCacheStatus.STALE
-                    return stale_metrics
-            raise HTTPException(status_code=500, detail=f"Failed to get portfolio metrics: {str(e)}")
+                # Step 2: Calculate fresh metrics
+                logger.info(f"[PortfolioMetricsManager] === CACHE MISS ===")
+                logger.info(f"[PortfolioMetricsManager] User ID: {user_id}")
+                logger.info(f"[PortfolioMetricsManager] Metric type: {metric_type}")
+                logger.info(f"[PortfolioMetricsManager] Force refresh: {force_refresh}")
+                logger.info(f"[PortfolioMetricsManager] Calculating fresh metrics...")
+                metrics = await self._calculate_metrics(user_id, user_token, metric_type, params)
+                
+                # Add computation time
+                computation_time = datetime.now() - start_time
+                metrics.computation_time_ms = int(Decimal(str(computation_time.total_seconds())) * Decimal('1000'))
+                logger.info(f"[PortfolioMetricsManager] Metrics calculation completed in {metrics.computation_time_ms}ms")
+                
+                # Step 3: Cache the results
+                logger.info(f"[PortfolioMetricsManager] Caching metrics for user {user_id}")
+                await self._set_cached_metrics(user_id, metric_type, params, metrics)
+                
+                return metrics
+                
+            except Exception as e:
+                logger.error(f"[PortfolioMetricsManager] === ERROR ===")
+                logger.error(f"[PortfolioMetricsManager] Error type: {type(e).__name__}")
+                logger.error(f"[PortfolioMetricsManager] Error message: {str(e)}")
+                logger.error(f"[PortfolioMetricsManager] Full stack trace:", exc_info=True)
+                # Try to return partial cached data on error
+                if not force_refresh:
+                    logger.info(f"[PortfolioMetricsManager] Attempting to retrieve stale cache data...")
+                    stale_metrics = await self._get_cached_metrics(user_id, metric_type, params)
+                    if stale_metrics:
+                        logger.info(f"[PortfolioMetricsManager] Returning stale cache data from {stale_metrics.calculated_at}")
+                        stale_metrics.cache_status = MetricsCacheStatus.STALE
+                        return stale_metrics
+                raise HTTPException(status_code=500, detail=f"Failed to get portfolio metrics: {str(e)}")
     
     # ========================================================================
     # Core Calculation Logic
@@ -835,7 +915,8 @@ class PortfolioMetricsManager:
         )
         total_cost = sum((h.total_cost for h in holdings), Decimal("0"))
         total_gain_loss = total_value - total_cost
-        total_gain_loss_percent = (total_gain_loss / total_cost * 100) if total_cost > 0 else Decimal("0")
+        from utils.financial_math import safe_percentage
+        total_gain_loss_percent = safe_percentage(total_gain_loss, total_cost, Decimal("0"), "portfolio_metrics_total_gain_loss_percent")
         
         # Get base currency from first holding that has it, or default to USD
         base_currency = "USD"

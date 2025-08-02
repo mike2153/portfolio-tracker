@@ -1,17 +1,15 @@
 'use client';
 
 import React from 'react';
-import { useAllocationData } from '@/hooks/useSessionPortfolio';
+import { useSessionPortfolio } from '@/hooks/useSessionPortfolio';
 import ApexListView, { ListViewColumn } from '@/components/charts/ApexListView';
-// Use AllocationItem type from consolidated types
-type AllocationItem = any; // TODO: Import proper type from consolidated types
 import { TrendingUp, TrendingDown } from 'lucide-react';
 
 export default function HoldingsTable() {
-  const { data, isLoading, isError, error, refetch } = useAllocationData();
+  const { portfolioData, isLoading, isError, error, refetch } = useSessionPortfolio();
 
   // Define columns for the holdings table
-  const columns: ListViewColumn<AllocationItem>[] = [
+  const columns: ListViewColumn<Record<string, unknown>>[] = [
     {
       key: 'symbol',
       label: 'Symbol',
@@ -46,7 +44,7 @@ export default function HoldingsTable() {
       ),
     },
     {
-      key: 'cost_basis',
+      key: 'total_cost',
       label: 'Cost Basis',
       sortable: true,
       render: (value) => (
@@ -112,14 +110,8 @@ export default function HoldingsTable() {
     },
   ];
 
-  // Calculate total return for each holding
-  const enhancedData = data?.allocations.map(item => ({
-    ...item,
-    total_return: item.gain_loss + item.dividends_received,
-    total_return_percent: item.cost_basis > 0 
-      ? ((item.gain_loss + item.dividends_received) / item.cost_basis * 100) 
-      : 0
-  })) || [];
+  // Use the complete portfolio holdings data and cast to the expected type
+  const enhancedData = (portfolioData?.holdings || []) as unknown as Record<string, unknown>[];
 
   return (
     <div className="mb-6">

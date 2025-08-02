@@ -190,151 +190,25 @@ export function usePerformance(
       logPerformanceRequest(range, benchmark, userId);
       
       try {
-        // DEPRECATED: Dashboard performance endpoint has been removed
-        // TODO: Extract performance data from consolidated /api/complete endpoint
-        // For now, return mock data to prevent 404 errors
-        throw new Error('Performance endpoint temporarily disabled - migrating to consolidated endpoint');
+        // Fetch historical performance data from new endpoint
+        const { front_api_client } = await import('@/lib/front_api_client');
         
-        // === COMPREHENSIVE ERROR HANDLING ===
-        if (!response) {
-          console.error('[usePerformance] ❌ Response is null or undefined');
-          throw new Error('No response received from performance API');
+        const response = await front_api_client.get<PerformanceResponse>(
+          `/api/portfolio/performance/historical?period=${range}&benchmark=${benchmark}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${user?.access_token}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        
+        if (!response || typeof response !== 'object') {
+          throw new Error('Invalid response from performance API');
         }
         
-        if (typeof response !== 'object') {
-          console.error('[usePerformance] ❌ Response is not an object:', typeof response);
-          throw new Error('Invalid response format from performance API');
-        }
-        
-        // Type assertion for response object
-        const responseObj = response as PerformanceResponse;
-        
-        // Validate response structure
-        if (!responseObj.hasOwnProperty('success')) {
-          console.error('[usePerformance] ❌ Response missing success field');
-          throw new Error('Invalid response structure from performance API');
-        }
-        
-        if (!responseObj.success) {
-          console.error('[usePerformance] ❌ API returned success=false');
-          console.error('[usePerformance] Error details:', responseObj);
-          throw new Error(responseObj.error || 'Performance API returned error');
-        }
-        
-        // === DATA VALIDATION AND SANITIZATION ===
-        
-        // Ensure arrays exist and are valid
-        const portfolioData = Array.isArray(responseObj.portfolio_performance) ? responseObj.portfolio_performance : [];
-        const benchmarkData = Array.isArray(responseObj.benchmark_performance) ? responseObj.benchmark_performance : [];
-        
-        // Sanitize data points to prevent NaN values
-        const sanitizeDataPoint = (point: unknown, index: number, arrayName: string): PerformanceDataPoint | null => {
-          if (!point || typeof point !== 'object' || point === null) {
-            console.warn(`[usePerformance] ⚠️ Invalid ${arrayName} point at index ${index}:`, point);
-            return null;
-          }
-          
-          const pointObj = point as Record<string, unknown>;
-          
-          // Ensure date exists and is valid
-          if (!pointObj.date || typeof pointObj.date !== 'string') {
-            console.warn(`[usePerformance] ⚠️ Invalid date in ${arrayName} point at index ${index}:`, pointObj.date);
-            return null;
-          }
-          
-          // Ensure value exists and is numeric
-          let value: number = 0;
-          const rawValue = pointObj.value ?? pointObj.total_value ?? 0;
-          
-          if (typeof rawValue === 'string') {
-            value = parseFloat(rawValue);
-          } else if (typeof rawValue === 'number') {
-            value = rawValue;
-          } else {
-            value = 0;
-          }
-          
-          if (typeof value !== 'number' || isNaN(value)) {
-            console.warn(`[usePerformance] ⚠️ Invalid value in ${arrayName} point at index ${index}:`, pointObj.value, pointObj.total_value);
-            value = 0;
-          }
-          
-          return {
-            date: pointObj.date as string,
-            value: value,
-            total_value: value, // Ensure backward compatibility
-          };
-        };
-        
-        // Sanitize both arrays
-        const sanitizedPortfolioData = portfolioData
-          .map((point: unknown, index: number) => sanitizeDataPoint(point, index, 'portfolio'))
-          .filter((point: PerformanceDataPoint | null): point is PerformanceDataPoint => point !== null);
-        
-        const sanitizedBenchmarkData = benchmarkData
-          .map((point: unknown, index: number) => sanitizeDataPoint(point, index, 'benchmark'))
-          .filter((point: PerformanceDataPoint | null): point is PerformanceDataPoint => point !== null);
-        
-
-        
-        // === METADATA VALIDATION ===
-        const metadata = responseObj.metadata || {};
-        const performanceMetrics = responseObj.performance_metrics || {};
-        
-        // Ensure metadata has required fields
-        const validatedMetadata = {
-          start_date: metadata.start_date || '',
-          end_date: metadata.end_date || '',
-          total_points: metadata.total_points || sanitizedPortfolioData.length,
-          portfolio_final_value: metadata.portfolio_final_value || 0,
-          index_final_value: metadata.index_final_value || 0,
-          benchmark_name: metadata.benchmark_name || benchmark,
-          calculation_timestamp: metadata.calculation_timestamp || new Date().toISOString(),
-          cached: metadata.cached || false,
-          ...(metadata.cache_date && { cache_date: metadata.cache_date }),
-          no_data: metadata.no_data || false,
-          index_only: metadata.index_only || false,
-          reason: metadata.reason || '',
-          user_guidance: metadata.user_guidance || '',
-          chart_type: metadata.chart_type || 'normal',
-        };
-        
-        // Sanitize performance metrics to prevent NaN
-        const sanitizeMetric = (value: unknown, defaultValue: number = 0): number => {
-          if (typeof value === 'string') {
-            value = parseFloat(value);
-          }
-          if (typeof value !== 'number' || isNaN(value)) {
-            return defaultValue;
-          }
-          return value;
-        };
-        
-        const validatedMetrics = {
-          portfolio_start_value: sanitizeMetric(performanceMetrics.portfolio_start_value, 0),
-          portfolio_end_value: sanitizeMetric(performanceMetrics.portfolio_end_value, 0),
-          portfolio_return_pct: sanitizeMetric(performanceMetrics.portfolio_return_pct, 0),
-          index_start_value: sanitizeMetric(performanceMetrics.index_start_value, 0),
-          index_end_value: sanitizeMetric(performanceMetrics.index_end_value, 0),
-          index_return_pct: sanitizeMetric(performanceMetrics.index_return_pct, 0),
-          outperformance_pct: sanitizeMetric(performanceMetrics.outperformance_pct, 0),
-          absolute_outperformance: sanitizeMetric(performanceMetrics.absolute_outperformance, 0),
-        };
-        
-        // Build final validated response
-        const validatedResponse: PerformanceResponse = {
-          success: true,
-          period: responseObj.period || range,
-          benchmark: responseObj.benchmark || benchmark,
-          portfolio_performance: sanitizedPortfolioData,
-          benchmark_performance: sanitizedBenchmarkData,
-          metadata: validatedMetadata,
-          performance_metrics: validatedMetrics,
-        };
-        
-
-        
-        return validatedResponse;
+        // The response should already be in the correct format
+        return response;
         
       } catch (error) {
         console.error('[usePerformance] ❌ Error in query function:', error);

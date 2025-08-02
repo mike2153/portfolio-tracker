@@ -146,6 +146,17 @@ export interface CurrencyConversions {
 }
 
 /**
+ * Gainer/Loser data structure for dashboard cards
+ */
+export interface GainerLoserItem {
+  name: string;
+  ticker: string;
+  value: number;
+  changePercent: number;
+  changeValue: number;
+}
+
+/**
  * Performance metadata for monitoring
  */
 export interface PerformanceMetadata {
@@ -182,6 +193,8 @@ export interface CompletePortfolioData {
   transactions_summary: TransactionsSummary;
   market_analysis: MarketAnalysis;
   currency_conversions: CurrencyConversions;
+  top_gainers: GainerLoserItem[];
+  top_losers: GainerLoserItem[];
   metadata: CompletePortfolioMetadata;
 }
 
@@ -197,6 +210,8 @@ export interface CompletePortfolioResponse {
   transactions_summary: TransactionsSummary;
   market_analysis: MarketAnalysis;
   currency_conversions: CurrencyConversions;
+  top_gainers: GainerLoserItem[];
+  top_losers: GainerLoserItem[];
   metadata: CompletePortfolioMetadata;
   error?: string;
 }
@@ -236,6 +251,8 @@ export interface UseSessionPortfolioResult {
   transactionsSummary: TransactionsSummary | undefined;
   marketAnalysis: MarketAnalysis | undefined;
   currencyConversions: CurrencyConversions | undefined;
+  topGainers: GainerLoserItem[] | undefined;
+  topLosers: GainerLoserItem[] | undefined;
   
   // Performance and cache information
   metadata: CompletePortfolioMetadata | undefined;
@@ -403,6 +420,8 @@ function sanitizeCompletePortfolioData(
     },
     market_analysis: response.market_analysis || {},
     currency_conversions: response.currency_conversions || {},
+    top_gainers: response.top_gainers || [],
+    top_losers: response.top_losers || [],
     metadata: response.metadata
   };
 }
@@ -551,6 +570,8 @@ export function useSessionPortfolio(
   const transactionsSummary = useMemo(() => data?.transactions_summary, [data?.transactions_summary]);
   const marketAnalysis = useMemo(() => data?.market_analysis, [data?.market_analysis]);
   const currencyConversions = useMemo(() => data?.currency_conversions, [data?.currency_conversions]);
+  const topGainers = useMemo(() => data?.top_gainers, [data?.top_gainers]);
+  const topLosers = useMemo(() => data?.top_losers, [data?.top_losers]);
   const metadata = useMemo(() => data?.metadata, [data?.metadata]);
   
   // Memoized derived properties
@@ -604,6 +625,8 @@ export function useSessionPortfolio(
     transactionsSummary,
     marketAnalysis,
     currencyConversions,
+    topGainers,
+    topLosers,
     
     // Performance and cache information
     metadata,
@@ -772,6 +795,34 @@ export function useTransactionSummary(options: UseSessionPortfolioOptions = {}) 
     totalTransactions: transactionsSummary?.total_transactions || 0,
     lastTransactionDate: transactionsSummary?.last_transaction_date,
     realizedGains: transactionsSummary?.realized_gains || 0,
+    isLoading,
+    isError,
+    error,
+    refetch,
+    hasData,
+    cacheHit
+  };
+}
+
+/**
+ * 📊 DERIVED HOOK: useGainersLosers
+ * Provides top gainers and losers data for dashboard cards
+ */
+export function useGainersLosers(options: UseSessionPortfolioOptions = {}) {
+  const { 
+    topGainers, 
+    topLosers, 
+    isLoading, 
+    isError, 
+    error, 
+    refetch,
+    hasData,
+    cacheHit
+  } = useSessionPortfolio(options);
+  
+  return {
+    topGainers: topGainers || [],
+    topLosers: topLosers || [],
     isLoading,
     isError,
     error,

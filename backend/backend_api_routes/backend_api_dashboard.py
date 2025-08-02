@@ -119,6 +119,3 @@ async def reset_circuit_breaker(
             "error": str(e)
         }
 
-# REMOVED: /api/dashboard/gainers endpoint - data available in consolidated response
-
-# REMOVED: /api/dashboard/losers endpoint - data available in consolidated response

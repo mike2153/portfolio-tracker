@@ -225,8 +225,22 @@ class PortfolioCalculator:
             
         Returns:
             Dict with holdings and portfolio summary
+            
+        Raises:
+            TypeError: If inputs have invalid types
+            ValueError: If inputs have invalid values
         """
+        from utils.type_guards import ensure_user_id, log_type_validation_error
+        
         try:
+            # Validate input types
+            user_id = ensure_user_id(user_id, "user_id")
+            
+            if not isinstance(user_token, str) or not user_token.strip():
+                raise TypeError("user_token must be a non-empty string")
+            
+            if transactions is not None and not isinstance(transactions, list):
+                raise TypeError("transactions must be a list or None")
             # Use provided transactions or fetch them
             if transactions is None:
                 transactions = await supa_api_get_user_transactions(
@@ -268,11 +282,13 @@ class PortfolioCalculator:
                     logger.warning(f"[PortfolioCalculator] No price found for {symbol}, skipping")
                     continue
                 
-                current_price = Decimal(str(price_data['price']))
-                current_value = holding_data['quantity'] * current_price
-                cost_basis = holding_data['total_cost']
-                gain_loss = current_value - cost_basis
-                gain_loss_percent = (gain_loss / cost_basis * 100) if cost_basis > 0 else 0
+                from utils.financial_math import safe_decimal, safe_multiply, safe_subtract, safe_gain_loss_percent
+                
+                current_price = safe_decimal(price_data['price'], f"current_price_{symbol}")
+                current_value = safe_multiply(holding_data['quantity'], current_price, f"current_value_{symbol}")
+                cost_basis = safe_decimal(holding_data['total_cost'], f"cost_basis_{symbol}")
+                gain_loss = safe_subtract(current_value, cost_basis, f"gain_loss_{symbol}")
+                gain_loss_percent = safe_gain_loss_percent(gain_loss, cost_basis, f"gain_loss_percent_{symbol}")
                 
                 holdings.append({
                     'symbol': symbol,
@@ -296,7 +312,8 @@ class PortfolioCalculator:
             
             # Calculate portfolio totals
             total_gain_loss = total_value - total_cost
-            total_gain_loss_percent = (total_gain_loss / total_cost * 100) if total_cost > 0 else 0
+            from utils.financial_math import safe_percentage
+            total_gain_loss_percent = safe_percentage(total_gain_loss, total_cost, 0, "portfolio_total_gain_loss_percent")
             
             return {
                 "holdings": holdings,
@@ -307,6 +324,9 @@ class PortfolioCalculator:
                 "total_dividends": PortfolioCalculator._safe_decimal_conversion(total_dividends, user_id)
             }
             
+        except (TypeError, ValueError) as e:
+            log_type_validation_error(e, "calculate_holdings")
+            raise
         except Exception as e:
             logger.error(f"[PortfolioCalculator] Error calculating holdings: {e}")
             raise
@@ -368,10 +388,13 @@ class PortfolioCalculator:
                     "gain_loss_percent": holding['gain_loss_percent'],
                     "dividends_received": holding.get("dividends_received", 0),
                     "realized_pnl": holding.get("realized_pnl", 0),
-                    "allocation_percent": (holding['current_value'] / total_value * 100) if total_value > 0 else 0,
+                    "allocation_percent": safe_percentage(holding['current_value'], total_value, 0, f"allocation_percent_{holding['symbol']}"),
                     "color": colors[i % len(colors)],
                     "daily_change": PortfolioCalculator._safe_decimal_conversion(daily_change, user_id),
-                    "daily_change_percent": PortfolioCalculator._safe_decimal_conversion(daily_change / (Decimal(str(holding['current_value'])) - daily_change) * 100, user_id) if (Decimal(str(holding['current_value'])) - daily_change) != 0 else Decimal('0'),
+                    "daily_change_percent": PortfolioCalculator._safe_decimal_conversion(
+                        safe_percentage(daily_change, safe_subtract(Decimal(str(holding['current_value'])), daily_change, f"daily_base_value_{holding['symbol']}"), 0, f"daily_change_percent_{holding['symbol']}"), 
+                        user_id
+                    ),
                 })
             
             summary = {
@@ -438,10 +461,10 @@ class PortfolioCalculator:
                 current_value = holding_data['quantity'] * current_price
                 cost_basis = holding_data['total_cost']
                 unrealized_gain = current_value - cost_basis
-                unrealized_gain_percent = (unrealized_gain / cost_basis * 100) if cost_basis > 0 else 0
+                unrealized_gain_percent = safe_gain_loss_percent(unrealized_gain, cost_basis, f"unrealized_gain_percent_{symbol}")
                 
                 total_profit = unrealized_gain + holding_data['realized_pnl'] + holding_data['dividends_received']
-                total_profit_percent = (total_profit / holding_data['total_bought'] * 100) if holding_data['total_bought'] > 0 else 0
+                total_profit_percent = safe_percentage(total_profit, holding_data['total_bought'], 0, f"total_profit_percent_{symbol}")
                 
                 detailed_holdings.append({
                     'symbol': symbol,

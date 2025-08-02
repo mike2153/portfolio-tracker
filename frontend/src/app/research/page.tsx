@@ -301,20 +301,34 @@ function StockResearchPageContent() {
                 </div>
                 
                 {/* Current Price */}
-                {currentData.quote && (
+                {currentData.quote ? (
                   <div className="text-right">
                     <div className="text-xl font-bold">
-                      ${parseFloat(String(currentData.quote.price)).toFixed(2)}
+                      {currentData.quote.price ? 
+                        `$${parseFloat(String(currentData.quote.price)).toFixed(2)}` : 
+                        'N/A'
+                      }
                     </div>
-                    <div className={`text-sm ${
-                      parseFloat(String(currentData.quote.change)) >= 0 
-                        ? 'text-green-400' 
-                        : 'text-red-400'
-                    }`}>
-                      {parseFloat(String(currentData.quote.change)) >= 0 ? '+' : ''}
-                      {parseFloat(String(currentData.quote.change)).toFixed(2)} 
-                      ({currentData.quote.change_percent})
-                    </div>
+                    {currentData.quote.change ? (
+                      <div className={`text-sm ${
+                        parseFloat(String(currentData.quote.change)) >= 0 
+                          ? 'text-green-400' 
+                          : 'text-red-400'
+                      }`}>
+                        {parseFloat(String(currentData.quote.change)) >= 0 ? '+' : ''}
+                        {parseFloat(String(currentData.quote.change)).toFixed(2)} 
+                        ({currentData.quote.change_percent || '0%'})
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-400">
+                        Price data unavailable
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-right">
+                    <div className="text-xl font-bold text-gray-400">N/A</div>
+                    <div className="text-sm text-gray-400">Price data unavailable</div>
                   </div>
                 )}
               </div>

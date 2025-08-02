@@ -22,6 +22,20 @@ from utils.auth_helpers import validate_user_id
 
 logger = logging.getLogger(__name__)
 
+def _prepare_for_cache(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Convert Decimal objects to float for JSON serialization before caching"""
+    result = {}
+    for key, value in data.items():
+        if isinstance(value, Decimal):
+            result[key] = float(value)
+        elif isinstance(value, dict):
+            result[key] = _prepare_for_cache(value)
+        elif isinstance(value, list):
+            result[key] = [float(item) if isinstance(item, Decimal) else item for item in value]
+        else:
+            result[key] = value
+    return result
+
 def _safe_decimal_conversion(value: Any, user_id: Optional[str] = None) -> Decimal:
     """
     Safely convert Alpha Vantage API values to Decimal with feature flag support.
@@ -34,6 +48,10 @@ def _safe_decimal_conversion(value: Any, user_id: Optional[str] = None) -> Decim
         Decimal representation of the value
     """
     try:
+        # Handle None values first
+        if value is None or value == 'None' or value == '':
+            return Decimal('0')
+        
         # Validate user_id if provided
         if user_id:
             user_id = validate_user_id(user_id)
@@ -107,12 +125,14 @@ async def vantage_api_get_quote(symbol: str, user_id: Optional[str] = None) -> D
             'low': _safe_decimal_conversion(quote.get('04. low', 0), user_id)
         }
         
-        # Cache the result
-        await client._save_to_cache(cache_key, formatted_quote)
+        # Cache the result (convert Decimals to floats for JSON serialization)
+        cache_data = _prepare_for_cache(formatted_quote)
+        await client._save_to_cache(cache_key, cache_data)
         
-    
-        
-        return formatted_quote
+        return {
+            "status": "success",
+            "data": formatted_quote
+        }
         
     except Exception as e:
         DebugLogger.log_error(
@@ -121,7 +141,11 @@ async def vantage_api_get_quote(symbol: str, user_id: Optional[str] = None) -> D
             error=e,
             symbol=symbol
         )
-        raise
+        return {
+            "status": "error", 
+            "error": str(e),
+            "data": None
+        }
 
 @DebugLogger.log_api_call(api_name="ALPHA_VANTAGE", sender="BACKEND", receiver="VANTAGE_API", operation="OVERVIEW")
 async def vantage_api_get_overview(symbol: str, user_id: Optional[str] = None) -> Dict[str, Any]:
