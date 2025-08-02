@@ -3,8 +3,12 @@ Backend API routes for portfolio and transaction management
 Handles CRUD operations for transactions and portfolio calculations
 """
 from fastapi import APIRouter, Depends, HTTPException, Body, Query, Header
+from fastapi.responses import Response
 from typing import Dict, Any, List, Optional, Union
 import logging
+import gzip
+import json
+import sys
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 
@@ -32,6 +36,7 @@ from services.dividend_service import dividend_service
 from services.price_manager import price_manager
 from services.portfolio_calculator import portfolio_calculator
 from services.portfolio_metrics_manager import portfolio_metrics_manager
+from services.user_performance_manager import user_performance_manager
 
 # Import centralized validation models
 from models.validation_models import TransactionCreate, TransactionUpdate
@@ -408,6 +413,14 @@ async def backend_api_add_transaction(
         
         # Invalidate cache after adding transaction
         await portfolio_metrics_manager.invalidate_user_cache(user_id)
+        
+        # Invalidate user_performance cache after adding transaction
+        try:
+            await user_performance_manager.invalidate_cache(user_id)
+            logger.info(f"[CACHE] Successfully invalidated user_performance cache for user {user_id} after adding transaction")
+        except Exception as cache_error:
+            logger.error(f"[CACHE] Failed to invalidate user_performance cache for user {user_id} after adding transaction: {cache_error}")
+            # Don't fail the mutation if cache invalidation fails
 
         # Sync dividends for this symbol after adding a BUY transaction
         if transaction.transaction_type == "Buy":
@@ -533,6 +546,14 @@ async def backend_api_update_transaction(
         # Invalidate cache after updating transaction
         await portfolio_metrics_manager.invalidate_user_cache(user_id)
         
+        # Invalidate user_performance cache after updating transaction
+        try:
+            await user_performance_manager.invalidate_cache(user_id)
+            logger.info(f"[CACHE] Successfully invalidated user_performance cache for user {user_id} after updating transaction {transaction_id}")
+        except Exception as cache_error:
+            logger.error(f"[CACHE] Failed to invalidate user_performance cache for user {user_id} after updating transaction {transaction_id}: {cache_error}")
+            # Don't fail the mutation if cache invalidation fails
+        
         # Check API version for response format
         if api_version == "v2":
             return ResponseFactory.success(
@@ -593,6 +614,14 @@ async def backend_api_delete_transaction(
         if success:
             # Invalidate cache after deleting transaction
             await portfolio_metrics_manager.invalidate_user_cache(user_id)
+            
+            # Invalidate user_performance cache after deleting transaction
+            try:
+                await user_performance_manager.invalidate_cache(user_id)
+                logger.info(f"[CACHE] Successfully invalidated user_performance cache for user {user_id} after deleting transaction {transaction_id}")
+            except Exception as cache_error:
+                logger.error(f"[CACHE] Failed to invalidate user_performance cache for user {user_id} after deleting transaction {transaction_id}: {cache_error}")
+                # Don't fail the mutation if cache invalidation fails
             
             # Check API version for response format
             if api_version == "v2":
@@ -884,4 +913,354 @@ async def backend_api_get_allocation(
             raise ServiceUnavailableError(
                 "Portfolio Service",
                 f"Failed to retrieve portfolio allocation data: {str(e)}"
+            )
+
+@portfolio_router.get("/complete")
+@DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="GET_COMPLETE_PORTFOLIO")
+async def backend_api_get_complete_portfolio(
+    user: Dict[str, Any] = Depends(require_authenticated_user),
+    force_refresh: bool = Query(False, description="Force refresh all cached data"),
+    include_historical: bool = Query(True, description="Include historical time series data"),
+    api_version: Optional[str] = Header(None, alias="X-API-Version")
+) -> Union[Dict[str, Any], APIResponse[Dict[str, Any]], Response]:
+    """
+    CROWN JEWEL ENDPOINT: Get complete consolidated portfolio data in a single response.
+    
+    This endpoint replaces 19+ individual API calls with one comprehensive response:
+    - Portfolio holdings and performance metrics
+    - Dividend data and projections  
+    - Asset allocation breakdowns
+    - Transaction summaries
+    - Time series data for charts
+    - Market analysis and risk metrics
+    - Currency conversions
+    - Performance metadata and caching info
+    
+    Performance target: <1s cached, <5s fresh generation
+    
+    Args:
+        user: Authenticated user from dependency injection
+        force_refresh: Skip all caches and generate fresh data
+        include_historical: Include time series data for charts (default: True)
+        api_version: API version for response format compatibility
+    
+    Returns:
+        Comprehensive portfolio data structure with performance metadata
+        
+    Raises:
+        HTTPException: For authentication, validation, or service errors
+    """
+    # Request timing and metadata tracking
+    request_start_time = datetime.utcnow()
+    
+    logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] === COMPLETE PORTFOLIO REQUEST START ===")
+    logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] User email: {user.get('email', 'unknown')}")
+    logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] User ID: {user.get('id', 'unknown')}")
+    logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Force refresh: {force_refresh}")
+    logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Include historical: {include_historical}")
+    logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] API version: {api_version}")
+    
+    try:
+        # Step 1: Extract and validate user credentials
+        user_id, user_token = extract_user_credentials(user)
+        logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Extracted user_id: {user_id}")
+        logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Token present: {bool(user_token)}")
+        
+        # Step 2: Generate complete portfolio data using UserPerformanceManager
+        logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Generating complete portfolio data...")
+        generation_start = datetime.utcnow()
+        
+        complete_data = await user_performance_manager.generate_complete_data(
+            user_id=user_id,
+            user_token=user_token,
+            force_refresh=force_refresh
+        )
+        
+        generation_time_ms = int((datetime.utcnow() - generation_start).total_seconds() * 1000)
+        logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Data generation completed in {generation_time_ms}ms")
+        
+        # Step 3: Transform data for API response with comprehensive error handling
+        logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Transforming data for API response...")
+        transform_start = datetime.utcnow()
+        
+        try:
+            # Convert portfolio metrics to API format with Decimal safety
+            portfolio_metrics = complete_data.portfolio_metrics
+            
+            # Holdings data with complete financial information
+            holdings_list = []
+            for holding in portfolio_metrics.holdings:
+                try:
+                    # Ensure all financial data is Decimal and properly converted
+                    quantity_decimal = holding.quantity if isinstance(holding.quantity, Decimal) else Decimal(str(holding.quantity))
+                    avg_cost_decimal = holding.avg_cost if isinstance(holding.avg_cost, Decimal) else Decimal(str(holding.avg_cost))
+                    total_cost_decimal = holding.total_cost if isinstance(holding.total_cost, Decimal) else Decimal(str(holding.total_cost))
+                    current_price_decimal = holding.current_price if isinstance(holding.current_price, Decimal) else Decimal(str(holding.current_price))
+                    current_value_decimal = holding.current_value if isinstance(holding.current_value, Decimal) else Decimal(str(holding.current_value))
+                    gain_loss_decimal = holding.gain_loss if isinstance(holding.gain_loss, Decimal) else Decimal(str(holding.gain_loss))
+                    
+                    # Handle optional dividend data
+                    dividends_received_decimal = Decimal('0')
+                    if hasattr(holding, 'dividends_received') and holding.dividends_received is not None:
+                        try:
+                            dividends_received_decimal = holding.dividends_received if isinstance(holding.dividends_received, Decimal) else Decimal(str(holding.dividends_received))
+                        except (InvalidOperation, TypeError, ValueError) as e:
+                            logger.warning(f"Invalid dividends_received for {holding.symbol}: {e}")
+                            dividends_received_decimal = Decimal('0')
+                    
+                    # Convert to float for JSON serialization
+                    holdings_list.append({
+                        "symbol": holding.symbol,
+                        "quantity": float(quantity_decimal),
+                        "avg_cost": float(avg_cost_decimal),
+                        "total_cost": float(total_cost_decimal),
+                        "current_price": float(current_price_decimal),
+                        "current_value": float(current_value_decimal),
+                        "gain_loss": float(gain_loss_decimal),
+                        "gain_loss_percent": holding.gain_loss_percent,
+                        "allocation_percent": holding.allocation_percent,
+                        "dividends_received": float(dividends_received_decimal),
+                        "price_date": holding.price_date,
+                        "currency": getattr(holding, 'currency', 'USD')
+                    })
+                    
+                except (InvalidOperation, TypeError, ValueError) as e:
+                    logger.error(f"Error processing holding {holding.symbol}: {e}")
+                    # Add holding with safe fallback values
+                    holdings_list.append({
+                        "symbol": holding.symbol,
+                        "quantity": 0.0,
+                        "avg_cost": 0.0,
+                        "total_cost": 0.0,
+                        "current_price": 0.0,
+                        "current_value": 0.0,
+                        "gain_loss": 0.0,
+                        "gain_loss_percent": 0.0,
+                        "allocation_percent": 0.0,
+                        "dividends_received": 0.0,
+                        "price_date": holding.price_date,
+                        "currency": "USD"
+                    })
+            
+            # Portfolio summary with Decimal safety
+            try:
+                total_value_decimal = portfolio_metrics.performance.total_value if isinstance(portfolio_metrics.performance.total_value, Decimal) else Decimal(str(portfolio_metrics.performance.total_value))
+                total_cost_decimal = portfolio_metrics.performance.total_cost if isinstance(portfolio_metrics.performance.total_cost, Decimal) else Decimal(str(portfolio_metrics.performance.total_cost))
+                total_gain_loss_decimal = portfolio_metrics.performance.total_gain_loss if isinstance(portfolio_metrics.performance.total_gain_loss, Decimal) else Decimal(str(portfolio_metrics.performance.total_gain_loss))
+            except (InvalidOperation, TypeError, ValueError) as e:
+                logger.error(f"Error converting portfolio summary: {e}")
+                total_value_decimal = Decimal('0')
+                total_cost_decimal = Decimal('0')
+                total_gain_loss_decimal = Decimal('0')
+            
+            # Construct complete API response data
+            complete_response_data = {
+                # Core portfolio data
+                "portfolio_data": {
+                    "holdings": holdings_list,
+                    "total_value": float(total_value_decimal),
+                    "total_cost": float(total_cost_decimal),
+                    "total_gain_loss": float(total_gain_loss_decimal),
+                    "total_gain_loss_percent": portfolio_metrics.performance.total_gain_loss_percent,
+                    "base_currency": getattr(portfolio_metrics.performance, 'base_currency', 'USD')
+                },
+                
+                # Performance metrics
+                "performance_data": {
+                    "daily_change": float(getattr(portfolio_metrics.performance, 'daily_change', Decimal('0'))),
+                    "daily_change_percent": getattr(portfolio_metrics.performance, 'daily_change_percent', 0.0),
+                    "ytd_return": float(getattr(portfolio_metrics.performance, 'ytd_return', Decimal('0'))),
+                    "ytd_return_percent": getattr(portfolio_metrics.performance, 'ytd_return_percent', 0.0),
+                    "total_return_percent": portfolio_metrics.performance.total_gain_loss_percent,
+                    "volatility": float(getattr(portfolio_metrics.performance, 'volatility', Decimal('0'))),
+                    "sharpe_ratio": float(getattr(portfolio_metrics.performance, 'sharpe_ratio', Decimal('0'))),
+                    "max_drawdown": float(getattr(portfolio_metrics.performance, 'max_drawdown', Decimal('0')))
+                },
+                
+                # Allocation breakdown (reuse existing allocation logic)
+                "allocation_data": {
+                    "by_symbol": [
+                        {
+                            "symbol": holding["symbol"],
+                            "allocation_percent": holding["allocation_percent"],
+                            "current_value": holding["current_value"]
+                        }
+                        for holding in holdings_list
+                    ],
+                    "diversification_score": complete_data.market_analysis.get("portfolio_diversification", {}).get("diversification_score", 0.0),
+                    "concentration_risk": complete_data.market_analysis.get("portfolio_diversification", {}).get("concentration_risk", "unknown"),
+                    "number_of_positions": len(holdings_list)
+                },
+                
+                # Dividend summary
+                "dividend_data": {
+                    "recent_dividends": complete_data.detailed_dividends[:10],  # Last 10 dividends
+                    "total_received_ytd": sum(
+                        float(div.get("amount", 0)) for div in complete_data.detailed_dividends
+                        if div.get("ex_date") and div["ex_date"].startswith(str(datetime.utcnow().year))
+                    ),
+                    "total_received_all_time": sum(
+                        float(div.get("amount", 0)) for div in complete_data.detailed_dividends
+                    ),
+                    "dividend_count": len(complete_data.detailed_dividends)
+                },
+                
+                # Transaction summary
+                "transactions_summary": {
+                    "total_transactions": getattr(complete_data.portfolio_metrics, 'transaction_count', 0),
+                    "last_transaction_date": getattr(complete_data.portfolio_metrics, 'last_transaction_date', None),
+                    "realized_gains": float(getattr(complete_data.portfolio_metrics.performance, 'realized_gains', Decimal('0')))
+                },
+                
+                # Market analysis
+                "market_analysis": complete_data.market_analysis,
+                
+                # Currency conversions
+                "currency_conversions": {
+                    currency_pair: float(rate) for currency_pair, rate in complete_data.currency_conversions.items()
+                }
+            }
+            
+            transform_time_ms = int((datetime.utcnow() - transform_start).total_seconds() * 1000)
+            logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Data transformation completed in {transform_time_ms}ms")
+            
+        except Exception as e:
+            logger.error(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Error transforming data: {e}")
+            raise ServiceUnavailableError(
+                "Data Transformation",
+                f"Failed to transform complete portfolio data: {str(e)}"
+            )
+        
+        # Step 4: Calculate total processing time and payload size
+        total_processing_time_ms = int((datetime.utcnow() - request_start_time).total_seconds() * 1000)
+        
+        # Calculate payload size for monitoring
+        response_json = json.dumps(complete_response_data, default=str)
+        payload_size_bytes = len(response_json.encode('utf-8'))
+        payload_size_kb = round(payload_size_bytes / 1024, 2)
+        
+        logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Total processing time: {total_processing_time_ms}ms")
+        logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Payload size: {payload_size_kb}KB ({payload_size_bytes} bytes)")
+        
+        # Step 5: Add comprehensive metadata
+        metadata = {
+            "generated_at": complete_data.generated_at.isoformat(),
+            "cache_hit": complete_data.metadata.cache_hit_ratio > 0,
+            "cache_strategy": complete_data.metadata.cache_strategy_used.value,
+            "data_completeness": complete_data.metadata.data_completeness.overall_completeness,
+            "performance_metadata": {
+                "total_processing_time_ms": total_processing_time_ms,
+                "data_generation_time_ms": generation_time_ms,
+                "data_transformation_time_ms": transform_time_ms,
+                "service_computation_time_ms": complete_data.metadata.total_computation_time_ms,
+                "cache_hit_ratio": complete_data.metadata.cache_hit_ratio,
+                "payload_size_bytes": payload_size_bytes,
+                "payload_size_kb": payload_size_kb,
+                "data_sources": complete_data.metadata.data_sources,
+                "fallback_strategies_used": complete_data.metadata.fallback_strategies_used
+            }
+        }
+        
+        # Step 6: Handle response compression for large payloads
+        use_compression = payload_size_bytes > 50000  # Compress if >50KB
+        
+        if use_compression:
+            logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Compressing response (size: {payload_size_kb}KB)")
+            
+            # Check API version for response format
+            if api_version == "v2":
+                response_data = ResponseFactory.success(
+                    data=complete_response_data,
+                    message="Complete portfolio data retrieved successfully",
+                    metadata=metadata
+                )
+            else:
+                # Backward compatible format
+                response_data = {
+                    "success": True,
+                    **complete_response_data,
+                    "metadata": metadata
+                }
+            
+            # Compress response
+            compressed_json = gzip.compress(json.dumps(response_data, default=str).encode('utf-8'))
+            compressed_size_kb = round(len(compressed_json) / 1024, 2)
+            compression_ratio = round((1 - len(compressed_json) / payload_size_bytes) * 100, 1)
+            
+            logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Compressed to {compressed_size_kb}KB ({compression_ratio}% reduction)")
+            
+            return Response(
+                content=compressed_json,
+                media_type="application/json",
+                headers={
+                    "Content-Encoding": "gzip",
+                    "X-Original-Size": str(payload_size_bytes),
+                    "X-Compressed-Size": str(len(compressed_json)),
+                    "X-Compression-Ratio": f"{compression_ratio}%",
+                    "X-Processing-Time-Ms": str(total_processing_time_ms),
+                    "X-Cache-Hit": str(metadata["cache_hit"]).lower()
+                }
+            )
+        else:
+            # Step 7: Return uncompressed response
+            logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Returning uncompressed response")
+            
+            # Check API version for response format
+            if api_version == "v2":
+                response = ResponseFactory.success(
+                    data=complete_response_data,
+                    message="Complete portfolio data retrieved successfully",
+                    metadata=metadata
+                )
+                logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Returning v2 format response")
+                return response
+            else:
+                # Backward compatible format
+                response_data = {
+                    "success": True,
+                    **complete_response_data,
+                    "metadata": metadata
+                }
+                logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Returning v1 format response")
+                return response_data
+        
+        logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Holdings: {len(holdings_list)}, Dividends: {len(complete_data.detailed_dividends)}")
+        logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] === COMPLETE PORTFOLIO REQUEST END (SUCCESS) ===")
+        
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions as-is
+    except Exception as e:
+        # Comprehensive error handling with fallback data
+        total_error_time_ms = int((datetime.utcnow() - request_start_time).total_seconds() * 1000)
+        
+        logger.error(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] ERROR: {type(e).__name__}: {str(e)}")
+        logger.error(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Processing time before error: {total_error_time_ms}ms")
+        logger.error(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Full stack trace:", exc_info=True)
+        
+        DebugLogger.log_error(
+            file_name="backend_api_portfolio.py",
+            function_name="backend_api_get_complete_portfolio",
+            error=e,
+            user_id=user_id if 'user_id' in locals() else 'unknown',
+            additional_context={
+                "force_refresh": force_refresh,
+                "include_historical": include_historical,
+                "processing_time_ms": total_error_time_ms
+            }
+        )
+        
+        logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] === COMPLETE PORTFOLIO REQUEST END (ERROR) ===")
+        
+        # Determine error type and provide appropriate response
+        if "supabase" in str(e).lower() or "postgrest" in str(e).lower():
+            raise handle_database_error(e, "complete portfolio data retrieval", user_id if 'user_id' in locals() else None)
+        elif "user_performance_manager" in str(e).lower() or "cache" in str(e).lower():
+            raise ServiceUnavailableError(
+                "Portfolio Performance Service",
+                f"Failed to generate complete portfolio data: {str(e)}"
+            )
+        else:
+            raise ServiceUnavailableError(
+                "Complete Portfolio Service",
+                f"Failed to retrieve complete portfolio data: {str(e)}"
             ) 

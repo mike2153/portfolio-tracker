@@ -5,8 +5,20 @@ import ApexListView from '@/components/charts/ApexListView';
 import type { ListViewColumn, ListViewAction } from '@/components/charts/ApexListView';
 import { cn } from '@/lib/utils';
 import { useDashboard } from '../contexts/DashboardContext';
-import { usePortfolioAllocation, AllocationItem } from '@/hooks/usePortfolioAllocation';
+// MIGRATED: Replace usePortfolioAllocation with consolidated hook
+import { useAllocationData } from '@/hooks/useSessionPortfolio';
 import { Star, StarOff } from 'lucide-react';
+
+// Define AllocationItem interface locally since we're migrating away from the old hook
+interface AllocationItem {
+  symbol: string;
+  current_value: number;
+  cost_basis: number;
+  gain_loss: number;
+  gain_loss_percent: number;
+  allocation_percent: number;
+  color: string;
+}
 import { front_api_get_watchlist, front_api_add_to_watchlist, front_api_remove_from_watchlist } from '@/hooks/api/front_api_watchlist';
 import { useToast } from '@/components/ui/Toast';
 
@@ -17,7 +29,8 @@ interface AllocationRowExtended extends AllocationItem, Record<string, unknown> 
 
 const AllocationTableApex = () => {
   useDashboard();
-  const { data: allocationData, isLoading, isError, error, refetch } = usePortfolioAllocation();
+  // MIGRATED: Use consolidated allocation hook instead of individual API call
+  const { data: allocationData, isLoading, isError, error } = useAllocationData();
   const [watchlistItems, setWatchlistItems] = useState<Set<string>>(new Set());
   const { addToast } = useToast();
 
@@ -77,11 +90,19 @@ const AllocationTableApex = () => {
       return { listViewData: [], columns: [], actions: [] };
     }
     
-    // Transform allocations to extended format
-    const transformedData: AllocationRowExtended[] = allocationData.allocations.map((allocation, index) => ({
-      ...allocation,
-      id: allocation.symbol || `row_${index}`,
-      accentColorClass: `bg-${allocation.color}-500`
+    // Transform consolidated allocation data to match expected format
+    // The new hook returns allocation data directly, not wrapped in an 'allocations' property
+    const allocations = Array.isArray(allocationData) ? allocationData : allocationData.by_symbol || [];
+    const transformedData: AllocationRowExtended[] = Object.entries(allocations).map(([symbol, data], index) => ({
+      symbol,
+      current_value: (data as any)?.current_value || 0,
+      cost_basis: (data as any)?.cost_basis || 0,
+      gain_loss: (data as any)?.gain_loss || 0,
+      gain_loss_percent: (data as any)?.gain_loss_percent || 0,
+      allocation_percent: (data as any)?.allocation_percent || 0,
+      color: (data as any)?.color || 'blue',
+      id: symbol || `row_${index}`,
+      accentColorClass: `bg-${(data as any)?.color || 'blue'}-500`
     }));
 
     // Define columns
@@ -195,8 +216,8 @@ const AllocationTableApex = () => {
       title="Portfolio Allocation"
       isLoading={isLoading}
       error={isError ? String(error) : null}
-      onRetry={refetch}
-      emptyMessage={allocationData?.allocations.length === 0 ? "No holdings found. Add transactions to see your portfolio allocation." : "Loading allocation data..."}
+      onRetry={() => {}} // Removed refetch since consolidated hook handles refreshing automatically
+      emptyMessage={listViewData.length === 0 ? "No holdings found. Add transactions to see your portfolio allocation." : "Loading allocation data..."}
       showSearch={true}
       showPagination={false}
       searchPlaceholder="Search holdings..."

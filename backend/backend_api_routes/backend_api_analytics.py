@@ -385,6 +385,15 @@ async def backend_api_confirm_dividend(
         # No get_historical_prices calls should be triggered from this operation
         result = await dividend_service.confirm_dividend(user_id, dividend_id, user_token, edited_amount)
         
+        # Invalidate user_performance cache after confirming dividend
+        try:
+            from services.user_performance_manager import user_performance_manager
+            await user_performance_manager.invalidate_cache(user_id)
+            logger.info(f"[CACHE] Successfully invalidated user_performance cache for user {user_id} after confirming dividend {dividend_id}")
+        except Exception as cache_error:
+            logger.error(f"[CACHE] Failed to invalidate user_performance cache for user {user_id} after confirming dividend {dividend_id}: {cache_error}")
+            # Don't fail the mutation if cache invalidation fails
+        
         DebugLogger.info_if_enabled(f"[backend_api_analytics.py] OPTIMIZED confirmation result: success={result['success']}, total_amount={result.get('total_amount')}", logger)
         DebugLogger.info_if_enabled(f"[backend_api_analytics.py] 🚀 PERFORMANCE: Dividend confirmation completed without portfolio recalculation", logger)
         
@@ -471,7 +480,17 @@ async def backend_api_sync_dividends(
         # Use original service
         result = await dividend_service.sync_dividends_for_symbol(user_id, symbol.upper(), user_token)
         
-        # Calculate computation time
+        # Invalidate user_performance cache after syncing dividends (only if dividends were assigned to user)
+        if result.get("success") and result.get("dividends_assigned", 0) > 0:
+            try:
+                from services.user_performance_manager import user_performance_manager
+                await user_performance_manager.invalidate_cache(user_id)
+                logger.info(f"[CACHE] Successfully invalidated user_performance cache for user {user_id} after syncing dividends for {symbol}")
+            except Exception as cache_error:
+                logger.error(f"[CACHE] Failed to invalidate user_performance cache for user {user_id} after syncing dividends for {symbol}: {cache_error}")
+                # Don't fail the mutation if cache invalidation fails
+        
+        # Calculate computation time  
         computation_time_ms = int((time.time() - start_time) * 1000)
         
         # Return v2 format if requested
@@ -1203,6 +1222,15 @@ async def backend_api_add_manual_dividend(
             raise HTTPException(status_code=500, detail=result.get("error", "Failed to add dividend"))
         
         dividend_id = result.get("dividend_id")
+        
+        # Invalidate user_performance cache after adding manual dividend
+        try:
+            from services.user_performance_manager import user_performance_manager
+            await user_performance_manager.invalidate_cache(user_id)
+            logger.info(f"[CACHE] Successfully invalidated user_performance cache for user {user_id} after adding manual dividend for {ticker}")
+        except Exception as cache_error:
+            logger.error(f"[CACHE] Failed to invalidate user_performance cache for user {user_id} after adding manual dividend for {ticker}: {cache_error}")
+            # Don't fail the mutation if cache invalidation fails
         
         # Step 2: If update_cash_balance is true, create a transaction
         if update_cash_balance and dividend_id:

@@ -63,7 +63,8 @@
       "Bash(cmd //c:*)",
       "Bash(for file in scripts/*.py)",
       "Bash(do sed -i 's/old_name/new_name/g' \"$file\")",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(echo:*)"
     ],
     "deny": []
   },
