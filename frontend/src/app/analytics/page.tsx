@@ -2,14 +2,13 @@
 
 import React, { useState } from 'react';
 import GradientText from '@/components/ui/GradientText';
-import { useQuery } from '@tanstack/react-query';
-import { front_api_client } from '@/lib/front_api_client';
-import { usePortfolioAllocation } from '@/hooks/usePortfolioAllocation';
+// import { useQuery } from '@tanstack/react-query';
+// import { front_api_client } from '@/lib/front_api_client';
+import { useSessionPortfolio } from '@/hooks/useSessionPortfolio';
 
 // Components
 import AnalyticsKPIGrid from './components/AnalyticsKPIGrid';
-import AnalyticsHoldingsTable from './components/AnalyticsHoldingsTable';
-import AnalyticsDividendsTabRefactored from './components/AnalyticsDividendsTabRefactored';
+import { LazyAnalyticsHoldingsTable, LazyAnalyticsDividendsTab } from '../dashboard/components/LazyComponents';
 
 // Types
 interface AnalyticsSummary {
@@ -34,59 +33,62 @@ export default function AnalyticsPage() {
   const [activeTab, setActiveTab] = useState<TabType>('holdings');
   const [includeSoldHoldings, setIncludeSoldHoldings] = useState(false);
 
-  // Use shared allocation hook for consistent data
-  const { data: allocationData, isLoading: allocationLoading, error: allocationError, refetch } = usePortfolioAllocation();
+  // Use full portfolio data instead of just allocation data
+  const { portfolioData, allocationData, isLoading: allocationLoading, error: allocationError, refetch } = useSessionPortfolio();
   
   // Force refetch on mount to ensure fresh data
   React.useEffect(() => {
     console.log('[AnalyticsPage] Mounted, forcing data refresh');
     refetch();
-  }, []);
+  }, [refetch]);
 
   console.log('[AnalyticsPage] Allocation data:', allocationData);
   console.log('[AnalyticsPage] Loading:', allocationLoading, 'Error:', allocationError);
 
-  // Transform allocation data to holdings format
-  const holdingsData = allocationData?.allocations.map(allocation => {
-    console.log('[AnalyticsPage] Processing allocation:', {
-      symbol: allocation.symbol,
-      cost_basis: allocation.cost_basis,
-      current_value: allocation.current_value,
-      gain_loss: allocation.gain_loss,
-      realized_pnl: allocation.realized_pnl
+  // Transform portfolio holdings data to analytics format (use portfolio holdings instead of allocation)
+  const holdingsData = portfolioData?.holdings?.map(holding => {
+    console.log('[AnalyticsPage] Processing holding:', {
+      symbol: holding.symbol,
+      current_value: holding.current_value,
+      quantity: holding.quantity,
+      avg_cost: holding.avg_cost
     });
+    
+    const costBasis = (holding.quantity || 0) * (holding.avg_cost || 0);
+    const gainLoss = (holding.current_value || 0) - costBasis;
+    const gainLossPercent = costBasis > 0 ? (gainLoss / costBasis) * 100 : 0;
+    
     return {
-    symbol: allocation.symbol,
-    quantity: allocation.quantity,
-    current_price: allocation.current_price,
-    current_value: allocation.current_value,
-    cost_basis: allocation.cost_basis,
-    unrealized_gain: allocation.gain_loss,
-    unrealized_gain_percent: allocation.gain_loss_percent,
-    realized_pnl: allocation.realized_pnl ?? 0,
-    dividends_received: allocation.dividends_received ?? 0,
-    total_profit: allocation.gain_loss + (allocation.dividends_received ?? 0) + (allocation.realized_pnl ?? 0),
-    total_profit_percent: allocation.cost_basis > 0 
-      ? ((allocation.gain_loss + (allocation.dividends_received ?? 0) + (allocation.realized_pnl ?? 0)) / allocation.cost_basis * 100) 
-      : 0,
-    daily_change: allocation.daily_change ?? 0,
-    daily_change_percent: allocation.daily_change_percent ?? 0,
-    irr_percent: 0 // TODO: Calculate IRR
+      symbol: holding.symbol,
+      company: holding.symbol + ' Corporation', // TODO: Add real company names
+      quantity: holding.quantity || 0,
+      current_price: holding.current_price || 0,
+      current_value: holding.current_value || 0,
+      cost_basis: costBasis,
+      unrealized_gain: gainLoss,
+      unrealized_gain_percent: gainLossPercent,
+      realized_pnl: 0, // TODO: Add realized P&L data
+      dividends_received: holding.dividends_received || 0,
+      total_profit: gainLoss + (holding.dividends_received || 0),
+      total_profit_percent: costBasis > 0 ? ((gainLoss + (holding.dividends_received || 0)) / costBasis * 100) : 0,
+      daily_change: 0, // TODO: Add daily change data
+      daily_change_percent: 0, // TODO: Add daily change percent
+      irr_percent: 0 // TODO: Calculate IRR
     };
   }) || [];
 
-  // Create summary data from allocation data
-  const summaryData: AnalyticsSummary | undefined = allocationData ? {
-    portfolio_value: allocationData.summary.total_value,
-    total_profit: allocationData.summary.total_gain_loss + allocationData.summary.total_dividends,
-    total_profit_percent: allocationData.summary.total_gain_loss_percent,
+  // Create summary data from portfolio data
+  const summaryData: AnalyticsSummary | undefined = portfolioData ? {
+    portfolio_value: portfolioData.total_value || 0,
+    total_profit: portfolioData.total_gain_loss || 0,
+    total_profit_percent: portfolioData.total_gain_loss_percent || 0,
     irr_percent: 0, // TODO: Calculate IRR
-    passive_income_ytd: allocationData.summary.total_dividends,
+    passive_income_ytd: 0, // TODO: Calculate from dividend data
     cash_balance: 0, // TODO: Implement cash tracking
     dividend_summary: {
-      total_received: allocationData.summary.total_dividends,
+      total_received: 0, // TODO: Calculate from dividend data
       total_pending: 0,
-      ytd_received: allocationData.summary.total_dividends,
+      ytd_received: 0,
       confirmed_count: 0,
       pending_count: 0
     }
@@ -102,7 +104,7 @@ export default function AnalyticsPage() {
           isLoading: allocationLoading
         });
         return (
-          <AnalyticsHoldingsTable
+          <LazyAnalyticsHoldingsTable
             holdings={holdingsData || []}
             isLoading={allocationLoading}
             error={allocationError}
@@ -112,11 +114,11 @@ export default function AnalyticsPage() {
         );
       
       case 'dividends':
-        return <AnalyticsDividendsTabRefactored />;
+        return <LazyAnalyticsDividendsTab />;
       
       case 'general':
         return (
-          <div className="bg-[#0D1117] border border-[#30363D] rounded-xl p-8 text-center">
+          <div className="bg-[#161B22] border border-[#30363D] rounded-xl p-8 text-center">
             <h3 className="text-xl font-semibold text-white mb-4">General Analytics</h3>
             <p className="text-[#8B949E]">Coming soon - General analytics and insights</p>
           </div>
@@ -128,7 +130,7 @@ export default function AnalyticsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0D1117] text-white">
+    <div className="min-h-screen bg-[#161B22] text-white">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
@@ -140,7 +142,7 @@ export default function AnalyticsPage() {
         {activeTab !== 'dividends' && (
           <div className="mb-8">
             <AnalyticsKPIGrid
-              summary={summaryData}
+              {...(summaryData && { summary: summaryData })}
               isLoading={allocationLoading}
               error={allocationError}
             />

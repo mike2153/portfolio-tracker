@@ -14,14 +14,13 @@ import type {
 
 // Import tab components
 import OverviewTabNew from './components/OverviewTabNew';
-import FinancialsTabNew from './components/FinancialsTabNew';
 import DividendsTab from './components/DividendsTab';
-import NewsTab from './components/NewsTab';
+import { LazyFinancialsTabNew, LazyNewsTab } from '../dashboard/components/LazyComponents';
 import NotesTab from './components/NotesTab';
 import ComparisonTab from './components/ComparisonTab';
 import { StockSearchInput } from '@/components/StockSearchInput';
-import ResearchStockChart from '@/components/charts/ResearchStockChart'
-import FinancialSpreadsheetApex from '@/components/charts/FinancialSpreadsheetApex'
+// import ResearchStockChart from '@/components/charts/ResearchStockChart';
+// import FinancialSpreadsheetApex from '@/components/charts/FinancialSpreadsheetApex';
 
 
 const TABS: { id: StockResearchTab; label: string; icon: React.ReactNode }[] = [
@@ -44,9 +43,9 @@ function StockResearchPageContent() {
   const [stockData, setStockData] = useState<Record<string, StockResearchData>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [watchlist, setWatchlist] = useState<string[]>([]);
+  const [_watchlist, setWatchlist] = useState<string[]>([]);
   const [comparisonStocks, setComparisonStocks] = useState<string[]>([]);
-  const [comparisonMode, setComparisonMode] = useState(false);
+  const [_comparisonMode, _setComparisonMode] = useState(false);
 
   // Initialize from URL params
   useEffect(() => {
@@ -61,13 +60,53 @@ function StockResearchPageContent() {
     }
   }, [searchParams]);
 
+  const loadStockData = useCallback(async (ticker: string) => {
+    setIsLoading(true);
+    try {
+      console.log(`[ResearchPage] Loading stock data for: ${ticker}`);
+      const data = await front_api_client.front_api_get_stock_research_data(ticker);
+      console.log(`[ResearchPage] Stock data received for ${ticker}:`, data);
+      
+      // Check watchlist status
+      let isInWatchlist = false;
+      try {
+        const watchlistStatus = await front_api_check_watchlist_status(ticker);
+        isInWatchlist = watchlistStatus.is_in_watchlist;
+      } catch (err) {
+        console.error('[ResearchPage] Error checking watchlist status:', err);
+      }
+      
+      if (data) {
+        setStockData(prev => ({
+          ...prev,
+          [ticker]: {
+            overview: data.fundamentals || {},
+            quote: data.price_data || {},
+            priceData: data.priceData || [],
+            news: data.news || [],
+            notes: data.notes || [],
+            financials: data.financials || {},
+            dividends: data.dividends || [],
+            isInWatchlist: isInWatchlist
+          } as StockResearchData
+        }));
+        console.log(`[ResearchPage] Stock data set for ${ticker}, overview keys:`, Object.keys(data.fundamentals || {}));
+      }
+    } catch (error) {
+      console.error('[ResearchPage] Error loading stock data:', error);
+      setError('Failed to load stock data. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   // Load stock data when selectedTicker changes
   useEffect(() => {
     if (selectedTicker && !stockData[selectedTicker]) {
       console.log(`[ResearchPage] selectedTicker changed to: ${selectedTicker}, loading data...`);
       loadStockData(selectedTicker);
     }
-  }, [selectedTicker]);
+  }, [selectedTicker, stockData, loadStockData]);
 
   // Load watchlist on mount
   useEffect(() => {
@@ -108,47 +147,7 @@ function StockResearchPageContent() {
     if (!stockData[upperTicker]) {
       await loadStockData(upperTicker);
     }
-  }, [searchParams, router, stockData]);
-
-  const loadStockData = async (ticker: string) => {
-    setIsLoading(true);
-    try {
-      console.log(`[ResearchPage] Loading stock data for: ${ticker}`);
-      const data = await front_api_client.front_api_get_stock_research_data(ticker);
-      console.log(`[ResearchPage] Stock data received for ${ticker}:`, data);
-      
-      // Check watchlist status
-      let isInWatchlist = false;
-      try {
-        const watchlistStatus = await front_api_check_watchlist_status(ticker);
-        isInWatchlist = watchlistStatus.is_in_watchlist;
-      } catch (err) {
-        console.error('[ResearchPage] Error checking watchlist status:', err);
-      }
-      
-      if (data) {
-        setStockData(prev => ({
-          ...prev,
-          [ticker]: {
-            overview: data.fundamentals || {},
-            quote: data.price_data || {},
-            priceData: data.priceData || [],
-            news: data.news || [],
-            notes: data.notes || [],
-            financials: data.financials || {},
-            dividends: data.dividends || [],
-            isInWatchlist: isInWatchlist
-          } as StockResearchData
-        }));
-        console.log(`[ResearchPage] Stock data set for ${ticker}, overview keys:`, Object.keys(data.fundamentals || {}));
-      }
-    } catch (error) {
-      console.error('[ResearchPage] Error loading stock data:', error);
-      setError('Failed to load stock data. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  }, [searchParams, router, stockData, loadStockData]);
 
   const handleTabChange = (tab: StockResearchTab) => {
     setActiveTab(tab);
@@ -240,11 +239,11 @@ function StockResearchPageContent() {
       case 'overview':
         return <OverviewTabNew {...tabProps} />;
       case 'financials':
-        return <FinancialsTabNew {...tabProps} />;
+        return <LazyFinancialsTabNew {...tabProps} />;
       case 'dividends':
         return <DividendsTab {...tabProps} />;
       case 'news':
-        return <NewsTab {...tabProps} />;
+        return <LazyNewsTab {...tabProps} />;
       case 'notes':
         return <NotesTab {...tabProps} />;
       case 'comparison':
@@ -302,20 +301,34 @@ function StockResearchPageContent() {
                 </div>
                 
                 {/* Current Price */}
-                {currentData.quote && (
+                {currentData.quote ? (
                   <div className="text-right">
                     <div className="text-xl font-bold">
-                      ${parseFloat(currentData.quote.price).toFixed(2)}
+                      {currentData.quote.price ? 
+                        `$${parseFloat(String(currentData.quote.price)).toFixed(2)}` : 
+                        'N/A'
+                      }
                     </div>
-                    <div className={`text-sm ${
-                      parseFloat(currentData.quote.change) >= 0 
-                        ? 'text-green-400' 
-                        : 'text-red-400'
-                    }`}>
-                      {parseFloat(currentData.quote.change) >= 0 ? '+' : ''}
-                      {parseFloat(currentData.quote.change).toFixed(2)} 
-                      ({currentData.quote.change_percent})
-                    </div>
+                    {currentData.quote.change ? (
+                      <div className={`text-sm ${
+                        parseFloat(String(currentData.quote.change)) >= 0 
+                          ? 'text-green-400' 
+                          : 'text-red-400'
+                      }`}>
+                        {parseFloat(String(currentData.quote.change)) >= 0 ? '+' : ''}
+                        {parseFloat(String(currentData.quote.change)).toFixed(2)} 
+                        ({currentData.quote.change_percent || '0%'})
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-400">
+                        Price data unavailable
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-right">
+                    <div className="text-xl font-bold text-gray-400">N/A</div>
+                    <div className="text-sm text-gray-400">Price data unavailable</div>
                   </div>
                 )}
               </div>

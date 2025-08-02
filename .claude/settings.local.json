@@ -1,4 +1,5 @@
 {
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
     "allow": [
       "Bash(rg:*)",
@@ -45,8 +46,39 @@
       "Bash(wc:*)",
       "Bash(docker exec:*)",
       "Bash(npm cache clean:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(mv:*)",
+      "Bash(cp:*)",
+      "Bash(chcp:*)",
+      "Bash(PYTHONIOENCODING=utf-8 python scripts/validate_rls_policies.py)",
+      "Bash(dir \"C:\\Users\\mike2\\Documents\\portfolio-tracker\\supabase\\migrations\")",
+      "Bash(supabase migration:*)",
+      "Bash(timeout 60 npm run build)",
+      "Bash(timeout 45 npm run build)",
+      "Bash(timeout 30 npm run build)",
+      "Bash(timeout 15 npm run build)",
+      "Bash(sed:*)",
+      "Bash(true)",
+      "Bash(ren:*)",
+      "Bash(cmd //c:*)",
+      "Bash(for file in scripts/*.py)",
+      "Bash(do sed -i 's/old_name/new_name/g' \"$file\")",
+      "Bash(done)",
+      "Bash(echo:*)"
     ],
     "deny": []
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -c \"[System.Media.SystemSounds]::Beep.Play()\""
+          }
+        ]
+      }
+    ]
   }
 }

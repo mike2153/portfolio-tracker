@@ -1,17 +1,14 @@
 'use client';
 
-import React, { useMemo } from 'react';
-import dynamic from 'next/dynamic';
+import React, { useMemo, useEffect, useState } from 'react';
 import { ApexOptions } from 'apexcharts';
-
-// Dynamic import to avoid SSR issues
-const ReactApexChart = dynamic(() => import('react-apexcharts'), { ssr: false });
+import { useChart } from '../ChartProvider';
 
 export interface ApexChartProps {
   data: Array<{
     name: string;
     data: Array<[number, number]> | Array<{ x: number | string; y: number } | { x: number | string; y: number[] }>;
-    color?: string;
+    color?: string | undefined;
   }>;
   type?: 'line' | 'area' | 'bar' | 'candlestick';
   height?: number;
@@ -26,8 +23,8 @@ export interface ApexChartProps {
   onRangeChange?: (range: string) => void;
   colors?: string[];
   isLoading?: boolean;
-  error?: string | null;
-  onRetry?: () => void;
+  error?: string | null | undefined;
+  onRetry?: (() => void) | undefined;
   className?: string;
   darkMode?: boolean;
   additionalOptions?: ApexOptions;
@@ -63,20 +60,28 @@ export default function ApexChart({
   darkMode = true,
   additionalOptions = {},
 }: ApexChartProps) {
+  const { loadChart, isLoading: chartLoading } = useChart();
+  const [ChartComponent, setChartComponent] = useState<React.ComponentType<any> | null>(null);
+
+  useEffect(() => {
+    loadChart(type).then(component => setChartComponent(() => component)).catch(console.error);
+  }, [loadChart, type]);
   
-  // Debug logging
-  console.log('[ApexChart] Rendering with data:', {
-    dataLength: data?.length,
-    type,
-    height,
-    isLoading,
-    error: error?.substring(0, 100)
-  });
+  // Debug logging (development only)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[ApexChart] Rendering with data:', {
+      dataLength: data?.length,
+      type,
+      height,
+      isLoading,
+      error: error?.substring(0, 100)
+    });
+  }
 
   // Determine dynamic colors based on performance
   const dynamicColors = useMemo(() => {
     if (!data || data.length === 0) return colors;
-    const seriesData = data[0].data;
+    const seriesData = data[0]?.data;
     if (!seriesData || seriesData.length === 0) return colors;
     // Helper to extract numeric value (handles tuples, point objects, and OHLC arrays)
     const getValue = (
@@ -86,13 +91,17 @@ export default function ApexChart({
         return pt[1];
       } else if (Array.isArray(pt.y)) {
         // OHLC array: [open, high, low, close]
-        return pt.y[3];
+        return pt.y[3] || 0;
       } else {
         return pt.y;
       }
     };
-    const firstValue = getValue(seriesData[0]);
-    const lastValue = getValue(seriesData[seriesData.length - 1]);
+    if (seriesData.length === 0) return colors;
+    const firstItem = seriesData[0];
+    const lastItem = seriesData[seriesData.length - 1];
+    if (!firstItem || !lastItem) return colors;
+    const firstValue = getValue(firstItem);
+    const lastValue = getValue(lastItem);
     const isPositive = lastValue >= firstValue;
     const primaryColor = isPositive ? '#238636' : '#F85149';
     return [primaryColor, ...colors.slice(1)];
@@ -101,7 +110,7 @@ export default function ApexChart({
   const options: ApexOptions = useMemo(() => ({
     chart: {
       id: `apex-chart-${type}`,
-      type: type as any,
+      type: type as 'line' | 'area' | 'bar' | 'candlestick',
       height,
       background: darkMode ? 'transparent' : '#ffffff',
       toolbar: { show: showToolbar },
@@ -115,21 +124,23 @@ export default function ApexChart({
     colors: dynamicColors,
     dataLabels: { enabled: false },
     stroke: { 
-      curve: 'smooth' as any, 
+      curve: 'smooth' as const, 
       width: type === 'area' || type === 'line' ? 2 : 1 
     },
     fill: {
       type: type === 'area' ? 'gradient' : 'solid',
       opacity: type === 'bar' ? 1 : (type === 'area' ? 1 : 0.85),
-      gradient: type === 'area' ? {
-        shade: darkMode ? 'dark' : 'light',
-        type: 'vertical',
-        shadeIntensity: 0.3,
-        gradientToColors: [darkMode ? '#0D1117' : '#f9fafb'],
-        opacityFrom: 0.6,
-        opacityTo: 0.1,
-        stops: [0, 100]
-      } : undefined
+      ...(type === 'area' ? {
+        gradient: {
+          shade: darkMode ? 'dark' : 'light',
+          type: 'vertical',
+          shadeIntensity: 0.3,
+          gradientToColors: [darkMode ? '#0D1117' : '#f9fafb'],
+          opacityFrom: 0.6,
+          opacityTo: 0.1,
+          stops: [0, 100]
+        }
+      } : {})
     },
     plotOptions: {
       bar: {
@@ -187,9 +198,9 @@ export default function ApexChart({
     tooltip: {
       enabled: true,
       theme: darkMode ? 'dark' : 'light',
-      x: {
-        format: xAxisType === 'datetime' ? 'dd MMM yyyy' : undefined
-      },
+      ...(xAxisType === 'datetime' ? {
+        x: { format: 'dd MMM yyyy' }
+      } : {}),
       y: {
         formatter: tooltipFormatter
       },
@@ -212,23 +223,29 @@ export default function ApexChart({
 
   const series = useMemo(() => {
     if (!data || data.length === 0) return [];
-    const mappedSeries = data.map(item => ({
-      name: item.name,
-      data: item.data,
-      color: item.color,
-      type: type // Explicitly set the chart type for each series
-    }));
-    console.log('[ApexChart] Series prepared:', {
-      seriesCount: mappedSeries.length,
-      firstSeriesName: mappedSeries[0]?.name,
-      firstSeriesDataLength: mappedSeries[0]?.data?.length,
-      firstSeriesType: mappedSeries[0]?.type
+    const mappedSeries = data.map(item => {
+      // Destructure to exclude any React-specific props like 'key'
+      const { key: _key, ...itemProps } = item as any;
+      return {
+        name: itemProps.name,
+        data: itemProps.data,
+        ...(itemProps.color ? { color: itemProps.color } : {}),
+        type: type // Explicitly set the chart type for each series
+      };
     });
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[ApexChart] Series prepared:', {
+        seriesCount: mappedSeries.length,
+        firstSeriesName: mappedSeries[0]?.name,
+        firstSeriesDataLength: mappedSeries[0]?.data?.length,
+        firstSeriesType: mappedSeries[0]?.type
+      });
+    }
     return mappedSeries;
   }, [data, type]);
 
-  // Loading state
-  if (isLoading) {
+  // Loading state (including chart loading)
+  if (isLoading || chartLoading || !ChartComponent) {
     return (
       <div className={`rounded-xl bg-[#0D1117] border border-[#30363D] p-6 shadow-lg ${className}`}>
         {title && (
@@ -302,12 +319,14 @@ export default function ApexChart({
 
       {/* Chart */}
       <div className="w-full">
-        <ReactApexChart 
-          options={options} 
-          series={series} 
-          type={type as any} 
-          height={height} 
-        />
+        {ChartComponent && (
+          <ChartComponent
+            options={options}
+            series={series}
+            type={type}
+            height={height}
+          />
+        )}
       </div>
 
       {/* Debug info in development */}

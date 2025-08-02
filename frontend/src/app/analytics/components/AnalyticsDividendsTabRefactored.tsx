@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from 'react';
-import { PlusCircle } from 'lucide-react';
+// import { PlusCircle } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabaseClient';
 import ApexListView from '@/components/charts/ApexListView';
@@ -9,9 +9,9 @@ import ApexListView from '@/components/charts/ApexListView';
 // Import unified types
 import {
   UserDividendData,
-  DividendSummary,
+  // DividendSummary,
   DividendListResponse,
-  DividendSummaryResponse,
+  // DividendSummaryResponse,
   DividendTableRow,
   dividendToTableRow,
   formatDividendCurrency,
@@ -25,10 +25,17 @@ interface DividendConfirmRequest {
   edited_amount?: number;
 }
 
+interface EditedDividendData {
+  ex_date: string;
+  pay_date: string;
+  amount_per_share: string | number;
+  total_amount: string | number;
+}
+
 interface EditDividendModalProps {
   dividend: UserDividendData;
   onClose: () => void;
-  onSave: (editedData: any) => void;
+  onSave: (editedData: EditedDividendData) => void;
 }
 
 const EditDividendModal: React.FC<EditDividendModalProps> = ({ dividend, onClose, onSave }) => {
@@ -549,7 +556,7 @@ export default function AnalyticsDividendsTabRefactored() {
 
   // OPTIMIZED: Edit dividend mutation with targeted cache invalidation
   const editDividendMutation = useMutation({
-    mutationFn: async (params: { originalDividendId: string; editedData: any }) => {
+    mutationFn: async (params: { originalDividendId: string; editedData: EditedDividendData }) => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) throw new Error('Not authenticated');
 
@@ -631,7 +638,7 @@ export default function AnalyticsDividendsTabRefactored() {
         label: 'Company',
         searchable: true,
         sortable: true,
-        render: (value: any, item: DividendTableRow) => (
+        render: (_value: unknown, item: DividendTableRow) => (
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
               {item.symbol?.slice(0, 2) || '??'}
@@ -652,7 +659,7 @@ export default function AnalyticsDividendsTabRefactored() {
         key: 'ex_date',
         label: 'Ex-Date',
         sortable: true,
-        render: (value: any, item: DividendTableRow) => (
+        render: (_value: unknown, item: DividendTableRow) => (
           <div className="text-sm text-gray-300">
             {item.ex_date ? formatDividendDate(item.ex_date) : 'N/A'}
           </div>
@@ -662,7 +669,7 @@ export default function AnalyticsDividendsTabRefactored() {
         key: 'pay_date',
         label: 'Pay Date',
         sortable: true,
-        render: (value: any, item: DividendTableRow) => (
+        render: (_value: unknown, item: DividendTableRow) => (
           <div>
             <div className="text-sm text-white">
               {item.pay_date ? formatDividendDate(item.pay_date) : 'N/A'}
@@ -679,7 +686,7 @@ export default function AnalyticsDividendsTabRefactored() {
         key: 'amount_per_share',
         label: 'Amount/Share',
         sortable: true,
-        render: (value: any, item: DividendTableRow) => (
+        render: (_value: unknown, item: DividendTableRow) => (
           <div className="text-right">
             <div className="font-medium text-green-400">
               {formatDividendCurrency(item.amount_per_share, item.currency)}
@@ -691,7 +698,7 @@ export default function AnalyticsDividendsTabRefactored() {
         key: 'shares_held_at_ex_date',
         label: 'Holdings',
         sortable: true,
-        render: (value: any, item: DividendTableRow) => {
+        render: (_value: unknown, item: DividendTableRow) => {
           const sharesAtExDate = item.shares_held_at_ex_date || 0;
           const currentHoldings = item.current_holdings || 0;
           
@@ -713,7 +720,7 @@ export default function AnalyticsDividendsTabRefactored() {
         key: 'total_amount',
         label: 'Total Amount',
         sortable: true,
-        render: (value: any, item: DividendTableRow) => (
+        render: (_value: unknown, item: DividendTableRow) => (
           <div className="text-right">
             <div className="font-medium text-green-400">
               {formatDividendCurrency(item.total_amount, item.currency)}
@@ -730,7 +737,7 @@ export default function AnalyticsDividendsTabRefactored() {
         key: 'confirmed',
         label: 'Status',
         sortable: true,
-        render: (value: any, item: DividendTableRow) => (
+        render: (_value: unknown, item: DividendTableRow) => (
           <div className="text-center">
             <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
               item.confirmed === 'Yes' 
@@ -745,14 +752,14 @@ export default function AnalyticsDividendsTabRefactored() {
       {
         key: 'actions',
         label: 'Actions',
-        render: (value: any, item: DividendTableRow) => {
+        render: (_value: unknown, item: DividendTableRow) => {
           // ApexListView calls render with (value, item) - we need the second parameter
           // ROBUST: Safe dividend lookup with null checks
           let dividend: UserDividendData | undefined;
           let canConfirm = false;
           
           // Debug logging to identify the issue
-          console.log('[DEBUG] Actions render - value:', value);
+          console.log('[DEBUG] Actions render - value:', _value);
           console.log('[DEBUG] Actions render - item:', item);
           console.log('[DEBUG] Actions render - item.id:', item?.id);
           console.log('[DEBUG] Actions render - dividendsData length:', dividendsData?.length);
@@ -837,7 +844,7 @@ export default function AnalyticsDividendsTabRefactored() {
         }
       }
     ],
-    [dividendsData, confirmingDividendId]
+    [dividendsData, confirmingDividendId, confirmDividendMutation, rejectDividendMutation]
   );
 
   console.log('[REFACTORED_FRONTEND] ===== Rendering component =====');

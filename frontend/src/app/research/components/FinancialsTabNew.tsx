@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { TabContentProps, FinancialStatementType, FinancialPeriodType } from '@/types/stock-research';
+import React, { useState, useEffect, useCallback } from 'react';
+import { TabContentProps, FinancialStatementType as _FinancialStatementType, FinancialPeriodType } from '@/types/stock-research';
 import { front_api_client } from '@/lib/front_api_client';
 import { DollarSign, TrendingUp, BarChart3, RefreshCw, ChevronDown } from 'lucide-react';
 import FinancialsChart from './FinancialsChart';
@@ -9,7 +9,7 @@ interface FinancialMetric {
   key: string;
   label: string;
   description: string;
-  values: Record<string, number | string>;
+  values: Record<string, number>;
   section: string;
 }
 
@@ -19,14 +19,14 @@ interface FinancialMetric {
  * Comprehensive financials page with interactive chart and table.
  * Features tabs, dropdowns, ApexCharts integration, and multi-select table.
  */
-const FinancialsTabNew: React.FC<TabContentProps> = ({ ticker, data, isLoading, onRefresh }) => {
+const FinancialsTabNew: React.FC<TabContentProps> = ({ ticker, data: _data, isLoading, onRefresh: _onRefresh }) => {
   // State for tab navigation and controls
   const [activeStatement, setActiveStatement] = useState<'INCOME_STATEMENT' | 'BALANCE_SHEET' | 'CASH_FLOW'>('INCOME_STATEMENT');
   const [activePeriod, setActivePeriod] = useState<FinancialPeriodType>('annual');
   const [activeCurrency, setActiveCurrency] = useState<'USD' | 'EUR' | 'GBP'>('USD');
   
   // State for financial data
-  const [financialsData, setFinancialsData] = useState<Record<string, any>>({});
+  const [financialsData, setFinancialsData] = useState<Record<string, unknown>>({});
   const [financialsLoading, setFinancialsLoading] = useState(false);
   const [financialsError, setFinancialsError] = useState<string | null>(null);
   
@@ -34,7 +34,7 @@ const FinancialsTabNew: React.FC<TabContentProps> = ({ ticker, data, isLoading, 
   const [selectedMetrics, setSelectedMetrics] = useState<string[]>([]);
 
   // Load financial data from API
-  const loadFinancialData = async (statement: 'INCOME_STATEMENT' | 'BALANCE_SHEET' | 'CASH_FLOW', forceRefresh: boolean = false) => {
+  const loadFinancialData = useCallback(async (statement: 'INCOME_STATEMENT' | 'BALANCE_SHEET' | 'CASH_FLOW', forceRefresh: boolean = false) => {
     if (!ticker) return;
     
     setFinancialsLoading(true);
@@ -49,7 +49,7 @@ const FinancialsTabNew: React.FC<TabContentProps> = ({ ticker, data, isLoading, 
       
       if (result.success && result.data) {
         console.log(`[FinancialsTabNew] Loaded ${statement} data:`, result.data);
-        setFinancialsData((prev: any) => ({
+        setFinancialsData((prev: Record<string, unknown>) => ({
           ...prev,
           [statement]: result.data
         }));
@@ -63,11 +63,11 @@ const FinancialsTabNew: React.FC<TabContentProps> = ({ ticker, data, isLoading, 
     } finally {
       setFinancialsLoading(false);
     }
-  };
+  }, [ticker]);
 
   // Transform API data to component format
   const transformFinancialData = (): FinancialMetric[] => {
-    const statementData = financialsData?.[activeStatement];
+    const statementData = financialsData?.[activeStatement] as { annual_reports?: unknown[]; quarterly_reports?: unknown[] } | undefined;
     console.log(`[FinancialsTabNew] Transforming data for ${activeStatement}:`, statementData);
     
     if (!statementData) return [];
@@ -90,27 +90,30 @@ const FinancialsTabNew: React.FC<TabContentProps> = ({ ticker, data, isLoading, 
     return metricDefinitions.map(metric => {
       const values: Record<string, number> = {};
       
-      reports.forEach((report: any) => {
+      (reports as Record<string, unknown>[]).forEach((report: Record<string, unknown>) => {
+        const fiscalDate = report.fiscalDateEnding;
+        if (typeof fiscalDate !== 'string') return;
+        
         const period = activePeriod === 'annual' 
-          ? new Date(report.fiscalDateEnding).getFullYear().toString()
-          : formatQuarterlyPeriod(report.fiscalDateEnding);
+          ? new Date(fiscalDate).getFullYear().toString()
+          : formatQuarterlyPeriod(fiscalDate);
         
         let value = 0;
         
         // Calculate free cash flow if needed
         if (metric.key === 'freeCashFlow' && activeStatement === 'CASH_FLOW') {
-          const operatingCashflow = parseFloat(report.operatingCashflow || '0');
-          const capitalExpenditures = parseFloat(report.capitalExpenditures || '0');
+          const operatingCashflow = parseFloat(String(report.operatingCashflow || '0'));
+          const capitalExpenditures = parseFloat(String(report.capitalExpenditures || '0'));
           value = operatingCashflow - Math.abs(capitalExpenditures); // CapEx is usually negative
         } else {
           // Handle "None" values from Alpha Vantage
           const rawValue = report[metric.key];
           value = rawValue === 'None' || rawValue === null || rawValue === undefined 
             ? 0 
-            : parseFloat(rawValue);
+            : parseFloat(String(rawValue));
         }
         
-        values[period] = isNaN(value) ? 0 : value;
+        values[period] = isNaN(value) ? 0 : Number(value);
       });
       
       console.log(`[FinancialsTabNew] Metric ${metric.key} values:`, values);
@@ -239,7 +242,7 @@ const FinancialsTabNew: React.FC<TabContentProps> = ({ ticker, data, isLoading, 
       loadFinancialData('BALANCE_SHEET');
       loadFinancialData('CASH_FLOW');
     }
-  }, [ticker]);
+  }, [ticker, loadFinancialData]);
 
   // Handle metric selection toggle
   const handleMetricToggle = (metricKey: string) => {
@@ -275,7 +278,7 @@ const FinancialsTabNew: React.FC<TabContentProps> = ({ ticker, data, isLoading, 
     : [];
 
   // Prepare data for chart
-  const chartFinancialData = currentFinancialData.reduce((acc: Record<string, Record<string, number>>, metric: FinancialMetric) => {
+  const chartFinancialData = currentFinancialData.reduce((acc: Record<string, Record<string, string | number>>, metric: FinancialMetric) => {
     acc[metric.key] = metric.values;
     return acc;
   }, {});

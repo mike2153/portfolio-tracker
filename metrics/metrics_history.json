@@ -1,0 +1,221 @@
+[
+  {
+    "timestamp": "2025-08-01T18:09:12.035423",
+    "typescript_coverage": 60,
+    "python_type_errors": 636,
+    "security_violations": [
+      "Raw SQL f-string in backend\\backend_api_routes\\backend_api_watchlist.py:286",
+      "Raw SQL f-string in backend\\services\\dividend_service.py:1784",
+      "Float/int in financial calculation: backend\\services\\feature_flag_service.py:452",
+      "Raw SQL f-string in backend\\services\\index_sim_service.py:112",
+      "Raw SQL f-string in backend\\services\\index_sim_service.py:114",
+      "Raw SQL f-string in backend\\services\\index_sim_service.py:129",
+      "SQL concatenation in backend\\services\\price_manager.py:1197",
+      "SQL concatenation in backend\\services\\price_manager.py:1313",
+      "Raw SQL f-string in backend\\supa_api\\supa_api_transactions.py:155"
+    ],
+    "code_duplication_percent": 1.0,
+    "bundle_size_kb": 3981.861328125,
+    "load_time_ms": 39818,
+    "status": "FAIL",
+    "details": {
+      "typescript_issues": [
+        "'any' type found in frontend\\src\\components\\charts\\ApexChart.tsx",
+        "'any' type found in frontend\\src\\components\\charts\\PriceChartApex.tsx",
+        "'any' type found in frontend\\src\\components\\charts\\StockChart.tsx",
+        "'any' type found in frontend\\src\\app\\portfolio\\portfolio.test.tsx",
+        "'any' type found in frontend\\src\\app\\portfolio\\components\\AllocationCharts.tsx",
+        "'any' type found in frontend\\src\\app\\dashboard\\components\\GainLossCard.tsx",
+        "'any' type found in frontend\\src\\app\\dashboard\\components\\KPICard.tsx",
+        "'any' type found in frontend\\src\\app\\analytics\\components\\AnalyticsDividendsTabRefactored.tsx"
+      ],
+      "python_issues": [
+        "backend\\config.py:6: error: Cannot find implementation or library stub for module named \"dotenv\"  [import-not-found]",
+        "backend\\utils\\exceptions.py:7: error: Cannot find implementation or library stub for module named \"fastapi\"  [import-not-found]",
+        "backend\\utils\\exceptions.py:9: error: Cannot find implementation or library stub for module named \"pydantic\"  [import-not-found]",
+        "backend\\utils\\exceptions.py:12: error: Class cannot subclass \"BaseModel\" (has type \"Any\")  [misc]",
+        "backend\\utils\\exceptions.py:20: error: Class cannot subclass \"HTTPException\" (has type \"Any\")  [misc]",
+        "backend\\utils\\exceptions.py:31: error: Incompatible default for argument \"details\" (default has type \"None\", argument has type \"dict[str, Any]\")  [assignment]",
+        "backend\\utils\\exceptions.py:128: error: Incompatible types in assignment (expression has type \"str\", target has type \"bool\")  [assignment]",
+        "backend\\utils\\exceptions.py:276: error: Incompatible default for argument \"context\" (default has type \"None\", argument has type \"dict[str, Any]\")  [assignment]",
+        "backend\\utils\\exceptions.py:287: error: Incompatible types in assignment (expression has type \"dict[str, Any]\", target has type \"str\")  [assignment]",
+        "backend\\utils\\auth_helpers.py:5: error: Cannot find implementation or library stub for module named \"fastapi\"  [import-not-found]"
+      ],
+      "security_counts": {
+        "raw_sql": 6,
+        "float_in_financial": 1,
+        "sql_injection_risk": 2,
+        "unsafe_cors": 0
+      },
+      "duplication_issues": [
+        "Potential duplicate JSX in page.tsx",
+        "Potential duplicate JSX in page.tsx"
+      ],
+      "performance_issues": [
+        "Bundle size 3982KB exceeds limit of 500KB",
+        "Estimated load time 39818ms exceeds 2000ms"
+      ],
+      "total_issues": 31
+    }
+  },
+  {
+    "timestamp": "2025-08-01T20:30:37.079679",
+    "type_safety": {
+      "typescript_coverage": 0.0,
+      "python_type_errors": 0,
+      "any_type_count": 0,
+      "status": "FAIL"
+    },
+    "security": {
+      "sql_injection_vulns": 0,
+      "raw_sql_count": 0,
+      "float_in_financial": 0,
+      "rls_policy_coverage": 100,
+      "status": "PASS"
+    },
+    "code_quality": {
+      "duplication_percent": 0.0,
+      "test_coverage": 0.0,
+      "documentation_drift": 0,
+      "status": "FAIL"
+    },
+    "performance": {
+      "bundle_size_kb": 0,
+      "load_time_ms": 0,
+      "render_time_ms": 0,
+      "memory_leaks": 0,
+      "status": "UNKNOWN"
+    },
+    "overall_status": "FAIL"
+  },
+  {
+    "timestamp": "2025-08-01T20:30:45.898862",
+    "typescript_coverage": 60,
+    "python_type_errors": 636,
+    "security_violations": [
+      "Raw SQL f-string in backend\\backend_api_routes\\backend_api_watchlist.py:286",
+      "Raw SQL f-string in backend\\services\\dividend_service.py:1784",
+      "Float/int in financial calculation: backend\\services\\feature_flag_service.py:452",
+      "Raw SQL f-string in backend\\services\\index_sim_service.py:112",
+      "Raw SQL f-string in backend\\services\\index_sim_service.py:114",
+      "Raw SQL f-string in backend\\services\\index_sim_service.py:129",
+      "SQL concatenation in backend\\services\\price_manager.py:1197",
+      "SQL concatenation in backend\\services\\price_manager.py:1313",
+      "Raw SQL f-string in backend\\supa_api\\supa_api_transactions.py:155"
+    ],
+    "code_duplication_percent": 1.0,
+    "bundle_size_kb": 3981.861328125,
+    "load_time_ms": 39818,
+    "status": "FAIL",
+    "details": {
+      "typescript_issues": [
+        "'any' type found in frontend\\src\\components\\charts\\ApexChart.tsx",
+        "'any' type found in frontend\\src\\components\\charts\\PriceChartApex.tsx",
+        "'any' type found in frontend\\src\\components\\charts\\StockChart.tsx",
+        "'any' type found in frontend\\src\\app\\portfolio\\portfolio.test.tsx",
+        "'any' type found in frontend\\src\\app\\portfolio\\components\\AllocationCharts.tsx",
+        "'any' type found in frontend\\src\\app\\dashboard\\components\\GainLossCard.tsx",
+        "'any' type found in frontend\\src\\app\\dashboard\\components\\KPICard.tsx",
+        "'any' type found in frontend\\src\\app\\analytics\\components\\AnalyticsDividendsTabRefactored.tsx"
+      ],
+      "python_issues": [
+        "backend\\config.py:6: error: Cannot find implementation or library stub for module named \"dotenv\"  [import-not-found]",
+        "backend\\utils\\exceptions.py:7: error: Cannot find implementation or library stub for module named \"fastapi\"  [import-not-found]",
+        "backend\\utils\\exceptions.py:9: error: Cannot find implementation or library stub for module named \"pydantic\"  [import-not-found]",
+        "backend\\utils\\exceptions.py:12: error: Class cannot subclass \"BaseModel\" (has type \"Any\")  [misc]",
+        "backend\\utils\\exceptions.py:20: error: Class cannot subclass \"HTTPException\" (has type \"Any\")  [misc]",
+        "backend\\utils\\exceptions.py:31: error: Incompatible default for argument \"details\" (default has type \"None\", argument has type \"dict[str, Any]\")  [assignment]",
+        "backend\\utils\\exceptions.py:128: error: Incompatible types in assignment (expression has type \"str\", target has type \"bool\")  [assignment]",
+        "backend\\utils\\exceptions.py:276: error: Incompatible default for argument \"context\" (default has type \"None\", argument has type \"dict[str, Any]\")  [assignment]",
+        "backend\\utils\\exceptions.py:287: error: Incompatible types in assignment (expression has type \"dict[str, Any]\", target has type \"str\")  [assignment]",
+        "backend\\utils\\auth_helpers.py:5: error: Cannot find implementation or library stub for module named \"fastapi\"  [import-not-found]"
+      ],
+      "security_counts": {
+        "raw_sql": 6,
+        "float_in_financial": 1,
+        "sql_injection_risk": 2,
+        "unsafe_cors": 0
+      },
+      "duplication_issues": [
+        "Potential duplicate JSX in page.tsx",
+        "Potential duplicate JSX in page.tsx"
+      ],
+      "performance_issues": [
+        "Bundle size 3982KB exceeds limit of 500KB",
+        "Estimated load time 39818ms exceeds 2000ms"
+      ],
+      "total_issues": 31
+    }
+  },
+  {
+    "timestamp": "2025-08-02T11:53:41.071985",
+    "typescript_coverage": 35,
+    "python_type_errors": 524,
+    "security_violations": [
+      "Float/int in financial calculation: backend\\backend_api_routes\\backend_api_portfolio.py:988",
+      "Float/int in financial calculation: backend\\backend_api_routes\\backend_api_portfolio.py:1116",
+      "Float/int in financial calculation: backend\\backend_api_routes\\backend_api_portfolio.py:1120",
+      "Float/int in financial calculation: backend\\backend_api_routes\\backend_api_portfolio.py:1141",
+      "Float/int in financial calculation: backend\\backend_api_routes\\backend_api_portfolio.py:1164",
+      "Float/int in financial calculation: backend\\backend_api_routes\\backend_api_portfolio.py:1269",
+      "Raw SQL f-string in backend\\backend_api_routes\\backend_api_watchlist.py:286",
+      "Raw SQL f-string in backend\\services\\dividend_service.py:1800",
+      "Float/int in financial calculation: backend\\services\\feature_flag_service.py:452",
+      "Raw SQL f-string in backend\\services\\index_sim_service.py:112",
+      "Raw SQL f-string in backend\\services\\index_sim_service.py:114",
+      "Raw SQL f-string in backend\\services\\index_sim_service.py:129",
+      "SQL concatenation in backend\\services\\price_manager.py:1201",
+      "SQL concatenation in backend\\services\\price_manager.py:1317",
+      "Float/int in financial calculation: backend\\services\\user_performance_manager.py:173",
+      "Float/int in financial calculation: backend\\services\\user_performance_manager.py:175",
+      "Float/int in financial calculation: backend\\services\\user_performance_manager.py:287",
+      "Raw SQL f-string in backend\\supa_api\\supa_api_transactions.py:159",
+      "SQL concatenation in backend\\supa_api\\supa_api_user_performance.py:340"
+    ],
+    "code_duplication_percent": 1.0,
+    "bundle_size_kb": 111.0244140625,
+    "load_time_ms": 1110,
+    "status": "FAIL",
+    "details": {
+      "typescript_issues": [
+        "'any' type found in frontend\\src\\hooks\\useSessionPortfolio.ts",
+        "'any' type found in frontend\\src\\lib\\useStockSearch.ts",
+        "'any' type found in frontend\\src\\components\\charts\\ApexChart.tsx",
+        "'any' type found in frontend\\src\\components\\charts\\PriceChartApex.tsx",
+        "'any' type found in frontend\\src\\components\\charts\\StockChart.tsx",
+        "'any' type found in frontend\\src\\app\\portfolio\\portfolio.test.tsx",
+        "'any' type found in frontend\\src\\app\\portfolio\\components\\AllocationCharts.tsx",
+        "'any' type found in frontend\\src\\app\\portfolio\\components\\HoldingsTable.tsx",
+        "'any' type found in frontend\\src\\app\\dashboard\\components\\AllocationTableApex.tsx",
+        "'any' type found in frontend\\src\\app\\dashboard\\components\\GainLossCard.tsx",
+        "'any' type found in frontend\\src\\app\\dashboard\\components\\KPICard.tsx",
+        "'any' type found in frontend\\src\\app\\dashboard\\components\\KPIGrid.tsx",
+        "'any' type found in frontend\\src\\app\\analytics\\components\\AnalyticsDividendsTabRefactored.tsx"
+      ],
+      "python_issues": [
+        "backend\\utils\\response_factory.py:8: error: Cannot find implementation or library stub for module named \"models.response_models\"  [import-not-found]",
+        "backend\\utils\\decimal_json_encoder.py:27: error: Function is missing a type annotation for one or more arguments  [no-untyped-def]",
+        "backend\\services\\portfolio_calculator.py:12: error: Cannot find implementation or library stub for module named \"services.price_manager\"  [import-not-found]",
+        "backend\\services\\portfolio_calculator.py:13: error: Cannot find implementation or library stub for module named \"services.feature_flag_service\"  [import-not-found]",
+        "backend\\services\\portfolio_calculator.py:14: error: Cannot find implementation or library stub for module named \"supa_api.supa_api_transactions\"  [import-not-found]",
+        "backend\\services\\portfolio_calculator.py:15: error: Cannot find implementation or library stub for module named \"supa_api.supa_api_jwt_helpers\"  [import-not-found]",
+        "backend\\services\\portfolio_calculator.py:16: error: Cannot find implementation or library stub for module named \"utils.auth_helpers\"  [import-not-found]",
+        "backend\\services\\portfolio_calculator.py:93: error: Incompatible types in assignment (expression has type \"float\", variable has type \"Decimal\")  [assignment]",
+        "backend\\services\\portfolio_calculator.py:96: error: Unsupported operand types for + (\"float\" and \"Decimal\")  [operator]",
+        "backend\\services\\portfolio_calculator.py:103: error: Unsupported operand types for * (\"Decimal\" and \"float\")  [operator]"
+      ],
+      "security_counts": {
+        "raw_sql": 6,
+        "float_in_financial": 10,
+        "sql_injection_risk": 3,
+        "unsafe_cors": 0
+      },
+      "duplication_issues": [
+        "Potential duplicate JSX in page.tsx",
+        "Potential duplicate JSX in page.tsx"
+      ],
+      "performance_issues": [],
+      "total_issues": 44
+    }
+  }
+]

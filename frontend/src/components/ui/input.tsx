@@ -74,7 +74,7 @@ const AutocompleteInput = React.forwardRef<HTMLInputElement, AutocompleteInputPr
               const results = await onSearch(query);
               setSuggestions(results.slice(0, maxSuggestions));
               setIsOpen(true);
-            } catch (error) {
+            } catch {
               // Commenting out verbose error logs
               // console.error('Autocomplete search error:', error);
               setSuggestions([]);
@@ -125,8 +125,11 @@ const AutocompleteInput = React.forwardRef<HTMLInputElement, AutocompleteInputPr
           break;
         case 'Enter':
           e.preventDefault();
-          if (highlightedIndex >= 0) {
-            handleOptionSelect(suggestions[highlightedIndex]);
+          if (highlightedIndex >= 0 && highlightedIndex < suggestions.length) {
+            const selectedOption = suggestions[highlightedIndex];
+            if (selectedOption) {
+              handleOptionSelect(selectedOption);
+            }
           }
           break;
         case 'Escape':

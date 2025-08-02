@@ -1,14 +1,7 @@
 import React from 'react';
-import { StockResearchData } from '@/types/stock-research';
 
 interface ComparisonTabProps {
-  ticker: string;
-  data: StockResearchData;
   isLoading: boolean;
-  onRefresh: () => void;
-  comparisonStocks: string[];
-  onStockAdd: (ticker: string) => void;
-  onStockRemove: (ticker: string) => void;
 }
 
 const ComparisonTab: React.FC<ComparisonTabProps> = ({ isLoading }) => {

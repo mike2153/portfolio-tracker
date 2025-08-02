@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import ApexChart from './ApexChart';
+import { ApexChart } from '.';
 
 interface PriceEpsData {
   date: string;
@@ -102,6 +102,8 @@ export default function PriceEpsChartApex({
     if (!data || data.length === 0) return null;
     
     const latest = data[data.length - 1];
+    if (!latest) return null;
+    
     const previousYear = data.find(item => {
       const latestDate = new Date(latest.date);
       const itemDate = new Date(item.date);

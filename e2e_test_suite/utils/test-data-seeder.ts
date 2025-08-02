@@ -1,6 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
 import axios from 'axios';
-import { faker } from 'faker';
 import moment from 'moment';
 
 interface TestUser {

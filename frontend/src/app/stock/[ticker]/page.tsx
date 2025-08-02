@@ -4,8 +4,10 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { FinancialStatements } from '@/types'
-import BalanceSheet from '@/components/BalanceSheet'
+// BalanceSheet component to be implemented
 import AdvancedFinancialsComponent from '@/components/AdvancedFinancials'
+// Import centralized formatters
+import { formatLargeNumber as formatCompactNumber } from '../../../../../shared/utils/formatters'
 
 // Dynamically import ApexChart
 const ApexChart = dynamic(() => import('@/components/charts/ApexChart'), { ssr: false })
@@ -57,11 +59,17 @@ interface NewsItem {
 }
 
 interface StockAnalysisPageProps {
-  params: { ticker: string }
+  params: Promise<{ ticker: string }>
 }
 
 export default function StockAnalysisPage({ params }: StockAnalysisPageProps) {
-  const { ticker } = params
+  const [ticker, setTicker] = useState<string>('')
+  
+  useEffect(() => {
+    params.then(({ ticker }) => {
+      setTicker(ticker)
+    })
+  }, [params])
   const router = useRouter()
   
   const [overview, setOverview] = useState<StockOverview | null>(null)
@@ -141,8 +149,10 @@ export default function StockAnalysisPage({ params }: StockAnalysisPageProps) {
 
   // Fetch stock data on mount
   useEffect(() => {
-    fetchStockData();
-  }, [fetchStockData]);
+    if (ticker) {
+      fetchStockData();
+    }
+  }, [fetchStockData, ticker]);
 
   useEffect(() => {
     if (selectedTab === 'performance') {
@@ -154,12 +164,8 @@ export default function StockAnalysisPage({ params }: StockAnalysisPageProps) {
     }
   }, [selectedTab, fetchHistoricalData, fetchFinancials, fetchNews])
 
-  const formatCurrency = (value: number) => {
-    if (value >= 1e12) return `$${(value / 1e12).toFixed(1)}T`
-    if (value >= 1e9) return `$${(value / 1e9).toFixed(1)}B`
-    if (value >= 1e6) return `$${(value / 1e6).toFixed(1)}M`
-    return `$${value?.toLocaleString()}`
-  }
+  // Use centralized compact number formatter for large values
+  const formatCurrency = (value: number) => `$${formatCompactNumber(value)}`
 
   const formatPercent = (value: string | number) => {
     const num = typeof value === 'string' ? parseFloat(value) : value
@@ -310,7 +316,7 @@ export default function StockAnalysisPage({ params }: StockAnalysisPageProps) {
             </div>
             {historicalData.length > 0 ? (
               <ApexChart
-                series={[
+                data={[
                   {
                     name: ticker,
                     data: historicalData.map(d => ({
@@ -319,14 +325,13 @@ export default function StockAnalysisPage({ params }: StockAnalysisPageProps) {
                     }))
                   }
                 ]}
-                options={{
-                  chart: { type: 'line', height: 400 },
-                  title: { text: `${ticker} Stock Price (${selectedPeriod})` },
-                  xaxis: { type: 'datetime', title: { text: 'Date' } },
-                  yaxis: { title: { text: 'Price (USD)' } },
+                type="line"
+                height={400}
+                title={`${ticker} Stock Price (${selectedPeriod})`}
+                xAxisType="datetime"
+                additionalOptions={{
                   stroke: { width: 2 }
                 }}
-                height={400}
               />
             ) : <p className="text-center py-10">Loading performance data...</p>}
           </div>
@@ -354,7 +359,7 @@ export default function StockAnalysisPage({ params }: StockAnalysisPageProps) {
             </div>
             {financials ? (
               <div>
-                {selectedStatement === 'balance' && <BalanceSheet data={reportType === 'annual' ? financials.annual_reports : financials.quarterly_reports} />}
+                {selectedStatement === 'balance' && <p>Balance Sheet view coming soon...</p>}
                 {/* Placeholder for other statements */}
                 {selectedStatement === 'income' && <p>Income Statement view coming soon...</p>}
                 {selectedStatement === 'cash_flow' && <p>Cash Flow view coming soon...</p>}

@@ -3,7 +3,7 @@
 import type {
   StockSearchResult,
   StockOverview,
-  StockQuote as BaseStockQuote,
+  StockQuote as _BaseStockQuote,
   PriceDataPoint,
   FinancialStatement,
   FinancialsData,

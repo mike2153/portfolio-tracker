@@ -1,12 +1,64 @@
 {
+  "name": "portfolio-tracker",
+  "version": "1.0.0",
+  "description": "Real-time Portfolio Tracker with Quality Monitoring",
+  "scripts": {
+    "quality:check": "python scripts/quality_monitor.py",
+    "quality:watch": "python scripts/quality_monitor.py --daemon",
+    "quality:dashboard": "python scripts/quality_monitor.py --dashboard-only",
+    "quality:install": "python scripts/install_monitoring.py",
+    "quality:ci": "python scripts/ci_quality_gate.py",
+    "generate-types": "python scripts/generate_types.py",
+    "validate-types": "python scripts/validate_types.py",
+    "validate:decimal": "python scripts/validate_decimal_usage.py",
+    "validate:sql": "python scripts/detect_raw_sql.py",
+    "validate:rls": "python scripts/validate_rls_policies.py",
+    "build:safe": "npm run validate-types && npm run quality:check && npm run build",
+    "dev:safe": "npm run generate-types && npm run dev",
+    "pre-commit": "npm run validate-types && npm run quality:check",
+    "ci:quality": "npm run validate-types && npm run quality:check",
+    "ci:build": "npm run generate-types && npm run build:safe"
+  },
   "dependencies": {
     "@anthropic-ai/claude-code": "^1.0.56",
-    "playwright": "^1.53.2"
+    "playwright": "^1.53.2",
+    "jscpd": "^3.5.10"
   },
   "devDependencies": {
     "@playwright/test": "^1.53.2",
     "@testing-library/dom": "^10.4.0",
-    "@types/react": "^19.1.8",
-    "@types/react-dom": "^19.1.6"
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "type-coverage": "^2.27.1",
+    "openapi-typescript": "^6.0.0",
+    "jscpd": "^3.5.0",
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0"
+  },
+  "bulletproof": {
+    "version": "2.0.0",
+    "lastUpdated": "2025-07-30",
+    "qualityStandards": {
+      "typeScript": {
+        "strict": true,
+        "noImplicitAny": true,
+        "zeroAnyTypes": true
+      },
+      "python": {
+        "strictMypy": true,
+        "noTypeErrors": true,
+        "decimalFinancial": true
+      },
+      "security": {
+        "noRawSQL": true,
+        "rlsPolicies": true,
+        "corsSecure": true
+      },
+      "codeQuality": {
+        "maxDuplication": 3.0,
+        "minTestCoverage": 90.0,
+        "noDrift": true
+      }
+    }
   }
 }

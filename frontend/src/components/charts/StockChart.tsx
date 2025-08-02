@@ -1,11 +1,8 @@
 "use client";
 
-import React, { useMemo } from 'react';
-import dynamic from 'next/dynamic';
+import React, { useMemo, useEffect, useState } from 'react';
 import { formatCurrency, formatPercentage, formatDate } from '@/lib/front_api_client';
-
-// Dynamically import ApexCharts to avoid SSR issues
-const Chart = dynamic(() => import('react-apexcharts'), { ssr: false });
+import { useChart } from '../ChartProvider';
 
 interface StockData {
   date: Date | string;
@@ -40,7 +37,7 @@ const StockChart: React.FC<StockChartProps> = ({
   data,
   height = 400,
   width = 800,
-  showVolume = false,
+  showVolume: _showVolume = false,
   chartType = 'line',
   timePeriod = '1Y',
   showLegend = true,
@@ -48,14 +45,21 @@ const StockChart: React.FC<StockChartProps> = ({
   title,
   compareMode = false,
 }) => {
-  const chartColors = [
+  const { loadChart, isLoading: chartLoading } = useChart();
+  const [ChartComponent, setChartComponent] = useState<React.ComponentType<any> | null>(null);
+
+  useEffect(() => {
+    const apexType = chartType === 'candlestick' ? 'candlestick' : 'line';
+    loadChart(apexType).then(setChartComponent).catch(console.error);
+  }, [loadChart, chartType]);
+  const chartColors = useMemo(() => [
     '#3b82f6', // blue
     '#10b981', // green
     '#f59e0b', // amber
     '#ef4444', // red
     '#8b5cf6', // purple
     '#06b6d4', // cyan
-  ];
+  ], []);
 
   const isDark = theme === 'dark';
   const textColor = isDark ? '#d1d5db' : '#374151';
@@ -90,7 +94,7 @@ const StockChart: React.FC<StockChartProps> = ({
         ...(point.low && { low: point.low }),
         ...(point.close && { close: point.close }),
       })),
-      color: series.color || chartColors[index],
+      color: series.color || chartColors[index] || '#3b82f6',
     }));
 
     return {
@@ -111,7 +115,7 @@ const StockChart: React.FC<StockChartProps> = ({
       },
       series,
       xaxis: {
-        type: 'datetime',
+        type: 'datetime' as const,
         labels: {
           style: {
             colors: textColor,
@@ -175,15 +179,34 @@ const StockChart: React.FC<StockChartProps> = ({
       },
       fill: {
         type: chartType === 'area' ? 'gradient' : 'solid',
-        gradient: chartType === 'area' ? {
-          shadeIntensity: 1,
-          opacityFrom: 0.7,
-          opacityTo: 0.1,
-          stops: [0, 100],
-        } : undefined,
+        ...(chartType === 'area' ? {
+          gradient: {
+            shade: 'light',
+            type: 'vertical',
+            shadeIntensity: 1,
+            opacityFrom: 0.7,
+            opacityTo: 0.1,
+            stops: [0, 100],
+          }
+        } : {}),
       },
     };
   }, [processedData, chartType, height, width, backgroundColor, textColor, gridColor, showLegend, data.length, isDark, compareMode, chartColors]);
+
+  if (chartLoading || !ChartComponent) {
+    return (
+      <div style={{ backgroundColor, padding: '16px', borderRadius: '8px' }}>
+        {title && (
+          <h3 style={{ color: textColor, marginBottom: '16px', fontSize: '18px', fontWeight: 600 }}>
+            {title}
+          </h3>
+        )}
+        <div style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center', color: textColor }}>
+          Loading chart...
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ backgroundColor, padding: '16px', borderRadius: '8px' }}>
@@ -193,13 +216,15 @@ const StockChart: React.FC<StockChartProps> = ({
         </h3>
       )}
       
-      <Chart
-        options={chartOptions as any}
-        series={chartOptions.series}
-        type={chartType === 'candlestick' ? 'candlestick' : 'line'}
-        height={height}
-        width={width}
-      />
+      {ChartComponent && (
+        <ChartComponent
+          options={chartOptions}
+          series={chartOptions.series}
+          type={chartType === 'candlestick' ? 'candlestick' : 'line'}
+          height={height}
+          width={width}
+        />
+      )}
 
       {/* Time period selector */}
       <div style={{ marginTop: '16px', display: 'flex', gap: '8px', justifyContent: 'center' }}>

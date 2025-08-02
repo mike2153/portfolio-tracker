@@ -6,8 +6,8 @@ import { BarChart3, PieChart, Calculator, List, Loader2 } from 'lucide-react';
 import GradientText from '@/components/ui/GradientText';
 import PortfolioSummary from './components/PortfolioSummary';
 import HoldingsTable from './components/HoldingsTable';
-import AllocationCharts from './components/AllocationCharts';
-import RebalanceCalculator from './components/RebalanceCalculator';
+// import AllocationCharts from './components/AllocationCharts';
+// import RebalanceCalculator from './components/RebalanceCalculator';
 
 // Tab configuration
 const tabs = [
@@ -18,12 +18,12 @@ const tabs = [
 ];
 
 export default function PortfolioPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-[#0D1117] text-white">
+      <div className="min-h-screen bg-[#161B22] text-white">
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
             <Loader2 className="animate-spin h-8 w-8 mx-auto mb-4 text-blue-600" />
@@ -36,7 +36,7 @@ export default function PortfolioPage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-[#0D1117] text-white">
+      <div className="min-h-screen bg-[#161B22] text-white">
         <div className="container mx-auto px-4 py-8">
           <div className="text-center">
             <GradientText className="text-2xl font-bold mb-4">Please Log In</GradientText>
@@ -48,7 +48,7 @@ export default function PortfolioPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div className="min-h-screen bg-[#161B22] text-white">
       <div className="container mx-auto px-4 py-6 max-w-7xl">
         {/* Page Header */}
         <div className="mb-8">
@@ -95,7 +95,10 @@ export default function PortfolioPage() {
 
           {activeTab === 'allocation' && (
             <div className="animate-fadeIn">
-              <AllocationCharts />
+              {/* <AllocationCharts /> */}
+              <div className="p-4 text-center text-gray-500">
+                Allocation charts coming soon...
+              </div>
               <div className="mt-6">
                 <HoldingsTable />
               </div>
@@ -117,7 +120,10 @@ export default function PortfolioPage() {
 
           {activeTab === 'rebalance' && (
             <div className="animate-fadeIn">
-              <RebalanceCalculator />
+              <div className="p-6 text-center text-gray-400">
+                <Calculator className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>Rebalance Calculator Coming Soon</p>
+              </div>
             </div>
           )}
         </div>

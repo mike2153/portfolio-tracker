@@ -7,7 +7,7 @@ import { TrendingUp, TrendingDown, AlertCircle, DollarSign, BarChart3, PieChart,
 import GradientText from '@/components/ui/GradientText'
 
 // Dynamically import ApexChart
-const ApexChart = dynamic(() => import('@/components/charts/ApexChart'), { ssr: false })
+const _ApexChart = dynamic(() => import('@/components/charts/ApexChart'), { ssr: false })
 
 interface AdvancedFinancialsProps {
   symbol: string
@@ -142,27 +142,27 @@ export default function AdvancedFinancialsComponent({ symbol }: AdvancedFinancia
   }
 
   // Prepare data for charts
-  const valuationData = [
+  const _valuationData = [
     { metric: 'P/E Ratio', value: financials.valuation.pe_ratio || 0 },
     { metric: 'P/B Ratio', value: financials.valuation.pb_ratio || 0 },
     { metric: 'PEG Ratio', value: financials.valuation.peg_ratio || 0 },
     { metric: 'EV/EBITDA', value: financials.valuation.ev_to_ebitda || 0 }
   ]
 
-  const profitabilityData = [
+  const _profitabilityData = [
     { metric: 'Gross Margin', value: (financials.profitability.gross_margin || 0) * 100 },
     { metric: 'Operating Margin', value: (financials.profitability.operating_margin || 0) * 100 },
     { metric: 'Net Margin', value: (financials.profitability.net_profit_margin || 0) * 100 }
   ]
 
-  const performanceData = [
+  const _performanceData = [
     { metric: 'Revenue Growth (YoY)', value: (financials.performance.revenue_growth_yoy || 0) * 100 },
     { metric: 'Revenue Growth (5Y CAGR)', value: (financials.performance.revenue_growth_5y_cagr || 0) * 100 },
     { metric: 'EPS Growth (YoY)', value: (financials.performance.eps_growth_yoy || 0) * 100 },
     { metric: 'EPS Growth (5Y CAGR)', value: (financials.performance.eps_growth_5y_cagr || 0) * 100 }
   ]
 
-  const getChangeColor = (value: number | null | undefined) => {
+  const _getChangeColor = (value: number | null | undefined) => {
     if (value === null || value === undefined) return 'text-gray-600'
     if (value > 0) return 'text-green-600'
     return 'text-red-600'

@@ -1,14 +1,14 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, ChangeEvent } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, ChangeEvent } from 'react';
 import { Loader2 } from 'lucide-react';
-import { front_api_search_symbols, front_api_get_quote } from '@/lib/front_api_client';
+import { front_api_search_symbols } from '@/lib/front_api_client';
 import { StockSymbol } from '@/types/api';
 import { useToast } from '@/components/ui/Toast';
 
-const debounce = <T extends (...args: any[]) => void>(func: T, delay = 300) => {
+const debounce = <T extends (...args: Parameters<T>) => void>(func: T, delay = 300) => {
     let timeoutId: NodeJS.Timeout;
-    return (...args: any[]) => {
+    return (...args: Parameters<T>) => {
         clearTimeout(timeoutId);
         timeoutId = setTimeout(() => {
             func(...args);
@@ -37,17 +37,17 @@ interface AddDividendModalProps {
 
 export const AddDividendModal: React.FC<AddDividendModalProps> = ({ isOpen, onClose, onSave, isSubmitting }) => {
     const { addToast } = useToast();
-    const initialFormState: ManualDividendFormState = {
+    const initialFormState: ManualDividendFormState = useMemo(() => ({
         ticker: '',
         company_name: '',
-        payment_date: new Date().toISOString().split('T')[0],
+        payment_date: new Date().toISOString().split('T')[0] as string,
         total_received: '',
         amount_per_share: '',
         fee: '0',
         tax: '0',
         note: '',
         update_cash_balance: true,
-    };
+    }), []);
 
     const [form, setForm] = useState<ManualDividendFormState>(initialFormState);
     const [showSuggestions, setShowSuggestions] = useState(false);
@@ -59,10 +59,10 @@ export const AddDividendModal: React.FC<AddDividendModalProps> = ({ isOpen, onCl
         if (isOpen) {
             setForm(initialFormState);
         }
-    }, [isOpen]);
+    }, [isOpen, initialFormState]);
 
     const handleFormChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-        const { name, value, type } = e.target;
+        const { name, value } = e.target;
         const isCheckbox = (e.target as HTMLInputElement).type === 'checkbox';
         const checked = (e.target as HTMLInputElement).checked;
 
@@ -72,7 +72,7 @@ export const AddDividendModal: React.FC<AddDividendModalProps> = ({ isOpen, onCl
         }));
     };
 
-    const handleTickerSearch = useCallback(debounce(async (query: string) => {
+    const searchFunction = useCallback(async (query: string) => {
         if (query.length < 1) {
             setTickerSuggestions([]);
             return;
@@ -83,19 +83,24 @@ export const AddDividendModal: React.FC<AddDividendModalProps> = ({ isOpen, onCl
         }
         setSearchLoading(true);
         try {
-            const response: any = await front_api_search_symbols({ query, limit: 10 });
+            const response = await front_api_search_symbols({ query, limit: 10 });
             if (response?.ok && response?.data?.results) {
                 setTickerSuggestions(response.data.results);
                 setSearchCache(prev => ({ ...prev, [query]: response.data.results }));
             } else {
                 setTickerSuggestions([]);
             }
-        } catch (error) {
+        } catch {
             setTickerSuggestions([]);
         } finally {
             setSearchLoading(false);
         }
-    }, 300), [searchCache]);
+    }, [searchCache]);
+
+    const handleTickerSearch = useMemo(
+        () => debounce(searchFunction, 300),
+        [searchFunction]
+    );
 
     const handleSuggestionClick = (symbol: StockSymbol) => {
         setForm(prev => ({
@@ -116,8 +121,10 @@ export const AddDividendModal: React.FC<AddDividendModalProps> = ({ isOpen, onCl
             addToast({ type: 'error', title: 'Validation Error', message: 'Payment date is required.' });
             return;
         }
-        if (Number(form.total_received) <= 0) {
-            addToast({ type: 'error', title: 'Validation Error', message: 'Total Received must be greater than zero.' });
+        // Validate total_received with NaN check
+        const totalReceivedNum = Number(form.total_received);
+        if (isNaN(totalReceivedNum) || totalReceivedNum <= 0) {
+            addToast({ type: 'error', title: 'Validation Error', message: 'Total Received must be a valid number greater than zero.' });
             return;
         }
         await onSave(form, saveAndNew);

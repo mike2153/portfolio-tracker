@@ -4,13 +4,11 @@ import '@testing-library/jest-dom';
 
 // Mocks need to be declared before component imports
 jest.mock('@/lib/api', () => ({
-  transactionAPI: {
-    getUserTransactions: jest.fn(),
-    getTransactionSummary: jest.fn(),
-    createTransaction: jest.fn(),
-    updateCurrentPrices: jest.fn(),
-  },
   apiService: {
+    getTransactions: jest.fn(),
+    addTransaction: jest.fn(),
+    updateTransaction: jest.fn(),
+    deleteTransaction: jest.fn(),
     getHistoricalData: jest.fn(),
     searchSymbols: jest.fn(),
   },
@@ -30,14 +28,14 @@ jest.mock('@/lib/supabaseClient', () => ({
 }));
 
 import TransactionsPage from './page';
-import { transactionAPI, apiService } from '@/lib/api';
+import { apiService } from '@/lib/api';
 
 const mockTransactions = [
   { id: 1, transaction_type: 'BUY', ticker: 'AAPL', company_name: 'Apple Inc.', shares: 10, price_per_share: 150, transaction_date: '2023-01-15', total_amount: 1500, transaction_currency: 'USD', commission: 0, notes: '', created_at: '' },
   { id: 2, transaction_type: 'SELL', ticker: 'GOOG', company_name: 'Alphabet Inc.', shares: 5, price_per_share: 2800, transaction_date: '2023-01-20', total_amount: 14000, transaction_currency: 'USD', commission: 0, notes: '', created_at: '' },
 ];
 
-const mockSummary = {
+const _mockSummary = {
   total_transactions: 2,
   buy_transactions: 1,
   sell_transactions: 1,
@@ -52,10 +50,10 @@ const mockSummary = {
 describe('TransactionsPage', () => {
   beforeEach(() => {
     // Reset mocks before each test
-    (transactionAPI.getUserTransactions as jest.Mock).mockResolvedValue({ ok: true, data: { transactions: mockTransactions } });
-    (transactionAPI.getTransactionSummary as jest.Mock).mockResolvedValue({ ok: true, data: { summary: mockSummary } });
-    (transactionAPI.createTransaction as jest.Mock).mockResolvedValue({ ok: true, data: {} });
-    (transactionAPI.updateCurrentPrices as jest.Mock).mockResolvedValue({ ok: true, data: {} });
+    (apiService.getTransactions as jest.Mock).mockResolvedValue({ ok: true, data: { transactions: mockTransactions } });
+    (apiService.addTransaction as jest.Mock).mockResolvedValue({ ok: true, data: {} });
+    (apiService.updateTransaction as jest.Mock).mockResolvedValue({ ok: true, data: {} });
+    (apiService.deleteTransaction as jest.Mock).mockResolvedValue({ ok: true, data: {} });
     (apiService.getHistoricalData as jest.Mock).mockResolvedValue({ ok: true, data: { data: [] } });
     (apiService.searchSymbols as jest.Mock).mockResolvedValue({ ok: true, data: { results: [] } });
   });
@@ -187,7 +185,7 @@ describe('TransactionsPage', () => {
 
   test('handles API errors gracefully', async () => {
     // Mock a failed API call
-    (transactionAPI.getUserTransactions as jest.Mock).mockResolvedValue({ ok: false, message: 'Internal Server Error' });
+    (apiService.getTransactions as jest.Mock).mockResolvedValue({ ok: false, message: 'Internal Server Error' });
 
     render(<TransactionsPage />);
 

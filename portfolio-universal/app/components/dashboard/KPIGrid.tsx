@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import KPICard from './KPICard';
 import { useDashboard } from '../../contexts/DashboardContext';
 import { useAuth } from '../AuthProvider';
-import { front_api_get_dashboard, front_api_get_analytics_summary } from '@portfolio-tracker/shared';
+import { usePortfolioSummary, usePerformanceData, useDividendData } from '../../hooks/usePortfolioComplete';
 
 interface KPIGridProps {
   initialData?: any;
@@ -32,61 +32,38 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
   } = useDashboard();
   const { user } = useAuth();
 
-  const { data: apiData, isLoading, isError, error } = useQuery<any, Error>({
-    queryKey: ['dashboard'],
-    queryFn: async (): Promise<any> => {
-      try {
-        const result: any = await front_api_get_dashboard();
-        
-        if (!result.success) {
-          throw new Error(result.error || 'API returned an error');
-        }
-        
-        return result;
-      } catch (apiError) {
-        throw apiError;
-      }
-    },
-    enabled: !!user && !!userId,
-    staleTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: false,
-    retry: 3,
-    retryDelay: (attemptIndex) => {
-      const delay = Math.min(1000 * 2 ** attemptIndex, 30000);
-      return delay;
-    },
-  });
+  // NEW: Use consolidated hooks instead of individual API calls
+  const {
+    totalValue,
+    totalGainLoss,
+    totalGainLossPercent,
+    isLoading: portfolioLoading,
+    isError: portfolioError
+  } = usePortfolioSummary({ enabled: !!user && !!userId });
+  
+  const {
+    sharpeRatio,
+    isLoading: performanceLoading
+  } = usePerformanceData({ enabled: !!user && !!userId });
+  
+  const {
+    totalReceivedYtd,
+    dividendCount,
+    isLoading: dividendLoading
+  } = useDividendData({ enabled: !!user && !!userId });
+  
+  // Combine loading and error states
+  const isLoading = portfolioLoading || performanceLoading || dividendLoading;
+  const isError = portfolioError;
+  
+  // No need for apiData - we have direct access to values from hooks
 
-  // Fetch analytics summary for dividend and IRR data
-  const { data: analyticsData } = useQuery<any, Error>({
-    queryKey: ['analytics-summary'],
-    queryFn: async (): Promise<any> => {
-      try {
-        const result: any = await front_api_get_analytics_summary();
-        
-        if (!result.success) {
-          throw new Error(result.error || 'Analytics API returned an error');
-        }
-        
-        return result;
-      } catch (apiError) {
-        throw apiError;
-      }
-    },
-    enabled: !!user && !!userId,
-    staleTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: false,
-    retry: 3,
-  });
-
-  const data = apiData || initialData;
-
-  // Transform the dashboard API response to KPI format
-  const transformedData = data ? {
+  // Transform consolidated hook data to KPI format
+  const transformedData = {
     marketValue: {
-      value: data.portfolio?.total_value || 0,
-      sub_label: `Cost Basis: $${(data.portfolio?.total_cost || 0).toLocaleString()}`,
-      is_positive: (data.portfolio?.total_gain_loss || 0) >= 0
+      value: totalValue || initialData?.portfolio?.total_value || 0,
+      sub_label: `Cost Basis: $${((totalValue - totalGainLoss) || initialData?.portfolio?.total_cost || 0).toLocaleString()}`,
+      is_positive: (totalGainLoss || initialData?.portfolio?.total_gain_loss || 0) >= 0
     },
     capitalGains: {
       value: data.portfolio?.total_gain_loss || 0,

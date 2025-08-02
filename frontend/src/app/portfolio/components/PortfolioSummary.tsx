@@ -1,54 +1,50 @@
 'use client';
 
-import { usePortfolioAllocation } from '@/hooks/usePortfolioAllocation';
+import { useSessionPortfolio } from '@/hooks/useSessionPortfolio';
 import KPICard from '@/app/dashboard/components/KPICard';
 import { KPIGridSkeleton } from '@/app/dashboard/components/Skeletons';
 
 export default function PortfolioSummary() {
-  // Use the portfolio allocation hook which already has cached data
-  const { data: allocationData, isLoading } = usePortfolioAllocation();
+  // Use the portfolio session hook which already has cached data
+  const { portfolioData, performanceData, isLoading } = useSessionPortfolio();
 
   if (isLoading) {
     return <KPIGridSkeleton />;
   }
 
-  if (!allocationData) {
+  if (!portfolioData) {
     return null;
   }
 
-  // Calculate daily change from holdings
-  const dailyChange = allocationData.allocations.reduce((sum, holding) => 
-    sum + (holding.daily_change || 0), 0
-  );
-  const dailyChangePercent = allocationData.summary.total_value > 0 
-    ? (dailyChange / allocationData.summary.total_value) * 100 
-    : 0;
+  // Get daily change from performance data
+  const dailyChange = performanceData?.daily_change || 0;
+  const dailyChangePercent = performanceData?.daily_change_percent || 0;
 
-  // Transform data for KPI cards using the allocation data
+  // Transform data for KPI cards using the portfolio data
   const marketValueData = {
-    value: allocationData.summary.total_value,
-    sub_label: `Cost Basis: $${allocationData.summary.total_cost.toLocaleString()}`,
-    is_positive: allocationData.summary.total_gain_loss >= 0
+    value: portfolioData.total_value,
+    sub_label: `Cost Basis: $${portfolioData.total_cost.toLocaleString()}`,
+    is_positive: portfolioData.total_gain_loss >= 0
   };
 
   const capitalGainsData = {
-    value: allocationData.summary.total_gain_loss,
-    sub_label: `${allocationData.summary.total_gain_loss_percent.toFixed(2)}%`,
-    is_positive: allocationData.summary.total_gain_loss >= 0
+    value: portfolioData.total_gain_loss,
+    sub_label: `${portfolioData.total_gain_loss_percent.toFixed(2)}%`,
+    is_positive: portfolioData.total_gain_loss >= 0
   };
 
   // Calculate total return (capital gains + dividends)
-  const totalDividends = allocationData.summary.total_dividends || 0;
-  const totalReturnValue = allocationData.summary.total_gain_loss + totalDividends;
+  const totalDividends = portfolioData.holdings.reduce((sum, holding) => sum + (holding.dividends_received || 0), 0);
+  const totalReturnValue = portfolioData.total_gain_loss + totalDividends;
   const totalReturnData = {
     value: totalReturnValue,
     sub_label: 'Capital Gains + Dividends',
     is_positive: totalReturnValue >= 0
   };
 
-  // Calculate net invested from allocations
-  const netInvested = allocationData.summary.total_cost;
-  const totalTransactions = allocationData.allocations.length;
+  // Calculate net invested from holdings
+  const netInvested = portfolioData.total_cost;
+  const totalTransactions = portfolioData.holdings.length;
   const netInvestedData = {
     value: netInvested,
     sub_label: `${totalTransactions} holdings`,
@@ -62,8 +58,8 @@ export default function PortfolioSummary() {
   };
 
   // Calculate total return percentage
-  const totalReturnPercent = allocationData.summary.total_cost > 0
-    ? (totalReturnValue / allocationData.summary.total_cost) * 100
+  const totalReturnPercent = portfolioData.total_cost > 0
+    ? (totalReturnValue / portfolioData.total_cost) * 100
     : 0;
 
   return (
@@ -76,7 +72,7 @@ export default function PortfolioSummary() {
           data={capitalGainsData} 
           prefix="$" 
           showPercentage={true}
-          percentValue={allocationData.summary.total_gain_loss_percent}
+          percentValue={portfolioData.total_gain_loss_percent}
         />
         <KPICard 
           title="Total Return" 

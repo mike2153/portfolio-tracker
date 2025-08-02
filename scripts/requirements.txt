@@ -1,0 +1,11 @@
+# Quality Monitoring Requirements
+# Install with: pip install -r scripts/requirements.txt
+
+# Core dependencies for quality monitoring
+requests>=2.31.0
+python-dateutil>=2.8.2
+
+# Optional: For enhanced monitoring capabilities
+mypy>=1.5.0                    # Python type checking
+jscpd>=3.5.0                   # JavaScript/TypeScript code duplication detection
+lighthouse>=10.0.0             # Web performance auditing (requires Node.js)

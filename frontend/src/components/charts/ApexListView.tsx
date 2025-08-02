@@ -8,7 +8,7 @@ export interface ListViewColumn<T> {
   label: string;
   sortable?: boolean;
   searchable?: boolean;
-  render?: (value: any, item: T) => React.ReactNode;
+  render?: (value: unknown, item: T) => React.ReactNode;
   className?: string;
   width?: string;
 }
@@ -44,7 +44,7 @@ export interface ApexListViewProps<T> {
   }>;
 }
 
-export default function ApexListView<T extends Record<string, any>>({
+export default function ApexListView<T extends Record<string, unknown>>({
   data,
   columns,
   actions = [],
@@ -259,7 +259,7 @@ export default function ApexListView<T extends Record<string, any>>({
           <p className="text-lg font-medium">{emptyMessage}</p>
           {searchTerm && (
             <p className="text-sm mt-2">
-              No results found for "{searchTerm}"
+              No results found for &quot;{searchTerm}&quot;
             </p>
           )}
         </div>
@@ -411,7 +411,7 @@ export default function ApexListView<T extends Record<string, any>>({
       {/* Debug info in development */}
       {process.env.NODE_ENV === 'development' && (
         <div className="mt-4 text-xs text-[#8B949E] border-t border-[#30363D] pt-2">
-          Debug: {paginatedData.length} items displayed, {totalPages} pages, Search: "{searchTerm}", Sort: {sortConfig.key ? `${String(sortConfig.key)} ${sortConfig.direction}` : 'none'}
+          Debug: {paginatedData.length} items displayed, {totalPages} pages, Search: &quot;{searchTerm}&quot;, Sort: {sortConfig.key ? `${String(sortConfig.key)} ${sortConfig.direction}` : 'none'}
         </div>
       )}
     </div>

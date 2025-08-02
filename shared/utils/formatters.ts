@@ -5,30 +5,51 @@ import { NUMBER_FORMAT_OPTIONS } from './constants';
 // =================
 
 /**
- * Format a number as currency
- * @param value - The number to format
- * @param currency - Currency code (default: USD)
+ * Format a number as currency with safe null handling
+ * @param value - The number to format (handles null/undefined safely)
+ * @param options - Formatting options
  * @returns Formatted currency string
  */
-export function formatCurrency(value: number, currency: string = 'USD'): string {
+export function formatCurrency(
+  value: number | null | undefined, 
+  options: {
+    currency?: string;
+    minimumFractionDigits?: number;
+    maximumFractionDigits?: number;
+  } = {}
+): string {
+  // Handle null/undefined/NaN values safely
+  const safeValue = (value === null || value === undefined || isNaN(Number(value))) ? 0 : Number(value);
+  
+  const {
+    currency = 'USD',
+    minimumFractionDigits = 2,
+    maximumFractionDigits = 2
+  } = options;
+
   return new Intl.NumberFormat('en-US', {
     ...NUMBER_FORMAT_OPTIONS.currency,
     currency,
-  }).format(value);
+    minimumFractionDigits,
+    maximumFractionDigits,
+  }).format(safeValue);
 }
 
 /**
- * Format a number as percentage
- * @param value - The decimal value to format (0.05 = 5%)
+ * Format a number as percentage with safe null handling
+ * @param value - The decimal value to format (0.05 = 5%) - handles null/undefined safely
  * @param decimals - Number of decimal places (default: 2)
  * @returns Formatted percentage string
  */
-export function formatPercentage(value: number, decimals: number = 2): string {
+export function formatPercentage(value: number | null | undefined, decimals: number = 2): string {
+  // Handle null/undefined/NaN values safely
+  const safeValue = (value === null || value === undefined || isNaN(Number(value))) ? 0 : Number(value);
+  
   return new Intl.NumberFormat('en-US', {
     ...NUMBER_FORMAT_OPTIONS.percentage,
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
-  }).format(value);
+  }).format(safeValue);
 }
 
 /**
@@ -220,4 +241,20 @@ export function formatMarketCap(value: number): string {
  */
 export function formatVolume(volume: number): string {
   return formatLargeNumber(volume);
+}
+
+/**
+ * Format shares with appropriate precision (from frontend formatters)
+ * @param shares - Number of shares to format (handles null/undefined safely)
+ * @returns Formatted shares string
+ */
+export function formatShares(shares: number | null | undefined): string {
+  const safeShares = (shares === null || shares === undefined || isNaN(Number(shares))) ? 0 : Number(shares);
+  
+  // Show more precision for fractional shares, less for whole shares
+  if (safeShares % 1 === 0) {
+    return safeShares.toFixed(0);
+  } else {
+    return safeShares.toFixed(2);
+  }
 }

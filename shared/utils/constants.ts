@@ -109,7 +109,7 @@ export const TIME_PERIODS = [
 export const API_ENDPOINTS = {
   // Dashboard
   DASHBOARD: '/api/dashboard',
-  DASHBOARD_PERFORMANCE: '/api/dashboard/performance',
+  // DASHBOARD_PERFORMANCE: '/api/dashboard/performance', // DEPRECATED: Moved to consolidated endpoint
   
   // Portfolio
   PORTFOLIO: '/api/portfolio',

@@ -1,14 +1,22 @@
 import React from 'react';
 import { render, screen } from '@/lib/test-utils';
 import KPIGrid from './KPIGrid';
-import { DashboardOverview } from '@/types/api';
+import { DashboardAPIResponse } from '@/types/dashboard';
 import '@testing-library/jest-dom';
 
-const mockOverviewData: DashboardOverview = {
-  marketValue: { value: 138214.02, sub_label: "AU$138,477.40 invested", is_positive: true },
-  totalProfit: { value: 12257.01, sub_label: "+AU$178.07 daily", deltaPercent: 8.9, is_positive: true },
-  irr: { value: 11.48, sub_label: "-0.33% current holdings", is_positive: false },
-  passiveIncome: { value: 1.6, sub_label: "AU$2,022.86 annually", delta: 9, is_positive: true },
+const mockOverviewData: DashboardAPIResponse = {
+  success: true,
+  portfolio: {
+    total_value: 138214.02,
+    total_cost: 138477.40,
+    total_gain_loss: 12257.01,
+    total_gain_loss_percent: 8.9,
+    cash_balance: 5000.00,
+  },
+  metadata: {
+    timestamp: '2024-01-16T10:00:00.000Z',
+    version: '1.0',
+  },
 };
 
 describe('KPIGrid', () => {

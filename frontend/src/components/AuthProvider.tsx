@@ -1,12 +1,12 @@
 'use client'
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
-import type { User } from '@supabase/supabase-js'
+import type { User, Session } from '@supabase/supabase-js'
 import { usePathname, useRouter } from 'next/navigation'
 
 interface AuthContextValue {
   user: User | null
-  session: any | null  // Full session with access_token
+  session: Session | null  // Full session with access_token
   signOut: () => Promise<void>
   isLoading: boolean
 }
@@ -23,7 +23,7 @@ export const useAuth = () => {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
-  const [session, setSession] = useState<any | null>(null)
+  const [session, setSession] = useState<Session | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
   const pathname = usePathname()
@@ -53,8 +53,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (session?.user) {
           setUser(session.user)
           setSession(session)
-        } else if (pathname !== '/auth') {
+        } else if (pathname !== '/auth' && pathname !== '/') {
           // Only redirect if we're done loading and there's no session
+          // Skip redirect for home page and auth page
           router.replace('/auth')
         }
       } catch (error) {
@@ -83,8 +84,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setUser(null)
         setSession(null)
-        // Only redirect if not already on auth page
-        if (pathname !== '/auth') {
+        // Only redirect if not already on auth page or home page
+        if (pathname !== '/auth' && pathname !== '/') {
           router.replace('/auth')
         }
         setIsLoading(false)

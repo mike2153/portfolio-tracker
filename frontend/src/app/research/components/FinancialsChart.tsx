@@ -5,7 +5,7 @@ import ApexChart from '@/components/charts/ApexChart';
 
 interface FinancialsChartProps {
   selectedMetrics: string[];
-  financialData: Record<string, Record<string, number>>;
+  financialData: Record<string, Record<string, string | number>>;
   metricLabels: Record<string, string>;
   years: string[];
 }
@@ -31,10 +31,13 @@ const FinancialsChart: React.FC<FinancialsChartProps> = ({
 
     return selectedMetrics.map(metricKey => {
       const metricValues = financialData[metricKey] || {};
-      const data = years.map(year => ({
-        x: year,
-        y: metricValues[year] || 0
-      }));
+      const data = years.map(year => {
+        const value = metricValues[year] || 0;
+        return {
+          x: year,
+          y: typeof value === 'string' ? parseFloat(value) || 0 : Number(value) || 0
+        };
+      });
 
       return {
         name: metricLabels[metricKey] || metricKey,

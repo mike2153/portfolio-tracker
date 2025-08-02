@@ -12,11 +12,10 @@ import { useQuery } from '@tanstack/react-query';
 import { MainTabScreenProps } from '../navigation/types';
 import PortfolioPerformanceChartKit from '../components/charts/PortfolioPerformanceChartKit';
 import { 
-  front_api_get_dashboard, 
-  front_api_get_portfolio,
   formatCurrency, 
   formatPercentage
 } from '@portfolio-tracker/shared';
+import { usePortfolioSummary, usePerformanceData } from '../hooks/usePortfolioComplete';
 import GradientText from '../components/GradientText';
 import { useTheme } from '../contexts/ThemeContext';
 import { Theme } from '../theme/theme';
@@ -27,39 +26,37 @@ export default function DashboardScreen({ navigation }: Props): React.JSX.Elemen
   const [refreshing, setRefreshing] = useState(false);
   const { theme } = useTheme();
 
-  // Fetch dashboard data
-  const { isLoading: dashboardLoading, refetch: refetchDashboard, error: dashboardError } = useQuery({
-    queryKey: ['dashboard'],
-    queryFn: front_api_get_dashboard,
-    // refetchInterval removed - load data only once
-  });
-
-
-  // Fetch portfolio data for top holdings
-  const { data: portfolioData, refetch: refetchPortfolio, error: portfolioError } = useQuery({
-    queryKey: ['portfolio'],
-    queryFn: front_api_get_portfolio,
-    // refetchInterval removed - load data only once
-  });
+  // NEW: Use consolidated hooks for better performance
+  const {
+    totalValue,
+    totalGainLoss,
+    totalGainLossPercent,
+    holdings,
+    isLoading: portfolioLoading,
+    error: portfolioError,
+    refetch: refetchPortfolio
+  } = usePortfolioSummary();
+  
+  const {
+    dailyChange,
+    dailyChangePercent,
+    isLoading: performanceLoading,
+    refetch: refetchPerformance
+  } = usePerformanceData();
+  
+  // Combine loading states
+  const dashboardLoading = portfolioLoading || performanceLoading;
 
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([refetchDashboard(), refetchPortfolio()]);
+    await Promise.all([refetchPortfolio(), refetchPerformance()]);
     setRefreshing(false);
-  }, [refetchDashboard, refetchPortfolio]);
+  }, [refetchPortfolio, refetchPerformance]);
 
-  // Extract data from API responses
-  const portfolio = portfolioData;
-  
-  // Calculate KPI values from portfolio data
-  const totalValue = portfolio?.total_value || 0;
-  const totalGainLoss = portfolio?.total_gain_loss || 0;
-  const totalGainLossPercent = portfolio?.total_gain_loss_percent || 0;
-  const dailyChange = portfolio?.daily_change || 0;
-  const dailyChangePercent = portfolio?.daily_change_percent || 0;
-  const totalInvested = portfolio?.total_cost || portfolio?.total_invested || 0;
-  const holdings = portfolio?.holdings || [];
+  // Data is now directly available from hooks - no need to extract from objects
+  const dashboardError = portfolioError; // For compatibility
+  const totalInvested = totalValue - totalGainLoss; // Calculate total invested
   const holdingsCount = holdings.length;
 
   // Get top 3 holdings by value

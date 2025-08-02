@@ -8,7 +8,7 @@ import type { ListViewColumn } from './ApexListView';
 
 export interface FinancialBarChartApexEnhancedProps {
   data: Array<{
-    [key: string]: any;
+    [key: string]: string | number | undefined;
     fiscalDateEnding?: string;
   }>;
   statementType: 'income' | 'balance' | 'cashflow';
@@ -225,7 +225,7 @@ const FinancialBarChartApexEnhanced: React.FC<FinancialBarChartApexEnhancedProps
     const growthSeries = selectedMetricKeys.map((metricKey, index) => {
       const growthData = data.slice(1).map((period, idx) => {
         const currentValue = period[metricKey];
-        const previousValue = data[idx][metricKey];
+        const previousValue = data[idx]?.[metricKey];
         
         const current = typeof currentValue === 'string' ? parseFloat(currentValue) || 0 : currentValue || 0;
         const previous = typeof previousValue === 'string' ? parseFloat(previousValue) || 0 : previousValue || 0;
@@ -274,7 +274,7 @@ const FinancialBarChartApexEnhanced: React.FC<FinancialBarChartApexEnhancedProps
       sortable: true,
       render: (value, item) => (
         <div className="flex flex-col">
-          <span className="text-white font-medium">{value}</span>
+          <span className="text-white font-medium">{String(value)}</span>
           <div className="flex items-center gap-2 mt-1">
             <span className="text-xs text-gray-400">
               Current: {formatNumber(item.currentValue)}
@@ -298,28 +298,34 @@ const FinancialBarChartApexEnhanced: React.FC<FinancialBarChartApexEnhancedProps
       key: 'growthRate',
       label: 'Growth Rate',
       sortable: true,
-      render: (value) => (
-        <span className={`font-mono ${
-          value > 0 ? 'text-green-400' : 
-          value < 0 ? 'text-red-400' : 'text-gray-400'
-        }`}>
-          {value !== 0 ? `${value > 0 ? '+' : ''}${value.toFixed(1)}%` : 'N/A'}
-        </span>
-      ),
+      render: (value) => {
+        const numValue = Number(value);
+        return (
+          <span className={`font-mono ${
+            numValue > 0 ? 'text-green-400' : 
+            numValue < 0 ? 'text-red-400' : 'text-gray-400'
+          }`}>
+            {numValue !== 0 ? `${numValue > 0 ? '+' : ''}${numValue.toFixed(1)}%` : 'N/A'}
+          </span>
+        );
+      },
       width: '100px'
     },
     {
       key: 'cagr',
       label: 'CAGR',
       sortable: true,
-      render: (value) => (
-        <span className={`font-mono ${
-          value > 0 ? 'text-green-400' : 
-          value < 0 ? 'text-red-400' : 'text-gray-400'
-        }`}>
-          {value !== 0 ? `${value > 0 ? '+' : ''}${value.toFixed(1)}%` : 'N/A'}
-        </span>
-      ),
+      render: (value) => {
+        const numValue = Number(value);
+        return (
+          <span className={`font-mono ${
+            numValue > 0 ? 'text-green-400' : 
+            numValue < 0 ? 'text-red-400' : 'text-gray-400'
+          }`}>
+            {numValue !== 0 ? `${numValue > 0 ? '+' : ''}${numValue.toFixed(1)}%` : 'N/A'}
+          </span>
+        );
+      },
       width: '100px'
     }
   ];

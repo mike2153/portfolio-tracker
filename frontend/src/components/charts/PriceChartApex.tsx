@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useEffect, useState, useMemo } from 'react';
-import ApexCharts from 'apexcharts';
-import ApexChart from './ApexChart';
+// import ApexCharts from 'apexcharts';
+import { ApexChart } from '.';
 import type { PriceDataPoint, TimePeriod } from '@/types/stock-research';
 
 interface PriceChartApexProps {
@@ -44,7 +44,7 @@ export default function PriceChartApex({
   const chartId = `price-chart-${ticker}`;
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
   const [priceChange, setPriceChange] = useState<{ amount: number; percentage: number } | null>(null);
-  const [currentChartType, setCurrentChartType] = useState<'line' | 'candlestick' | 'mountain'>(chartType);
+  const [currentChartType, _setCurrentChartType] = useState<'line' | 'candlestick' | 'mountain'>(chartType);
 
   console.log('[PriceChartApex] Rendering with data:', {
     dataLength: data?.length,
@@ -62,11 +62,13 @@ export default function PriceChartApex({
       const latest = data[data.length - 1];
       const previous = data[data.length - 2];
       
-      const change = latest.close - previous.close;
-      const changePercent = (change / previous.close) * 100;
-      
-      setCurrentPrice(latest.close);
-      setPriceChange({ amount: change, percentage: changePercent });
+      if (latest && previous) {
+        const change = latest.close - previous.close;
+        const changePercent = (change / previous.close) * 100;
+        
+        setCurrentPrice(latest.close);
+        setPriceChange({ amount: change, percentage: changePercent });
+      }
     }
   }, [data]);
 
@@ -97,13 +99,13 @@ export default function PriceChartApex({
       console.log('[PriceChartApex] Raw data point structure:', data[0]);
       const priceData = data.map((point, index) => {
         // Check different possible field names for the date
-        const dateValue = point.time || point.date || point.timestamp || point.x;
+        const dateValue = point.time || (point as any).date || (point as any).timestamp || (point as any).x;
         if (index === 0) {
           console.log('[PriceChartApex] First point date field check:', {
             time: point.time,
-            date: point.date,
-            timestamp: point.timestamp,
-            x: point.x,
+            date: (point as any).date,
+            timestamp: (point as any).timestamp,
+            x: (point as any).x,
             allKeys: Object.keys(point)
           });
         }
@@ -121,9 +123,9 @@ export default function PriceChartApex({
       }];
       console.log('[PriceChartApex] Line/Mountain chart data prepared:', {
         seriesCount: result.length,
-        dataPointsInSeries: result[0].data.length,
-        firstDataPoint: result[0].data[0],
-        lastDataPoint: result[0].data[result[0].data.length - 1]
+        dataPointsInSeries: result[0]?.data?.length || 0,
+        firstDataPoint: result[0]?.data?.[0],
+        lastDataPoint: result[0]?.data?.[result[0]?.data?.length - 1]
       });
       return result;
     }

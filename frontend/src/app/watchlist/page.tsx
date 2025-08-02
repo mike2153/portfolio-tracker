@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import GradientText from '@/components/ui/GradientText';
 import { useRouter } from 'next/navigation';
 import { Eye, Trash2, TrendingUp, TrendingDown } from 'lucide-react';
@@ -10,7 +10,7 @@ import { front_api_get_watchlist, front_api_remove_from_watchlist, WatchlistItem
 import { useToast } from '@/components/ui/Toast';
 import AuthGuard from '@/components/AuthGuard';
 
-interface WatchlistRow extends WatchlistItem {
+interface WatchlistRow extends WatchlistItem, Record<string, unknown> {
   id: string;
   company_name: string;
   accentColorClass: string;
@@ -23,7 +23,7 @@ export default function WatchlistPage() {
   const [error, setError] = useState<string | null>(null);
   const { addToast } = useToast();
 
-  const loadWatchlist = async () => {
+  const loadWatchlist = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
@@ -38,16 +38,17 @@ export default function WatchlistPage() {
           ...item,
           id: item.id,
           company_name: item.symbol, // We don't have company names in the current structure
-          accentColorClass: colors[index % colors.length]
+          accentColorClass: colors[index % colors.length] || 'blue'
         }));
         
         setWatchlistData(transformedData);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to load watchlist:', err);
       
       // Check if it's an authentication error
-      if (err.message?.includes('authentication') || err.message?.includes('No credentials')) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      if (errorMessage?.includes('authentication') || errorMessage?.includes('No credentials')) {
         setError('Please log in to view your watchlist.');
         addToast({
           type: 'error',
@@ -67,11 +68,11 @@ export default function WatchlistPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [router, addToast]);
 
   useEffect(() => {
     loadWatchlist();
-  }, []);
+  }, [loadWatchlist]);
 
   const handleViewDetails = (item: WatchlistRow) => {
     router.push(`/research?ticker=${item.symbol}`);
@@ -102,10 +103,10 @@ export default function WatchlistPage() {
       key: 'symbol',
       label: 'Symbol',
       sortable: true,
-      render: (value, row) => (
+      render: (value, _row) => (
         <div className="flex items-center gap-2">
-          <CompanyIcon symbol={value} size={20} />
-          <span className="font-medium">{value}</span>
+          <CompanyIcon symbol={String(value)} size={20} />
+          <span className="font-medium">{String(value)}</span>
         </div>
       )
     },
@@ -113,8 +114,8 @@ export default function WatchlistPage() {
       key: 'current_price',
       label: 'Current Price',
       sortable: true,
-      render: (value: number) => (
-        <span className="font-mono">${value?.toFixed(2) || '—'}</span>
+      render: (value: unknown) => (
+        <span className="font-mono">${typeof value === 'number' ? value.toFixed(2) : '—'}</span>
       )
     },
     {
@@ -141,16 +142,16 @@ export default function WatchlistPage() {
       key: 'target_price',
       label: 'Target Price',
       sortable: true,
-      render: (value: number | undefined) => (
-        <span className="font-mono">{value ? `$${value.toFixed(2)}` : '—'}</span>
+      render: (value: unknown) => (
+        <span className="font-mono">{typeof value === 'number' ? `$${value.toFixed(2)}` : '—'}</span>
       )
     },
     {
       key: 'notes',
       label: 'Notes',
-      render: (value: string | undefined) => (
-        <span className="text-sm text-[#8B949E] truncate max-w-xs" title={value}>
-          {value || '—'}
+      render: (value: unknown) => (
+        <span className="text-sm text-[#8B949E] truncate max-w-xs" title={String(value || '')}>
+          {String(value || '—')}
         </span>
       )
     }
@@ -175,7 +176,7 @@ export default function WatchlistPage() {
       <div className="p-6">
         <div className="mb-6">
           <GradientText className="text-3xl font-bold">Watchlist</GradientText>
-          <p className="text-[#8B949E] mt-2">Track stocks you're interested in</p>
+          <p className="text-[#8B949E] mt-2">Track stocks you&apos;re interested in</p>
         </div>
 
         <ApexListView

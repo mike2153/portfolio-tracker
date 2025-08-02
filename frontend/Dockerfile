@@ -21,10 +21,6 @@ COPY . .
 # Expose port for Next.js development server
 EXPOSE 3000
 
-# Copy entrypoint script
-COPY docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
-
 # 🔥 Start Next.js development server with hot reload
 # The --hostname 0.0.0.0 ensures the server accepts connections from outside the container
-ENTRYPOINT ["/docker-entrypoint.sh"] 
+CMD ["npm", "run", "dev", "--", "--hostname", "0.0.0.0"] 

@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { front_api_get_stock_prices } from '@/lib/front_api_client';
-import StockChart from './StockChart';
+import { StockChart } from '.';
 import type { StockPriceData } from '@/lib/front_api_client';
 
 interface ResearchStockChartProps {
@@ -23,7 +23,7 @@ const ResearchStockChart: React.FC<ResearchStockChartProps> = ({
   compareSymbols = [],
   theme = 'dark',
 }) => {
-  const [timePeriod, setTimePeriod] = useState('1Y');
+  const [timePeriod, _setTimePeriod] = useState('1Y');
   const [chartType, setChartType] = useState<'line' | 'candlestick' | 'area'>('line');
 
   // Fetch main symbol data
@@ -33,14 +33,28 @@ const ResearchStockChart: React.FC<ResearchStockChartProps> = ({
     enabled: !!symbol,
   });
 
-  // Fetch comparison symbols data
-  const comparisonQueries = compareSymbols.map(compareSymbol => 
-    useQuery({
-      queryKey: ['stock-prices', compareSymbol, timePeriod],
-      queryFn: () => front_api_get_stock_prices(compareSymbol, timePeriod),
-      enabled: !!compareSymbol && compareSymbols.includes(compareSymbol),
-    })
-  );
+  // Fetch comparison symbols data - use individual queries with fixed length
+  // React hooks must be called unconditionally, so we create fixed number of queries
+  const comparisonQuery1 = useQuery({
+    queryKey: ['stock-prices', compareSymbols[0], timePeriod],
+    queryFn: () => front_api_get_stock_prices(compareSymbols[0]!, timePeriod),
+    enabled: !!compareSymbols[0] && compareSymbols.length > 0,
+  });
+  
+  const comparisonQuery2 = useQuery({
+    queryKey: ['stock-prices', compareSymbols[1], timePeriod],
+    queryFn: () => front_api_get_stock_prices(compareSymbols[1]!, timePeriod),
+    enabled: !!compareSymbols[1] && compareSymbols.length > 1,
+  });
+  
+  const comparisonQuery3 = useQuery({
+    queryKey: ['stock-prices', compareSymbols[2], timePeriod],
+    queryFn: () => front_api_get_stock_prices(compareSymbols[2]!, timePeriod),
+    enabled: !!compareSymbols[2] && compareSymbols.length > 2,
+  });
+  
+  // Combine results into array for backwards compatibility
+  const comparisonQueries = [comparisonQuery1, comparisonQuery2, comparisonQuery3].slice(0, compareSymbols.length);
 
   // Format data for chart
   const chartData = React.useMemo(() => {
@@ -158,7 +172,7 @@ const ResearchStockChart: React.FC<ResearchStockChartProps> = ({
       <StockChart
         data={chartData}
         height={height}
-        width={width}
+        width={width || 800}
         showVolume={showVolume}
         chartType={chartType}
         timePeriod={timePeriod}

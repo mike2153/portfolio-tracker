@@ -1,0 +1,71 @@
+{
+  "timestamp": "2025-08-02T11:53:41.071985",
+  "typescript_coverage": 35,
+  "python_type_errors": 524,
+  "security_violations": [
+    "Float/int in financial calculation: backend\\backend_api_routes\\backend_api_portfolio.py:988",
+    "Float/int in financial calculation: backend\\backend_api_routes\\backend_api_portfolio.py:1116",
+    "Float/int in financial calculation: backend\\backend_api_routes\\backend_api_portfolio.py:1120",
+    "Float/int in financial calculation: backend\\backend_api_routes\\backend_api_portfolio.py:1141",
+    "Float/int in financial calculation: backend\\backend_api_routes\\backend_api_portfolio.py:1164",
+    "Float/int in financial calculation: backend\\backend_api_routes\\backend_api_portfolio.py:1269",
+    "Raw SQL f-string in backend\\backend_api_routes\\backend_api_watchlist.py:286",
+    "Raw SQL f-string in backend\\services\\dividend_service.py:1800",
+    "Float/int in financial calculation: backend\\services\\feature_flag_service.py:452",
+    "Raw SQL f-string in backend\\services\\index_sim_service.py:112",
+    "Raw SQL f-string in backend\\services\\index_sim_service.py:114",
+    "Raw SQL f-string in backend\\services\\index_sim_service.py:129",
+    "SQL concatenation in backend\\services\\price_manager.py:1201",
+    "SQL concatenation in backend\\services\\price_manager.py:1317",
+    "Float/int in financial calculation: backend\\services\\user_performance_manager.py:173",
+    "Float/int in financial calculation: backend\\services\\user_performance_manager.py:175",
+    "Float/int in financial calculation: backend\\services\\user_performance_manager.py:287",
+    "Raw SQL f-string in backend\\supa_api\\supa_api_transactions.py:159",
+    "SQL concatenation in backend\\supa_api\\supa_api_user_performance.py:340"
+  ],
+  "code_duplication_percent": 1.0,
+  "bundle_size_kb": 111.0244140625,
+  "load_time_ms": 1110,
+  "status": "FAIL",
+  "details": {
+    "typescript_issues": [
+      "'any' type found in frontend\\src\\hooks\\useSessionPortfolio.ts",
+      "'any' type found in frontend\\src\\lib\\useStockSearch.ts",
+      "'any' type found in frontend\\src\\components\\charts\\ApexChart.tsx",
+      "'any' type found in frontend\\src\\components\\charts\\PriceChartApex.tsx",
+      "'any' type found in frontend\\src\\components\\charts\\StockChart.tsx",
+      "'any' type found in frontend\\src\\app\\portfolio\\portfolio.test.tsx",
+      "'any' type found in frontend\\src\\app\\portfolio\\components\\AllocationCharts.tsx",
+      "'any' type found in frontend\\src\\app\\portfolio\\components\\HoldingsTable.tsx",
+      "'any' type found in frontend\\src\\app\\dashboard\\components\\AllocationTableApex.tsx",
+      "'any' type found in frontend\\src\\app\\dashboard\\components\\GainLossCard.tsx",
+      "'any' type found in frontend\\src\\app\\dashboard\\components\\KPICard.tsx",
+      "'any' type found in frontend\\src\\app\\dashboard\\components\\KPIGrid.tsx",
+      "'any' type found in frontend\\src\\app\\analytics\\components\\AnalyticsDividendsTabRefactored.tsx"
+    ],
+    "python_issues": [
+      "backend\\utils\\response_factory.py:8: error: Cannot find implementation or library stub for module named \"models.response_models\"  [import-not-found]",
+      "backend\\utils\\decimal_json_encoder.py:27: error: Function is missing a type annotation for one or more arguments  [no-untyped-def]",
+      "backend\\services\\portfolio_calculator.py:12: error: Cannot find implementation or library stub for module named \"services.price_manager\"  [import-not-found]",
+      "backend\\services\\portfolio_calculator.py:13: error: Cannot find implementation or library stub for module named \"services.feature_flag_service\"  [import-not-found]",
+      "backend\\services\\portfolio_calculator.py:14: error: Cannot find implementation or library stub for module named \"supa_api.supa_api_transactions\"  [import-not-found]",
+      "backend\\services\\portfolio_calculator.py:15: error: Cannot find implementation or library stub for module named \"supa_api.supa_api_jwt_helpers\"  [import-not-found]",
+      "backend\\services\\portfolio_calculator.py:16: error: Cannot find implementation or library stub for module named \"utils.auth_helpers\"  [import-not-found]",
+      "backend\\services\\portfolio_calculator.py:93: error: Incompatible types in assignment (expression has type \"float\", variable has type \"Decimal\")  [assignment]",
+      "backend\\services\\portfolio_calculator.py:96: error: Unsupported operand types for + (\"float\" and \"Decimal\")  [operator]",
+      "backend\\services\\portfolio_calculator.py:103: error: Unsupported operand types for * (\"Decimal\" and \"float\")  [operator]"
+    ],
+    "security_counts": {
+      "raw_sql": 6,
+      "float_in_financial": 10,
+      "sql_injection_risk": 3,
+      "unsafe_cors": 0
+    },
+    "duplication_issues": [
+      "Potential duplicate JSX in page.tsx",
+      "Potential duplicate JSX in page.tsx"
+    ],
+    "performance_issues": [],
+    "total_issues": 44
+  }
+}

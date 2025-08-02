@@ -1,4 +1,5 @@
-const React = require("react");
+import React from "react";
+
 function CheckIcon({
   title,
   titleId,
@@ -22,5 +23,6 @@ function CheckIcon({
     d: "m4.5 12.75 6 6 9-13.5"
   }));
 }
-const ForwardRef = /*#__PURE__*/ React.forwardRef(CheckIcon);
-module.exports = ForwardRef;
+
+const ForwardRef = React.forwardRef(CheckIcon);
+export default ForwardRef;

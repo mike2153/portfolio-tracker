@@ -57,7 +57,7 @@ export default function FinancialBarChartApex({
     // Create series for each category
     return Object.entries(categorized).map(([category, items], seriesIndex) => ({
       name: category === 'default' ? 'Financial Metrics' : category,
-      data: items.map((item, index) => ({
+      data: items.map((item, _index) => ({
         x: item.label,
         y: item.value
       })),

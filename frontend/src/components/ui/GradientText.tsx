@@ -14,7 +14,6 @@ export default function GradientText({ children, className = '' }: GradientTextP
         WebkitBackgroundClip: 'text',
         WebkitTextFillColor: 'transparent',
         backgroundClip: 'text',
-        textFillColor: 'transparent',
       }}
     >
       {children}

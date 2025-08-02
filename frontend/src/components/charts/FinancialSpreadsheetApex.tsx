@@ -1,17 +1,17 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { RefreshCw, DollarSign, TrendingUp } from 'lucide-react';
-import ApexListView from './ApexListView';
+import _ApexListView from './ApexListView';
 import type { ListViewColumn } from './ApexListView';
 
 export interface FinancialSpreadsheetApexProps {
   data: {
     balance?: {
-      annual_reports?: any[];
+      annual_reports?: Array<{ fiscalDateEnding: string; [key: string]: string | number | undefined }>;
     };
     cashflow?: {
-      annual_reports?: any[];
+      annual_reports?: Array<{ fiscalDateEnding: string; [key: string]: string | number | undefined }>;
     };
   };
   ticker: string;
@@ -25,7 +25,7 @@ interface FinancialRowData {
   id: string;
   label: string;
   category: string;
-  [year: string]: any; // Dynamic year columns
+  [year: string]: string | number | undefined; // Dynamic year columns
 }
 
 const FinancialSpreadsheetApex: React.FC<FinancialSpreadsheetApexProps> = ({
@@ -68,10 +68,10 @@ const FinancialSpreadsheetApex: React.FC<FinancialSpreadsheetApexProps> = ({
   };
 
   // Get the financial data for the selected type (reverse order to show newest on right)
-  const getFinancialData = () => {
+  const getFinancialData = useCallback(() => {
     const reports = data?.[selectedType]?.annual_reports || [];
     return reports.slice(0, 5).reverse(); // Get up to 5 years of data, newest on right
-  };
+  }, [data, selectedType]);
 
   // Calculate growth rate for a specific metric between two periods
   const calculateGrowthRate = (current: number, previous: number): number => {
@@ -90,7 +90,7 @@ const FinancialSpreadsheetApex: React.FC<FinancialSpreadsheetApexProps> = ({
   };
 
   // Define fields for each statement type
-  const getFieldDefinitions = () => {
+  const getFieldDefinitions = useCallback(() => {
     if (selectedType === 'balance') {
       return [
         { key: 'totalAssets', label: 'Total Assets', category: 'Assets' },
@@ -123,10 +123,10 @@ const FinancialSpreadsheetApex: React.FC<FinancialSpreadsheetApexProps> = ({
         { key: 'cashAndCashEquivalentsAtBeginningOfPeriod', label: 'Cash at Beginning of Period', category: 'Net Change' }
       ];
     }
-  };
+  }, [selectedType]);
 
   // Transform data for ApexListView
-  const { listViewData, columns, categoryGroups } = useMemo(() => {
+  const { listViewData, columns, _categoryGroups } = useMemo(() => {
     const fieldDefinitions = getFieldDefinitions();
     const financialData = getFinancialData();
     
@@ -148,7 +148,7 @@ const FinancialSpreadsheetApex: React.FC<FinancialSpreadsheetApexProps> = ({
       sortable: true,
       render: (value) => (
         <span className="text-white">
-          {formatNumber(value || 0)}
+          {formatNumber(Number(value) || 0)}
         </span>
       ),
       width: '120px'
@@ -161,7 +161,7 @@ const FinancialSpreadsheetApex: React.FC<FinancialSpreadsheetApexProps> = ({
         sortable: true,
         searchable: true,
         render: (value) => (
-          <span className="text-gray-300">{value}</span>
+          <span className="text-gray-300">{String(value)}</span>
         ),
         width: '250px'
       },
@@ -178,7 +178,8 @@ const FinancialSpreadsheetApex: React.FC<FinancialSpreadsheetApexProps> = ({
 
       // Add year data
       financialData.forEach((report, index) => {
-        row[`year_${index}`] = report[field.key] || 0;
+        const yearKey = `year_${index}` as keyof FinancialRowData;
+        row[yearKey] = report[field.key as string] || 0;
       });
 
       return row;
@@ -189,7 +190,7 @@ const FinancialSpreadsheetApex: React.FC<FinancialSpreadsheetApexProps> = ({
       if (!acc[field.category]) {
         acc[field.category] = [];
       }
-      acc[field.category].push(field.key);
+      acc[field.category]!.push(field.key);
       return acc;
     }, {} as Record<string, string[]>);
 
@@ -210,9 +211,9 @@ const FinancialSpreadsheetApex: React.FC<FinancialSpreadsheetApexProps> = ({
     return {
       listViewData: rowData,
       columns: baseColumns,
-      categoryGroups: categories
+      _categoryGroups: categories
     };
-  }, [selectedType, data]);
+  }, [selectedType, getFieldDefinitions, getFinancialData]);
 
   const emptyMessage = `No ${selectedType === 'balance' ? 'balance sheet' : 'cash flow'} data available`;
 
@@ -292,8 +293,8 @@ const FinancialSpreadsheetApex: React.FC<FinancialSpreadsheetApexProps> = ({
                       {field.label}
                     </td>
                     {reportData.map((report, index) => {
-                      const currentValue = parseFloat(report[field.key]) || 0;
-                      const previousValue = index > 0 ? parseFloat(reportData[index - 1][field.key]) || 0 : 0;
+                      const currentValue = parseFloat(String(report[field.key as string])) || 0;
+                      const previousValue = index > 0 ? parseFloat(String(reportData[index - 1]?.[field.key as string])) || 0 : 0;
                       const growthRate = index > 0 ? calculateGrowthRate(currentValue, previousValue) : 0;
                       
                       return (

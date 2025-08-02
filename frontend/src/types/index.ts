@@ -6,6 +6,8 @@
 
 // Import all shared types
 import type {
+  APIResponse,
+  StockPricesResponse,
   User,
   FinancialReport,
   FinancialStatements,
@@ -38,6 +40,8 @@ import type {
 
 // Re-export shared types
 export type {
+  APIResponse,
+  StockPricesResponse,
   User,
   FinancialReport,
   FinancialStatements,

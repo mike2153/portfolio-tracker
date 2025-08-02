@@ -1,11 +1,7 @@
 import React from 'react';
-import { StockResearchData } from '@/types/stock-research';
 
 interface NotesTabProps {
-  ticker: string;
-  data: StockResearchData;
   isLoading: boolean;
-  onRefresh: () => void;
 }
 
 const NotesTab: React.FC<NotesTabProps> = ({ isLoading }) => {
