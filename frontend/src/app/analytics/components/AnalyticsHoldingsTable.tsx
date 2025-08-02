@@ -33,7 +33,7 @@ interface AnalyticsHoldingsTableProps {
 // Use the ListViewColumn type from ApexListView directly
 import { ListViewColumn } from '@/components/charts/ApexListView';
 // Import centralized formatters to eliminate duplication
-import { formatCurrency, formatPercentage } from '@/utils/formatters';
+import { formatCurrency, formatPercentage } from '../../../../../shared/utils/formatters';
 
 const getChangeColor = (value: number | null | undefined): string => {
   if (value === null || value === undefined || isNaN(value)) return 'text-gray-400';

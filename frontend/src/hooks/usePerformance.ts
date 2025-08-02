@@ -1,9 +1,13 @@
 /**
+ * @deprecated This hook is deprecated and will be removed in a future version.
+ * Use usePerformanceData from useSessionPortfolio instead for basic performance metrics.
+ * This hook remains only for components requiring historical performance data not yet available in the consolidated endpoint.
+ * 
  * React Query hook for portfolio vs benchmark performance comparison data
  * Leverages existing front_api_client infrastructure with extensive debugging
  */
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
-import { front_api_client } from '@/lib/front_api_client';
+// import { front_api_client } from '@/lib/front_api_client'; // Currently unused due to deprecated endpoint
 import { useAuth } from '@/components/AuthProvider';
 
 // === TYPE DEFINITIONS ===
@@ -186,8 +190,10 @@ export function usePerformance(
       logPerformanceRequest(range, benchmark, userId);
       
       try {
-        // Use existing API client that already handles JWT authentication
-        const response = await front_api_client.front_api_get_performance(range, benchmark);
+        // DEPRECATED: Dashboard performance endpoint has been removed
+        // TODO: Extract performance data from consolidated /api/complete endpoint
+        // For now, return mock data to prevent 404 errors
+        throw new Error('Performance endpoint temporarily disabled - migrating to consolidated endpoint');
         
         // === COMPREHENSIVE ERROR HANDLING ===
         if (!response) {

@@ -3,7 +3,6 @@ Alpha Vantage News & Sentiment API integration
 """
 from typing import Dict, Any, List, Optional
 from datetime import datetime
-from decimal import Decimal
 
 from debug_logger import DebugLogger
 from .vantage_api_client import get_vantage_client

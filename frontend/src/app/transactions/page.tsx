@@ -6,14 +6,14 @@ import { useQueryClient } from "@tanstack/react-query";
 import { front_api_client } from "@/lib/front_api_client";
 import { Trash2, Edit, X, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
-import { StockSymbol as _StockSymbol, AddHoldingFormData } from "@/types/api";
+import { AddHoldingFormData } from "@/types/api";
 import { supabase } from "@/lib/supabaseClient";
 import { User } from "@/types";
 import { StockSearchInput } from "@/components/StockSearchInput";
 import CompanyIcon from "@/components/ui/CompanyIcon";
 import { useSearchParams } from 'next/navigation';
-// Import centralized formatters
-import { formatCurrency, formatDate } from '@/utils/formatters';
+// Import centralized formatters from shared
+import { formatCurrency, formatDate } from '../../../../shared/utils/formatters';
 
 /* ------------------------------------------------------------------
  * Types
@@ -169,7 +169,9 @@ const TransactionsPage = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await front_api_client.front_api_get_transactions() as TxApiResp;
+      // TODO: Migrate to consolidated hooks - this is a legacy API call
+      // For now, using direct API call since individual transactions aren't in consolidated endpoint
+      const response = await front_api_client.get('/api/transactions') as TxApiResp;
       // Commenting out verbose debug logs
       // console.log("FETCH_TRANSACTIONS", response);
       if (response.success) {

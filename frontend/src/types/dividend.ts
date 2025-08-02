@@ -96,7 +96,7 @@ export function dividendToTableRow(dividend: UserDividendData): DividendTableRow
 }
 
 // Import centralized formatters to avoid duplication
-import { formatCurrency, formatDate } from '../utils/formatters';
+import { formatCurrency, formatDate } from '@shared/utils/formatters';
 
 /**
  * Legacy aliases for backward compatibility - redirect to centralized formatters

@@ -225,7 +225,7 @@ export default function ApexChart({
     if (!data || data.length === 0) return [];
     const mappedSeries = data.map(item => {
       // Destructure to exclude any React-specific props like 'key'
-      const { key, ...itemProps } = item as any;
+      const { key: _key, ...itemProps } = item as any;
       return {
         name: itemProps.name,
         data: itemProps.data,

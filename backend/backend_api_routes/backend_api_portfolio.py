@@ -915,7 +915,7 @@ async def backend_api_get_allocation(
                 f"Failed to retrieve portfolio allocation data: {str(e)}"
             )
 
-@portfolio_router.get("/complete")
+@portfolio_router.get("/complete", response_model=None)
 @DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="GET_COMPLETE_PORTFOLIO")
 async def backend_api_get_complete_portfolio(
     user: Dict[str, Any] = Depends(require_authenticated_user),
@@ -970,11 +970,20 @@ async def backend_api_get_complete_portfolio(
         logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Generating complete portfolio data...")
         generation_start = datetime.utcnow()
         
-        complete_data = await user_performance_manager.generate_complete_data(
-            user_id=user_id,
-            user_token=user_token,
-            force_refresh=force_refresh
-        )
+        try:
+            complete_data = await user_performance_manager.generate_complete_data(
+                user_id=user_id,
+                user_token=user_token,
+                force_refresh=force_refresh
+            )
+            logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Complete data generated successfully")
+        except Exception as gen_error:
+            logger.error(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Error generating complete data: {gen_error}")
+            logger.error(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Stack trace:", exc_info=True)
+            raise ServiceUnavailableError(
+                "Data Generation Service",
+                f"Failed to generate complete portfolio data: {str(gen_error)}"
+            )
         
         generation_time_ms = int((datetime.utcnow() - generation_start).total_seconds() * 1000)
         logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Data generation completed in {generation_time_ms}ms")
@@ -986,6 +995,14 @@ async def backend_api_get_complete_portfolio(
         try:
             # Convert portfolio metrics to API format with Decimal safety
             portfolio_metrics = complete_data.portfolio_metrics
+            
+            # Validate that portfolio metrics exist
+            if not portfolio_metrics:
+                raise ValueError("Portfolio metrics data is missing from complete data")
+            
+            # Validate that portfolio metrics have the required structure
+            if not hasattr(portfolio_metrics, 'holdings') or not hasattr(portfolio_metrics, 'performance'):
+                raise ValueError("Portfolio metrics data structure is incomplete")
             
             # Holdings data with complete financial information
             holdings_list = []
@@ -1124,6 +1141,18 @@ async def backend_api_get_complete_portfolio(
             transform_time_ms = int((datetime.utcnow() - transform_start).total_seconds() * 1000)
             logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Data transformation completed in {transform_time_ms}ms")
             
+            # Validate response structure before returning
+            required_fields = ['portfolio_data', 'performance_data', 'allocation_data', 'dividend_data', 'market_analysis', 'currency_conversions', 'transactions_summary']
+            missing_fields = [field for field in required_fields if field not in complete_response_data]
+            if missing_fields:
+                logger.error(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Missing required fields in response: {missing_fields}")
+                raise ServiceUnavailableError(
+                    "Response Structure Error",
+                    f"Incomplete response data structure: missing {missing_fields}"
+                )
+            
+            logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Response structure validation passed")
+            
         except Exception as e:
             logger.error(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Error transforming data: {e}")
             raise ServiceUnavailableError(
@@ -1175,11 +1204,14 @@ async def backend_api_get_complete_portfolio(
                     metadata=metadata
                 )
             else:
-                # Backward compatible format
+                # Backward compatible format - properly merge metadata
                 response_data = {
                     "success": True,
                     **complete_response_data,
-                    "metadata": metadata
+                    "metadata": {
+                        **complete_response_data.get("metadata", {}),
+                        **metadata
+                    }
                 }
             
             # Compress response
@@ -1215,11 +1247,14 @@ async def backend_api_get_complete_portfolio(
                 logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Returning v2 format response")
                 return response
             else:
-                # Backward compatible format
+                # Backward compatible format - properly merge metadata
                 response_data = {
                     "success": True,
                     **complete_response_data,
-                    "metadata": metadata
+                    "metadata": {
+                        **complete_response_data.get("metadata", {}),
+                        **metadata
+                    }
                 }
                 logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Returning v1 format response")
                 return response_data

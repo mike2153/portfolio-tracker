@@ -1,12 +1,12 @@
 'use client';
 
-import { usePortfolioAllocation } from '@/hooks/usePortfolioAllocation';
+import { useAllocationData } from '@/hooks/useSessionPortfolio';
 import KPICard from '@/app/dashboard/components/KPICard';
 import { KPIGridSkeleton } from '@/app/dashboard/components/Skeletons';
 
 export default function PortfolioSummary() {
   // Use the portfolio allocation hook which already has cached data
-  const { data: allocationData, isLoading } = usePortfolioAllocation();
+  const { data: allocationData, isLoading } = useAllocationData();
 
   if (isLoading) {
     return <KPIGridSkeleton />;

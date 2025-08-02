@@ -2,7 +2,7 @@
 
 import React from 'react';
 // Import centralized formatters to eliminate duplication
-import { formatCurrency, formatPercentage } from '@/utils/formatters';
+import { formatCurrency, formatPercentage } from '../../../../../shared/utils/formatters';
 
 interface DividendSummary {
   total_received: number;

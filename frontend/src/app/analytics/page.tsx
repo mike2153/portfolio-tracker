@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import GradientText from '@/components/ui/GradientText';
 // import { useQuery } from '@tanstack/react-query';
 // import { front_api_client } from '@/lib/front_api_client';
-import { usePortfolioAllocation } from '@/hooks/usePortfolioAllocation';
+import { useAllocationData } from '@/hooks/useSessionPortfolio';
 
 // Components
 import AnalyticsKPIGrid from './components/AnalyticsKPIGrid';
@@ -34,7 +34,7 @@ export default function AnalyticsPage() {
   const [includeSoldHoldings, setIncludeSoldHoldings] = useState(false);
 
   // Use shared allocation hook for consistent data
-  const { data: allocationData, isLoading: allocationLoading, error: allocationError, refetch } = usePortfolioAllocation();
+  const { data: allocationData, isLoading: allocationLoading, error: allocationError, refetch } = useAllocationData();
   
   // Force refetch on mount to ensure fresh data
   React.useEffect(() => {

@@ -7,9 +7,9 @@ import { useDashboard } from '../contexts/DashboardContext'
 // PARTIAL MIGRATION: Keep usePerformance for now due to complex historical data requirements
 // TODO: Investigate if consolidated hook has sufficient historical data
 import { usePerformance, type RangeKey, type BenchmarkTicker } from '@/hooks/usePerformance'
-import { usePerformanceData } from '@/hooks/useSessionPortfolio' // For basic metrics
+// import { usePerformanceData } from '@/hooks/useSessionPortfolio' // For basic metrics - currently unused
 // Import centralized formatters
-import { formatCurrency } from '@/utils/formatters'
+import { formatCurrency } from '../../../../../shared/utils/formatters'
 
 // === CONFIGURATION ===
 const ranges: RangeKey[] = ['7D', '1M', '3M', '1Y', 'YTD', 'MAX']

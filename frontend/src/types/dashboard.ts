@@ -263,7 +263,7 @@ export function getPerformanceValue(dataPoint: PerformanceDataPoint): number {
 }
 
 // Import centralized formatters to avoid duplication
-import { formatCurrency, formatPercentage } from '../utils/formatters';
+import { formatCurrency, formatPercentage } from '../../../shared/utils/formatters';
 
 /**
  * Legacy aliases for backward compatibility - redirect to centralized formatters

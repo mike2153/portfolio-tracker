@@ -2,12 +2,12 @@
 
 import React, { useMemo, useEffect, useState } from 'react';
 import { ApexOptions } from 'apexcharts';
-import { usePortfolioAllocation } from '@/hooks/usePortfolioAllocation';
+import { useAllocationData } from '@/hooks/useSessionPortfolio';
 import { useChart } from '@/components/ChartProvider';
 import { Loader2 } from 'lucide-react';
 
 export default function AllocationCharts() {
-  const { data, isLoading, isError, error } = usePortfolioAllocation();
+  const { data, isLoading, isError, error } = useAllocationData();
   const { loadChart, isLoading: chartLoading } = useChart();
   const [PieChartComponent, setPieChartComponent] = useState<React.ComponentType<any> | null>(null);
 

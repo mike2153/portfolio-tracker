@@ -8,7 +8,7 @@ import {
 } from '@/types/dashboard';
 import { KPIGridSkeleton } from './Skeletons';
 import { useDashboard } from '../contexts/DashboardContext';
-import { useAuth } from '@/components/AuthProvider';
+// import { useAuth } from '@/components/AuthProvider'; // Currently unused
 // NEW: Import consolidated hooks
 import { usePortfolioSummary, usePerformanceData, useDividendData } from '@/hooks/useSessionPortfolio';
 
@@ -16,7 +16,6 @@ import { usePortfolioSummary, usePerformanceData, useDividendData } from '@/hook
 
 const KPIGrid = ({ initialData }: KPIGridProps) => {
   const {
-    userId,
     portfolioDollarGain,
     portfolioPercentGain,
     selectedBenchmark,
@@ -24,10 +23,16 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
     benchmarkPercentGain,
     performanceData,
   } = useDashboard();
-  const { user } = useAuth();
 
   // NEW: Use consolidated hooks instead of individual API calls
-  const { data: portfolioData, isLoading: isPortfolioLoading, error: portfolioError } = usePortfolioSummary();
+  const {
+    totalValue,
+    totalCost,
+    totalGainLoss,
+    totalGainLossPercent,
+    isLoading: isPortfolioLoading,
+    error: portfolioError
+  } = usePortfolioSummary();
   const { data: performanceMetrics, isLoading: isPerformanceLoading } = usePerformanceData();
   const { data: dividendData, isLoading: isDividendLoading } = useDividendData();
 
@@ -36,27 +41,23 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
   const isError = !!portfolioError;
   const error = portfolioError;
 
-  // Transform consolidated data to match expected structure
-  const data = portfolioData || {
-    portfolio: {
-      total_value: initialData?.portfolio?.total_value || 0,
-      total_cost: initialData?.portfolio?.total_cost || 0,
-      total_gain_loss: initialData?.portfolio?.total_gain_loss || 0,
-      total_gain_loss_percent: initialData?.portfolio?.total_gain_loss_percent || 0,
-    }
-  };
+  // Use fallback values if consolidated data is not available
+  const finalTotalValue = totalValue || initialData?.portfolio?.total_value || 0;
+  const finalTotalCost = totalCost || initialData?.portfolio?.total_cost || 0;
+  const finalTotalGainLoss = totalGainLoss || initialData?.portfolio?.total_gain_loss || 0;
+  const finalTotalGainLossPercent = totalGainLossPercent || initialData?.portfolio?.total_gain_loss_percent || 0;
 
   // Transform consolidated data to KPI format with strict typing
-  const transformedData: TransformedKPIData | null = data ? {
+  const transformedData: TransformedKPIData | null = {
     marketValue: {
-      value: data.portfolio?.total_value || 0,
-      sub_label: `Cost Basis: $${(data.portfolio?.total_cost || 0).toLocaleString()}`,
-      is_positive: (data.portfolio?.total_gain_loss || 0) >= 0
+      value: finalTotalValue,
+      sub_label: `Cost Basis: $${finalTotalCost.toLocaleString()}`,
+      is_positive: finalTotalGainLoss >= 0
     },
     capitalGains: {
-      value: data.portfolio?.total_gain_loss || 0,
-      sub_label: `${(data.portfolio?.total_gain_loss_percent || 0).toFixed(2)}%`,
-      is_positive: (data.portfolio?.total_gain_loss || 0) >= 0
+      value: finalTotalGainLoss,
+      sub_label: `${finalTotalGainLossPercent.toFixed(2)}%`,
+      is_positive: finalTotalGainLoss >= 0
     },
     irr: {
       value: performanceMetrics?.sharpe_ratio || 0, // Use consolidated performance data
@@ -68,7 +69,7 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
       sub_label: `${dividendData?.dividend_count || 0} dividends YTD`,
       is_positive: true
     }
-  } : null;
+  };
 
   // Type-safe error handling - simplified since consolidated hooks handle errors
   const typedError = error;
@@ -100,7 +101,7 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
 
   // Calculate total return using consolidated data
   const dividendValue = dividendData?.total_received_ytd || 0;
-  const capitalGains = performanceData ? portfolioDollarGain : (data?.portfolio?.total_gain_loss || 0);
+  const capitalGains = performanceData ? portfolioDollarGain : finalTotalGainLoss;
   const totalReturnValue = capitalGains + dividendValue;
   const totalReturnData = {
     value: totalReturnValue,
@@ -116,7 +117,7 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
         data={transformedData.capitalGains} 
         prefix="" 
         showPercentage={true}
-        percentValue={(data?.portfolio?.total_gain_loss_percent || 0)}
+        percentValue={finalTotalGainLossPercent}
       />
       <KPICard 
         title="IRR" 

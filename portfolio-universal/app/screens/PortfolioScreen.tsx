@@ -12,11 +12,11 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { MainTabScreenProps } from '../navigation/types';
 import { 
-  front_api_get_portfolio,
-  front_api_get_transactions, 
+  front_api_client,
   formatCurrency, 
   formatPercentage
 } from '@portfolio-tracker/shared';
+import { usePortfolioSummary } from '../hooks/usePortfolioComplete';
 import GradientText from '../components/GradientText';
 import { useTheme } from '../contexts/ThemeContext';
 import { Theme } from '../theme/theme';
@@ -41,27 +41,24 @@ export default function PortfolioScreen({ navigation }: Props): React.JSX.Elemen
   const [refreshing, setRefreshing] = useState(false);
   const { theme } = useTheme();
   
-  // Fetch portfolio data
-  const { data: portfolioData, isLoading, refetch, error: portfolioError } = useQuery({
-    queryKey: ['portfolio'],
-    queryFn: async () => {
-      const timestamp = new Date().toISOString();
-      console.log(`[${timestamp}] [PortfolioScreen] Starting portfolio fetch...`);
-      try {
-        const result = await front_api_get_portfolio();
-        console.log(`[${timestamp}] [PortfolioScreen] Portfolio fetch successful:`, {
-          hasData: !!result,
-          dataKeys: result ? Object.keys(result) : [],
-          holdingsCount: result?.holdings?.length || 0
-        });
-        return result;
-      } catch (error) {
-        console.error(`[${timestamp}] [PortfolioScreen] Portfolio fetch error:`, error);
-        throw error;
-      }
-    },
-    // refetchInterval removed - load data only once
-  });
+  // NEW: Use consolidated portfolio hook
+  const {
+    holdings,
+    totalValue,
+    totalGainLoss,
+    totalGainLossPercent,
+    isLoading,
+    error: portfolioError,
+    refetch
+  } = usePortfolioSummary();
+  
+  // Create portfolioData object for compatibility with existing code
+  const portfolioData = {
+    holdings,
+    total_value: totalValue,
+    total_gain_loss: totalGainLoss,
+    total_gain_loss_percent: totalGainLossPercent
+  };
 
   // Fetch transactions data
   const { data: transactionsData, refetch: refetchTransactions, error: transactionsError } = useQuery({
@@ -70,7 +67,9 @@ export default function PortfolioScreen({ navigation }: Props): React.JSX.Elemen
       const timestamp = new Date().toISOString();
       console.log(`[${timestamp}] [PortfolioScreen] Starting transactions fetch...`);
       try {
-        const result = await front_api_get_transactions();
+        // TODO: Add transactions to consolidated endpoint
+        // For now, using generic API call
+        const result = await front_api_client.get('/api/transactions');
         console.log(`[${timestamp}] [PortfolioScreen] Transactions fetch successful:`, {
           hasData: !!result,
           dataKeys: result ? Object.keys(result) : [],

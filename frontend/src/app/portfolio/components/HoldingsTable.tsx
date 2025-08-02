@@ -1,13 +1,14 @@
 'use client';
 
 import React from 'react';
-import { usePortfolioAllocation } from '@/hooks/usePortfolioAllocation';
+import { useAllocationData } from '@/hooks/useSessionPortfolio';
 import ApexListView, { ListViewColumn } from '@/components/charts/ApexListView';
-import { AllocationItem } from '@/hooks/usePortfolioAllocation';
+// Use AllocationItem type from consolidated types
+type AllocationItem = any; // TODO: Import proper type from consolidated types
 import { TrendingUp, TrendingDown } from 'lucide-react';
 
 export default function HoldingsTable() {
-  const { data, isLoading, isError, error, refetch } = usePortfolioAllocation();
+  const { data, isLoading, isError, error, refetch } = useAllocationData();
 
   // Define columns for the holdings table
   const columns: ListViewColumn<AllocationItem>[] = [

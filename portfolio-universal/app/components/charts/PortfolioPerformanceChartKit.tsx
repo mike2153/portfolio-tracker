@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
-import { front_api_get_performance, formatPercentage } from '@portfolio-tracker/shared';
+import { front_api_client, formatPercentage } from '@portfolio-tracker/shared';
+import { usePerformanceData } from '../../hooks/usePortfolioComplete';
 import PortfolioComparisonChart from './PortfolioComparisonChart';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Theme } from '../../theme/theme';
@@ -47,7 +48,10 @@ const PortfolioPerformanceChartKit: React.FC<PortfolioPerformanceChartProps> = (
       });
       
       try {
-        const result = await front_api_get_performance(apiPeriod, selectedBenchmark);
+        // TODO: Add historical performance data to consolidated endpoint
+        // DEPRECATED: Dashboard performance endpoint has been removed
+        // For now, throw error to prevent 404 calls
+        throw new Error('Performance endpoint temporarily disabled - migrating to consolidated endpoint');
         console.log('[PortfolioPerformanceChartKit] API response:', {
           success: result?.success,
           hasPortfolioData: !!result?.portfolio_performance,

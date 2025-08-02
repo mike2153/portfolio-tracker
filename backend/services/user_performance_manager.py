@@ -552,10 +552,14 @@ class UserPerformanceManager:
             portfolio_metrics = await portfolio_metrics_manager.get_portfolio_metrics(
                 user_id=user_id,
                 user_token=user_token,
-                metric_type="complete_portfolio",
+                metric_type="dashboard",
                 force_refresh=False
             )
             aggregated_data["portfolio_metrics"] = portfolio_metrics
+            
+            # Validate that core metrics were obtained successfully
+            if not portfolio_metrics:
+                raise ValueError("Failed to obtain core portfolio metrics")
             
             # Step 2: Get detailed dividend data in parallel with other operations
             tasks = [

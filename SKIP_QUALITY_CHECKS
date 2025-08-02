@@ -1,8 +1,0 @@
-# Delete this file to enable quality checks
-# Create this file to skip quality checks
-# 
-# This file tells GitHub Actions to skip quality gate enforcement
-# Use only for emergencies or hotfixes
-# 
-# Created: 2025-07-31
-# Reason: Emergency bypass switch

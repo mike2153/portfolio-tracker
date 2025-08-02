@@ -9,10 +9,10 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { MainTabScreenProps } from '../navigation/types';
 import { 
-  front_api_get_portfolio,
   formatCurrency,
   formatPercentage
 } from '@portfolio-tracker/shared';
+import { usePortfolioSummary, usePerformanceData, useDividendData } from '../hooks/usePortfolioComplete';
 import GradientText from '../components/GradientText';
 import { useTheme } from '../contexts/ThemeContext';
 import { Theme } from '../theme/theme';
@@ -22,16 +22,41 @@ type Props = MainTabScreenProps<'Analytics'>;
 export default function AnalyticsScreen(_props: Props): React.JSX.Element {
   const { theme } = useTheme();
   
-  // Fetch portfolio data
-  const { data: portfolioData, isLoading: portfolioLoading } = useQuery({
-    queryKey: ['portfolio'],
-    queryFn: front_api_get_portfolio,
-    // refetchInterval removed - load data only once
-  });
-
-
-  // Extract data - the API returns the data directly
-  const portfolio = portfolioData;
+  // NEW: Use consolidated hooks for analytics data
+  const {
+    holdings,
+    totalValue,
+    totalGainLoss,
+    totalGainLossPercent,
+    isLoading: portfolioLoading
+  } = usePortfolioSummary();
+  
+  const {
+    dailyChange,
+    dailyChangePercent,
+    volatility,
+    sharpeRatio,
+    isLoading: performanceLoading
+  } = usePerformanceData();
+  
+  const {
+    totalReceivedYtd,
+    dividendCount,
+    isLoading: dividendLoading
+  } = useDividendData();
+  
+  // Combine loading states
+  const isLoading = portfolioLoading || performanceLoading || dividendLoading;
+  
+  // Create portfolio object for compatibility
+  const portfolio = {
+    holdings,
+    total_value: totalValue,
+    total_gain_loss: totalGainLoss,
+    total_gain_loss_percent: totalGainLossPercent,
+    daily_change: dailyChange,
+    daily_change_percent: dailyChangePercent
+  };
   const holdings = portfolio?.holdings || [];
 
   // Calculate portfolio metrics

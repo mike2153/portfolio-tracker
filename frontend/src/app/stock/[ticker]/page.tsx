@@ -7,7 +7,7 @@ import { FinancialStatements } from '@/types'
 // BalanceSheet component to be implemented
 import AdvancedFinancialsComponent from '@/components/AdvancedFinancials'
 // Import centralized formatters
-import { formatCompactNumber } from '@/utils/formatters'
+import { formatLargeNumber as formatCompactNumber } from '../../../../../shared/utils/formatters'
 
 // Dynamically import ApexChart
 const ApexChart = dynamic(() => import('@/components/charts/ApexChart'), { ssr: false })
