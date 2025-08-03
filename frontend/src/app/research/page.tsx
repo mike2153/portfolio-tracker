@@ -44,7 +44,7 @@ function StockResearchPageContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [_watchlist, setWatchlist] = useState<string[]>([]);
-  const [comparisonStocks, setComparisonStocks] = useState<string[]>([]);
+  const [_comparisonStocks, _setComparisonStocks] = useState<string[]>([]);
   const [_comparisonMode, _setComparisonMode] = useState(false);
 
   // Initialize from URL params
@@ -249,10 +249,7 @@ function StockResearchPageContent() {
       case 'comparison':
         return (
           <ComparisonTab 
-            {...tabProps}
-            comparisonStocks={comparisonStocks}
-            onStockAdd={(ticker) => setComparisonStocks(prev => [...prev, ticker])}
-            onStockRemove={(ticker) => setComparisonStocks(prev => prev.filter(t => t !== ticker))}
+            isLoading={tabProps.isLoading}
           />
         );
       default:

@@ -193,14 +193,8 @@ export function usePerformance(
         // Fetch historical performance data from new endpoint
         const { front_api_client } = await import('@/lib/front_api_client');
         
-        const response = await front_api_client.get<PerformanceResponse>(
-          `/api/portfolio/performance/historical?period=${range}&benchmark=${benchmark}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${user?.access_token}`,
-              'Content-Type': 'application/json'
-            }
-          }
+        const response = await front_api_client.get(
+          `/api/portfolio/performance/historical?period=${range}&benchmark=${benchmark}`
         );
         
         if (!response || typeof response !== 'object') {

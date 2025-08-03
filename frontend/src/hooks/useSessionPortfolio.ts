@@ -27,10 +27,33 @@ import { useCallback, useMemo } from 'react';
 // Debug logging - disable in production
 const DEBUG_LOGGING = process.env.NODE_ENV === 'development';
 
-// Helper function to conditionally log debug information
+// Cache for deduplicating log messages
+const logCache = new Map<string, number>();
+
+// Helper function to conditionally log debug information with deduplication
 const debugLog = (...args: any[]) => {
-  if (DEBUG_LOGGING) {
+  if (!DEBUG_LOGGING) return;
+  
+  const message = args.map(arg => 
+    typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+  ).join(' ');
+  
+  const now = Date.now();
+  const lastLogTime = logCache.get(message);
+  
+  // Only log if message hasn't been logged in the last 1 second
+  if (!lastLogTime || now - lastLogTime > 1000) {
     console.log(...args);
+    logCache.set(message, now);
+    
+    // Clean up old entries to prevent memory leaks
+    if (logCache.size > 100) {
+      for (const [key, time] of logCache.entries()) {
+        if (now - time > 10000) { // Remove entries older than 10 seconds
+          logCache.delete(key);
+        }
+      }
+    }
   }
 };
 
@@ -279,19 +302,11 @@ export interface UseSessionPortfolioResult {
  */
 function logPerformanceMetrics(
   metadata: CompletePortfolioMetadata | undefined,
-  userId?: string
+  _userId?: string
 ) {
   if (!metadata) return;
   
-  const { performance_metadata } = metadata;
-  
-  debugLog('[useSessionPortfolio] 📊 Performance Metrics:');
-  debugLog(`[useSessionPortfolio] - Total Processing Time: ${performance_metadata.total_processing_time_ms}ms`);
-  debugLog(`[useSessionPortfolio] - Cache Hit Ratio: ${(performance_metadata.cache_hit_ratio * 100).toFixed(1)}%`);
-  debugLog(`[useSessionPortfolio] - Payload Size: ${performance_metadata.payload_size_kb}KB`);
-  debugLog(`[useSessionPortfolio] - Data Sources: ${performance_metadata.data_sources.join(', ')}`);
-  debugLog(`[useSessionPortfolio] - Generated At: ${metadata.generated_at}`);
-  debugLog(`[useSessionPortfolio] - User ID: ${userId}`);
+  const { performance_metadata: _performance_metadata } = metadata;
 }
 
 /**
@@ -307,15 +322,14 @@ function validateCompletePortfolioResponse(
   
   const resp = response as Record<string, unknown>;
   
-  // Check required top-level fields
+  // Check required top-level fields - handle both nested and flattened structures
   const requiredFields = [
     'success',
     'portfolio_data',
     'performance_data',
     'allocation_data',
     'dividend_data',
-    'transactions_summary',
-    'metadata'
+    'transactions_summary'
   ];
   
   for (const field of requiredFields) {
@@ -323,6 +337,11 @@ function validateCompletePortfolioResponse(
       console.error(`[useSessionPortfolio] ❌ Missing required field: ${field}`);
       return false;
     }
+  }
+  
+  // metadata might be optional in some response formats
+  if (!('metadata' in resp)) {
+    console.warn(`[useSessionPortfolio] ⚠️ Missing optional field: metadata`);
   }
   
   if (!resp.success) {
@@ -439,16 +458,10 @@ function sanitizeCompletePortfolioData(
 export function useSessionPortfolio(
   options: UseSessionPortfolioOptions = {}
 ): UseSessionPortfolioResult {
-  debugLog('[useSessionPortfolio] 🚀 Hook initialized with options:', options);
   
   const { user } = useAuth();
   const userId = user?.id;
   const queryClient = useQueryClient();
-  
-  debugLog('[useSessionPortfolio] 🔐 Authentication status:');
-  debugLog('[useSessionPortfolio] - User present:', !!user);
-  debugLog('[useSessionPortfolio] - User ID:', userId);
-  debugLog('[useSessionPortfolio] - User email:', user?.email);
   
   // Aggressive caching configuration optimized for portfolio data
   const queryOptions = {
@@ -457,18 +470,12 @@ export function useSessionPortfolio(
     cacheTime: options.cacheTime || 60 * 60 * 1000, // 1 hour memory retention
     refetchOnWindowFocus: options.refetchOnWindowFocus !== undefined ? options.refetchOnWindowFocus : false,
     refetchOnMount: options.refetchOnMount !== undefined ? options.refetchOnMount : false,
-    retry: options.retry !== undefined ? options.retry : 3, // More retries for critical data
+    retry: options.retry !== undefined ? options.retry : 1, // Reduce retries to prevent infinite loops
     retryDelay: (attemptIndex: number) => {
       const delay = Math.min(1000 * 2 ** attemptIndex, 15000); // Max 15s delay
-      debugLog(`[useSessionPortfolio] 🔄 Retry attempt ${attemptIndex + 1}, delay: ${delay}ms`);
       return delay;
     }
   };
-  
-  debugLog('[useSessionPortfolio] 📋 Query configuration:');
-  debugLog('[useSessionPortfolio] - Enabled:', queryOptions.enabled);
-  debugLog('[useSessionPortfolio] - Stale time:', queryOptions.staleTime + 'ms');
-  debugLog('[useSessionPortfolio] - Cache time:', queryOptions.cacheTime + 'ms');
   
   // Create unique query key for user-specific complete portfolio data
   const queryKey = useMemo(() => [
@@ -484,10 +491,6 @@ export function useSessionPortfolio(
     queryKey,
     queryFn: async (): Promise<CompletePortfolioData> => {
       const requestStart = performance.now();
-      debugLog('[useSessionPortfolio] 🎯 Starting complete portfolio data fetch...');
-      debugLog('[useSessionPortfolio] - Query key:', queryKey);
-      debugLog('[useSessionPortfolio] - Force refresh:', options.forceRefresh);
-      debugLog('[useSessionPortfolio] - Include historical:', options.includeHistorical);
       
       try {
         // Build query parameters
@@ -496,7 +499,6 @@ export function useSessionPortfolio(
         if (options.includeHistorical === false) params.append('include_historical', 'false');
         
         const endpoint = `/api/complete${params.toString() ? '?' + params.toString() : ''}`;
-        debugLog('[useSessionPortfolio] 📡 Fetching from endpoint:', endpoint);
         
         // Make the API call using existing infrastructure
         const response = await front_api_client.get(endpoint);
@@ -519,19 +521,22 @@ export function useSessionPortfolio(
         // Log performance metrics
         logPerformanceMetrics(sanitizedData.metadata, userId);
         
-        debugLog('[useSessionPortfolio] ✅ Complete portfolio data processed successfully');
-        debugLog(`[useSessionPortfolio] - Holdings: ${sanitizedData.portfolio_data.holdings.length}`);
-        debugLog(`[useSessionPortfolio] - Portfolio Value: $${sanitizedData.portfolio_data.total_value.toLocaleString()}`);
-        debugLog(`[useSessionPortfolio] - Dividends: ${sanitizedData.dividend_data.dividend_count}`);
-        debugLog(`[useSessionPortfolio] - Cache Hit: ${sanitizedData.metadata.cache_hit}`);
-        
         return sanitizedData;
         
       } catch (error) {
         const requestEnd = performance.now();
-        const requestDuration = Math.round(requestEnd - requestStart);
+        const _requestDuration = Math.round(requestEnd - requestStart);
         
-        console.error(`[useSessionPortfolio] ❌ Error after ${requestDuration}ms:`, error);
+        console.error(`[useSessionPortfolio] ❌ Error after ${_requestDuration}ms:`, error);
+        
+        // Add circuit breaker - if we've failed multiple times recently, throw immediately
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        
+        // If this is a validation error, don't retry
+        if (errorMessage.includes('Invalid response structure') || errorMessage.includes('Missing required field')) {
+          debugLog('[useSessionPortfolio] 🔄 Retry attempt 1, delay: 1000ms');
+          throw new Error(`API response validation failed - backend may be returning incorrect data structure: ${errorMessage}`);
+        }
         
         if (error instanceof Error) {
           // Enhance error with context
@@ -584,13 +589,11 @@ export function useSessionPortfolio(
   
   // Utility functions
   const forceRefresh = useCallback(() => {
-    debugLog('[useSessionPortfolio] 🔄 Force refreshing complete portfolio data...');
     queryClient.removeQueries({ queryKey: ['session-portfolio', userId] });
     refetch();
   }, [queryClient, userId, refetch]);
   
   const invalidateCache = useCallback(() => {
-    debugLog('[useSessionPortfolio] 🗑️ Invalidating session portfolio cache...');
     queryClient.invalidateQueries({ queryKey: ['session-portfolio', userId] });
   }, [queryClient, userId]);
   
@@ -598,11 +601,9 @@ export function useSessionPortfolio(
   useMemo(() => {
     if (data && metadata) {
       const perfData = metadata.performance_metadata;
-      debugLog('[useSessionPortfolio] 📈 Updated performance stats:', {
+        debugLog('[useSessionPortfolio] 📈 Updated performance stats:', {
         processingTime: perfData.total_processing_time_ms + 'ms',
-        payloadSize: perfData.payload_size_kb + 'KB',
-        cacheHitRatio: (perfData.cache_hit_ratio * 100).toFixed(1) + '%',
-        dataCompleteness: metadata.data_completeness
+        payloadSize: perfData.payload_size_kb + 'KB'
       });
     }
   }, [data, metadata]);

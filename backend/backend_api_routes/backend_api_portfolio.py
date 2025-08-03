@@ -1376,7 +1376,28 @@ async def backend_api_get_historical_performance(
         logger.info(f"[backend_api_portfolio.py::backend_api_get_historical_performance] Retrieved {len(performance_data.get('portfolio_performance', []))} portfolio data points")
         logger.info(f"[backend_api_portfolio.py::backend_api_get_historical_performance] Retrieved {len(performance_data.get('benchmark_performance', []))} benchmark data points")
         
-        return {
+        # === DEBUGGING: Log the complete response being sent to frontend ===
+        logger.info(f"[backend_api_portfolio.py::backend_api_get_historical_performance] === FRONTEND API RESPONSE DEBUG ===")
+        logger.info(f"[backend_api_portfolio.py::backend_api_get_historical_performance] 🚀 SENDING TO FRONTEND:")
+        logger.info(f"[backend_api_portfolio.py::backend_api_get_historical_performance] 📊 Portfolio data points: {len(performance_data.get('portfolio_performance', []))}")
+        logger.info(f"[backend_api_portfolio.py::backend_api_get_historical_performance] 📈 Benchmark data points: {len(performance_data.get('benchmark_performance', []))}")
+        logger.info(f"[backend_api_portfolio.py::backend_api_get_historical_performance] 📅 Period: {period}, Benchmark: {benchmark}")
+        
+        # Log first few data points of each series for verification
+        portfolio_data = performance_data.get('portfolio_performance', [])
+        benchmark_data = performance_data.get('benchmark_performance', [])
+        
+        if portfolio_data:
+            logger.info(f"[backend_api_portfolio.py::backend_api_get_historical_performance] 📊 Portfolio sample (first 3):")
+            for i, point in enumerate(portfolio_data[:3]):
+                logger.info(f"[backend_api_portfolio.py::backend_api_get_historical_performance]   Portfolio[{i}]: {point}")
+        
+        if benchmark_data:
+            logger.info(f"[backend_api_portfolio.py::backend_api_get_historical_performance] 📈 Benchmark sample (first 3):")
+            for i, point in enumerate(benchmark_data[:3]):
+                logger.info(f"[backend_api_portfolio.py::backend_api_get_historical_performance]   Benchmark[{i}]: {point}")
+        
+        response_data = {
             "success": True,
             "period": period,
             "benchmark": benchmark,
@@ -1385,6 +1406,9 @@ async def backend_api_get_historical_performance(
             "metadata": performance_data["metadata"],
             "performance_metrics": performance_data["performance_metrics"]
         }
+        
+        logger.info(f"[backend_api_portfolio.py::backend_api_get_historical_performance] === FRONTEND API RESPONSE DEBUG END ===")
+        return response_data
         
     except Exception as e:
         logger.error(f"[backend_api_portfolio.py::backend_api_get_historical_performance] Error: {e}")

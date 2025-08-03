@@ -64,7 +64,8 @@
       "Bash(for file in scripts/*.py)",
       "Bash(do sed -i 's/old_name/new_name/g' \"$file\")",
       "Bash(done)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(supabase db reset:*)"
     ],
     "deny": []
   },

@@ -21,19 +21,19 @@
   },
   "dependencies": {
     "@anthropic-ai/claude-code": "^1.0.56",
-    "playwright": "^1.53.2",
-    "jscpd": "^3.5.10"
+    "jscpd": "^3.5.10",
+    "playwright": "^1.53.2"
   },
   "devDependencies": {
     "@playwright/test": "^1.53.2",
     "@testing-library/dom": "^10.4.0",
+    "@types/node": "^20.19.9",
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
-    "type-coverage": "^2.27.1",
-    "openapi-typescript": "^6.0.0",
     "jscpd": "^3.5.0",
-    "typescript": "^5.0.0",
-    "@types/node": "^20.0.0"
+    "openapi-typescript": "^6.0.0",
+    "type-coverage": "^2.27.1",
+    "typescript": "^5.0.0"
   },
   "bulletproof": {
     "version": "2.0.0",
@@ -55,8 +55,8 @@
         "corsSecure": true
       },
       "codeQuality": {
-        "maxDuplication": 3.0,
-        "minTestCoverage": 90.0,
+        "maxDuplication": 3,
+        "minTestCoverage": 90,
         "noDrift": true
       }
     }

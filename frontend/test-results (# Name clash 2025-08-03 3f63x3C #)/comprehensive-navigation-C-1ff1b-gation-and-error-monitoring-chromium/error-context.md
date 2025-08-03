@@ -1,0 +1,68 @@
+# Page snapshot
+
+```yaml
+- banner:
+  - link "Portfolio Tracker Logo":
+    - /url: /dashboard
+    - img "Portfolio Tracker Logo"
+  - navigation:
+    - link "Dashboard":
+      - /url: /dashboard
+    - link "Analytics":
+      - /url: /analytics
+    - link "Portfolio":
+      - /url: /portfolio
+    - link "Watchlist":
+      - /url: /watchlist
+    - link "Transactions":
+      - /url: /transactions
+    - link "Research":
+      - /url: /research
+  - button "Add"
+  - button
+  - text: 3 3200163@proton.me
+- main:
+  - text: Settings
+  - paragraph: Manage your account and preferences
+  - navigation:
+    - link "Profile Manage your personal information":
+      - /url: /settings/profile
+    - link "Account & Billing Manage payment methods and billing":
+      - /url: /settings/account
+  - heading "Account & Billing" [level=2]
+  - 'heading "Current Plan: Professional" [level=3]'
+  - paragraph: "$9.99/month • Next billing date: February 1, 2024"
+  - button "Change Plan"
+  - heading "Payment Methods" [level=3]
+  - button "Add Payment Method"
+  - text: Visa ending in 4242 Default
+  - paragraph: Expires 12/2024
+  - button
+  - heading "Billing History" [level=3]
+  - table:
+    - rowgroup:
+      - row "Date Amount Status Invoice Actions":
+        - cell "Date"
+        - cell "Amount"
+        - cell "Status"
+        - cell "Invoice"
+        - cell "Actions"
+    - rowgroup:
+      - 'row "1/1/2024 $9.99 paid #INV-001 Download"':
+        - cell "1/1/2024"
+        - cell "$9.99"
+        - cell "paid"
+        - cell "#INV-001"
+        - cell "Download":
+          - button "Download"
+      - 'row "12/1/2023 $9.99 paid #INV-002 Download"':
+        - cell "12/1/2023"
+        - cell "$9.99"
+        - cell "paid"
+        - cell "#INV-002"
+        - cell "Download":
+          - button "Download"
+- alert
+- button "Open Next.js Dev Tools":
+  - img
+```

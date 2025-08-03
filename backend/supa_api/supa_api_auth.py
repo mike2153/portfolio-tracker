@@ -73,7 +73,21 @@ async def require_authenticated_user(credentials: Optional[HTTPAuthorizationCred
             error=e,
             token_present=bool(token)
         )
-        raise HTTPException(status_code=401, detail=f"Authentication error: {e}")
+        
+        # Handle specific Supabase authentication errors more gracefully
+        error_str = str(e).lower()
+        if "expired" in error_str or "token is expired" in error_str:
+            raise HTTPException(
+                status_code=401, 
+                detail="Your session has expired. Please log in again."
+            )
+        elif "invalid jwt" in error_str or "unable to parse" in error_str:
+            raise HTTPException(
+                status_code=401, 
+                detail="Invalid authentication token. Please log in again."
+            )
+        else:
+            raise HTTPException(status_code=401, detail="Authentication failed. Please try again.")
 
 # Helper functions for checking user permissions
 # UNUSED FUNCTION - TO BE DELETED

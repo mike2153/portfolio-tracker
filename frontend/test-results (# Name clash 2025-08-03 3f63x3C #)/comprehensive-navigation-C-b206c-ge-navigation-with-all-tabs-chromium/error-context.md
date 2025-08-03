@@ -1,0 +1,46 @@
+# Page snapshot
+
+```yaml
+- banner:
+  - link "Portfolio Tracker Logo":
+    - /url: /dashboard
+    - img "Portfolio Tracker Logo"
+  - navigation:
+    - link "Dashboard":
+      - /url: /dashboard
+    - link "Analytics":
+      - /url: /analytics
+    - link "Portfolio":
+      - /url: /portfolio
+    - link "Watchlist":
+      - /url: /watchlist
+    - link "Transactions":
+      - /url: /transactions
+    - link "Research":
+      - /url: /research
+  - button "Add"
+  - button
+  - text: 3 3200163@proton.me
+- main:
+  - text: Analytics
+  - paragraph: Comprehensive portfolio analysis and dividend tracking
+  - heading "Portfolio Value" [level=3]
+  - text: 💼
+  - heading "Total Profit" [level=3]
+  - text: 📈
+  - heading "IRR" [level=3]
+  - text: 🎯
+  - heading "Passive Income" [level=3]
+  - text: 💰
+  - heading "Cash Balance" [level=3]
+  - text: 🏦
+  - navigation:
+    - button "📊My Holdings"
+    - button "📈General"
+    - button "💰Dividends"
+    - button "📊Returns"
+  - heading "Holdings Analysis" [level=3]
+- alert
+- button "Open Next.js Dev Tools":
+  - img
+```

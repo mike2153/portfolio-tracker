@@ -198,10 +198,23 @@ async def api_exception_handler(request: Request, exc: Exception) -> JSONRespons
     
     # Handle standard HTTPException
     elif isinstance(exc, HTTPException):
+        # Provide better error categories for common HTTP exceptions
+        error_type = "HTTP Error"
+        if exc.status_code == 401:
+            error_type = "Authentication Error"
+        elif exc.status_code == 403:
+            error_type = "Authorization Error"
+        elif exc.status_code == 404:
+            error_type = "Not Found"
+        elif exc.status_code == 429:
+            error_type = "Rate Limit Exceeded"
+        elif exc.status_code >= 500:
+            error_type = "Server Error"
+        
         return JSONResponse(
             status_code=exc.status_code,
             content=ResponseFactory.error(
-                error=HTTPException.__name__,
+                error=error_type,
                 message=exc.detail or "An error occurred",
                 status_code=exc.status_code,
                 request_id=request_id

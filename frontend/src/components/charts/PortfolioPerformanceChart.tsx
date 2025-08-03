@@ -9,7 +9,7 @@ import { formatCurrency, formatPercentage } from '@/lib/front_api_client';
 import type { StockPricesResponse } from '@/types/index';
 // import type { APIResponse } from '@/types/index'; // Currently unused
 
-interface PerformanceHistoryPoint {
+interface _PerformanceHistoryPoint {
   date: string;
   value: number;
 }
@@ -42,16 +42,16 @@ const PortfolioPerformanceChart: React.FC<PortfolioPerformanceChartProps> = ({
   const [compareMode, setCompareMode] = useState(true);
 
   // Fetch portfolio performance data using consolidated hook
-  const { data: performanceData, isLoading: portfolioLoading } = usePerformanceData();
+  const { data: _performanceData, isLoading: portfolioLoading } = usePerformanceData();
   
   // NOTE: The consolidated hook doesn't include historical performance data
   // This component may need refactoring to work with available performance metrics
   // For now, returning null to prevent errors
-  const portfolioData = useMemo(() => {
+  const _portfolioData = useMemo(() => {
     // TODO: Implement proper historical data integration
     console.warn('[PortfolioPerformanceChart] Historical performance data not available in consolidated hook');
     return null;
-  }, [performanceData]);
+  }, []);
 
   // Fetch benchmark data for each selected benchmark using dynamic queries
   const enabledBenchmarks = selectedBenchmarks.slice(0, 3); // Limit to max 3 benchmarks for performance
@@ -76,19 +76,10 @@ const PortfolioPerformanceChart: React.FC<PortfolioPerformanceChartProps> = ({
 
   // Combine all data into chart format
   const chartData = useMemo(() => {
-    const data = [];
+    const data: any[] = [];
 
-    // Add portfolio data
-    if (portfolioData?.data?.portfolio_history) {
-      data.push({
-        symbol: 'Portfolio',
-        data: portfolioData.data.portfolio_history.map((point: PerformanceHistoryPoint) => ({
-          date: new Date(point.date),
-          price: point.value,
-        })),
-        color: '#3b82f6',
-      });
-    }
+    // Portfolio data not available - historical performance not included in consolidated hook
+    // TODO: Implement historical data integration when available
 
     // Add benchmark data
     benchmarkQueries.forEach((query, index) => {
@@ -109,7 +100,7 @@ const PortfolioPerformanceChart: React.FC<PortfolioPerformanceChartProps> = ({
     });
 
     return data;
-  }, [portfolioData, benchmarkQueries, enabledBenchmarks]);
+  }, [benchmarkQueries, enabledBenchmarks]);
 
   const isLoading = portfolioLoading || benchmarkQueries.some(q => q.isLoading);
 

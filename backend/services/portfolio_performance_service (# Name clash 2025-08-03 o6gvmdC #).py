@@ -126,6 +126,22 @@ class PortfolioPerformanceService:
             # Calculate performance metrics
             metrics = self._calculate_performance_metrics(portfolio_data, benchmark_data)
             
+            # === DEBUGGING: Log the full time series data being sent to frontend ===
+            logger.info(f"[portfolio_performance_service.py::get_historical_performance] === FULL TIME SERIES DEBUG START ===")
+            logger.info(f"[portfolio_performance_service.py::get_historical_performance] 🔍 PORTFOLIO TIME SERIES DATA ({len(portfolio_data)} points):")
+            for i, point in enumerate(portfolio_data):
+                logger.info(f"[portfolio_performance_service.py::get_historical_performance]   Portfolio[{i}]: Date={point.get('date')}, Value=${point.get('value')}")
+            
+            logger.info(f"[portfolio_performance_service.py::get_historical_performance] 🔍 BENCHMARK TIME SERIES DATA ({len(benchmark_data)} points):")
+            for i, point in enumerate(benchmark_data):
+                logger.info(f"[portfolio_performance_service.py::get_historical_performance]   Benchmark[{i}]: Date={point.get('date')}, Value=${point.get('value')}")
+            
+            logger.info(f"[portfolio_performance_service.py::get_historical_performance] 🔍 PERFORMANCE METRICS:")
+            for key, value in metrics.items():
+                logger.info(f"[portfolio_performance_service.py::get_historical_performance]   {key}: {value}")
+            
+            logger.info(f"[portfolio_performance_service.py::get_historical_performance] === FULL TIME SERIES DEBUG END ===")
+            
             # Build response
             response = {
                 "portfolio_performance": portfolio_data,
@@ -185,6 +201,10 @@ class PortfolioPerformanceService:
     ) -> List[Dict[str, Any]]:
         """Calculate portfolio value over time based on transactions and price history."""
         logger.info(f"[portfolio_performance_service.py::_calculate_portfolio_time_series] Calculating portfolio time series")
+        logger.info(f"[portfolio_performance_service.py::_calculate_portfolio_time_series] 🔍 INPUT PARAMETERS:")
+        logger.info(f"[portfolio_performance_service.py::_calculate_portfolio_time_series]   Symbols: {symbols}")
+        logger.info(f"[portfolio_performance_service.py::_calculate_portfolio_time_series]   Date range: {start_date} to {end_date}")
+        logger.info(f"[portfolio_performance_service.py::_calculate_portfolio_time_series]   Total transactions: {len(transactions)}")
         
         try:
             # Get historical price data for all symbols
@@ -194,10 +214,18 @@ class PortfolioPerformanceService:
                 end_date=end_date.isoformat()
             )
             
+            logger.info(f"[portfolio_performance_service.py::_calculate_portfolio_time_series] 🔍 PRICE HISTORY RETRIEVED:")
+            for symbol, prices in price_history.items():
+                logger.info(f"[portfolio_performance_service.py::_calculate_portfolio_time_series]   {symbol}: {len(prices)} price records")
+                if prices:
+                    logger.info(f"[portfolio_performance_service.py::_calculate_portfolio_time_series]     First: {prices[0].get('date')} = ${prices[0].get('close')}")
+                    logger.info(f"[portfolio_performance_service.py::_calculate_portfolio_time_series]     Last: {prices[-1].get('date')} = ${prices[-1].get('close')}")
+            
             # Build portfolio time series
             portfolio_series = []
             current_date = start_date
             
+            dates_calculated = 0
             while current_date <= end_date:
                 # Calculate portfolio value on this date
                 portfolio_value = self._calculate_portfolio_value_on_date(
@@ -206,16 +234,28 @@ class PortfolioPerformanceService:
                     price_history=price_history
                 )
                 
-                if portfolio_value > 0:  # Only include dates with portfolio value
-                    portfolio_series.append({
-                        "date": current_date.isoformat(),
-                        "value": float(portfolio_value)
-                    })
+                dates_calculated += 1
+                
+                # Include ALL calculated portfolio values (positive, negative, or zero)
+                portfolio_series.append({
+                    "date": current_date.isoformat(),
+                    "value": float(portfolio_value)
+                })
+                # Log every 10th data point to avoid spam
+                if len(portfolio_series) % 10 == 0 or len(portfolio_series) <= 5:
+                    logger.info(f"[portfolio_performance_service.py::_calculate_portfolio_time_series] 🔍 Portfolio[{len(portfolio_series)-1}]: {current_date} = ${float(portfolio_value):.2f}")
                 
                 # Move to next trading day (skip weekends for now)
                 current_date += timedelta(days=1)
                 if current_date.weekday() > 4:  # Skip weekends
                     current_date += timedelta(days=2 if current_date.weekday() == 5 else 1)
+            
+            logger.info(f"[portfolio_performance_service.py::_calculate_portfolio_time_series] 🔍 CALCULATION SUMMARY:")
+            logger.info(f"[portfolio_performance_service.py::_calculate_portfolio_time_series]   Total dates calculated: {dates_calculated}")
+            logger.info(f"[portfolio_performance_service.py::_calculate_portfolio_time_series]   Valid portfolio points: {len(portfolio_series)}")
+            if portfolio_series:
+                logger.info(f"[portfolio_performance_service.py::_calculate_portfolio_time_series]   First point: {portfolio_series[0]['date']} = ${portfolio_series[0]['value']}")
+                logger.info(f"[portfolio_performance_service.py::_calculate_portfolio_time_series]   Last point: {portfolio_series[-1]['date']} = ${portfolio_series[-1]['value']}")
             
             logger.info(f"[portfolio_performance_service.py::_calculate_portfolio_time_series] Generated {len(portfolio_series)} data points")
             return portfolio_series
@@ -231,6 +271,12 @@ class PortfolioPerformanceService:
         price_history: Dict[str, List[Dict[str, Any]]]
     ) -> Decimal:
         """Calculate total portfolio value on a specific date."""
+        # Debug flag to log first few calculations in detail
+        debug_detailed = target_date <= date.today() - timedelta(days=360)  # Only debug early dates to avoid spam
+        
+        if debug_detailed:
+            logger.info(f"[portfolio_performance_service.py::_calculate_portfolio_value_on_date] 🔍 DETAILED CALCULATION for {target_date}")
+        
         total_value = Decimal('0')
         
         # Calculate holdings as of target date
@@ -249,6 +295,9 @@ class PortfolioPerformanceService:
             
             holdings[symbol] = holdings.get(symbol, Decimal('0')) + quantity
         
+        if debug_detailed:
+            logger.info(f"[portfolio_performance_service.py::_calculate_portfolio_value_on_date]   Holdings as of {target_date}: {holdings}")
+        
         # Calculate value using prices on target date
         for symbol, quantity in holdings.items():
             if quantity <= 0:
@@ -262,10 +311,20 @@ class PortfolioPerformanceService:
                 price_date = datetime.strptime(price_record['date'], '%Y-%m-%d').date()
                 if price_date <= target_date:
                     price_on_date = Decimal(str(price_record['close']))
+                    if debug_detailed:
+                        logger.info(f"[portfolio_performance_service.py::_calculate_portfolio_value_on_date]   {symbol}: {quantity} shares × ${price_on_date} (price from {price_date})")
                     break
             
             if price_on_date:
-                total_value += quantity * price_on_date
+                position_value = quantity * price_on_date
+                total_value += position_value
+                if debug_detailed:
+                    logger.info(f"[portfolio_performance_service.py::_calculate_portfolio_value_on_date]   {symbol} position value: ${position_value}")
+            elif debug_detailed:
+                logger.info(f"[portfolio_performance_service.py::_calculate_portfolio_value_on_date]   {symbol}: NO PRICE FOUND for {target_date}")
+        
+        if debug_detailed:
+            logger.info(f"[portfolio_performance_service.py::_calculate_portfolio_value_on_date]   TOTAL VALUE on {target_date}: ${total_value}")
         
         return total_value
     
@@ -277,6 +336,9 @@ class PortfolioPerformanceService:
     ) -> List[Dict[str, Any]]:
         """Get benchmark index historical data."""
         logger.info(f"[portfolio_performance_service.py::_get_benchmark_time_series] Getting benchmark data for {benchmark}")
+        logger.info(f"[portfolio_performance_service.py::_get_benchmark_time_series] 🔍 BENCHMARK REQUEST:")
+        logger.info(f"[portfolio_performance_service.py::_get_benchmark_time_series]   Symbol: {benchmark}")
+        logger.info(f"[portfolio_performance_service.py::_get_benchmark_time_series]   Date range: {start_date} to {end_date}")
         
         try:
             # Try to get from database first
@@ -289,6 +351,8 @@ class PortfolioPerformanceService:
                 user_token=""  # Public data doesn't need user token
             )
             
+            logger.info(f"[portfolio_performance_service.py::_get_benchmark_time_series] 🔍 DATABASE RESPONSE: {len(price_data) if price_data else 0} records")
+            
             if price_data:
                 # Convert to time series format
                 benchmark_series = [
@@ -300,6 +364,12 @@ class PortfolioPerformanceService:
                 ]
                 
                 logger.info(f"[portfolio_performance_service.py::_get_benchmark_time_series] Retrieved {len(benchmark_series)} benchmark points from database")
+                logger.info(f"[portfolio_performance_service.py::_get_benchmark_time_series] 🔍 BENCHMARK DATABASE DATA:")
+                for i, point in enumerate(sorted(benchmark_series, key=lambda x: x['date'])[:5]):  # Show first 5
+                    logger.info(f"[portfolio_performance_service.py::_get_benchmark_time_series]   DB[{i}]: Date={point['date']}, Value=${point['value']}")
+                if len(benchmark_series) > 5:
+                    logger.info(f"[portfolio_performance_service.py::_get_benchmark_time_series]   ... and {len(benchmark_series) - 5} more records")
+                
                 return sorted(benchmark_series, key=lambda x: x['date'])
             
             # Fallback to Alpha Vantage if not in database
@@ -320,6 +390,12 @@ class PortfolioPerformanceService:
                         })
                 
                 logger.info(f"[portfolio_performance_service.py::_get_benchmark_time_series] Retrieved {len(benchmark_series)} benchmark points from Alpha Vantage")
+                logger.info(f"[portfolio_performance_service.py::_get_benchmark_time_series] 🔍 BENCHMARK ALPHA VANTAGE DATA:")
+                for i, point in enumerate(sorted(benchmark_series, key=lambda x: x['date'])[:5]):  # Show first 5
+                    logger.info(f"[portfolio_performance_service.py::_get_benchmark_time_series]   AV[{i}]: Date={point['date']}, Value=${point['value']}")
+                if len(benchmark_series) > 5:
+                    logger.info(f"[portfolio_performance_service.py::_get_benchmark_time_series]   ... and {len(benchmark_series) - 5} more records")
+                
                 return sorted(benchmark_series, key=lambda x: x['date'])
             
             logger.warning(f"[portfolio_performance_service.py::_get_benchmark_time_series] No benchmark data available for {benchmark}")

@@ -63,11 +63,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     
     DebugLogger.info_if_enabled("[main.py::lifespan] Startup: Initiating immediate dividend sync for all users", logger)
     
-    # Step 1: Sync global dividends from Alpha Vantage
+    # Step 1: Sync global dividends from Alpha Vantage (with graceful handling for multiple instances)
     sync_result = await dividend_service.background_dividend_sync_all_users()
     if sync_result.get("success"):
         # logger.info(f"[main.py::lifespan] Successfully synced {sync_result.get('total_assigned', 0)} global dividends")
         pass
+    elif sync_result.get("code") == "SYNC_IN_PROGRESS_DISTRIBUTED":
+        logger.info(f"[main.py::lifespan] Dividend sync skipped: {sync_result.get('error', 'Another instance is already syncing')}")
     else:
         logger.warning(f"[main.py::lifespan] Dividend sync had issues: {sync_result.get('error', 'Unknown error')}")
     
