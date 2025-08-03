@@ -91,6 +91,155 @@ test.describe('Comprehensive Navigation Tests', () => {
     expect(criticalErrors).toHaveLength(0);
   });
 
+  test('Portfolio Chart Data Debugging', async ({ page }) => {
+    const { errors, warnings } = setupErrorMonitoring(page);
+    const apiCalls: Array<{ url: string; status: number; response: any }> = [];
+    const chartDebugLogs: string[] = [];
+    
+    // Capture frontend console logs specifically from our chart component
+    page.on('console', (msg) => {
+      const text = msg.text();
+      if (text.includes('PORTFOLIO CHART DATA DEBUG') || 
+          text.includes('PortfolioChartApex') ||
+          text.includes('TIMEFRAME:') ||
+          text.includes('PORTFOLIO DATA') ||
+          text.includes('BENCHMARK DATA') ||
+          text.includes('STARTING VALUES') ||
+          text.includes('ENDING VALUES')) {
+        chartDebugLogs.push(text);
+        console.log('CHART DEBUG:', text);
+      }
+    });
+    
+    // Intercept API calls to monitor portfolio performance requests
+    page.on('response', async (response) => {
+      const url = response.url();
+      if (url.includes('/api/portfolio/performance/historical')) {
+        try {
+          const responseData = await response.json();
+          apiCalls.push({
+            url: url,
+            status: response.status(),
+            response: responseData
+          });
+          console.log('=== PORTFOLIO PERFORMANCE API CALL ===');
+          console.log('URL:', url);
+          console.log('Status:', response.status());
+          console.log('Response:', JSON.stringify(responseData, null, 2));
+          console.log('Portfolio data points:', responseData?.portfolio_performance?.length || 0);
+          console.log('Benchmark data points:', responseData?.benchmark_performance?.length || 0);
+          console.log('=========================================');
+        } catch (e) {
+          console.error('Failed to parse API response:', e);
+          apiCalls.push({
+            url: url,
+            status: response.status(),
+            response: `Failed to parse: ${e}`
+          });
+        }
+      }
+    });
+    
+    // Login and navigate to dashboard
+    await performLogin(page);
+    
+    // Verify dashboard loaded
+    await expect(page.locator('text=My Portfolio')).toBeVisible({ timeout: 10000 });
+    
+    // Wait longer for chart to load and make API calls
+    await page.waitForTimeout(8000);
+    
+    // Look for the portfolio chart component
+    const chartSelectors = [
+      '[data-testid="portfolio-chart"]',
+      '.portfolio-chart',
+      'text=Portfolio vs Benchmark',
+      'canvas', // ApexCharts renders to canvas
+      '.apexcharts-canvas'
+    ];
+    
+    let chartFound = false;
+    for (const selector of chartSelectors) {
+      try {
+        const element = page.locator(selector);
+        if (await element.isVisible({ timeout: 3000 })) {
+          console.log(`Portfolio chart found with selector: ${selector}`);
+          chartFound = true;
+          break;
+        }
+      } catch (e) {
+        console.log(`Chart selector ${selector} not found`);
+      }
+    }
+    
+    // Check for loading states or error messages
+    const loadingSelectors = [
+      'text=Loading',
+      'text=No data',
+      'text=Error',
+      '.loading',
+      '.spinner'
+    ];
+    
+    for (const selector of loadingSelectors) {
+      try {
+        const element = page.locator(selector);
+        if (await element.isVisible({ timeout: 1000 })) {
+          console.log(`Chart state indicator found: ${selector}`);
+        }
+      } catch (e) {
+        // Expected if not found
+      }
+    }
+    
+    // Log all API calls made
+    console.log('\n=== ALL PORTFOLIO API CALLS SUMMARY ===');
+    console.log(`Total API calls made: ${apiCalls.length}`);
+    apiCalls.forEach((call, index) => {
+      console.log(`Call ${index + 1}:`);
+      console.log(`  URL: ${call.url}`);
+      console.log(`  Status: ${call.status}`);
+      console.log(`  Data points: ${call.response?.portfolio_performance?.length || 'N/A'}`);
+    });
+    console.log('======================================');
+    
+    // Log all errors and warnings
+    console.log('\n=== ERRORS AND WARNINGS ===');
+    console.log('Errors:', errors);
+    console.log('Warnings:', warnings);
+    console.log('===========================');
+    
+    // Log chart debug information
+    console.log('\n=== CHART DEBUG LOGS ===');
+    chartDebugLogs.forEach((log, index) => {
+      console.log(`${index + 1}. ${log}`);
+    });
+    console.log('========================');
+    
+    // Expect at least one API call was made
+    expect(apiCalls.length).toBeGreaterThan(0);
+    
+    // Check if chart was found
+    if (!chartFound) {
+      console.warn('Portfolio chart component not found on dashboard');
+    }
+    
+    // Assert no critical errors occurred
+    const criticalErrors = errors.filter(e => 
+      !e.text.includes('favicon') && 
+      !e.text.includes('logo.png') &&
+      !e.url?.includes('_next/static') &&
+      !e.text.includes('ResizeObserver') &&
+      !e.text.includes('Failed to load resource') // Filter out generic resource loading errors
+    );
+    
+    if (criticalErrors.length > 0) {
+      console.error('Critical errors found:', criticalErrors);
+    }
+    
+    expect(criticalErrors).toHaveLength(0);
+  });
+
   test('Analytics page navigation with all tabs', async ({ page }) => {
     const { errors, warnings } = setupErrorMonitoring(page);
     

@@ -41,6 +41,8 @@ from services.user_performance_manager import user_performance_manager
 # Import centralized validation models
 from models.validation_models import TransactionCreate, TransactionUpdate
 
+# Removed alignment function to fix backend hanging issue
+
 logger = logging.getLogger(__name__)
 
 # Create router
@@ -1362,16 +1364,155 @@ async def backend_api_get_historical_performance(
         # Extract user credentials
         user_id, user_token = extract_user_credentials(user)
         
-        # Import the new service
-        from services.portfolio_performance_service import portfolio_performance_service
+        # Import the proper portfolio calculator service
+        from services.portfolio_calculator import portfolio_calculator
+        from services.index_sim_service import IndexSimulationService
         
-        # Get historical performance data
-        performance_data = await portfolio_performance_service.get_historical_performance(
+        # Get portfolio time series using the robust calculator
+        portfolio_series, portfolio_metadata = await portfolio_calculator.calculate_portfolio_time_series(
             user_id=user_id,
             user_token=user_token,
-            period=period,
+            range_key=period,
             benchmark=benchmark
         )
+        
+        # Align date ranges to ensure both series start and end on the same dates
+        if portfolio_series:
+            # Use the actual portfolio date range (when user had holdings)
+            start_date = portfolio_series[0][0]  # First date with holdings
+            end_date = portfolio_series[-1][0]   # Last date with holdings
+            
+            logger.info(f"[backend_api_get_historical_performance] Portfolio effective range: {start_date} to {end_date}")
+            
+            # Get index simulation using the same effective date range as portfolio
+            index_series = await IndexSimulationService.get_index_sim_series(
+                user_id=user_id,
+                benchmark=benchmark,
+                start_date=start_date,  # Use portfolio's actual start date
+                end_date=end_date,      # Use portfolio's actual end date
+                user_token=user_token
+            )
+        else:
+            # Fallback to original date range if no portfolio data
+            start_date, end_date = portfolio_calculator._compute_date_range(period)
+            logger.info(f"[backend_api_get_historical_performance] No portfolio data, using period range: {start_date} to {end_date}")
+            
+            index_series = await IndexSimulationService.get_index_sim_series(
+                user_id=user_id,
+                benchmark=benchmark,
+                start_date=start_date,
+                end_date=end_date,
+                user_token=user_token
+            )
+        
+        # Both series now have aligned date ranges
+        aligned_portfolio = portfolio_series
+        aligned_benchmark = index_series
+        
+        # Format data for frontend
+        portfolio_performance = [
+            {"date": d.isoformat(), "value": float(v)} for d, v in aligned_portfolio
+        ]
+        
+        benchmark_performance = [
+            {"date": d.isoformat(), "value": float(v)} for d, v in aligned_benchmark
+        ]
+        
+        # === DETAILED DEBUGGING FOR DATA ALIGNMENT ===
+        logger.info(f"[backend_api_get_historical_performance] === DATA ALIGNMENT DEBUG ===")
+        logger.info(f"[backend_api_get_historical_performance] Period: {period}, Benchmark: {benchmark}")
+        
+        # Show both the requested period range and actual data range
+        requested_start, requested_end = portfolio_calculator._compute_date_range(period)
+        logger.info(f"[backend_api_get_historical_performance] Requested period range: {requested_start} to {requested_end}")
+        
+        if portfolio_performance and benchmark_performance:
+            actual_portfolio_start = portfolio_performance[0]['date']
+            actual_portfolio_end = portfolio_performance[-1]['date']
+            actual_benchmark_start = benchmark_performance[0]['date']
+            actual_benchmark_end = benchmark_performance[-1]['date']
+            
+            logger.info(f"[backend_api_get_historical_performance] Actual portfolio range: {actual_portfolio_start} to {actual_portfolio_end}")
+            logger.info(f"[backend_api_get_historical_performance] Actual benchmark range: {actual_benchmark_start} to {actual_benchmark_end}")
+            logger.info(f"[backend_api_get_historical_performance] Date ranges aligned: {actual_portfolio_start == actual_benchmark_start and actual_portfolio_end == actual_benchmark_end}")
+        else:
+            logger.info(f"[backend_api_get_historical_performance] No data available for alignment check")
+        
+        # Log first 10 and last 5 points of each series
+        logger.info(f"[backend_api_get_historical_performance] 📊 PORTFOLIO DATA ({len(portfolio_performance)} points):")
+        for i, point in enumerate(portfolio_performance[:10]):
+            logger.info(f"[backend_api_get_historical_performance]   Portfolio[{i}]: {point['date']} = ${point['value']}")
+        if len(portfolio_performance) > 10:
+            logger.info(f"[backend_api_get_historical_performance]   ... {len(portfolio_performance) - 10} more points ...")
+            for i, point in enumerate(portfolio_performance[-5:], len(portfolio_performance) - 5):
+                logger.info(f"[backend_api_get_historical_performance]   Portfolio[{i}]: {point['date']} = ${point['value']}")
+        
+        logger.info(f"[backend_api_get_historical_performance] 📈 BENCHMARK DATA ({len(benchmark_performance)} points):")
+        for i, point in enumerate(benchmark_performance[:10]):
+            logger.info(f"[backend_api_get_historical_performance]   Benchmark[{i}]: {point['date']} = ${point['value']}")
+        if len(benchmark_performance) > 10:
+            logger.info(f"[backend_api_get_historical_performance]   ... {len(benchmark_performance) - 10} more points ...")
+            for i, point in enumerate(benchmark_performance[-5:], len(benchmark_performance) - 5):
+                logger.info(f"[backend_api_get_historical_performance]   Benchmark[{i}]: {point['date']} = ${point['value']}")
+        
+        # Check if first values match
+        if portfolio_performance and benchmark_performance:
+            portfolio_first = portfolio_performance[0]
+            benchmark_first = benchmark_performance[0]
+            logger.info(f"[backend_api_get_historical_performance] 🔍 FIRST VALUE COMPARISON:")
+            logger.info(f"[backend_api_get_historical_performance]   Portfolio first: {portfolio_first['date']} = ${portfolio_first['value']}")
+            logger.info(f"[backend_api_get_historical_performance]   Benchmark first: {benchmark_first['date']} = ${benchmark_first['value']}")
+            logger.info(f"[backend_api_get_historical_performance]   Values match: {abs(portfolio_first['value'] - benchmark_first['value']) < 0.01}")
+            logger.info(f"[backend_api_get_historical_performance]   Dates match: {portfolio_first['date'] == benchmark_first['date']}")
+        
+        logger.info(f"[backend_api_get_historical_performance] === DATA ALIGNMENT DEBUG END ===")
+        # === END DEBUGGING ===
+        
+        # Calculate performance metrics
+        if portfolio_series and index_series:
+            from services.index_sim_service import IndexSimulationUtils
+            metrics = IndexSimulationUtils.calculate_performance_metrics(portfolio_series, index_series)
+        else:
+            metrics = {
+                "portfolio_start_value": 0,
+                "portfolio_end_value": 0,
+                "portfolio_return_pct": 0,
+                "index_start_value": 0,
+                "index_end_value": 0,
+                "index_return_pct": 0,
+                "outperformance_pct": 0,
+                "absolute_outperformance": 0
+            }
+        
+        # Build response in expected format
+        performance_data = {
+            "portfolio_performance": portfolio_performance,
+            "benchmark_performance": benchmark_performance,
+            "metadata": {
+                "start_date": start_date.isoformat(),
+                "end_date": end_date.isoformat(),
+                "total_points": len(portfolio_performance),
+                "portfolio_final_value": portfolio_performance[-1]["value"] if portfolio_performance else 0,
+                "index_final_value": benchmark_performance[-1]["value"] if benchmark_performance else 0,
+                "benchmark_name": {"SPY": "S&P 500", "QQQ": "Nasdaq 100", "A200": "ASX 200", "URTH": "MSCI World", "VTI": "Total Stock Market", "VXUS": "International"}.get(benchmark, benchmark),
+                "calculation_timestamp": datetime.utcnow().isoformat(),
+                "cached": False,
+                "no_data": portfolio_metadata.get("no_data", False),
+                "index_only": False,
+                "reason": "success",
+                "chart_type": "performance_comparison"
+            },
+            "performance_metrics": {
+                "portfolio_start_value": float(metrics.get("portfolio_start_value", 0)),
+                "portfolio_end_value": float(metrics.get("portfolio_end_value", 0)),
+                "portfolio_return_pct": float(metrics.get("portfolio_return_pct", 0)),
+                "index_start_value": float(metrics.get("index_start_value", 0)),
+                "index_end_value": float(metrics.get("index_end_value", 0)),
+                "index_return_pct": float(metrics.get("index_return_pct", 0)),
+                "outperformance_pct": float(metrics.get("outperformance_pct", 0)),
+                "absolute_outperformance": float(metrics.get("absolute_outperformance", 0))
+            }
+        }
         
         logger.info(f"[backend_api_portfolio.py::backend_api_get_historical_performance] Retrieved {len(performance_data.get('portfolio_performance', []))} portfolio data points")
         logger.info(f"[backend_api_portfolio.py::backend_api_get_historical_performance] Retrieved {len(performance_data.get('benchmark_performance', []))} benchmark data points")

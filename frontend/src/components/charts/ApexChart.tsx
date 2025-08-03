@@ -198,11 +198,76 @@ export default function ApexChart({
     tooltip: {
       enabled: true,
       theme: darkMode ? 'dark' : 'light',
+      shared: true, // Enable shared tooltip to show all series
+      intersect: false, // Show values for all series at the same x-axis point
       ...(xAxisType === 'datetime' ? {
         x: { format: 'dd MMM yyyy' }
       } : {}),
       y: {
-        formatter: tooltipFormatter
+        formatter: (value: number, { seriesIndex, series: _series, w }: any) => {
+          // Custom formatter to show both portfolio and benchmark values
+          const formattedValue = tooltipFormatter(value);
+          const seriesName = w.config.series[seriesIndex]?.name || '';
+          
+          // Add currency symbol and series identification
+          return `${seriesName}: $${formattedValue}`;
+        }
+      },
+      custom: ({ series, seriesIndex: _seriesIndex, dataPointIndex, w }: any) => {
+        if (!series || series.length === 0) return '';
+        
+        // Get the date for this data point
+        const date = w.config.series[0]?.data[dataPointIndex]?.x || 
+                    w.config.xaxis.categories?.[dataPointIndex] || '';
+        
+        let tooltipHTML = `<div class="custom-tooltip bg-gray-800 text-white p-3 rounded shadow-lg border">`;
+        tooltipHTML += `<div class="tooltip-date font-semibold mb-2">${new Date(date).toLocaleDateString()}</div>`;
+        
+        // Show all series values
+        series.forEach((seriesData: number[], index: number) => {
+          const value = seriesData[dataPointIndex];
+          const seriesName = w.config.series[index]?.name || `Series ${index + 1}`;
+          const color = w.config.colors[index] || '#3B82F6';
+          
+          if (value !== undefined && value !== null) {
+            tooltipHTML += `
+              <div class="tooltip-series flex items-center gap-2 py-1">
+                <div class="series-color w-3 h-3 rounded-full" style="background-color: ${color}"></div>
+                <span class="series-name">${seriesName}:</span>
+                <span class="series-value font-medium">$${tooltipFormatter(value)}</span>
+              </div>
+            `;
+          }
+        });
+        
+        // Calculate performance difference if we have both portfolio and benchmark
+        if (series.length >= 2 && series[0][dataPointIndex] && series[1][dataPointIndex]) {
+          const portfolioValue = series[0][dataPointIndex];
+          const benchmarkValue = series[1][dataPointIndex];
+          const difference = portfolioValue - benchmarkValue;
+          const percentDiff = benchmarkValue !== 0 ? ((difference / benchmarkValue) * 100) : 0;
+          
+          tooltipHTML += `
+            <div class="tooltip-difference border-t pt-2 mt-2">
+              <div class="text-sm opacity-75">Difference:</div>
+              <div class="flex justify-between">
+                <span>Value:</span>
+                <span class="${difference >= 0 ? 'text-green-400' : 'text-red-400'} font-medium">
+                  ${difference >= 0 ? '+' : ''}$${difference.toFixed(2)}
+                </span>
+              </div>
+              <div class="flex justify-between">
+                <span>Percent:</span>
+                <span class="${percentDiff >= 0 ? 'text-green-400' : 'text-red-400'} font-medium">
+                  ${percentDiff >= 0 ? '+' : ''}${percentDiff.toFixed(2)}%
+                </span>
+              </div>
+            </div>
+          `;
+        }
+        
+        tooltipHTML += `</div>`;
+        return tooltipHTML;
       },
       style: {
         fontSize: '14px',

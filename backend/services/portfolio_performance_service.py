@@ -123,8 +123,18 @@ class PortfolioPerformanceService:
                 logger.error(f"Benchmark data failed: {benchmark_data}")
                 benchmark_data = []
             
-            # Calculate performance metrics
-            metrics = self._calculate_performance_metrics(portfolio_data, benchmark_data)
+            # Use index simulation service for proper "what if I bought the index" comparison
+            normalized_benchmark_data = await self._get_index_simulation_data(
+                user_id=validated_user_id,
+                user_token=user_token,
+                benchmark=benchmark,
+                start_date=start_date,
+                end_date=end_date,
+                portfolio_data=portfolio_data
+            )
+            
+            # Calculate performance metrics using normalized benchmark
+            metrics = self._calculate_performance_metrics(portfolio_data, normalized_benchmark_data)
             
             # === DEBUGGING: Log the full time series data being sent to frontend ===
             logger.info(f"[portfolio_performance_service.py::get_historical_performance] === FULL TIME SERIES DEBUG START ===")
@@ -142,16 +152,16 @@ class PortfolioPerformanceService:
             
             logger.info(f"[portfolio_performance_service.py::get_historical_performance] === FULL TIME SERIES DEBUG END ===")
             
-            # Build response
+            # Build response using normalized benchmark data
             response = {
                 "portfolio_performance": portfolio_data,
-                "benchmark_performance": benchmark_data,
+                "benchmark_performance": normalized_benchmark_data,
                 "metadata": {
                     "start_date": start_date.isoformat(),
                     "end_date": end_date.isoformat(),
                     "total_points": len(portfolio_data),
                     "portfolio_final_value": portfolio_data[-1]["value"] if portfolio_data else 0,
-                    "index_final_value": benchmark_data[-1]["value"] if benchmark_data else 0,
+                    "index_final_value": normalized_benchmark_data[-1]["value"] if normalized_benchmark_data else 0,
                     "benchmark_name": VALID_BENCHMARKS[benchmark],
                     "calculation_timestamp": datetime.utcnow().isoformat(),
                     "cached": False,
@@ -303,17 +313,20 @@ class PortfolioPerformanceService:
             if quantity <= 0:
                 continue
                 
-            # Find price on or before target date
+            # Find the most recent price on or before target date
             symbol_prices = price_history.get(symbol, [])
             price_on_date = None
+            most_recent_date = None
             
             for price_record in symbol_prices:
                 price_date = datetime.strptime(price_record['date'], '%Y-%m-%d').date()
                 if price_date <= target_date:
-                    price_on_date = Decimal(str(price_record['close']))
-                    if debug_detailed:
-                        logger.info(f"[portfolio_performance_service.py::_calculate_portfolio_value_on_date]   {symbol}: {quantity} shares × ${price_on_date} (price from {price_date})")
-                    break
+                    # Take the most recent price (closest to target date)
+                    if most_recent_date is None or price_date > most_recent_date:
+                        price_on_date = Decimal(str(price_record['close']))
+                        most_recent_date = price_date
+                        if debug_detailed:
+                            logger.info(f"[portfolio_performance_service.py::_calculate_portfolio_value_on_date]   {symbol}: Updated to {quantity} shares × ${price_on_date} (price from {price_date})")
             
             if price_on_date:
                 position_value = quantity * price_on_date
@@ -403,6 +416,70 @@ class PortfolioPerformanceService:
             
         except Exception as e:
             logger.error(f"[portfolio_performance_service.py::_get_benchmark_time_series] Error getting benchmark data: {e}")
+            return []
+    
+    async def _get_index_simulation_data(
+        self,
+        user_id: str,
+        user_token: str,
+        benchmark: str,
+        start_date: date,
+        end_date: date,
+        portfolio_data: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """
+        Get index simulation data using the existing IndexSimulationService.
+        
+        This provides the proper "what if I bought the index instead" comparison
+        by simulating fractional share purchases rather than simple scaling.
+        """
+        if not portfolio_data:
+            logger.warning("[portfolio_performance_service.py::_get_index_simulation_data] No portfolio data available")
+            return []
+        
+        try:
+            # Import the index simulation service
+            from services.index_sim_service import IndexSimulationService
+            
+            logger.info(f"[portfolio_performance_service.py::_get_index_simulation_data] 📊 INDEX SIMULATION:")
+            logger.info(f"[portfolio_performance_service.py::_get_index_simulation_data]   User: {user_id}")
+            logger.info(f"[portfolio_performance_service.py::_get_index_simulation_data]   Benchmark: {benchmark}")
+            logger.info(f"[portfolio_performance_service.py::_get_index_simulation_data]   Date range: {start_date} to {end_date}")
+            
+            # Get rebalanced index series using proper financial simulation
+            index_series = await IndexSimulationService.get_rebalanced_index_series(
+                user_id=user_id,
+                benchmark=benchmark,
+                start_date=start_date,
+                end_date=end_date,
+                user_token=user_token
+            )
+            
+            # Convert from (date, Decimal) tuples to dict format
+            index_data = []
+            for date_val, value_decimal in index_series:
+                index_data.append({
+                    "date": date_val.isoformat(),
+                    "value": float(value_decimal)
+                })
+            
+            logger.info(f"[portfolio_performance_service.py::_get_index_simulation_data] ✅ Generated {len(index_data)} index simulation points")
+            
+            # Log first and last few values for verification
+            if index_data:
+                logger.info(f"[portfolio_performance_service.py::_get_index_simulation_data] 📊 INDEX SIMULATION SAMPLE:")
+                for i, point in enumerate(index_data[:3]):
+                    logger.info(f"[portfolio_performance_service.py::_get_index_simulation_data]   Index[{i}]: {point['date']} = ${point['value']:.2f}")
+                
+                if len(index_data) > 3:
+                    last_point = index_data[-1]
+                    logger.info(f"[portfolio_performance_service.py::_get_index_simulation_data]   Index[last]: {last_point['date']} = ${last_point['value']:.2f}")
+            
+            return index_data
+            
+        except Exception as e:
+            logger.error(f"[portfolio_performance_service.py::_get_index_simulation_data] Error getting index simulation: {e}")
+            # Fallback to empty data rather than crashing
             return []
     
     def _calculate_performance_metrics(

@@ -48,6 +48,367 @@
   }
 }
 
+@layer utilities {
+  /* Enhanced 3D floating animations for landing page */
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0px) rotateX(0deg) rotateY(0deg);
+    }
+    50% {
+      transform: translateY(-20px) rotateX(2deg) rotateY(1deg);
+    }
+  }
+
+  @keyframes float-delayed {
+    0%, 100% {
+      transform: translateY(0px) rotateX(0deg) rotateY(0deg);
+    }
+    50% {
+      transform: translateY(-15px) rotateX(-1deg) rotateY(2deg);
+    }
+  }
+
+  @keyframes float-delayed-2 {
+    0%, 100% {
+      transform: translateY(0px) rotateX(0deg) rotateY(0deg);
+    }
+    50% {
+      transform: translateY(-10px) rotateX(1deg) rotateY(-1deg);
+    }
+  }
+
+  @keyframes float-3d {
+    0%, 100% {
+      transform: translateY(0px) translateZ(0px) rotateX(0deg) rotateY(0deg);
+    }
+    25% {
+      transform: translateY(-8px) translateZ(10px) rotateX(5deg) rotateY(-3deg);
+    }
+    50% {
+      transform: translateY(-15px) translateZ(20px) rotateX(-2deg) rotateY(4deg);
+    }
+    75% {
+      transform: translateY(-8px) translateZ(10px) rotateX(3deg) rotateY(-2deg);
+    }
+  }
+
+  @keyframes glow-pulse {
+    0%, 100% {
+      box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+    }
+    50% {
+      box-shadow: 0 0 40px rgba(16, 185, 129, 0.6), 0 0 60px rgba(16, 185, 129, 0.4);
+    }
+  }
+
+  @keyframes shimmer {
+    0% {
+      background-position: -1000px 0;
+    }
+    100% {
+      background-position: 1000px 0;
+    }
+  }
+
+  @keyframes slide-in-bottom {
+    0% {
+      transform: translateY(100px);
+      opacity: 0;
+    }
+    100% {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes card-hover {
+    0% {
+      transform: perspective(1000px) rotateX(0deg) rotateY(0deg) translateZ(0);
+    }
+    100% {
+      transform: perspective(1000px) rotateX(-10deg) rotateY(5deg) translateZ(20px);
+    }
+  }
+
+  @keyframes data-stream {
+    0% {
+      height: 20%;
+      background: linear-gradient(to top, #10B981, #059669);
+    }
+    50% {
+      height: 80%;
+      background: linear-gradient(to top, #10B981, #34D399);
+    }
+    100% {
+      height: 60%;
+      background: linear-gradient(to top, #10B981, #059669);
+    }
+  }
+
+  /* Enhanced animation classes */
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+    transform-style: preserve-3d;
+  }
+
+  .animate-float-delayed {
+    animation: float-delayed 4s ease-in-out infinite 1s;
+    transform-style: preserve-3d;
+  }
+
+  .animate-float-delayed-2 {
+    animation: float-delayed-2 5s ease-in-out infinite 2s;
+    transform-style: preserve-3d;
+  }
+
+  .animate-float-3d {
+    animation: float-3d 8s ease-in-out infinite;
+    transform-style: preserve-3d;
+    perspective: 1000px;
+  }
+
+  .animate-glow-pulse {
+    animation: glow-pulse 3s ease-in-out infinite;
+  }
+
+  .animate-shimmer {
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    background-size: 200% 100%;
+    animation: shimmer 2s infinite;
+  }
+
+  .animate-slide-in-bottom {
+    animation: slide-in-bottom 0.8s ease-out forwards;
+  }
+
+  .animate-data-stream {
+    animation: data-stream 3s ease-in-out infinite;
+  }
+
+  /* 3D hover effects */
+  .hover-3d {
+    transition: all 0.3s ease;
+    transform-style: preserve-3d;
+  }
+
+  .hover-3d:hover {
+    animation: card-hover 0.3s ease forwards;
+  }
+
+  /* Enhanced glassmorphism effects */
+  .glass-effect {
+    @apply bg-white/10 backdrop-blur-md border border-white/20;
+  }
+
+  .glass-morphism {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  }
+
+  /* Enhanced hover effects */
+  .hover-lift {
+    @apply transition-all duration-300 hover:scale-105 hover:shadow-xl;
+  }
+
+  .hover-tilt {
+    transition: transform 0.3s ease;
+  }
+
+  .hover-tilt:hover {
+    transform: perspective(1000px) rotateX(10deg) rotateY(-10deg) translateZ(20px);
+  }
+
+  /* Enhanced gradient text */
+  .gradient-text {
+    @apply bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent;
+  }
+
+  .gradient-text-green {
+    @apply bg-gradient-to-r from-emerald-400 to-green-600 bg-clip-text text-transparent;
+  }
+
+  /* Micro-interaction effects */
+  .btn-micro {
+    transition: all 0.15s ease;
+    transform: translateY(0);
+  }
+
+  .btn-micro:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  }
+
+  .btn-micro:active {
+    transform: translateY(0);
+    transition: all 0.1s ease;
+  }
+
+  /* Parallax effects */
+  .parallax-bg {
+    transform: translateZ(0);
+    will-change: transform;
+  }
+
+  /* Progressive loading states */
+  .skeleton-loading {
+    background: linear-gradient(90deg, #1E293B 25%, #334155 50%, #1E293B 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+
+  /* Mobile-first responsive optimizations */
+  @media (max-width: 768px) {
+    .animate-float-3d {
+      animation: float 4s ease-in-out infinite;
+      transform-style: flat;
+    }
+
+    .hover-3d {
+      transform: none;
+    }
+
+    .hover-3d:hover {
+      animation: none;
+      transform: scale(1.02);
+    }
+
+    .btn-micro {
+      padding: 0.75rem 1.5rem;
+    }
+
+    .btn-micro:hover {
+      transform: translateY(-1px);
+    }
+
+    .glass-morphism {
+      backdrop-filter: blur(10px);
+    }
+
+    /* Reduce animation intensity on mobile */
+    .animate-glow-pulse {
+      animation: none;
+      box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
+    }
+
+    /* Simplify parallax on mobile */
+    .parallax-bg {
+      transform: none;
+    }
+  }
+
+  /* Touch-friendly enhancements */
+  @media (hover: none) and (pointer: coarse) {
+    .hover-lift:hover {
+      transform: scale(1.02);
+    }
+
+    .hover-tilt:hover {
+      transform: scale(1.02);
+    }
+
+    .hover-3d:hover {
+      animation: none;
+      transform: scale(1.02);
+    }
+
+    /* Larger touch targets */
+    .btn-micro {
+      min-height: 44px;
+      min-width: 44px;
+    }
+
+    /* Disable complex animations on touch devices */
+    .animate-float-3d {
+      animation: none;
+    }
+
+    .animate-shimmer {
+      animation: none;
+    }
+  }
+
+  /* High contrast mode support */
+  @media (prefers-contrast: high) {
+    .glass-morphism {
+      background: rgba(30, 41, 59, 0.95);
+      border: 2px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .glass-effect {
+      background: rgba(30, 41, 59, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.4);
+    }
+  }
+
+  /* Reduced motion preferences */
+  @media (prefers-reduced-motion: reduce) {
+    .animate-float,
+    .animate-float-delayed,
+    .animate-float-delayed-2,
+    .animate-float-3d,
+    .animate-glow-pulse,
+    .animate-shimmer,
+    .animate-slide-in-bottom,
+    .animate-data-stream {
+      animation: none;
+    }
+
+    .btn-micro:hover {
+      transform: none;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .hover-lift:hover,
+    .hover-tilt:hover,
+    .hover-3d:hover {
+      transform: none;
+    }
+
+    /* Keep essential transitions but reduce them */
+    * {
+      transition-duration: 0.1s !important;
+    }
+  }
+
+  /* Better focus indicators for accessibility */
+  .btn-micro:focus-visible,
+  .hover-lift:focus-visible,
+  .hover-3d:focus-visible {
+    outline: 2px solid #10B981;
+    outline-offset: 2px;
+  }
+
+  /* Improved text rendering */
+  .gradient-text,
+  .gradient-text-green {
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    /* Fallback for browsers that don't support background-clip */
+    color: #10B981;
+  }
+
+  /* Better scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #1E293B;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #334155;
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #10B981;
+  }
+}
+
 /* This is a workaround for Tailwind's JIT compiler not picking up dynamic classes */
 .bg-blue-500 { background-color: #3b82f6; }
 .bg-green-500 { background-color: #22c55e; }
