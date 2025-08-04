@@ -1,7 +1,5 @@
 import React from 'react';
-
-import InformationCircleIcon from './InformationCircleIcon';
-import CheckIcon from './CheckIcon';
+import { Check, Info } from 'lucide-react';
 
 interface FinancialMetric {
   key: string;
@@ -63,7 +61,7 @@ const FinancialsTable: React.FC<FinancialsTableProps> = ({
   // Tooltip component for metric descriptions
   const MetricTooltip: React.FC<{ description: string }> = ({ description }) => (
     <div className="group relative inline-block">
-      <InformationCircleIcon className="w-4 h-4 text-gray-400 hover:text-gray-300 cursor-help" />
+      <Info className="w-4 h-4 text-gray-400 hover:text-gray-300 cursor-help" />
       <div className="absolute z-10 invisible group-hover:visible bg-gray-900 text-white text-xs rounded-lg p-2 -top-12 left-1/2 transform -translate-x-1/2 w-48 shadow-lg border border-gray-700">
         {description}
         <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
@@ -126,7 +124,7 @@ const FinancialsTable: React.FC<FinancialsTableProps> = ({
                           {/* Selection Indicator */}
                           <div className="w-5 mr-3 flex justify-center">
                             {isSelected && (
-                              <CheckIcon className="w-4 h-4 text-blue-400" />
+                              <Check className="w-4 h-4 text-blue-400" />
                             )}
                           </div>
                           
