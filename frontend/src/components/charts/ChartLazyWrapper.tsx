@@ -5,7 +5,7 @@ import React, { Suspense } from 'react';
 // Loading component for chart components
 const ChartLoadingSpinner = ({ height = 350 }: { height?: number }) => (
   <div 
-    className="rounded-xl bg-[#0D1117] border border-[#30363D] p-6 shadow-lg flex items-center justify-center"
+    className="rounded-xl bg-transparent border border-[#30363D] p-6 shadow-lg flex items-center justify-center"
     style={{ height }}
   >
     <div className="flex items-center gap-2 text-[#8B949E]">

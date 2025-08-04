@@ -149,7 +149,7 @@ export const AppShowcase = () => {
               style={{ transitionDelay: `${index * 150}ms` }}
             >
               {/* Screenshot Container */}
-              <div className="relative overflow-hidden rounded-2xl glass-morphism border border-[#334155]/50 
+              <div className="relative overflow-hidden rounded-2xl bg-transparent border border-[#30363D] border border-[#334155]/50 
                             group-hover:border-[#10B981]/30 group-hover:shadow-xl group-hover:shadow-[#10B981]/20
                             transition-all duration-300 hover-3d">
                 
@@ -193,7 +193,7 @@ export const AppShowcase = () => {
               </div>
 
               {/* Description Card */}
-              <div className="mt-6 p-4 rounded-xl glass-effect">
+              <div className="mt-6 p-4 rounded-xl bg-transparent border border-[#30363D]">
                 <h3 className="text-lg font-semibold text-white mb-2">{screenshot.title}</h3>
                 <p className="text-sm text-gray-400">{screenshot.description}</p>
               </div>

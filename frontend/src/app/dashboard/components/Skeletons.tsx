@@ -1,14 +1,16 @@
-// Skeletons component
-const Shimmer = () => (
-    <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#30363D]/50 to-transparent"></div>
-);
-  
+// Skeletons component  
 const SkeletonCard = ({ className }: { className?: string }) => (
-    <div data-testid="skeleton-card" className={`relative overflow-hidden rounded-xl bg-[#161B22] p-4 shadow ${className}`}>
-        <Shimmer />
-        <div className="h-6 w-3/4 rounded-lg bg-[#30363D]/50"></div>
-        <div className="mt-4 h-4 w-1/2 rounded-lg bg-[#30363D]/50"></div>
-        <div className="mt-2 h-4 w-1/4 rounded-lg bg-[#30363D]/50"></div>
+    <div data-testid="skeleton-card" className={`bg-transparent border border-[#30363D] rounded-xl p-6 ${className}`}>
+        <div className="flex items-center gap-4">
+          <div className="p-3 rounded-lg bg-[#30363D]/50">
+            <div className="w-6 h-6 bg-[#30363D] rounded"></div>
+          </div>
+          <div className="flex-1">
+            <div className="h-4 bg-[#30363D] rounded mb-2"></div>
+            <div className="h-8 bg-[#30363D] rounded mb-2"></div>
+            <div className="h-3 bg-[#30363D] rounded w-3/4"></div>
+          </div>
+        </div>
     </div>
 );
 
@@ -25,8 +27,7 @@ export function KPIGridSkeleton() {
 
 export function ChartSkeleton() {
     return (
-        <div className="relative overflow-hidden rounded-xl bg-[#161B22] p-4 shadow h-96">
-            <Shimmer />
+        <div className="bg-transparent border border-[#30363D] rounded-xl p-6 h-96">
             <div className="h-full w-full rounded-lg bg-[#30363D]/50"></div>
         </div>
     );
@@ -34,15 +35,15 @@ export function ChartSkeleton() {
 
 export function ListSkeleton({ title }: { title: string }) {
     return (
-      <div className="rounded-xl bg-[#161B22] p-4">
-        <h3 className="font-semibold text-white mb-4">{title}</h3>
+      <div className="bg-transparent border border-[#30363D] rounded-xl p-6">
+        <h3 className="font-semibold gradient-text-green mb-4">{title}</h3>
         <div className="space-y-4">
           {[...Array(5)].map((_, i) => (
             <div key={i} className="flex items-center space-x-4">
-              <div className="relative overflow-hidden h-10 w-10 rounded-full bg-[#30363D]/50"><Shimmer /></div>
+              <div className="h-10 w-10 rounded-full bg-[#30363D]/50"></div>
               <div className="flex-1 space-y-2">
-                <div className="relative overflow-hidden h-4 w-3/4 rounded bg-[#30363D]/50"><Shimmer /></div>
-                <div className="relative overflow-hidden h-4 w-1/2 rounded bg-[#30363D]/50"><Shimmer /></div>
+                <div className="h-4 w-3/4 rounded bg-[#30363D]/50"></div>
+                <div className="h-4 w-1/2 rounded bg-[#30363D]/50"></div>
               </div>
             </div>
           ))}
@@ -53,8 +54,8 @@ export function ListSkeleton({ title }: { title: string }) {
 
 export function FxTickerSkeleton() {
     return (
-        <div className="relative overflow-hidden rounded-xl bg-[#161B22] p-4 shadow h-12">
-            <Shimmer />
+        <div className="bg-transparent border border-[#30363D] rounded-xl p-4 h-12">
+            <div className="h-4 w-full rounded bg-[#30363D]/50"></div>
         </div>
     );
 } 

@@ -30,6 +30,9 @@
    - Confirm that type checking passes, tests (if available) pass, and the code is minimal, DRY, and clear.
 
 **Remember:**
+- **FORBIDDEN COMMANDS - NEVER RUN THESE:**
+  - `npm run build` or `npm build` - User will handle all build operations
+  - Any build, compile, or production deployment commands
 - **STRONG TYPING IS MANDATORY - ZERO LINTER ERRORS ALLOWED:**
   - Python: Use explicit type hints for ALL function parameters and return values
   - Never use `Any` unless absolutely necessary (document why)

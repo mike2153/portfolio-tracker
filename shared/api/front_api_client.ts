@@ -174,7 +174,7 @@ async function getJSON<T>(path:string): Promise<T> {
 
 // ───────────────────────────────── Portfolio Data ──────────────────────────────
 // All dashboard, portfolio, and transaction listing functions have been replaced 
-// by the consolidated /api/portfolio/complete endpoint
+// by the consolidated /api/complete endpoint (Crown Jewel endpoint)
 
 export const front_api_get_historical_price = (symbol: string, date: string) => {
   // 🔥 VALIDATE PARAMETERS BEFORE URL CONSTRUCTION

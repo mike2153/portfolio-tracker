@@ -28,7 +28,7 @@ export default function SettingsLayout({ children }: SettingsLayoutProps) {
   ];
 
   return (
-    <div className="min-h-screen bg-[#0D1117] text-white">
+    <div className="min-h-screen bg-transparent text-white">
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <GradientText className="text-3xl font-bold mb-2">Settings</GradientText>
@@ -68,7 +68,7 @@ export default function SettingsLayout({ children }: SettingsLayoutProps) {
 
           {/* Settings Content */}
           <div className="lg:col-span-3">
-            <div className="bg-[#0D1117] border border-[#30363D] rounded-lg p-6">
+            <div className="bg-transparent border border-[#30363D] rounded-lg p-6">
               {children}
             </div>
           </div>

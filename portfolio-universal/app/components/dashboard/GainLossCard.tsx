@@ -1,10 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
-import { useDashboard } from '../../contexts/DashboardContext';
-import { useAuth } from '../AuthProvider';
-import { authFetch } from '@portfolio-tracker/shared';
+import { usePortfolioSummary } from '../../hooks/usePortfolioComplete';
 
 interface GainerLoserRow {
   ticker: string;
@@ -30,30 +27,36 @@ const ListSkeleton = ({ title }: { title: string }) => (
 
 const GainLossCard = ({ type, title }: GainLossCardProps) => {
   const isGainers = type === 'gainers';
-  const { userId } = useDashboard();
-  const { user, session } = useAuth();
-
-  const queryFn = async () => {
-    if (!session?.access_token) {
-      throw new Error('No authentication token available');
-    }
-    
-    const response = await authFetch(`/api/dashboard/${type}`);
-    
-    if (!response.ok) {
-      throw new Error(`Failed to fetch ${type}`);
-    }
-    
-    return response.json();
-  };
   
-  const { data, isLoading, isError, error } = useQuery({
-    queryKey: ['dashboard', type, userId],
-    queryFn,
-    enabled: !!session?.access_token,
-    staleTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: false,
-  });
+  // Use consolidated portfolio data instead of deprecated API calls
+  const { holdings, isLoading, isError } = usePortfolioSummary(); // error removed as unused
+
+  // Process holdings data to extract gainers/losers
+  const items = React.useMemo(() => {
+    if (!holdings || holdings.length === 0) return [];
+    
+    // Convert holdings to GainerLoserRow format
+    const processedItems = holdings.map((holding: any) => ({
+      ticker: holding.symbol,
+      name: holding.company_name || holding.symbol,
+      value: holding.current_value || 0,
+      changePercent: holding.total_gain_loss_percent || 0,
+      changeValue: holding.total_gain_loss || 0,
+    }));
+    
+    // Filter and sort based on type
+    const filtered = processedItems.filter((item: GainerLoserRow) => 
+      isGainers ? item.changePercent > 0 : item.changePercent < 0
+    );
+    
+    // Sort by change percentage (descending for gainers, ascending for losers)
+    const sorted = filtered.sort((a: GainerLoserRow, b: GainerLoserRow) => 
+      isGainers ? b.changePercent - a.changePercent : a.changePercent - b.changePercent
+    );
+    
+    // Return top 5 items
+    return sorted.slice(0, 5);
+  }, [holdings, isGainers]);
 
   if (isLoading) {
     return <ListSkeleton title={title} />;
@@ -62,8 +65,6 @@ const GainLossCard = ({ type, title }: GainLossCardProps) => {
   if (isError) {
     return <Text className="text-red-500">Error loading {type}</Text>;
   }
-
-  const items = data?.data?.items || [];
 
   // Add defensive function to safely format percentage
   const safeFormatPercent = (changePercent: any): string => {

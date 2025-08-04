@@ -127,7 +127,7 @@ export default function HoldingsTable() {
         showSearch={true}
         showPagination={true}
         itemsPerPage={20}
-        className="bg-[#161B22]/50"
+        className="bg-[#1a1f2e]/50"
       />
     </div>
   );

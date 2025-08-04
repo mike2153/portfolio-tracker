@@ -15,10 +15,9 @@ export type RootStackParamList = {
 // Main Tab Navigator
 export type MainTabParamList = {
   Dashboard: undefined;
+  Calendar: undefined;
   Portfolio: undefined;
-  Analytics: undefined;
-  Research: undefined;
-  Settings: undefined;
+  Profile: undefined;
 };
 
 // Screen Props Types

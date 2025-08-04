@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useMemo } from 'react';
+import { brandPalette, apexTheme } from '@/lib/apexTheme';
 // import ApexCharts from 'apexcharts';
 import { ApexChart } from '.';
 import type { PriceDataPoint, TimePeriod } from '@/types/stock-research';
@@ -119,7 +120,7 @@ export default function PriceChartApex({
       const result = [{
         name: `${ticker} Price`,
         data: priceData,
-        color: '#04B2F8'
+        color: brandPalette.primary
       }];
       console.log('[PriceChartApex] Line/Mountain chart data prepared:', {
         seriesCount: result.length,
@@ -143,7 +144,7 @@ export default function PriceChartApex({
     return [{
       name: 'Volume',
       data: volumeSeries,
-      color: '#6b7280'
+      color: brandPalette.grid
     }];
   }, [data, showVolume]);
 
@@ -234,14 +235,13 @@ export default function PriceChartApex({
           data={chartData}
           type={getApexChartType() as any}
           height={height}
-          additionalOptions={{ 
-            chart: { 
-              id: chartId, 
-              background: background,
-              zoom: {
-                enabled: false  // Disable zoom since data is already filtered by date range
-              }
-            }
+          additionalOptions={{
+            chart: {
+              id: chartId,
+              background,
+              zoom: { enabled: false },
+            },
+            ...(currentChartType !== 'candlestick' ? { fill: apexTheme.fill } : {}),
           }}
           yAxisFormatter={(value) => formatPrice(value)}
           tooltipFormatter={(value) => formatPrice(value)}

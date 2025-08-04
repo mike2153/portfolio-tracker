@@ -24,10 +24,7 @@ export default function ChartSkeleton({
       end={{ x: 1, y: 0 }}
       className={`rounded ${pulseClassName}`}
       style={{
-        animationName: 'pulse',
-        animationDuration: '1.5s',
-        animationIterationCount: 'infinite',
-        animationTimingFunction: 'ease-in-out',
+        // Animation properties removed for React Native compatibility
       }}
     >
       {children}
@@ -134,10 +131,7 @@ export default function ChartSkeleton({
                     style={{
                       width: '100%',
                       height: '100%',
-                      animationName: 'slide',
-                      animationDuration: '2s',
-                      animationIterationCount: 'infinite',
-                      animationTimingFunction: 'linear',
+                      // Animation properties removed for React Native compatibility
                     }}
                   />
                 </View>

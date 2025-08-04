@@ -52,7 +52,7 @@ export default function ProfileSettingsPage() {
             value={formData.displayName}
             onChange={handleChange}
             placeholder="Enter your display name"
-            className="w-full px-3 py-2 bg-[#0D1117] border border-[#30363D] rounded-md text-white placeholder-[#8B949E] focus:border-blue-500 focus:outline-none"
+            className="w-full px-3 py-2 bg-transparent border border-[#30363D] rounded-md text-white placeholder-[#8B949E] focus:border-blue-500 focus:outline-none"
           />
         </div>
 
@@ -67,7 +67,7 @@ export default function ProfileSettingsPage() {
             name="email"
             value={formData.email}
             disabled
-            className="w-full px-3 py-2 bg-[#0D1117] border border-[#30363D] rounded-md text-[#8B949E] cursor-not-allowed"
+            className="w-full px-3 py-2 bg-transparent border border-[#30363D] rounded-md text-[#8B949E] cursor-not-allowed"
           />
           <p className="text-xs text-[#8B949E] mt-1">
             Email address cannot be changed
@@ -84,7 +84,7 @@ export default function ProfileSettingsPage() {
             name="timezone"
             value={formData.timezone}
             onChange={handleChange}
-            className="w-full px-3 py-2 bg-[#0D1117] border border-[#30363D] rounded-md text-white focus:border-blue-500 focus:outline-none"
+            className="w-full px-3 py-2 bg-transparent border border-[#30363D] rounded-md text-white focus:border-blue-500 focus:outline-none"
           >
             <option value="UTC">UTC</option>
             <option value="America/New_York">Eastern Time</option>
@@ -104,7 +104,7 @@ export default function ProfileSettingsPage() {
             name="dateFormat"
             value={formData.dateFormat}
             onChange={handleChange}
-            className="w-full px-3 py-2 bg-[#0D1117] border border-[#30363D] rounded-md text-white focus:border-blue-500 focus:outline-none"
+            className="w-full px-3 py-2 bg-transparent border border-[#30363D] rounded-md text-white focus:border-blue-500 focus:outline-none"
           >
             <option value="MM/DD/YYYY">MM/DD/YYYY</option>
             <option value="DD/MM/YYYY">DD/MM/YYYY</option>
@@ -122,7 +122,7 @@ export default function ProfileSettingsPage() {
             name="currency"
             value={formData.currency}
             onChange={handleChange}
-            className="w-full px-3 py-2 bg-[#0D1117] border border-[#30363D] rounded-md text-white focus:border-blue-500 focus:outline-none"
+            className="w-full px-3 py-2 bg-transparent border border-[#30363D] rounded-md text-white focus:border-blue-500 focus:outline-none"
           >
             <option value="USD">USD - US Dollar</option>
             <option value="EUR">EUR - Euro</option>

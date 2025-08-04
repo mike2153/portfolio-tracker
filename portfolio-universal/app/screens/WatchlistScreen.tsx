@@ -9,7 +9,8 @@ import { MainTabScreenProps } from '../navigation/types';
 import GradientText from '../components/GradientText';
 import { colors } from '../theme/colors';
 
-type Props = MainTabScreenProps<'Watchlist'>;
+// type Props = MainTabScreenProps<'Watchlist'>; // Watchlist not in MainTabParamList
+type Props = { navigation: any }; // Temporary fix
 
 export default function WatchlistScreen({ navigation }: Props): React.JSX.Element {
   // TODO: Implement watchlist functionality when API is available
@@ -25,7 +26,7 @@ export default function WatchlistScreen({ navigation }: Props): React.JSX.Elemen
         </Text>
         <TouchableOpacity 
           style={styles.backButton}
-          onPress={() => navigation.navigate('Dashboard')}
+          onPress={() => navigation.navigate('Main', { screen: 'Dashboard' })}
         >
           <Text style={styles.backButtonText}>Back to Dashboard</Text>
         </TouchableOpacity>

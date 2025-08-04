@@ -1,11 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
-import { front_api_client, formatPercentage } from '@portfolio-tracker/shared';
-import { usePerformanceData } from '../../hooks/usePortfolioComplete';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { usePortfolioSummary } from '../../hooks/usePortfolioComplete';
+import { front_api_client } from '@portfolio-tracker/shared';
 import PortfolioComparisonChart from './PortfolioComparisonChart';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Theme } from '../../theme/theme';
+import { formatPercentage } from '@portfolio-tracker/shared';
 
 interface PortfolioPerformanceChartProps {
   height?: number;
@@ -13,135 +14,138 @@ interface PortfolioPerformanceChartProps {
   benchmarks?: string[];
 }
 
-// Map display periods to API periods
-const PERIOD_MAP: { [key: string]: string } = {
-  '1D': '7D',   // API doesn't support 1D, use 7D
-  '1W': '7D',
-  '1M': '1M',
-  '3M': '3M',
-  '6M': '1Y',   // API doesn't support 6M, use 1Y
-  '1Y': '1Y',
-  '5Y': 'MAX',  // API doesn't support 5Y, use MAX
-  'MAX': 'MAX',
-  'YTD': 'YTD'
-};
-
 const PortfolioPerformanceChartKit: React.FC<PortfolioPerformanceChartProps> = ({
   height = 300,
   initialPeriod = '1Y',
   benchmarks = ['SPY'],
 }) => {
   const { theme } = useTheme();
-  const [timePeriod, setTimePeriod] = useState(initialPeriod);
+  const [timePeriod] = useState(initialPeriod);
   const [selectedBenchmark] = useState(benchmarks[0] || 'SPY');
   
-  // Map the display period to API period
-  const apiPeriod = PERIOD_MAP[timePeriod] || '1Y';
-
-  // Fetch portfolio performance data using the correct API endpoint
-  const { data: performanceData, isLoading, error } = useQuery({
-    queryKey: ['portfolio-performance', apiPeriod, selectedBenchmark],
+  const { totalValue } = usePortfolioSummary();
+  
+  // Use the same historical performance API as the web dashboard
+  const { 
+    data: performanceData, 
+    isLoading,
+    isError,
+    error
+  } = useQuery({
+    queryKey: ['mobile-performance', timePeriod, selectedBenchmark],
     queryFn: async () => {
-      console.log('[PortfolioPerformanceChartKit] Fetching performance data:', {
-        period: apiPeriod,
-        benchmark: selectedBenchmark
-      });
-      
+      console.log('[PortfolioPerformanceChartKit] Fetching historical performance data...');
       try {
-        // TODO: Add historical performance data to consolidated endpoint
-        // DEPRECATED: Dashboard performance endpoint has been removed
-        // For now, throw error to prevent 404 calls
-        throw new Error('Performance endpoint temporarily disabled - migrating to consolidated endpoint');
-        console.log('[PortfolioPerformanceChartKit] API response:', {
-          success: result?.success,
-          hasPortfolioData: !!result?.portfolio_performance,
-          portfolioDataLength: result?.portfolio_performance?.length || 0,
-          hasBenchmarkData: !!result?.benchmark_performance,
-          benchmarkDataLength: result?.benchmark_performance?.length || 0,
-          metadata: result?.metadata,
-          metrics: result?.performance_metrics
-        });
-        
-        if (!result?.success) {
-          console.error('[PortfolioPerformanceChartKit] API returned success: false', result);
-          throw new Error(result?.error || 'Failed to fetch performance data');
-        }
-        
-        return result;
+        const response = await front_api_client.get(
+          `/api/portfolio/performance/historical?period=${timePeriod}&benchmark=${selectedBenchmark}`
+        );
+        console.log('[PortfolioPerformanceChartKit] Performance response:', response);
+        return response;
       } catch (error) {
-        console.error('[PortfolioPerformanceChartKit] Error fetching performance data:', error);
+        console.error('[PortfolioPerformanceChartKit] Performance API error:', error);
         throw error;
       }
     },
+    staleTime: 30 * 60 * 1000, // 30 minutes
+    cacheTime: 60 * 60 * 1000, // 1 hour
+    refetchOnWindowFocus: false,
+    retry: 2,
   });
+  
+  const hasData = !!performanceData && performanceData.success;
 
-  // Transform data for the chart component
+  // Transform historical performance data for chart display (same as web dashboard)
   const chartData = useMemo(() => {
-    if (!performanceData) return null;
-    
-    // The API returns data in the correct format already
+    if (!performanceData || !performanceData.success) {
+      console.log('[PortfolioPerformanceChartKit] ❌ No performance data available');
+      return null;
+    }
+
+    console.log('[PortfolioPerformanceChartKit] ✓ Using historical performance data:', {
+      portfolioPoints: performanceData.portfolio_performance?.length || 0,
+      benchmarkPoints: performanceData.benchmark_performance?.length || 0,
+      period: performanceData.period,
+      benchmark: performanceData.benchmark
+    });
+
     return {
       portfolio_performance: performanceData.portfolio_performance || [],
       benchmark_performance: performanceData.benchmark_performance || [],
-      performance_metrics: performanceData.performance_metrics
+      performance_metrics: {
+        portfolio_return_pct: performanceData.performance_metrics?.portfolio_return_pct || 0,
+        index_return_pct: performanceData.performance_metrics?.index_return_pct || 0,
+        outperformance_pct: performanceData.performance_metrics?.outperformance_pct || 0,
+        daily_change: 0, // Not available in historical API
+        daily_change_percent: 0, // Not available in historical API
+        volatility: 0, // Not available in historical API
+      }
     };
   }, [performanceData]);
 
   const styles = getStyles(theme);
 
-  if (error) {
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.loadingContainer]}>
+        <ActivityIndicator size="large" color={theme.colors.greenAccent} />
+        <Text style={styles.loadingText}>Loading performance data...</Text>
+      </View>
+    );
+  }
+
+  if (!hasData || !chartData) {
     return (
       <View style={[styles.container, styles.errorContainer]}>
-        <Text style={styles.errorText}>Failed to load performance data</Text>
-        <Text style={styles.errorSubtext}>{error.message}</Text>
+        <Text style={styles.errorText}>📊</Text>
+        <Text style={styles.errorTitle}>No Performance Data</Text>
+        <Text style={styles.errorSubtitle}>
+          Add holdings to your portfolio to see performance charts
+        </Text>
       </View>
     );
   }
 
   return (
-    <View>
-      {/* Performance Summary */}
-      {performanceData?.performance_metrics && (
-        <View style={styles.summaryContainer}>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryLabel}>Portfolio</Text>
-            <Text style={[
-              styles.summaryValue,
-              performanceData.performance_metrics.portfolio_return_pct >= 0 ? styles.positive : styles.negative
-            ]}>
-              {formatPercentage(performanceData.performance_metrics.portfolio_return_pct / 100)}
-            </Text>
-          </View>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryLabel}>{selectedBenchmark}</Text>
-            <Text style={[
-              styles.summaryValue,
-              performanceData.performance_metrics.index_return_pct >= 0 ? styles.positive : styles.negative
-            ]}>
-              {formatPercentage(performanceData.performance_metrics.index_return_pct / 100)}
-            </Text>
-          </View>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryLabel}>Outperformance</Text>
-            <Text style={[
-              styles.summaryValue,
-              performanceData.performance_metrics.outperformance_pct >= 0 ? styles.positive : styles.negative
-            ]}>
-              {performanceData.performance_metrics.outperformance_pct >= 0 ? '+' : ''}
-              {formatPercentage(performanceData.performance_metrics.outperformance_pct / 100)}
-            </Text>
-          </View>
+    <View style={[styles.container, { height }]}>
+      {/* Performance Metrics Summary */}
+      <View style={styles.metricsContainer}>
+        <View style={styles.metricItem}>
+          <Text style={styles.metricLabel}>Total Return</Text>
+          <Text style={[
+            styles.metricValue,
+            (chartData.performance_metrics?.portfolio_return_pct || 0) >= 0 ? styles.positive : styles.negative
+          ]}>
+            {formatPercentage((chartData.performance_metrics?.portfolio_return_pct || 0) / 100)}
+          </Text>
         </View>
-      )}
+        <View style={styles.metricItem}>
+          <Text style={styles.metricLabel}>{selectedBenchmark} Return</Text>
+          <Text style={[
+            styles.metricValue,
+            (chartData.performance_metrics?.index_return_pct || 0) >= 0 ? styles.positive : styles.negative
+          ]}>
+            {formatPercentage((chartData.performance_metrics?.index_return_pct || 0) / 100)}
+          </Text>
+        </View>
+        <View style={styles.metricItem}>
+          <Text style={styles.metricLabel}>Outperformance</Text>
+          <Text style={[
+            styles.metricValue,
+            (chartData.performance_metrics?.outperformance_pct || 0) >= 0 ? styles.positive : styles.negative
+          ]}>
+            {chartData.performance_metrics?.outperformance_pct >= 0 ? '+' : ''}{formatPercentage((chartData.performance_metrics?.outperformance_pct || 0) / 100)}
+          </Text>
+        </View>
+      </View>
 
-      {/* Chart */}
+      {/* Chart Component */}
       <PortfolioComparisonChart
         data={chartData}
-        height={height}
+        height={height - 40} // Reduced from 80 to 40
         timePeriod={timePeriod}
-        onPeriodChange={setTimePeriod}
-        isLoading={isLoading}
+        onPeriodChange={() => {}} // Disabled for now
         benchmarkSymbol={selectedBenchmark}
+        isLoading={isLoading}
       />
     </View>
   );
@@ -149,47 +153,82 @@ const PortfolioPerformanceChartKit: React.FC<PortfolioPerformanceChartProps> = (
 
 const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: 'transparent',
+    padding: 0,
+    marginBottom: 0,
   },
-  errorContainer: {
-    height: 300,
+  
+  loadingContainer: {
     justifyContent: 'center',
     alignItems: 'center',
+    minHeight: 200,
   },
-  errorText: {
-    color: theme.colors.negative,
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  errorSubtext: {
+  
+  loadingText: {
+    marginTop: theme.spacing.sm,
     color: theme.colors.secondaryText,
     fontSize: 14,
   },
-  summaryContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    backgroundColor: 'transparent',
-    padding: 16,
-    marginBottom: 8,
-  },
-  summaryItem: {
+  
+  errorContainer: {
+    justifyContent: 'center',
     alignItems: 'center',
+    minHeight: 200,
   },
-  summaryLabel: {
-    fontSize: 12,
-    color: theme.colors.secondaryText,
-    marginBottom: 4,
+  
+  errorText: {
+    fontSize: 48,
+    marginBottom: theme.spacing.sm,
   },
-  summaryValue: {
+  
+  errorTitle: {
     fontSize: 18,
     fontWeight: '600',
+    color: theme.colors.primaryText,
+    marginBottom: theme.spacing.xs,
   },
+  
+  errorSubtitle: {
+    fontSize: 14,
+    color: theme.colors.secondaryText,
+    textAlign: 'center',
+  },
+  
+  metricsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8, // Reduced from theme.spacing.md
+    paddingBottom: 8, // Reduced from theme.spacing.md
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  
+  metricItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  
+  metricLabel: {
+    fontSize: 12,
+    color: theme.colors.secondaryText,
+    marginBottom: theme.spacing.xs,
+  },
+  
+  metricValue: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  
+  metricValueNeutral: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.colors.primaryText,
+  },
+  
   positive: {
     color: theme.colors.positive,
   },
+  
   negative: {
     color: theme.colors.negative,
   },

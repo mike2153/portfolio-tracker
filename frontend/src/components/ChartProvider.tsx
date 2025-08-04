@@ -1,7 +1,8 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import dynamic from 'next/dynamic';
+import { registerApexTheme } from '@/lib/apexTheme';
 import type { ApexOptions } from 'apexcharts';
 
 // Chart type definitions for strict typing - using the actual ApexCharts supported types
@@ -77,6 +78,15 @@ const chartCache = new Map<ChartType, React.ComponentType<ChartComponentProps>>(
 export const ChartProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [loadedCharts, setLoadedCharts] = useState<Set<ChartType>>(new Set());
+
+  // apply global ApexCharts theme once
+  useEffect(() => {
+    // Only run on client side
+    if (typeof window !== 'undefined') {
+      registerApexTheme().catch(console.warn);
+    }
+  }, []);
+
 
   const loadChart = useCallback(async (chartType: ChartType): Promise<React.ComponentType<ChartComponentProps>> => {
     // Return cached chart if already loaded

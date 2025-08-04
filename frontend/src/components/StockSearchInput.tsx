@@ -201,7 +201,7 @@ export function StockSearchInput({
       )}
 
       {showSuggestions && (searchQuery.length > 0 || suggestions.length > 0) && (
-        <div className="absolute z-50 w-full bg-[#0D1117] border border-[#30363D] rounded-lg mt-1 shadow-lg max-h-96 overflow-y-auto">
+        <div className="absolute z-50 w-full bg-transparent border border-[#30363D] rounded-lg mt-1 shadow-lg max-h-96 overflow-y-auto">
           {isLoading ? (
             <div className="p-4 text-center text-[#8B949E]">
               <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-[#8B949E]"></div>
@@ -241,7 +241,7 @@ export function StockSearchInput({
                       </div>
                     </div>
                     {symbol.currency && symbol.currency !== 'USD' && (
-                      <span className="text-xs text-[#8B949E] bg-[#0D1117] border border-[#30363D] px-1.5 py-0.5 rounded ml-2">
+                      <span className="text-xs text-[#8B949E] bg-transparent border border-[#30363D] px-1.5 py-0.5 rounded ml-2">
                         {symbol.currency}
                       </span>
                     )}

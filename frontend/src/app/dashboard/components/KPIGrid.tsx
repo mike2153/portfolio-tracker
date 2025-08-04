@@ -56,17 +56,17 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
     },
     capitalGains: {
       value: finalTotalGainLoss,
-      sub_label: `${finalTotalGainLossPercent.toFixed(2)}%`,
+      sub_label: null,
       is_positive: finalTotalGainLoss >= 0
     },
     irr: {
       value: performanceMetrics?.sharpe_ratio || 0, // Use consolidated performance data
-      sub_label: 'Internal Rate of Return',
+      sub_label: null,
       is_positive: (performanceMetrics?.sharpe_ratio || 0) >= 0
     },
     passiveIncome: {
       value: dividendData?.total_received_ytd || 0, // Use consolidated dividend data
-      sub_label: `${dividendData?.dividend_count || 0} dividends YTD`,
+      sub_label: null,
       is_positive: true
     }
   };
@@ -80,10 +80,16 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
 
   if (isError) {
     return (
-      <div className="rounded-xl bg-red-900/20 border border-red-800 p-6 shadow-lg">
-        <h3 className="text-lg font-semibold text-red-400">Error Loading KPI Data</h3>
-        <p className="text-sm text-red-300 mt-2">{typedError?.message || 'Failed to load portfolio data'}</p>
-        <p className="text-xs text-red-400 mt-1">Check browser console for detailed debugging info</p>
+      <div className="p-6 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-[#EF4444]/5 via-transparent to-[#EF4444]/5"></div>
+        <div className="relative z-10">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-3 h-3 bg-[#EF4444] rounded-full"></div>
+            <h3 className="text-lg font-semibold text-[#EF4444]">Error Loading KPI Data</h3>
+          </div>
+          <p className="text-sm text-[#8B949E] mb-2">{typedError?.message || 'Failed to load portfolio data'}</p>
+          <p className="text-xs text-[#EF4444]">Check browser console for detailed debugging info</p>
+        </div>
       </div>
     );
   }
@@ -105,28 +111,37 @@ const KPIGrid = ({ initialData }: KPIGridProps) => {
   const totalReturnValue = capitalGains + dividendValue;
   const totalReturnData = {
     value: totalReturnValue,
-    sub_label: `Capital Gains + Dividends`,
+    sub_label: null,
     is_positive: totalReturnValue >= 0
   };
 
   return (
-    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
-      <KPICard title="Portfolio Value" data={transformedData.marketValue} prefix="" />
-      <KPICard 
-        title="Capital Gains" 
-        data={transformedData.capitalGains} 
-        prefix="" 
-        showPercentage={true}
-        percentValue={finalTotalGainLossPercent}
-      />
-      <KPICard 
-        title="IRR" 
-        data={transformedData.irr} 
-        prefix="" 
-        suffix="%" 
-        showValueAsPercent={true}
-      />
-      <KPICard title="Total Return" data={totalReturnData} prefix="" />
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4" 
+         style={{ perspective: '1000px' }}>
+      <div style={{ animationDelay: '0ms' }}>
+        <KPICard title="Portfolio Value" data={transformedData.marketValue} prefix="" />
+      </div>
+      <div style={{ animationDelay: '150ms' }}>
+        <KPICard 
+          title="Capital Gains" 
+          data={transformedData.capitalGains} 
+          prefix="" 
+          showPercentage={true}
+          percentValue={finalTotalGainLossPercent}
+        />
+      </div>
+      <div style={{ animationDelay: '300ms' }}>
+        <KPICard 
+          title="IRR" 
+          data={transformedData.irr} 
+          prefix="" 
+          suffix="%" 
+          showValueAsPercent={true}
+        />
+      </div>
+      <div style={{ animationDelay: '450ms' }}>
+        <KPICard title="Total Return" data={totalReturnData} prefix="" />
+      </div>
     </div>
   );
 };

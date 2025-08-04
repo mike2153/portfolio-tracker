@@ -72,7 +72,7 @@ export default function AccountSettingsPage() {
       <h2 className="text-2xl font-bold mb-6">Account & Billing</h2>
       
       {/* Subscription Status */}
-      <div className="mb-8 p-4 bg-[#0D1117] border border-[#30363D] rounded-lg">
+      <div className="mb-8 p-4 bg-transparent border border-[#30363D] rounded-lg">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-lg font-semibold mb-1">Current Plan: Professional</h3>
@@ -101,7 +101,7 @@ export default function AccountSettingsPage() {
           {paymentMethods.map((method) => (
             <div
               key={method.id}
-              className="flex items-center justify-between p-4 bg-[#0D1117] border border-[#30363D] rounded-lg"
+              className="flex items-center justify-between p-4 bg-transparent border border-[#30363D] rounded-lg"
             >
               <div className="flex items-center gap-4">
                 <CreditCard className="h-8 w-8 text-[#8B949E]" />
@@ -195,7 +195,7 @@ export default function AccountSettingsPage() {
       {/* Add Payment Method Modal */}
       {showAddPayment && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-[#0D1117] border border-[#30363D] rounded-lg p-6 max-w-md w-full mx-4">
+          <div className="bg-transparent border border-[#30363D] rounded-lg p-6 max-w-md w-full mx-4">
             <h3 className="text-lg font-semibold mb-4">Add Payment Method</h3>
             
             <div className="mb-4 p-4 bg-yellow-900/20 border border-yellow-700/50 rounded-lg">

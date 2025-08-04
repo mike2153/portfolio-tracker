@@ -235,7 +235,7 @@ export default function PortfolioChartApex({
       result.push({
         name: 'Your Portfolio',
         data: portfolioSeries,
-        color: '#238636'
+        color: 'var(--color-green)'
       });
     }
     
@@ -251,7 +251,7 @@ export default function PortfolioChartApex({
       result.push({
         name: `${selectedBenchmark} Index`,
         data: benchmarkSeries,
-        color: '#58A6FF'
+        color: 'var(--color-accent-purple)'
       });
     }
     
@@ -294,11 +294,12 @@ export default function PortfolioChartApex({
   
   // === RENDER ===
   return (
-    <div className="rounded-xl bg-[#0D1117] border border-[#30363D] p-6 shadow-lg">
+    <div className="metric-card-enhanced animate-stagger-reveal group relative overflow-hidden" style={{ animationDelay: '600ms' }}>
+      
       {/* Header with title and range selection */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 relative z-10">
         <div>
-          <h3 className="text-lg font-semibold text-[#FFFFFF]">Portfolio vs Benchmark</h3>
+          <h3 className="section-title">Portfolio vs Benchmark</h3>
           {metrics && (
             <div className="text-sm text-[#8B949E] mt-1">
               Portfolio: {formatPercentage(metrics.portfolio_return_pct)} | 
@@ -332,7 +333,7 @@ export default function PortfolioChartApex({
           <select
             value={selectedBenchmark}
             onChange={e => handleBenchmarkChange(e.target.value)}
-            className="px-2 py-1 text-xs rounded-md bg-[#0D1117] text-white border border-[#30363D] focus:border-[#58A6FF] focus:outline-none"
+            className="px-2 py-1 text-xs rounded-md bg-transparent text-white border border-[#30363D] focus:border-[#58A6FF] focus:outline-none"
           >
             {benchmarks.map(benchmark => (
               <option key={benchmark.symbol} value={benchmark.symbol}>
@@ -389,11 +390,11 @@ export default function PortfolioChartApex({
                   const value = point.value ?? point.total_value ?? 0;
                   return [timestamp, value];
                 }) || [],
-                color: '#238636'
+                color: 'var(--color-accent-purple)'
               }
             ]}
             type="area"
-            height={400}
+            height={500}
             yAxisFormatter={displayMode === 'value' ? 
               (value) => `$${value.toLocaleString()}` : 
               (value) => `${value.toFixed(1)}%`}
@@ -407,7 +408,7 @@ export default function PortfolioChartApex({
           />
         </div>
       ) : noData ? (
-        <div className="flex items-center justify-center h-96 text-[#8B949E]">
+        <div className="flex items-center justify-center h-[500px] text-[#8B949E]">
           <div className="text-center">
             <p className="text-lg font-semibold">No portfolio data available</p>
             <div className="text-sm mt-2 space-y-2">
@@ -421,8 +422,8 @@ export default function PortfolioChartApex({
       ) : (
         <ApexChart
           data={chartData}
-          type="line"
-          height={400}
+          type="area"
+          height={500}
           yAxisFormatter={displayMode === 'value' ? 
             (value) => `$${value.toLocaleString()}` : 
             (value) => `${value.toFixed(1)}%`}

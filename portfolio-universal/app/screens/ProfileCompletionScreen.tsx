@@ -196,7 +196,7 @@ export const ProfileCompletionScreen: React.FC = () => {
         Alert.alert('Success', 'Profile created successfully', [
           {
             text: 'OK',
-            onPress: () => navigation.navigate('Dashboard' as never)
+            onPress: () => navigation.navigate('Main' as never)
           }
         ]);
       }
@@ -308,7 +308,7 @@ export const ProfileCompletionScreen: React.FC = () => {
 
           <TouchableOpacity
             style={styles.skipButton}
-            onPress={() => navigation.navigate('Dashboard' as never)}
+            onPress={() => navigation.navigate('Main' as never)}
             disabled={loading}
           >
             <Text style={styles.skipButtonText}>Skip for now</Text>

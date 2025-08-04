@@ -154,7 +154,7 @@ export const Features = () => {
               {/* Enhanced Feature Card with 3D Effects */}
               <div className="
                 h-full p-8 rounded-2xl border border-[#334155]/50
-                glass-morphism hover-3d btn-micro
+                bg-transparent border border-[#30363D] hover-3d btn-micro
                 group-hover:border-[#10B981]/30 group-hover:shadow-xl group-hover:shadow-[#10B981]/20
                 transition-all duration-300
                 relative overflow-hidden

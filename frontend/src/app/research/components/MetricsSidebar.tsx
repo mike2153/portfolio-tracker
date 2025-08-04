@@ -1,4 +1,5 @@
 import React from 'react';
+import UltraGlassCard from '@/components/ui/UltraGlassCard';
 import { StockResearchData } from '@/types/stock-research';
 
 interface MetricsSidebarProps {
@@ -51,7 +52,7 @@ const MetricsSidebar: React.FC<MetricsSidebarProps> = ({ ticker, data, isLoading
 
   if (isLoading) {
     return (
-      <div className="w-full md:w-80 bg-gray-800 rounded-xl p-6">
+      <UltraGlassCard className="w-full md:w-80 p-6">
         <div className="space-y-6">
           {[...Array(4)].map((_, groupIndex) => (
             <div key={groupIndex}>
@@ -67,24 +68,24 @@ const MetricsSidebar: React.FC<MetricsSidebarProps> = ({ ticker, data, isLoading
             </div>
           ))}
         </div>
-      </div>
+      </UltraGlassCard>
     );
   }
 
   if (!data || !data.overview) {
     return (
-      <div className="w-full md:w-80 bg-gray-800 rounded-xl p-6">
+      <UltraGlassCard className="w-full md:w-80 p-6">
         <div className="text-center text-gray-400 py-8">
           <p>No metrics available for {ticker}</p>
         </div>
-      </div>
+      </UltraGlassCard>
     );
   }
 
   const { overview } = data;
 
   return (
-    <div className="w-full md:w-80 bg-gray-800 rounded-xl p-6">
+    <UltraGlassCard className="w-full md:w-80 p-6">
       {/* Estimate Section */}
       <div className="mb-6">
         <div className="mb-3 text-gray-400 font-semibold text-xs uppercase tracking-wide">
@@ -252,7 +253,7 @@ const MetricsSidebar: React.FC<MetricsSidebarProps> = ({ ticker, data, isLoading
           </div>
         </div>
       </div>
-    </div>
+    </UltraGlassCard>
   );
 };
 

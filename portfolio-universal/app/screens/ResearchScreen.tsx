@@ -37,8 +37,16 @@ export default function ResearchScreen({ navigation }: Props): React.JSX.Element
   // Fetch dashboard data for market indices
   const { refetch: refetchDashboard } = useQuery({
     queryKey: ['dashboard'],
-    queryFn: front_api_get_dashboard,
-    // refetchInterval removed - load data only once
+    queryFn: async () => {
+      try {
+        return await front_api_get_dashboard();
+      } catch (error) {
+        console.log('[ResearchScreen] Dashboard data not available:', error);
+        return null;
+      }
+    },
+    enabled: false, // Disable by default since this might not be needed
+    retry: false,
   });
 
   // Fetch quote data when user selects a symbol

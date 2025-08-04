@@ -81,31 +81,41 @@ const GainLossCard = ({ type, title }: GainLossCardProps) => {
     };
 
     return (
-        <div className="rounded-xl bg-[#161B22] p-6 shadow-lg">
-            <div className="flex items-center justify-between mb-4">
-                <GradientText className="text-lg font-semibold">{title}</GradientText>
+        <div className="metric-card-enhanced animate-stagger-reveal group relative overflow-hidden" 
+             style={{ animationDelay: '750ms' }}>
+            {/* Subtle background gradient */}
+            <div className="absolute inset-0 bg-gradient-to-br from-[#10B981]/5 via-transparent to-[#1E3A8A]/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-xl"></div>
+            
+            <div className="flex items-center justify-between mb-4 relative z-10">
+                <h3 className="section-title">{title}</h3>
                 <button className="text-sm text-white hover:bg-white hover:text-[#0D1117] px-3 py-1 rounded transition-colors">See all</button>
             </div>
-            <ul className="space-y-4">
-                {items.map((item: GainerLoserItem) => (
-                    <li key={item.ticker} className="flex items-center space-x-4">
+            <ul className="space-y-4 relative z-10">
+                {items.map((item: GainerLoserItem, index) => (
+                    <li key={item.ticker} 
+                        className="flex items-center space-x-4 hover:bg-[#30363D]/20 rounded-lg p-2 -m-2 transition-all duration-300 hover:scale-[1.02] group/item animate-stagger-reveal"
+                        style={{ animationDelay: `${800 + index * 100}ms` }}>
                         <div className="flex-shrink-0">
                             <CompanyIcon 
                                 symbol={item.ticker} 
                                 size={40}
-                                className="rounded-full"
+                                className="rounded-full transition-all duration-300 group-hover/item:scale-110 group-hover/item:shadow-lg group-hover/item:shadow-[#10B981]/25"
                                 fallback="initials"
                             />
                         </div>
                         <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-white truncate">{item.name}</p>
-                            <p className="text-sm text-[#8B949E] truncate">{item.ticker}</p>
+                            <p className="text-sm font-medium text-white truncate group-hover/item:text-[#10B981] transition-colors duration-300">{item.name}</p>
+                            <p className="text-sm text-[#8B949E] truncate group-hover/item:text-gray-300 transition-colors duration-300">{item.ticker}</p>
                         </div>
                         <div className="text-right">
-                            <p className="text-sm font-semibold text-white">${safeFormatCurrency(item.value)}</p>
-                            <div className={cn('flex items-center justify-end text-xs', isGainers ? 'text-green-400' : 'text-red-400')}>
-                                {isGainers ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
-                                <span>{safeFormatPercent(item.changePercent)}% (${safeFormatCurrency(item.changeValue)})</span>
+                            <p className="text-sm font-semibold gradient-text-value animate-number-reveal">${safeFormatCurrency(item.value)}</p>
+                            <div className={cn('flex items-center justify-end text-xs transition-all duration-300', 
+                                isGainers ? 'text-green-400 group-hover/item:text-[#34D399]' : 'text-red-400 group-hover/item:text-[#FF6B6B]')}>
+                                {isGainers ? 
+                                    <ArrowUp className="h-3 w-3 transition-all duration-300 group-hover/item:scale-110 animate-pulse-glow" /> : 
+                                    <ArrowDown className="h-3 w-3 transition-all duration-300 group-hover/item:scale-110" />
+                                }
+                                <span className="animate-number-reveal">{safeFormatPercent(item.changePercent)}% (${safeFormatCurrency(item.changeValue)})</span>
                             </div>
                         </div>
                     </li>

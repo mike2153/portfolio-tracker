@@ -159,8 +159,8 @@ export const Pricing = () => {
                 className={`
                   relative rounded-2xl transition-all duration-300 transform hover-3d
                   ${tier.popular 
-                    ? 'glass-morphism border-2 border-[#10B981]/50 scale-105 animate-glow-pulse' 
-                    : 'glass-morphism border border-[#334155]/50 hover:border-[#10B981]/30'
+                    ? 'bg-transparent border border-[#30363D] border-2 border-[#10B981]/50 scale-105 animate-glow-pulse' 
+                    : 'bg-transparent border border-[#30363D] border border-[#334155]/50 hover:border-[#10B981]/30'
                   }
                   ${isHovered ? 'scale-110 shadow-2xl shadow-[#10B981]/30' : ''}
                 `}
@@ -238,7 +238,7 @@ export const Pricing = () => {
                       btn-micro group relative overflow-hidden
                       ${tier.popular
                         ? 'bg-gradient-to-r from-[#10B981] to-[#059669] text-white shadow-lg shadow-[#10B981]/25 hover:shadow-xl hover:shadow-[#10B981]/40'
-                        : 'glass-effect text-white hover:glass-morphism border border-[#334155] hover:border-[#10B981]/50'
+                        : 'bg-transparent border border-[#30363D] text-white hover:bg-transparent border border-[#30363D] border border-[#334155] hover:border-[#10B981]/50'
                       }
                     `}
                   >

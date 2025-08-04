@@ -471,9 +471,9 @@ const TransactionsPage = () => {
    * ----------------------------------------------------------------*/
 
   return (
-    <div className="min-h-screen bg-[#0D1117] p-6 text-white">
+    <div className="min-h-screen bg-transparent p-6 text-white">
       <div className="max-w-7xl mx-auto">
-        <div className="bg-[#0D1117] rounded-lg shadow-sm p-6 mb-6 text-white border border-[#30363D]">
+        <div className="bg-transparent rounded-lg shadow-sm p-6 mb-6 text-white border border-[#30363D]">
           <div className="flex justify-between items-center">
             <div>
               <GradientText className="text-3xl font-bold">Transactions</GradientText>
@@ -498,26 +498,26 @@ const TransactionsPage = () => {
               placeholder="Search by ticker or company name..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full max-w-md px-4 py-2 border border-[#30363D] bg-[#0D1117] text-white rounded-lg focus:ring-blue-500 focus:border-blue-500"
+              className="w-full max-w-md px-4 py-2 border border-[#30363D] bg-transparent text-white rounded-lg focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
         </div>
 
         {summary && (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div className="bg-[#0D1117] border border-[#30363D] p-4 rounded-lg shadow-sm">
+            <div className="bg-transparent border border-[#30363D] p-4 rounded-lg shadow-sm">
               <h3 className="text-sm font-medium text-[#8B949E]">Total Invested</h3>
               <p className="text-2xl font-bold text-green-400">{formatTransactionCurrency(summary.total_invested)}</p>
             </div>
-            <div className="bg-[#0D1117] border border-[#30363D] p-4 rounded-lg shadow-sm">
+            <div className="bg-transparent border border-[#30363D] p-4 rounded-lg shadow-sm">
               <h3 className="text-sm font-medium text-[#8B949E]">Total Transactions</h3>
               <p className="text-2xl font-bold text-blue-400">{summary.total_transactions}</p>
             </div>
-            <div className="bg-[#0D1117] border border-[#30363D] p-4 rounded-lg shadow-sm">
+            <div className="bg-transparent border border-[#30363D] p-4 rounded-lg shadow-sm">
               <h3 className="text-sm font-medium text-[#8B949E]">Unique Stocks</h3>
               <p className="text-2xl font-bold text-purple-400">{summary.unique_tickers}</p>
             </div>
-            <div className="bg-[#0D1117] border border-[#30363D] p-4 rounded-lg shadow-sm">
+            <div className="bg-transparent border border-[#30363D] p-4 rounded-lg shadow-sm">
               <h3 className="text-sm font-medium text-[#8B949E]">Net Invested</h3>
               <p className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
                 {formatTransactionCurrency(summary.net_invested)}
@@ -526,10 +526,10 @@ const TransactionsPage = () => {
           </div>
         )}
         
-        <div className="bg-[#0D1117] rounded-lg shadow-sm text-white border border-[#30363D]">
+        <div className="bg-transparent rounded-lg shadow-sm text-white border border-[#30363D]">
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-[#0D1117]">
+                <thead className="bg-transparent">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-[#8B949E] uppercase tracking-wider">Holding</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-[#8B949E] uppercase tracking-wider">Type</th>
@@ -540,7 +540,7 @@ const TransactionsPage = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-[#8B949E] uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="bg-[#0D1117] divide-y divide-[#30363D] text-white">
+                <tbody className="bg-transparent divide-y divide-[#30363D] text-white">
                   {filteredTransactions.map((t) => (
                     <tr key={t.id} className="hover:bg-[#30363D]/50">
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -576,7 +576,7 @@ const TransactionsPage = () => {
 
       {showAddForm && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50">
-          <div className="bg-[#0D1117] rounded-lg max-w-md w-full p-6 text-white border border-[#30363D] shadow-xl">
+          <div className="bg-transparent rounded-lg max-w-md w-full p-6 text-white border border-[#30363D] shadow-xl">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">{editingTransaction ? 'Edit' : 'Add'} Transaction</h3>
               <button onClick={() => { setShowAddForm(false); setEditingTransaction(null); }} className="text-[#8B949E] hover:text-white"><X size={24} /></button>
@@ -584,7 +584,7 @@ const TransactionsPage = () => {
             <form onSubmit={handleAddTransactionSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-[#8B949E] mb-1">Transaction Type</label>
-                <select name="transaction_type" value={form.transaction_type} onChange={handleFormChange} className="w-full p-2 bg-[#0D1117] border border-[#30363D] rounded-lg" required>
+                <select name="transaction_type" value={form.transaction_type} onChange={handleFormChange} className="w-full p-2 bg-transparent border border-[#30363D] rounded-lg" required>
                   <option value="BUY">Buy</option>
                   <option value="SELL">Sell</option>
                   <option value="DIVIDEND">Dividend</option>
@@ -616,7 +616,7 @@ const TransactionsPage = () => {
                   <label className="block text-sm font-medium text-[#8B949E] mb-1">
                     {form.transaction_type === 'DIVIDEND' ? 'Total Shares Owned' : 'Number of Shares'}
                   </label>
-                  <input type="number" name="shares" step="1" min="0" value={form.shares} onChange={handleFormChange} className="w-full p-2 bg-[#0D1117] border border-[#30363D] rounded-lg" required />
+                  <input type="number" name="shares" step="1" min="0" value={form.shares} onChange={handleFormChange} className="w-full p-2 bg-transparent border border-[#30363D] rounded-lg" required />
                                   </div>
                 <div>
                   <label className="block text-sm font-medium text-[#8B949E] mb-1">
@@ -631,7 +631,7 @@ const TransactionsPage = () => {
                       min="0" 
                       value={form.purchase_price} 
                       onChange={handleFormChange} 
-                      className={`w-full p-2 bg-[#0D1117] border border-[#30363D] rounded-lg ${loadingPrice ? 'opacity-50' : ''}`} 
+                      className={`w-full p-2 bg-transparent border border-[#30363D] rounded-lg ${loadingPrice ? 'opacity-50' : ''}`} 
                       disabled={loadingPrice}
                       required 
                     />
@@ -653,19 +653,19 @@ const TransactionsPage = () => {
                   value={formatTransactionCurrency(amountInvested, form.currency || 'USD')}
                   readOnly
                   tabIndex={-1}
-                  className="w-full p-2 bg-[#0D1117] border border-[#30363D] rounded-lg text-[#8B949E] opacity-80 cursor-not-allowed"
+                  className="w-full p-2 bg-transparent border border-[#30363D] rounded-lg text-[#8B949E] opacity-80 cursor-not-allowed"
                   aria-readonly="true"
                 />
                 <p className="text-xs text-[#8B949E] mt-1">Calculated as shares × price per share. This value is sent to the backend for accurate record-keeping.</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-[#8B949E] mb-1">Transaction Date</label>
-                <input type="date" name="purchase_date" value={form.purchase_date} onChange={handleFormChange} onBlur={handleDateBlur} className="w-full p-2 bg-[#0D1117] border border-[#30363D] rounded-lg" required />
+                <input type="date" name="purchase_date" value={form.purchase_date} onChange={handleFormChange} onBlur={handleDateBlur} className="w-full p-2 bg-transparent border border-[#30363D] rounded-lg" required />
                               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                     <label className="block text-sm font-medium text-[#8B949E] mb-1">Currency</label>
-                    <select name="currency" value={form.currency} onChange={handleFormChange} className="w-full p-2 bg-[#0D1117] border border-[#30363D] rounded-lg">
+                    <select name="currency" value={form.currency} onChange={handleFormChange} className="w-full p-2 bg-transparent border border-[#30363D] rounded-lg">
                         <option value="USD">USD</option>
                         <option value="EUR">EUR</option>
                         <option value="GBP">GBP</option>
@@ -678,12 +678,12 @@ const TransactionsPage = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-[#8B949E] mb-1">Commission</label>
-                  <input type="number" name="commission" step="0.01" min="0" value={form.commission} onChange={handleFormChange} className="w-full p-2 bg-[#0D1117] border border-[#30363D] rounded-lg" placeholder="0.00" />
+                  <input type="number" name="commission" step="0.01" min="0" value={form.commission} onChange={handleFormChange} className="w-full p-2 bg-transparent border border-[#30363D] rounded-lg" placeholder="0.00" />
                                   </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-[#8B949E] mb-1">Notes</label>
-                <textarea name="notes" value={form.notes} onChange={handleFormChange} className="w-full p-2 bg-[#0D1117] border border-[#30363D] rounded-lg" rows={2} placeholder="e.g., Bought on market dip" />
+                <textarea name="notes" value={form.notes} onChange={handleFormChange} className="w-full p-2 bg-transparent border border-[#30363D] rounded-lg" rows={2} placeholder="e.g., Bought on market dip" />
               </div>
               <div className="flex gap-4 pt-4">
                 <button type="button" onClick={() => { setShowAddForm(false); setEditingTransaction(null); }} className="flex-1 px-4 py-2 border border-[#30363D] rounded-lg text-[#8B949E] hover:bg-[#30363D] font-medium">Cancel</button>

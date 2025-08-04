@@ -29,15 +29,15 @@ const KPICard = ({
   // Handle loading state
   if (loading) {
     return (
-      <div className="relative rounded-xl border border-[#30363D] bg-[#161B22] p-4 shadow-md backdrop-blur-sm">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-medium text-[#8B949E]">{title}</h3>
-          <Info className="h-4 w-4 text-[#8B949E]" />
-        </div>
-        <div className="mt-2">
-          <div className="animate-pulse">
+      <div className="p-6">
+        <div className="flex items-center gap-4">
+          <div className="p-3 rounded-lg bg-[#30363D]/50">
+            <div className="w-6 h-6 bg-[#30363D] rounded"></div>
+          </div>
+          <div className="flex-1">
+            <div className="h-4 bg-[#30363D] rounded mb-2"></div>
             <div className="h-8 bg-[#30363D] rounded mb-2"></div>
-            <div className="h-4 bg-[#30363D] rounded w-3/4"></div>
+            <div className="h-3 bg-[#30363D] rounded w-3/4"></div>
           </div>
         </div>
       </div>
@@ -47,13 +47,17 @@ const KPICard = ({
   // Handle error state
   if (error) {
     return (
-      <div className="relative rounded-xl border border-red-800 bg-red-900/20 p-4 shadow-md backdrop-blur-sm">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-medium text-red-400">{title}</h3>
-        </div>
-        <div className="mt-2">
-          <p className="text-2xl font-semibold text-red-300">Error</p>
-          <p className="text-xs text-red-500">{error}</p>
+      <div className="p-6 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-[#EF4444]/5 via-transparent to-[#EF4444]/5"></div>
+        <div className="flex items-center gap-4 relative z-10">
+          <div className="p-3 rounded-lg bg-[#EF4444]/10">
+            <ArrowDown className="w-6 h-6 text-[#EF4444]" />
+          </div>
+          <div>
+            <p className="text-sm text-[#8B949E] mb-1">{title}</p>
+            <p className="text-2xl font-bold text-[#EF4444]">Error</p>
+            <p className="text-xs text-[#EF4444] mt-1">{error}</p>
+          </div>
         </div>
       </div>
     );
@@ -63,13 +67,17 @@ const KPICard = ({
   if (!data || typeof data !== 'object') {
     console.error(`[KPICard] ❌ Invalid data for ${title}:`, data);
     return (
-      <div className="relative rounded-xl border border-red-800 bg-red-900/20 p-4 shadow-md backdrop-blur-sm">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-medium text-red-400">{title}</h3>
-        </div>
-        <div className="mt-2">
-          <p className="text-2xl font-semibold text-red-300">Error</p>
-          <p className="text-xs text-red-500">Invalid data</p>
+      <div className="bg-transparent border border-[#30363D] rounded-xl p-6 border border-[#EF4444]/30 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-[#EF4444]/5 via-transparent to-[#EF4444]/5"></div>
+        <div className="flex items-center gap-4 relative z-10">
+          <div className="p-3 rounded-lg bg-[#EF4444]/10">
+            <ArrowDown className="w-6 h-6 text-[#EF4444]" />
+          </div>
+          <div>
+            <p className="text-sm text-[#8B949E] mb-1">{title}</p>
+            <p className="text-2xl font-bold text-[#EF4444]">Error</p>
+            <p className="text-xs text-[#EF4444] mt-1">Invalid data</p>
+          </div>
         </div>
       </div>
     );
@@ -175,31 +183,43 @@ const KPICard = ({
 
 */
   return (
-    <div className="relative rounded-xl border border-[#30363D] bg-[#161B22] p-4 shadow-md backdrop-blur-sm">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-[#8B949E]">{title}</h3>
-        <Info className="h-4 w-4 text-[#8B949E]" />
+    <div className="flex items-center gap-3">
+      <div className={`p-2 rounded-lg transition-all duration-500 ${
+        is_positive 
+          ? 'bg-[#10B981]/10 hover:bg-[#10B981]/20 hover:shadow-lg hover:shadow-[#10B981]/25' 
+          : 'bg-[#EF4444]/10 hover:bg-[#EF4444]/20'
+      }`}>
+        {is_positive ? (
+          <ArrowUp className={`w-4 h-4 text-[#10B981] transition-all duration-500 hover:scale-110 hover:text-[#34D399] ${
+            is_positive ? 'animate-pulse-glow' : ''
+          }`} />
+        ) : (
+          <ArrowDown className="w-4 h-4 text-[#EF4444] transition-all duration-500 hover:scale-110 hover:text-[#f87171]" />
+        )}
       </div>
-      <div className="mt-2">
+      <div className="flex-1 min-w-0">
+        <p className="text-sm text-[#8B949E] mb-1 hover:text-gray-300 transition-colors duration-500 truncate">
+          {title}
+        </p>
         <div className="flex items-baseline">
-          <p className="text-2xl font-semibold text-white">
+          <p className={`text-2xl font-bold transition-all duration-500 animate-number-reveal ${
+            is_positive 
+              ? 'gradient-text-performance hover:scale-105' 
+              : 'gradient-text-negative hover:scale-105'
+          }`}>
             {finalDisplayValue}
           </p>
           {showPercentage && (percentValue !== undefined || data.percentGain !== undefined) && (
-            <span className="ml-2 text-lg font-medium text-[#8B949E]">
+            <span className="ml-2 text-base font-medium text-[#8B949E] hover:text-gray-300 transition-colors duration-500">
               {formatPercentageDisplay(percentValue || data.percentGain)}
             </span>
           )}
         </div>
-        <div className="mt-1 flex items-center space-x-2 text-xs">
-          {deltaPercent && (
-            <span className={cn('flex items-center', is_positive ? 'text-green-400' : 'text-red-400')}>
-              <TrendArrow className="mr-1 h-4 w-4" />
-              {finalSafeDelta}%
-            </span>
-          )}
-          <p className="text-[#8B949E]">{sub_label}</p>
-        </div>
+        {sub_label && (
+          <p className="text-sm text-[#8B949E] mt-1 hover:text-gray-300 transition-colors duration-500 truncate">
+            {sub_label}
+          </p>
+        )}
       </div>
     </div>
   );

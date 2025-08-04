@@ -115,7 +115,7 @@ const AllocationTableApex = () => {
         render: (value, item) => (
           <div className="flex items-center">
             <span className={cn("mr-3 h-4 w-1 rounded-full", item.accentColorClass)}></span>
-            <span className="font-medium text-white">{String(value)}</span>
+            <span className="font-medium" style={{ color: 'var(--color-text-main)' }}>{String(value)}</span>
           </div>
         ),
         width: '150px'
@@ -126,7 +126,7 @@ const AllocationTableApex = () => {
         sortable: true,
         render: (value) => (
           <div>
-            <div className="font-medium text-white">${Number(value).toLocaleString()}</div>
+            <div className="font-medium" style={{ color: 'var(--color-text-main)' }}>${Number(value).toLocaleString()}</div>
           </div>
         ),
         width: '130px'
@@ -136,7 +136,7 @@ const AllocationTableApex = () => {
         label: 'Amount Invested',
         sortable: true,
         render: (value) => (
-          <div className="text-sm text-[#8B949E]">${Number(value).toLocaleString()}</div>
+          <div className="text-sm" style={{ color: 'var(--color-text-muted)' }}>${Number(value).toLocaleString()}</div>
         ),
         width: '130px'
       },
@@ -145,7 +145,9 @@ const AllocationTableApex = () => {
         label: 'Gain/Loss ($)',
         sortable: true,
         render: (value) => (
-          <div className={cn("font-medium", Number(value) >= 0 ? 'text-green-400' : 'text-red-400')}>
+          <div className="font-medium" style={{ 
+            color: Number(value) >= 0 ? 'var(--color-green)' : 'var(--color-red)' 
+          }}>
             {Number(value) >= 0 ? '+' : ''}${Number(value).toLocaleString()}
           </div>
         ),
@@ -156,7 +158,9 @@ const AllocationTableApex = () => {
         label: 'Gain/Loss (%)',
         sortable: true,
         render: (value) => (
-          <div className={cn("text-sm", Number(value) >= 0 ? 'text-green-400' : 'text-red-400')}>
+          <div className="text-sm" style={{ 
+            color: Number(value) >= 0 ? 'var(--color-green)' : 'var(--color-red)' 
+          }}>
             {Number(value) >= 0 ? '+' : ''}{Number(value).toFixed(2)}%
           </div>
         ),
@@ -167,7 +171,7 @@ const AllocationTableApex = () => {
         label: 'Allocation',
         sortable: true,
         render: (value) => (
-          <div className="font-medium text-white">
+          <div className="font-medium" style={{ color: 'var(--color-text-main)' }}>
             {Number(value).toFixed(2)}%
           </div>
         ),
@@ -181,7 +185,8 @@ const AllocationTableApex = () => {
         label: (item) => watchlistItems.has(item.symbol) ? 'Remove from Watchlist' : 'Add to Watchlist',
         icon: (item) => watchlistItems.has(item.symbol) ? <StarOff className="h-4 w-4" /> : <Star className="h-4 w-4" />,
         onClick: handleWatchlistToggle,
-        className: 'text-yellow-400 hover:text-yellow-300'
+        className: 'hover:opacity-80 transition-all duration-300',
+        style: { color: 'var(--color-gold)' }
       },
       {
         label: 'View Details',
@@ -189,7 +194,8 @@ const AllocationTableApex = () => {
           //console.log('[AllocationTableApex] View details for:', item.symbol);
           // TODO: Navigate to stock details page
         },
-        className: 'text-white hover:text-[#8B949E]'
+        className: 'hover:opacity-80 transition-all duration-300',
+        style: { color: 'var(--color-text-main)' }
       },
       {
         label: 'Add Transaction',
@@ -197,7 +203,8 @@ const AllocationTableApex = () => {
           //console.log('[AllocationTableApex] Add transaction for:', item.symbol);
           // TODO: Open add transaction modal with pre-filled symbol
         },
-        className: 'text-green-400 hover:text-green-300'
+        className: 'hover:opacity-80 transition-all duration-300',
+        style: { color: 'var(--color-green)' }
       }
     ];
 
@@ -222,7 +229,7 @@ const AllocationTableApex = () => {
       showPagination={false}
       searchPlaceholder="Search holdings..."
       getItemKey={(item) => item.id as string}
-      className="rounded-xl bg-[#161B22] shadow-lg"
+      className="metric-card-enhanced magnetic-hover animate-stagger-reveal group"
     />
   );
 };

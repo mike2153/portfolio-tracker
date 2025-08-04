@@ -4,12 +4,9 @@ import {
   VictoryChart,
   VictoryLine,
   VictoryAxis,
-  VictoryLabel,
   VictoryTheme,
-  VictoryContainer,
-  VictoryLegend,
   VictoryGroup,
-  VictoryClipContainer
+  VictoryTooltip,
 } from 'victory-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Theme } from '../../theme/theme';
@@ -50,7 +47,7 @@ export default function PortfolioComparisonChart({
   timePeriod,
   onPeriodChange,
   isLoading = false,
-  compareMode = false,
+  // compareMode = false, // unused parameter
   benchmarkSymbol = 'SPY'
 }: Props) {
   const { theme } = useTheme();
@@ -69,7 +66,7 @@ export default function PortfolioComparisonChart({
       
       const firstValue = points[0]?.value || 1;
       
-      return points.map((point, index) => {
+      return points.map((point) => {
         const date = new Date(point.date);
         const value = point.value || 0;
         
@@ -146,15 +143,37 @@ export default function PortfolioComparisonChart({
       };
     }
     
-    // For value mode, always include 0 for reference
-    minY = Math.min(minY, 0);
-    maxY = Math.max(maxY, 0);
+    // For value mode, use portfolio-relative scaling (don't force zero)
+    // Find the actual data range from the portfolio values
+    const actualMinY = Math.min(...allYValues);
+    const actualMaxY = Math.max(...allYValues);
     
-    // Add proportional padding
-    const range = maxY - minY;
-    const padding = range * 0.1; // 10% padding
-    const adjustedMinY = minY - padding;
-    const adjustedMaxY = maxY + padding;
+    // Calculate 20% padding based on the ending value (most recent portfolio value)
+    const endingValue = portfolioData.length > 0 ? portfolioData[portfolioData.length - 1]?.y || actualMaxY : actualMaxY;
+    const startingValue = portfolioData.length > 0 ? portfolioData[0]?.y || actualMinY : actualMinY;
+    
+    // Determine if portfolio is up or down to set appropriate bounds
+    const isPortfolioUp = endingValue >= startingValue;
+    
+    let adjustedMinY, adjustedMaxY;
+    
+    if (isPortfolioUp) {
+      // Portfolio is up: start near the starting value, end 20% above ending value
+      adjustedMinY = startingValue - (startingValue * 0.05); // 5% below start
+      adjustedMaxY = endingValue + (endingValue * 0.2); // 20% above end
+    } else {
+      // Portfolio is down: start 20% above starting value, end near ending value
+      adjustedMinY = endingValue - (Math.abs(endingValue) * 0.2); // 20% below end
+      adjustedMaxY = startingValue + (startingValue * 0.05); // 5% above start
+    }
+    
+    // Ensure we don't have invalid bounds
+    if (adjustedMinY >= adjustedMaxY) {
+      const center = (actualMinY + actualMaxY) / 2;
+      const fallbackRange = Math.max(Math.abs(actualMaxY - actualMinY), Math.abs(center * 0.1));
+      adjustedMinY = center - fallbackRange;
+      adjustedMaxY = center + fallbackRange;
+    }
 
     return {
       portfolioData,
@@ -230,9 +249,9 @@ export default function PortfolioComparisonChart({
       {/* Chart */}
       <View style={styles.chartContainer}>
         <VictoryChart
-          width={screenWidth}
+          width={screenWidth + 20}
           height={height}
-          padding={{ left: 20, right: 70, top: 20, bottom: 50 }}
+          padding={{ left: 0, right: 40, top: 20, bottom: 50 }}
           theme={VictoryTheme.material}
           style={{
             background: { fill: "transparent" }
@@ -262,20 +281,20 @@ export default function PortfolioComparisonChart({
             }}
           />
           
-          {/* Y Axis */}
+          {/* Y Axis - Hidden */}
           <VictoryAxis
             dependentAxis
-            orientation="right"
+            orientation="left"
             style={{
-              axis: { stroke: theme.colors.border },
-              ticks: { stroke: theme.colors.border },
+              axis: { stroke: "transparent" },
+              ticks: { stroke: "transparent" },
               tickLabels: { 
-                fill: theme.colors.secondaryText,
-                fontSize: 12
+                fill: "transparent",
+                fontSize: 0
               },
-              grid: { stroke: theme.colors.border, strokeOpacity: 0.2 }
+              grid: { stroke: theme.colors.border, strokeOpacity: 0.1 }
             }}
-            tickFormat={(t) => displayMode === 'percent' ? `${t}%` : formatCurrency(t)}
+            tickFormat={() => ""}
           />
 
           {/* Zero baseline - only show if 0 is within the visible range */}
@@ -298,9 +317,20 @@ export default function PortfolioComparisonChart({
               <VictoryLine
                 data={chartData.portfolioData}
                 style={{
-                  data: { stroke: theme.colors.positive, strokeWidth: 2 }
+                  data: { stroke: theme.colors.positive, strokeWidth: 3 }
                 }}
                 interpolation="monotoneX"
+                labelComponent={<VictoryTooltip 
+                  flyoutStyle={{
+                    stroke: theme.colors.border,
+                    fill: theme.colors.surface,
+                    strokeWidth: 1
+                  }}
+                  style={{
+                    fontSize: 12,
+                    fill: theme.colors.primaryText
+                  }}
+                />}
               />
             )}
 
@@ -309,9 +339,20 @@ export default function PortfolioComparisonChart({
               <VictoryLine
                 data={chartData.benchmarkData}
                 style={{
-                  data: { stroke: theme.colors.blueAccent, strokeWidth: 2 }
+                  data: { stroke: theme.colors.blueAccent, strokeWidth: 3 }
                 }}
                 interpolation="monotoneX"
+                labelComponent={<VictoryTooltip 
+                  flyoutStyle={{
+                    stroke: theme.colors.border,
+                    fill: theme.colors.surface,
+                    strokeWidth: 1
+                  }}
+                  style={{
+                    fontSize: 12,
+                    fill: theme.colors.primaryText
+                  }}
+                />}
               />
             )}
           </VictoryGroup>
@@ -393,7 +434,7 @@ const getStyles = (theme: Theme) => StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 16,
+    marginBottom: 8, // Reduced from 16
   },
   titleContainer: {
     flex: 1,
@@ -402,7 +443,7 @@ const getStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: theme.colors.primaryText,
-    marginBottom: 4,
+    marginBottom: 2, // Reduced from 4
   },
   metricsContainer: {
     flexDirection: 'row',
@@ -443,12 +484,13 @@ const getStyles = (theme: Theme) => StyleSheet.create({
   chartContainer: {
     marginBottom: 16,
     backgroundColor: 'transparent',
+    marginLeft: -20,
   },
   legend: {
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 24,
-    marginTop: 8,
+    marginTop: 4,
   },
   legendItem: {
     flexDirection: 'row',
@@ -465,7 +507,8 @@ const getStyles = (theme: Theme) => StyleSheet.create({
     color: theme.colors.secondaryText,
   },
   periodSelector: {
-    marginTop: 8,
+    marginTop: 4,
+    marginBottom: 8,
   },
   periodButton: {
     paddingHorizontal: 16,

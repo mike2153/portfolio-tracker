@@ -7,7 +7,6 @@ import { useTheme } from '../contexts/ThemeContext';
 import DashboardScreen from '../screens/DashboardScreen';
 // import DashboardScreen from '../screens/SimpleDashboardScreen';
 import PortfolioScreen from '../screens/PortfolioScreen';
-import AnalyticsScreen from '../screens/AnalyticsScreen';
 import ResearchScreen from '../screens/ResearchScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 
@@ -20,16 +19,25 @@ export default function MainTabNavigator() {
     <Tab.Navigator
       screenOptions={{
         tabBarStyle: {
-          backgroundColor: theme.colors.background,
+          backgroundColor: theme.colors.surface, // Fey glass panel
           borderTopColor: theme.colors.border,
+          borderTopWidth: 1,
+          height: 90,
+          paddingBottom: 24,
+          paddingTop: 8,
+          shadowColor: theme.colors.glassShadow,
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 8,
+          elevation: 8,
         },
-        tabBarActiveTintColor: theme.colors.greenAccent,
+        tabBarActiveTintColor: theme.colors.accentPurple, // Fey purple
         tabBarInactiveTintColor: theme.colors.secondaryText,
-        headerStyle: {
-          backgroundColor: theme.colors.background,
-          borderBottomColor: theme.colors.border,
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '500',
         },
-        headerTintColor: theme.colors.primaryText,
+        headerShown: false, // Hide default headers since we're using custom ones
       }}
     >
       <Tab.Screen
@@ -37,21 +45,17 @@ export default function MainTabNavigator() {
         component={DashboardScreen}
         options={{
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home-outline" size={size} color={color} />
+            <Ionicons name="home-outline" size={24} color={color} />
           ),
-          headerTitle: () => (
-            <Image 
-              source={require('../../assets/logo.png')} 
-              style={{ width: 250, height: 1200 }}
-              resizeMode="contain"
-            />
+        }}
+      />
+      <Tab.Screen
+        name="Calendar"
+        component={PortfolioScreen} // Temporarily using PortfolioScreen
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="calendar-outline" size={24} color={color} />
           ),
-          headerTitleAlign: 'center',
-          headerStyle: {
-            height: 120, // Increase header height
-            backgroundColor: theme.colors.background,
-            borderBottomColor: theme.colors.border,
-          },
         }}
       />
       <Tab.Screen
@@ -59,34 +63,16 @@ export default function MainTabNavigator() {
         component={PortfolioScreen}
         options={{
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="pie-chart-outline" size={size} color={color} />
+            <Ionicons name="briefcase-outline" size={24} color={color} />
           ),
         }}
       />
       <Tab.Screen
-        name="Analytics"
-        component={AnalyticsScreen}
+        name="Profile"
+        component={SettingsScreen} // Temporarily using SettingsScreen
         options={{
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="analytics-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Research"
-        component={ResearchScreen}
-        options={{
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="search-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Settings"
-        component={SettingsScreen}
-        options={{
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="settings-outline" size={size} color={color} />
+            <Ionicons name="person-outline" size={24} color={color} />
           ),
         }}
       />

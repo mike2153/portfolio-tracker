@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { StockResearchData, TimePeriod } from '@/types/stock-research';
 import PriceChartApex from '@/components/charts/PriceChartApex';
+import UltraGlassCard from '@/components/ui/UltraGlassCard';
 import { usePriceData } from '@/hooks/usePriceData';
 import StockHeader from './StockHeader';
 import MetricsSidebar from './MetricsSidebar';
@@ -65,7 +66,7 @@ const OverviewTabNew: React.FC<OverviewTabProps> = ({ ticker, data, isLoading, o
 
       {/* Company Description - Clean, minimal design */}
       {!isLoading && data?.overview?.description && (
-        <div className="bg-gray-800 rounded-xl p-6">
+        <UltraGlassCard className="p-6">
           <h3 className="text-lg font-semibold text-white mb-3">About {data.overview.name || ticker}</h3>
           <p className="text-gray-300 text-sm leading-relaxed">
             {data.overview.description}
@@ -90,14 +91,14 @@ const OverviewTabNew: React.FC<OverviewTabProps> = ({ ticker, data, isLoading, o
               </div>
             )}
           </div>
-        </div>
+        </UltraGlassCard>
       )}
 
       {/* Main content layout - Chart area + Metrics sidebar */}
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Chart Area - Takes remaining width */}
         <div className="flex-1">
-          <div className="bg-gray-800 rounded-xl p-6">
+          <UltraGlassCard className="p-6">
             {/* Chart header with data status */}
             <div className="flex justify-between items-center mb-6">
               <h4 className="text-lg font-semibold text-white">Price Chart</h4>
@@ -151,7 +152,7 @@ const OverviewTabNew: React.FC<OverviewTabProps> = ({ ticker, data, isLoading, o
                 </button>
               </div>
             )}
-          </div>
+          </UltraGlassCard>
         </div>
 
         {/* Metrics Sidebar - Fixed width on desktop, full width on mobile */}

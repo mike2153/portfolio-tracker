@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import GradientText from '@/components/ui/GradientText';
+import UltraGlassCard from '@/components/ui/UltraGlassCard';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Search, Star, StarOff, TrendingUp, BarChart3, DollarSign, FileText, GitCompare } from 'lucide-react';
 import { front_api_client } from '@/lib/front_api_client';
@@ -258,7 +259,7 @@ function StockResearchPageContent() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0D1117] text-white">
+    <div className="min-h-screen bg-gradient-to-br from-[#0F172A] via-[#1E293B] to-[#0F172A] text-white">
       <div className="container mx-auto px-4 py-6">
         {/* Header */}
         <div className="mb-6">
@@ -279,7 +280,7 @@ function StockResearchPageContent() {
 
         {/* Stock Header */}
         {selectedTicker && currentData && (
-          <div className="bg-[#0D1117] border border-[#30363D] rounded-lg p-4 mb-6">
+          <UltraGlassCard variant="default" className="mb-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-4 mb-4 sm:mb-0">
                 <div>
@@ -337,7 +338,7 @@ function StockResearchPageContent() {
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
                     isInWatchlist
                       ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
-                      : 'bg-[#0D1117] border border-[#30363D] hover:bg-[#30363D] text-[#8B949E]'
+                      : 'bg-transparent border border-[#30363D] hover:bg-[#30363D] text-[#8B949E]'
                   }`}
                 >
                   {isInWatchlist ? <Star size={16} /> : <StarOff size={16} />}
@@ -345,7 +346,7 @@ function StockResearchPageContent() {
                 </button>
               </div>
             </div>
-          </div>
+          </UltraGlassCard>
         )}
 
         {/* Error Message */}
@@ -364,11 +365,7 @@ function StockResearchPageContent() {
                   <button
                     key={tab.id}
                     onClick={() => handleTabChange(tab.id)}
-                    className={`flex items-center gap-2 py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${
-                      activeTab === tab.id
-                        ? 'border-blue-500 text-blue-400'
-                        : 'border-transparent text-[#8B949E] hover:text-white'
-                    }`}
+                    className={`tab-button ${activeTab === tab.id ? 'active' : 'inactive'}`}
                   >
                     {tab.icon}
                     {tab.label}
@@ -395,7 +392,7 @@ function StockResearchPageContent() {
 
 export default function StockResearchPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#0D1117] text-white flex items-center justify-center">Loading...</div>}>
+    <Suspense fallback={<div className="min-h-screen bg-transparent text-white flex items-center justify-center">Loading...</div>}>
       <StockResearchPageContent />
     </Suspense>
   );

@@ -125,20 +125,26 @@ export default function ApexChart({
     dataLabels: { enabled: false },
     stroke: { 
       curve: 'smooth' as const, 
-      width: type === 'area' || type === 'line' ? 2 : 1 
+      width: type === 'area' || type === 'line' ? 3 : 1,
+      lineCap: 'round' as const
     },
     fill: {
-      type: type === 'area' ? 'gradient' : 'solid',
-      opacity: type === 'bar' ? 1 : (type === 'area' ? 1 : 0.85),
-      ...(type === 'area' ? {
+      type: (type === 'area' || type === 'line') ? 'gradient' : 'solid',
+      opacity: type === 'bar' ? 1 : 1,
+      ...(type === 'area' || type === 'line' ? {
         gradient: {
-          shade: darkMode ? 'dark' : 'light',
+          shade: 'dark',
           type: 'vertical',
           shadeIntensity: 0.3,
-          gradientToColors: [darkMode ? '#0D1117' : '#f9fafb'],
-          opacityFrom: 0.6,
-          opacityTo: 0.1,
-          stops: [0, 100]
+          gradientToColors: dynamicColors.map((color, index) => {
+            // Create different gradient endpoints for each series
+            if (index === 0) return '#0a0a0b'; // Portfolio fades to our dark background
+            if (index === 1) return '#0f0f11'; // Benchmark fades to surface color
+            return '#141417'; // Other series fade to card color
+          }),
+          opacityFrom: type === 'area' ? 0.85 : 0.7,
+          opacityTo: type === 'area' ? 0.05 : 0.02,
+          stops: [0, 75, 100]
         }
       } : {})
     },
@@ -216,49 +222,154 @@ export default function ApexChart({
       custom: ({ series, seriesIndex: _seriesIndex, dataPointIndex, w }: any) => {
         if (!series || series.length === 0) return '';
         
-        // Get the date for this data point
-        const date = w.config.series[0]?.data[dataPointIndex]?.x || 
-                    w.config.xaxis.categories?.[dataPointIndex] || '';
+        // Get the date for this data point - handle multiple possible date sources
+        let date = '';
+        if (w.config.series[0]?.data[dataPointIndex]?.x) {
+          date = w.config.series[0].data[dataPointIndex].x;
+        } else if (w.config.xaxis.categories?.[dataPointIndex]) {
+          date = w.config.xaxis.categories[dataPointIndex];
+        } else {
+          // Fallback to current timestamp if no date found
+          date = Date.now();
+        }
         
-        let tooltipHTML = `<div class="custom-tooltip bg-gray-800 text-white p-3 rounded shadow-lg border">`;
-        tooltipHTML += `<div class="tooltip-date font-semibold mb-2">${new Date(date).toLocaleDateString()}</div>`;
+        // Format date properly
+        const formattedDate = new Date(date).toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric'
+        });
         
-        // Show all series values
+        let tooltipHTML = `
+          <div class="custom-tooltip" style="
+            background: linear-gradient(145deg, #000000 0%, #0a0a0a 50%, #000000 100%);
+            border: 1px solid #1a1a1a;
+            border-radius: 8px;
+            padding: 16px;
+            box-shadow: 
+              inset 2px 2px 4px rgba(255,255,255,0.05),
+              inset -2px -2px 4px rgba(0,0,0,0.8),
+              0 8px 24px rgba(0,0,0,0.9);
+            font-family: 'Inter', monospace;
+            min-width: 200px;
+          ">`;
+        
+        tooltipHTML += `
+          <div class="tooltip-date" style="
+            color: #b6b6bd;
+            font-weight: 700;
+            font-size: 14px;
+            margin-bottom: 12px;
+            letter-spacing: 0.5px;
+          ">${formattedDate}</div>`;
+        
+        // Show all series values with fallback for missing data points
         series.forEach((seriesData: number[], index: number) => {
-          const value = seriesData[dataPointIndex];
+          let value = seriesData[dataPointIndex];
           const seriesName = w.config.series[index]?.name || `Series ${index + 1}`;
           const color = w.config.colors[index] || '#3B82F6';
           
+          // If no value for this data point, use the last available value for portfolio series
+          if ((value === undefined || value === null) && seriesName.toLowerCase().includes('portfolio')) {
+            // Find the last non-null value in the series
+            for (let i = dataPointIndex - 1; i >= 0; i--) {
+              if (seriesData[i] !== undefined && seriesData[i] !== null) {
+                value = seriesData[i];
+                break;
+              }
+            }
+          }
+          
           if (value !== undefined && value !== null) {
             tooltipHTML += `
-              <div class="tooltip-series flex items-center gap-2 py-1">
-                <div class="series-color w-3 h-3 rounded-full" style="background-color: ${color}"></div>
-                <span class="series-name">${seriesName}:</span>
-                <span class="series-value font-medium">$${tooltipFormatter(value)}</span>
+              <div class="tooltip-series" style="
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 4px 0;
+              ">
+                <div class="series-color" style="
+                  width: 8px;
+                  height: 8px;
+                  border-radius: 50%;
+                  background-color: ${color};
+                  box-shadow: 0 0 4px ${color}40;
+                "></div>
+                <span class="series-name" style="
+                  color: #b6b6bd;
+                  font-size: 12px;
+                  font-weight: 600;
+                  flex: 1;
+                ">${seriesName}:</span>
+                <span class="series-value" style="
+                  color: #b6b6bd;
+                  font-weight: 700;
+                  font-size: 13px;
+                  font-family: 'Inter', monospace;
+                ">${tooltipFormatter(value)}</span>
               </div>
             `;
           }
         });
         
         // Calculate performance difference if we have both portfolio and benchmark
-        if (series.length >= 2 && series[0][dataPointIndex] && series[1][dataPointIndex]) {
-          const portfolioValue = series[0][dataPointIndex];
-          const benchmarkValue = series[1][dataPointIndex];
+        let portfolioValue = series[0]?.[dataPointIndex];
+        const benchmarkValue = series[1]?.[dataPointIndex];
+        
+        // Use fallback value for portfolio if not available at this data point
+        if ((portfolioValue === undefined || portfolioValue === null) && series[0]) {
+          for (let i = dataPointIndex - 1; i >= 0; i--) {
+            if (series[0][i] !== undefined && series[0][i] !== null) {
+              portfolioValue = series[0][i];
+              break;
+            }
+          }
+        }
+        
+        if (series.length >= 2 && portfolioValue !== undefined && portfolioValue !== null && benchmarkValue !== undefined && benchmarkValue !== null) {
           const difference = portfolioValue - benchmarkValue;
           const percentDiff = benchmarkValue !== 0 ? ((difference / benchmarkValue) * 100) : 0;
           
           tooltipHTML += `
-            <div class="tooltip-difference border-t pt-2 mt-2">
-              <div class="text-sm opacity-75">Difference:</div>
-              <div class="flex justify-between">
-                <span>Value:</span>
-                <span class="${difference >= 0 ? 'text-green-400' : 'text-red-400'} font-medium">
+            <div class="tooltip-difference" style="
+              border-top: 1px solid #1a1a1a;
+              padding-top: 8px;
+              margin-top: 8px;
+              box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+            ">
+              <div style="
+                color: #b6b6bd;
+                font-size: 11px;
+                font-weight: 600;
+                margin-bottom: 4px;
+              ">Difference:</div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+                <span style="
+                  color: #b6b6bd;
+                  font-size: 11px;
+                  font-weight: 500;
+                ">Value:</span>
+                <span style="
+                  color: #b6b6bd;
+                  font-weight: 700;
+                  font-size: 12px;
+                  font-family: 'Inter', monospace;
+                ">
                   ${difference >= 0 ? '+' : ''}$${difference.toFixed(2)}
                 </span>
               </div>
-              <div class="flex justify-between">
-                <span>Percent:</span>
-                <span class="${percentDiff >= 0 ? 'text-green-400' : 'text-red-400'} font-medium">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="
+                  color: #b6b6bd;
+                  font-size: 11px;
+                  font-weight: 500;
+                ">Percent:</span>
+                <span style="
+                  color: #b6b6bd;
+                  font-weight: 700;
+                  font-size: 12px;
+                  font-family: 'Inter', monospace;
+                ">
                   ${percentDiff >= 0 ? '+' : ''}${percentDiff.toFixed(2)}%
                 </span>
               </div>
@@ -312,7 +423,7 @@ export default function ApexChart({
   // Loading state (including chart loading)
   if (isLoading || chartLoading || !ChartComponent) {
     return (
-      <div className={`rounded-xl bg-[#0D1117] border border-[#30363D] p-6 shadow-lg ${className}`}>
+      <div className={`rounded-xl bg-transparent border border-[#30363D] p-6 shadow-lg ${className}`}>
         {title && (
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-white">{title}</h3>
@@ -331,7 +442,7 @@ export default function ApexChart({
   // Error state
   if (error) {
     return (
-      <div className={`rounded-xl bg-[#0D1117] border border-[#30363D] p-6 shadow-lg ${className}`}>
+      <div className={`rounded-xl bg-transparent border border-[#30363D] p-6 shadow-lg ${className}`}>
         {title && (
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-white">{title}</h3>
@@ -356,7 +467,7 @@ export default function ApexChart({
   }
 
   return (
-    <div className={`rounded-xl bg-[#0D1117] border border-[#30363D] p-6 shadow-lg ${className}`}>
+    <div className={`rounded-xl bg-transparent border border-[#30363D] p-6 shadow-lg ${className}`}>
       {/* Header with title and time range controls */}
       <div className="flex items-center justify-between mb-4">
         {title && (

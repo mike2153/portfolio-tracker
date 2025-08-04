@@ -148,7 +148,7 @@ export const Hero = () => {
                 onClick={handleSecondaryClick}
                 className="
                   inline-flex items-center justify-center px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-medium text-gray-300
-                  glass-effect hover:glass-morphism
+                  bg-transparent border border-[#30363D] hover:bg-transparent border border-[#30363D]
                   rounded-xl hover:text-white
                   btn-micro group
                   relative overflow-hidden
@@ -180,7 +180,7 @@ export const Hero = () => {
               <div className="animate-float-3d hover-3d">
                 {/* Main Dashboard Card with enhanced effects */}
                 <div className="
-                  glass-morphism hover-tilt animate-glow-pulse
+                  bg-transparent border border-[#30363D] hover-tilt animate-glow-pulse
                   rounded-2xl p-4 sm:p-6 lg:p-8 shadow-2xl
                   transform-gpu will-change-transform
                 ">
@@ -188,7 +188,7 @@ export const Hero = () => {
                   <div className="mb-6">
                     <h3 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4 gradient-text-green">Portfolio Overview</h3>
                     <div className="grid grid-cols-2 gap-2 sm:gap-4">
-                      <div className="glass-effect rounded-lg p-2 sm:p-3 lg:p-4 hover-lift animate-slide-in-bottom">
+                      <div className="bg-transparent border border-[#30363D] rounded-lg p-2 sm:p-3 lg:p-4 hover-lift animate-slide-in-bottom">
                         <div className="text-xs sm:text-sm text-gray-400">Total Value</div>
                         <div className="text-lg sm:text-xl lg:text-2xl font-bold text-[#10B981] animate-shimmer">$284,592</div>
                         <div className="text-xs sm:text-sm text-[#10B981] flex items-center">
@@ -198,7 +198,7 @@ export const Hero = () => {
                           </svg>
                         </div>
                       </div>
-                      <div className="glass-effect rounded-lg p-2 sm:p-3 lg:p-4 hover-lift animate-slide-in-bottom" style={{animationDelay: '0.1s'}}>
+                      <div className="bg-transparent border border-[#30363D] rounded-lg p-2 sm:p-3 lg:p-4 hover-lift animate-slide-in-bottom" style={{animationDelay: '0.1s'}}>
                         <div className="text-xs sm:text-sm text-gray-400">Today&apos;s Change</div>
                         <div className="text-lg sm:text-xl lg:text-2xl font-bold text-[#10B981] animate-shimmer">+$3,247</div>
                         <div className="text-xs sm:text-sm text-[#10B981] flex items-center">
@@ -228,7 +228,7 @@ export const Hero = () => {
                   </div>
 
                   {/* Enhanced Animated Chart */}
-                  <div className="mt-6 h-24 glass-effect rounded-lg flex items-end justify-around p-2 overflow-hidden relative">
+                  <div className="mt-6 h-24 bg-transparent border border-[#30363D] rounded-lg flex items-end justify-around p-2 overflow-hidden relative">
                     {/* Background grid */}
                     <div className="absolute inset-0 opacity-20">
                       <div className="h-full grid grid-rows-4 border-r border-gray-600/30">
@@ -275,7 +275,7 @@ export const Hero = () => {
 
               {/* Enhanced Floating Status Cards */}
               <div className="absolute -top-6 -right-6 animate-float-delayed hover-3d">
-                <div className="glass-morphism rounded-lg p-3 hover-lift">
+                <div className="bg-transparent border border-[#30363D] rounded-lg p-3 hover-lift">
                   <div className="flex items-center space-x-2">
                     <div className="w-2 h-2 bg-[#10B981] rounded-full animate-pulse"></div>
                     <div>
@@ -287,7 +287,7 @@ export const Hero = () => {
               </div>
               
               <div className="absolute -bottom-6 -left-6 animate-float-delayed-2 hover-3d">
-                <div className="glass-morphism rounded-lg p-3 hover-lift">
+                <div className="bg-transparent border border-[#30363D] rounded-lg p-3 hover-lift">
                   <div className="flex items-center space-x-2">
                     <div className="w-3 h-3 bg-[#1E3A8A] rounded flex items-center justify-center">
                       <svg className="w-2 h-2 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -304,14 +304,14 @@ export const Hero = () => {
 
               {/* Additional floating analytics cards */}
               <div className="absolute top-1/2 -left-8 animate-float hover-3d" style={{animationDelay: '1s'}}>
-                <div className="glass-morphism rounded-lg p-2 hover-lift">
+                <div className="bg-transparent border border-[#30363D] rounded-lg p-2 hover-lift">
                   <div className="text-xs text-gray-400">Performance</div>
                   <div className="text-sm text-yellow-400 font-semibold">+18.2%</div>
                 </div>
               </div>
 
               <div className="absolute top-1/3 -right-8 animate-float-delayed hover-3d" style={{animationDelay: '2s'}}>
-                <div className="glass-morphism rounded-lg p-2 hover-lift">
+                <div className="bg-transparent border border-[#30363D] rounded-lg p-2 hover-lift">
                   <div className="text-xs text-gray-400">Risk Score</div>
                   <div className="text-sm text-emerald-400 font-semibold">Low</div>
                 </div>

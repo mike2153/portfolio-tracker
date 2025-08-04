@@ -3,6 +3,7 @@ import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Dimensions } from
 import { LineChart } from 'react-native-chart-kit';
 import { formatCurrency, formatPercentage } from '@portfolio-tracker/shared';
 import { useTheme } from '../../contexts/ThemeContext';
+import { Theme } from '../../theme/theme';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -90,7 +91,7 @@ const StockChartKit: React.FC<StockChartProps> = ({
       if (!series.data || series.data.length === 0) {
         return {
           data: [],
-          color: () => index === 0 ? colors.blueAccent : colors.greenAccent,
+          color: () => index === 0 ? theme.colors.blueAccent : theme.colors.greenAccent,
           strokeWidth: 2,
         };
       }
@@ -137,8 +138,8 @@ const StockChartKit: React.FC<StockChartProps> = ({
     backgroundGradientFrom: theme.colors.surface,
     backgroundGradientTo: theme.colors.surface,
     decimalPlaces: compareMode ? 1 : 0,
-    color: (opacity = 1) => theme.colors.blueAccent,
-    labelColor: (opacity = 1) => theme.colors.secondaryText,
+    color: (opacity: number = 1) => theme.colors.blueAccent,
+    labelColor: (opacity: number = 1) => theme.colors.secondaryText,
     style: {
       borderRadius: 16,
     },
