@@ -1,7 +1,6 @@
 'use client';
 
-import { ArrowUp, ArrowDown, Info } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { ArrowUp, ArrowDown } from 'lucide-react';
 import { 
   KPICardProps
 } from '@/types/dashboard';
@@ -83,7 +82,7 @@ const KPICard = ({
     );
   }
   
-  const { value, sub_label, deltaPercent, is_positive } = data;
+  const { value, sub_label, is_positive } = data;
   
   /*
 
@@ -132,44 +131,8 @@ const KPICard = ({
     return String(val);
   };
 
-  // Type-safe delta formatting function
-  const safeFormatDelta = (delta: number | string | null | undefined): string => {
-  //  //console.log(`[KPICard] safeFormatDelta called with:`, delta, 'type:', typeof delta);
-    
-    // Handle null/undefined
-    if (delta == null) {
-      //console.log(`[KPICard] safeFormatDelta: delta is null/undefined, returning 0.0`);
-      return '0.0';
-    }
-    
-    // If it's already a number
-    if (typeof delta === 'number') {
-  //    console.log(`[KPICard] safeFormatDelta: delta is number, using toFixed`);
-      return delta.toFixed(1);
-    }
-    
-    // If it's a string, try to parse it
-    if (typeof delta === 'string') {
-  //    console.log(`[KPICard] safeFormatDelta: delta is string, attempting to parse`);
-      const parsed = parseFloat(delta);
-      if (!isNaN(parsed)) {
-        //console.log(`[KPICard] safeFormatDelta: successfully parsed string to number:`, parsed);
-        return parsed.toFixed(1);
-      } else {
-        //console.log(`[KPICard] safeFormatDelta: failed to parse string, returning raw value`);
-        return delta;
-      }
-    }
-    
-    // Fallback for any other type
-    //console.log(`[KPICard] safeFormatDelta: unknown type, converting to string`);
-    return String(delta);
-  };
-
-  const TrendArrow = is_positive ? ArrowUp : ArrowDown;
 
   const finalSafeValue = safeFormatValue(value);
-  const finalSafeDelta = deltaPercent ? safeFormatDelta(deltaPercent) : null;
   const finalDisplayValue = `${prefix}${finalSafeValue}${suffix}`;
   
   // Format percentage for Performance card

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { FinancialStatements } from '@/types'
 // BalanceSheet component to be implemented
@@ -59,21 +59,9 @@ interface NewsItem {
 }
 
 export default function StockAnalysisPage() {
-  const { push, back } = useRouter()
-  // Next.js client route params
-  const params = ((): { ticker?: string } => {
-    try {
-      // next/navigation useParams in app router
-      // dynamic import to avoid SSR mismatch
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const { useParams } = require('next/navigation') as typeof import('next/navigation')
-      return useParams<{ ticker: string }>()
-    } catch {
-      return {}
-    }
-  })()
-  const [ticker, setTicker] = useState<string>(params?.ticker || '')
   const router = useRouter()
+  const params = useParams<{ ticker: string }>()
+  const [ticker] = useState<string>(params?.ticker || '')
   
   const [overview, setOverview] = useState<StockOverview | null>(null)
   const [quote, setQuote] = useState<StockQuote | null>(null)
@@ -101,7 +89,7 @@ export default function StockAnalysisPage() {
       setLoading(true)
       setError('')
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/stocks/${ticker}/overview`)
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/stocks/${ticker}/overview`)
       if (!response.ok) throw new Error('Failed to fetch stock data')
       
       const data = await response.json()
@@ -116,7 +104,7 @@ export default function StockAnalysisPage() {
 
   const fetchHistoricalData = useCallback(async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/stocks/${ticker}/historical?period=${selectedPeriod}`)
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/stocks/${ticker}/historical?period=${selectedPeriod}`)
       if (!response.ok) throw new Error('Failed to fetch historical data')
       
       const data = await response.json()
@@ -128,7 +116,7 @@ export default function StockAnalysisPage() {
 
   const fetchFinancials = useCallback(async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/stocks/${ticker}/financials/${selectedStatement}`)
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/stocks/${ticker}/financials/${selectedStatement}`)
       if (!response.ok) throw new Error('Failed to fetch financial data')
       
       const data = await response.json()
@@ -140,7 +128,7 @@ export default function StockAnalysisPage() {
 
   const fetchNews = useCallback(async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/stocks/${ticker}/news?limit=20`)
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/stocks/${ticker}/news?limit=20`)
       if (!response.ok) throw new Error('Failed to fetch news')
       
       const data = await response.json()

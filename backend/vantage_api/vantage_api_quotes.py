@@ -249,7 +249,7 @@ async def vantage_api_get_overview(symbol: str, user_id: Optional[str] = None) -
         return {}
 
 @DebugLogger.log_api_call(api_name="ALPHA_VANTAGE", sender="BACKEND", receiver="VANTAGE_API", operation="FETCH_AND_STORE_HISTORICAL_DATA")
-async def vantage_api_fetch_and_store_historical_data(symbol: str, start_date: Optional[str] = None, user_id: Optional[str] = None) -> Dict[str, Any]:
+async def vantage_api_fetch_and_store_historical_data(symbol: str, start_date: Optional[str] = None, user_id: str = "") -> Dict[str, Any]:
     
     client = get_vantage_client()
     

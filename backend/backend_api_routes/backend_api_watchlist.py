@@ -79,9 +79,9 @@ async def backend_api_get_watchlist(
                     change_decimal = Decimal(str(quote.get('change', 0)))
                     change_percent_decimal = Decimal(str(quote.get('change_percent', 0)))
                     
-                    item['current_price'] = float(price_decimal)
-                    item['change'] = float(change_decimal)
-                    item['change_percent'] = float(change_percent_decimal)
+                    item['current_price'] = str(price_decimal)
+                    item['change'] = str(change_decimal)
+                    item['change_percent'] = str(change_percent_decimal)
                     item['volume'] = int(quote.get('volume', 0))
                 else:
                     # Default values if quote not available
@@ -147,7 +147,7 @@ async def backend_api_add_to_watchlist(
         # Convert to Decimal first for precision, then to float
         if data and data.target_price:
             target_price_decimal = Decimal(str(data.target_price))
-            target_price = float(target_price_decimal)
+            target_price = str(target_price_decimal)
         else:
             target_price = None
         
@@ -278,7 +278,7 @@ async def backend_api_update_watchlist_item(
             symbol=symbol,
             user_token=user_token,
             notes=data.notes,
-            target_price=float(Decimal(str(data.target_price))) if data.target_price else None
+            target_price=str(Decimal(str(data.target_price))) if data.target_price else None
         )
         
         response_data = {

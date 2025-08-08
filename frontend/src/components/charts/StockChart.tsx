@@ -3,6 +3,7 @@
 import React, { useMemo, useEffect, useState } from 'react';
 import { formatCurrency, formatPercentage, formatDate } from '@/lib/front_api_client';
 import { useChart } from '../ChartProvider';
+import { getUTCTimestamp } from '@/lib/dateUtils';
 
 interface StockData {
   date: Date | string;
@@ -87,7 +88,7 @@ const StockChart: React.FC<StockChartProps> = ({
     const series = processedData.map((series, index) => ({
       name: series.symbol,
       data: series.data.map(point => ({
-        x: new Date(point.date).getTime(),
+        x: getUTCTimestamp(point.date as string),
         y: point.price || point.close || 0,
         ...(point.open && { open: point.open }),
         ...(point.high && { high: point.high }),

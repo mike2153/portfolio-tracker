@@ -29,6 +29,16 @@
    - Only after user approval, apply the final code.
    - Confirm that type checking passes, tests (if available) pass, and the code is minimal, DRY, and clear.
 
+6. **MANDATORY VALIDATION - RUN BEFORE DELIVERING CODE:**
+   - **Python Backend:**
+     - Run `python scripts/validate_optional_user_id.py` - MUST pass with zero violations
+     - Run `python scripts/validate_float_conversions.py` - MUST pass with zero violations
+     - Run type checker: `python -m mypy backend --strict` or `pyright backend`
+   - **TypeScript Frontend:**
+     - Run `npm run lint` - MUST pass with zero errors
+     - Run TypeScript compiler: `npx tsc --noEmit` - MUST pass with zero errors
+   - **IMPORTANT:** Code is NOT ready for delivery if ANY of these checks fail
+
 **Remember:**
 - **FORBIDDEN COMMANDS - NEVER RUN THESE:**
   - `npm run build` or `npm build` - User will handle all build operations

@@ -84,7 +84,7 @@ export default function PriceChartApex({
     if (currentChartType === 'candlestick') {
       // For candlestick charts, we need OHLC data
       const candlestickData = data.map(point => {
-        const timestamp = new Date(point.time).getTime();
+        const timestamp = getUTCTimestamp(point.time as string);
         return {
           x: timestamp,
           y: [point.open, point.high, point.low, point.close]
@@ -137,7 +137,7 @@ export default function PriceChartApex({
     if (!showVolume || !data || data.length === 0) return [];
 
     const volumeSeries = data.map(point => {
-      const timestamp = new Date(point.time).getTime();
+      const timestamp = getUTCTimestamp(point.time);
       return [timestamp, point.volume] as [number, number];
     });
 

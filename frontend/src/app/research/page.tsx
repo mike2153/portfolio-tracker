@@ -8,6 +8,7 @@ import { Search, Star, StarOff, TrendingUp, BarChart3, DollarSign, FileText, Git
 import { front_api_client } from '@/lib/front_api_client';
 import { front_api_add_to_watchlist, front_api_remove_from_watchlist, front_api_check_watchlist_status } from '@/hooks/api/front_api_watchlist';
 import { useToast } from '@/components/ui/Toast';
+import { debugJsonResponse } from '@/lib/debugJsonSaver';
 import type { 
   StockResearchTab, 
   StockResearchData
@@ -67,6 +68,13 @@ function StockResearchPageContent() {
       console.log(`[ResearchPage] Loading stock data for: ${ticker}`);
       const data = await front_api_client.front_api_get_stock_research_data(ticker);
       console.log(`[ResearchPage] Stock data received for ${ticker}:`, data);
+      
+      // Save JSON response for debugging
+      debugJsonResponse({
+        ticker,
+        dataType: 'stock-research',
+        data
+      });
       
       // Check watchlist status
       let isInWatchlist = false;
@@ -260,13 +268,13 @@ function StockResearchPageContent() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0F172A] via-[#1E293B] to-[#0F172A] text-white">
-      <div className="container mx-auto px-4 py-6">
+      <div className="w-full px-8 lg:px-12 xl:px-16 py-6">
         {/* Header */}
         <div className="mb-6">
           <GradientText className="text-2xl font-bold mb-8">Stock Research</GradientText>
           
           {/* Search Bar */}
-          <div className="max-w-md">
+          <div className="max-w-2xl">
             <StockSearchInput
               onSelectSymbol={(symbol) => {
                 console.debug('[ResearchPage] onSelectSymbol:', symbol);

@@ -2,6 +2,7 @@
 
 import React, { useMemo } from 'react';
 import { ApexChart } from '.';
+import { getUTCTimestamp } from '@/lib/dateUtils';
 
 interface PriceEpsData {
   date: string;
@@ -49,17 +50,17 @@ export default function PriceEpsChartApex({
     }
 
     // Sort data by date
-    const sortedData = [...data].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const sortedData = [...data].sort((a, b) => getUTCTimestamp(a.date) - getUTCTimestamp(b.date));
 
     // Create price series
     const priceSeries = sortedData.map(item => ({
-      x: new Date(item.date).getTime(),
+      x: getUTCTimestamp(item.date),
       y: item.price
     }));
 
     // Create EPS series (scaled for better visualization)
     const epsSeries = sortedData.map(item => ({
-      x: new Date(item.date).getTime(),
+      x: getUTCTimestamp(item.date),
       y: item.eps
     }));
 
@@ -81,7 +82,7 @@ export default function PriceEpsChartApex({
       const peRatioSeries = sortedData
         .filter(item => item.peRatio !== undefined && item.peRatio > 0)
         .map(item => ({
-          x: new Date(item.date).getTime(),
+          x: getUTCTimestamp(item.date),
           y: item.peRatio!
         }));
 
@@ -105,8 +106,8 @@ export default function PriceEpsChartApex({
     if (!latest) return null;
     
     const previousYear = data.find(item => {
-      const latestDate = new Date(latest.date);
-      const itemDate = new Date(item.date);
+      const latestDate = new Date(getUTCTimestamp(latest.date));
+      const itemDate = new Date(getUTCTimestamp(item.date));
       return itemDate.getFullYear() === latestDate.getFullYear() - 1;
     });
 

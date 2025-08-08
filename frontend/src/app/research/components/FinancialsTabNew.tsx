@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { TabContentProps, FinancialStatementType as _FinancialStatementType, FinancialPeriodType } from '@/types/stock-research';
 import { front_api_client } from '@/lib/front_api_client';
+import { debugJsonResponse } from '@/lib/debugJsonSaver';
 import { DollarSign, TrendingUp, BarChart3, RefreshCw, ChevronDown } from 'lucide-react';
 import FinancialsChart from './FinancialsChart';
 import FinancialsTable from './FinancialsTable';
@@ -49,6 +50,20 @@ const FinancialsTabNew: React.FC<TabContentProps> = ({ ticker, data: _data, isLo
       
       if (result.success && result.data) {
         console.log(`[FinancialsTabNew] Loaded ${statement} data:`, result.data);
+        
+        // Save JSON response for debugging
+        const dataType = statement === 'INCOME_STATEMENT' 
+          ? 'financials-income' 
+          : statement === 'BALANCE_SHEET' 
+          ? 'financials-balance' 
+          : 'financials-cashflow';
+        
+        debugJsonResponse({
+          ticker,
+          dataType: dataType as 'financials-income' | 'financials-balance' | 'financials-cashflow',
+          data: result.data
+        });
+        
         setFinancialsData((prev: Record<string, unknown>) => ({
           ...prev,
           [statement]: result.data

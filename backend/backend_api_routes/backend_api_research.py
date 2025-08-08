@@ -123,13 +123,13 @@ async def backend_api_stock_overview_handler(
             price_data = prices_result[symbol]
             quote_data = {
                 "symbol": price_data["symbol"],
-                "price": float(price_data["price"]),
+                "price": str(price_data["price"]),
                 "date": price_data["date"],
-                "volume": float(price_data["volume"]),
-                "open": float(price_data["open"]),
-                "high": float(price_data["high"]),
-                "low": float(price_data["low"]),
-                "close": float(price_data["close"]),
+                "volume": str(price_data["volume"]),
+                "open": str(price_data["open"]),
+                "high": str(price_data["high"]),
+                "low": str(price_data["low"]),
+                "close": str(price_data["close"]),
                 "price_type": "EOD Price"  # Add EOD notation
             }
         else:
@@ -215,13 +215,13 @@ async def backend_api_quote_handler(
             # Format data to match expected structure
             quote_data = {
                 "symbol": price_data["symbol"],
-                "price": float(price_data["price"]),
+                "price": str(price_data["price"]),
                 "date": price_data["date"],
-                "volume": float(price_data["volume"]),
-                "open": float(price_data["open"]),
-                "high": float(price_data["high"]),
-                "low": float(price_data["low"]),
-                "close": float(price_data["close"]),
+                "volume": str(price_data["volume"]),
+                "open": str(price_data["open"]),
+                "high": str(price_data["high"]),
+                "low": str(price_data["low"]),
+                "close": str(price_data["close"]),
                 "price_type": "EOD Price"  # Add EOD notation
             }
             
@@ -568,12 +568,12 @@ async def backend_api_stock_prices_handler(
         for price_record in prices_result[symbol]:
             historical_data.append({
                 "date": price_record["date"],
-                "open": float(price_record["open"]),
-                "high": float(price_record["high"]),
-                "low": float(price_record["low"]),
-                "close": float(price_record["close"]),
-                "volume": float(price_record["volume"]),
-                "adjusted_close": float(price_record["adjusted_close"])
+                "open": str(price_record["open"]),
+                "high": str(price_record["high"]),
+                "low": str(price_record["low"]),
+                "close": str(price_record["close"]),
+                "volume": str(price_record["volume"]),
+                "adjusted_close": str(price_record["adjusted_close"])
             })
     except Exception as e:
         DebugLogger.log_error(

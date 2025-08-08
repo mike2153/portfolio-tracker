@@ -17,7 +17,7 @@ from vantage_api.vantage_api_financials import (
     vantage_api_get_cash_flow
 )
 from supa_api.supa_api_client import get_supa_client
-from config import SUPA_API_URL, SUPA_API_ANON_KEY
+from config import SUPA_API_URL, SUPA_API_ANON_KEY, SUPA_API_SERVICE_KEY
 
 logger = logging.getLogger(__name__)
 

@@ -3,35 +3,40 @@
 import { useState, useEffect } from 'react'
 
 interface Statistic {
+  id: string
   number: string
   label: string
   suffix?: string
 }
 
 const statistics: Statistic[] = [
-  { number: "10,000", label: "Active Investors", suffix: "+" },
-  { number: "50M", label: "Assets Tracked", suffix: "+" },
-  { number: "99.9", label: "Uptime", suffix: "%" },
-  { number: "4.8", label: "User Rating", suffix: "/5" }
+  { id: "active-investors", number: "10,000", label: "Active Investors", suffix: "+" },
+  { id: "assets-tracked", number: "50M", label: "Assets Tracked", suffix: "+" },
+  { id: "uptime", number: "99.9", label: "Uptime", suffix: "%" },
+  { id: "user-rating", number: "4.8", label: "User Rating", suffix: "/5" }
 ]
 
 const trustBadges = [
   {
+    id: "soc2",
     name: "SOC 2 Compliant",
     description: "Security certification for financial services",
     icon: "🛡️"
   },
   {
+    id: "ssl",
     name: "256-bit SSL",
     description: "Bank-level encryption for all data",
     icon: "🔒"
   },
   {
+    id: "banks",
     name: "12,000+ Banks",
     description: "Connected financial institutions",
     icon: "🏦"
   },
   {
+    id: "realtime",
     name: "Real-time Data",
     description: "Live market data feeds",
     icon: "⚡"
@@ -76,9 +81,9 @@ export const SocialProof = () => {
             ${isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}
           `}>
             <div className="flex -space-x-2">
-              {userCount.recentUsers.slice(0, 3).map((user, index) => (
+              {userCount.recentUsers.slice(0, 3).map((user) => (
                 <div 
-                  key={index}
+                  key={user}
                   className="w-8 h-8 rounded-full bg-gradient-to-br from-[#10B981] to-[#059669] flex items-center justify-center text-white text-xs font-medium border-2 border-[#0F172A]"
                 >
                   {user.split(' ').map(n => n[0]).join('')}
@@ -97,7 +102,7 @@ export const SocialProof = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-16">
           {statistics.map((stat, index) => (
             <div 
-              key={index}
+              key={stat.id}
               className={`
                 text-center transition-all duration-700 transform
                 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}
@@ -119,7 +124,7 @@ export const SocialProof = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
           {trustBadges.map((badge, index) => (
             <div 
-              key={index}
+              key={badge.id}
               className={`
                 text-center group transition-all duration-700 transform
                 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}

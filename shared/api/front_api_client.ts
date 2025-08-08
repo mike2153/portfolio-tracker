@@ -34,7 +34,7 @@ export function getAPIVersion(): string {
 }
 
 // Use appropriate environment variable based on platform
-const API_BASE = process.env.NEXT_PUBLIC_BACKEND_API_URL ?? 
+const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL ?? 
                  process.env.EXPO_PUBLIC_BACKEND_API_URL ?? 
                  'http://localhost:8000';
 

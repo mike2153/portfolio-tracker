@@ -30,6 +30,8 @@ const nextConfig = {
       'cdn.marketaux.com',
       'cdn.benzinga.com',
       'www.benzinga.com',
+      'staticx-tuner.zacks.com',
+      'static.zacks.com',
       
       // Stock photo and placeholder services
       'images.unsplash.com',

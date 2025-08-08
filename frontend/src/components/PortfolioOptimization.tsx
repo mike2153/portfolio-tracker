@@ -64,7 +64,7 @@ export default function PortfolioOptimization({ userId }: PortfolioOptimizationP
       setLoading(true)
       setError('')
       
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/portfolios/${userId}/optimization`)
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/portfolios/${userId}/optimization`)
       if (!response.ok) {
         throw new Error('Failed to fetch portfolio optimization analysis')
       }
@@ -575,8 +575,8 @@ export default function PortfolioOptimization({ userId }: PortfolioOptimizationP
                 Risk Reduction Suggestions
               </h3>
               <div className="space-y-3">
-                {analysis.optimization_recommendations.risk_reduction_suggestions.map((suggestion, index) => (
-                  <div key={index} className="flex items-start space-x-3 p-3 bg-orange-50 rounded-lg">
+                {analysis.optimization_recommendations.risk_reduction_suggestions.map((suggestion) => (
+                  <div key={suggestion} className="flex items-start space-x-3 p-3 bg-orange-50 rounded-lg">
                     <ChevronRight className="w-4 h-4 text-orange-600 mt-0.5 flex-shrink-0" />
                     <p className="text-sm text-orange-800">{suggestion}</p>
                   </div>

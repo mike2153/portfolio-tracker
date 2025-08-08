@@ -222,7 +222,7 @@ export default function ApexChart({
         }
       },
        custom: (ctx: { series: number[][]; seriesIndex: number; dataPointIndex: number; w: any }) => {
-        const { series, seriesIndex, dataPointIndex, w } = ctx;
+        const { series, dataPointIndex, w } = ctx;
         if (!series || series.length === 0) return '';
         
         // Get the date for this data point - handle multiple possible date sources

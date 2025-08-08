@@ -29,12 +29,12 @@ const FxTicker = () => {
     return (
         <div className="relative overflow-hidden">
             <div className="flex animate-marquee-continuous space-x-8">
-                {rates.map((rate, index) => (
-                    <FxRateItem key={index} rate={rate} />
+                {rates.map((rate) => (
+                    <FxRateItem key={rate.pair} rate={rate} />
                 ))}
                 {/* Duplicate for seamless loop */}
-                {rates.map((rate, index) => (
-                    <FxRateItem key={`dup-${index}`} rate={rate} />
+                {rates.map((rate) => (
+                    <FxRateItem key={`dup-${rate.pair}`} rate={rate} />
                 ))}
             </div>
         </div>

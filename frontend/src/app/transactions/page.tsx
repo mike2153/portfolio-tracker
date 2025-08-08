@@ -254,9 +254,9 @@ const TransactionsPage = () => {
           return;
       }
       
-      const selectedDate = new Date(date);
+      const selectedDate = new Date(date + 'T00:00:00Z');
       const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      today.setUTCHours(0, 0, 0, 0);
       
       if (selectedDate > today) {
           addToast({

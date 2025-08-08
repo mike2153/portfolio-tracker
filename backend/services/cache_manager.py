@@ -142,13 +142,13 @@ class ThreadSafeCacheManager:
             
             logger.debug(f"Cache set for key '{key}' with TTL={ttl}s")
     
-    async def invalidate(self, pattern: Optional[str] = None, user_id: str = "") -> int:
+    async def invalidate(self, pattern: Optional[str] = None, user_id: Optional[str] = None) -> int:
         """
         Thread-safe cache invalidation with pattern matching.
         
         Args:
             pattern: Pattern to match in key names
-            user_id: User ID to match in key names
+            user_id: User ID to match in key names (optional)
             
         Returns:
             Number of keys invalidated

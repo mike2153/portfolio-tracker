@@ -4,7 +4,6 @@ import { ListSkeleton } from './Skeletons';
 import { ArrowUp, ArrowDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSessionPortfolio, GainerLoserItem } from '@/hooks/useSessionPortfolio';
-import GradientText from '@/components/ui/GradientText';
 import CompanyIcon from '@/components/ui/CompanyIcon';
 
 interface GainLossCardProps {

@@ -1,6 +1,5 @@
 import { Suspense } from 'react';
 import { DashboardProvider } from './contexts/DashboardContext';
-import GradientText from '@/components/ui/GradientText';
 
 import KPIGrid from './components/KPIGrid';
 import FxTicker from './components/FxTicker';

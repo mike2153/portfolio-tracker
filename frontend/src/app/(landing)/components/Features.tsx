@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 
 interface Feature {
+  id: string
   icon: string
   title: string
   description: string
@@ -12,6 +13,7 @@ interface Feature {
 
 const features: Feature[] = [
   {
+    id: "analytics",
     icon: "📊",
     title: "Real-time Portfolio Analytics",
     description: "Live portfolio performance tracking with institutional-grade metrics and instant updates.",
@@ -23,6 +25,7 @@ const features: Feature[] = [
     stats: "Updates every 15 seconds"
   },
   {
+    id: "security",
     icon: "🛡️",
     title: "Bank-Level Security",
     description: "Your financial data is protected with the same security used by major banks.",
@@ -34,6 +37,7 @@ const features: Feature[] = [
     stats: "Zero security incidents"
   },
   {
+    id: "risk",
     icon: "📈",
     title: "Advanced Risk Assessment",
     description: "Comprehensive portfolio risk analysis with personalized recommendations.",
@@ -45,6 +49,7 @@ const features: Feature[] = [
     stats: "15+ risk metrics"
   },
   {
+    id: "setup",
     icon: "⚡",
     title: "Instant Setup",
     description: "Connect your investment accounts securely in under 2 minutes.",
@@ -56,6 +61,7 @@ const features: Feature[] = [
     stats: "2-minute average setup"
   },
   {
+    id: "platform",
     icon: "📱",
     title: "Multi-Platform Access",
     description: "Access your portfolio anywhere with our responsive web and mobile apps.",
@@ -67,6 +73,7 @@ const features: Feature[] = [
     stats: "99.9% uptime"
   },
   {
+    id: "reports",
     icon: "📋",
     title: "Tax-Ready Reports",
     description: "Generate detailed reports for tax season and investment analysis.",
@@ -138,7 +145,7 @@ export const Features = () => {
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
           {features.map((feature, index) => (
             <div
-              key={index}
+              key={feature.id}
               ref={(el) => attachObserver(el, index)}
               className={`
                 relative group cursor-pointer

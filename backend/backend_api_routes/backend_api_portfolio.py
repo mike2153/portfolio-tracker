@@ -353,10 +353,10 @@ async def backend_api_add_transaction(
             commission_decimal = Decimal(str(transaction_data["commission"]))
             exchange_rate_decimal = Decimal(str(transaction_data["exchange_rate"]))
             
-            transaction_data["quantity"] = float(quantity_decimal)
-            transaction_data["price"] = float(price_decimal)
-            transaction_data["commission"] = float(commission_decimal)
-            transaction_data["exchange_rate"] = float(exchange_rate_decimal)
+            transaction_data["quantity"] = quantity_decimal
+            transaction_data["price"] = price_decimal
+            transaction_data["commission"] = commission_decimal
+            transaction_data["exchange_rate"] = exchange_rate_decimal
         except (TypeError, ValueError, InvalidOperation) as e:
             logger.error(f"Error converting transaction data to Decimal/float for JSON serialization: {e}")
             raise ValueError(f"Invalid transaction data for JSON serialization: {e}")
@@ -527,10 +527,10 @@ async def backend_api_update_transaction(
             commission_decimal = Decimal(str(transaction_data["commission"]))
             exchange_rate_decimal = Decimal(str(transaction_data["exchange_rate"]))
             
-            transaction_data["quantity"] = float(quantity_decimal)
-            transaction_data["price"] = float(price_decimal)
-            transaction_data["commission"] = float(commission_decimal)
-            transaction_data["exchange_rate"] = float(exchange_rate_decimal)
+            transaction_data["quantity"] = quantity_decimal
+            transaction_data["price"] = price_decimal
+            transaction_data["commission"] = commission_decimal
+            transaction_data["exchange_rate"] = exchange_rate_decimal
         except (TypeError, ValueError, InvalidOperation) as e:
             logger.error(f"Error converting transaction update data to Decimal/float for JSON serialization: {e}")
             raise ValueError(f"Invalid transaction update data for JSON serialization: {e}")
@@ -801,14 +801,14 @@ async def backend_api_get_allocation(
                     allocations.append({
                         'symbol': symbol,
                         'company_name': symbol,  # We don't store company names
-                        'quantity': float(quantity_decimal),
-                        'current_price': float(current_price_decimal),
-                        'cost_basis': float(total_cost_decimal),
-                        'current_value': float(current_value_decimal),
-                        'gain_loss': float(gain_loss_decimal),
+                        'quantity': str(quantity_decimal),
+                        'current_price': str(current_price_decimal),
+                        'cost_basis': str(total_cost_decimal),
+                        'current_value': str(current_value_decimal),
+                        'gain_loss': str(gain_loss_decimal),
                         'gain_loss_percent': holding.gain_loss_percent,
-                        'dividends_received': float(dividends_received_decimal),
-                        'realized_pnl': float(realized_pnl_decimal),
+                        'dividends_received': str(dividends_received_decimal),
+                        'realized_pnl': str(realized_pnl_decimal),
                         'allocation_percent': holding.allocation_percent,
                         'color': colors[idx % len(colors)],
                         'sector': sector_mapping.get(symbol, 'Other'),
@@ -858,11 +858,11 @@ async def backend_api_get_allocation(
         allocation_data = {
             "allocations": allocations,
             "summary": {
-                "total_value": float(total_value_decimal),
-                "total_cost": float(total_cost_decimal),
-                "total_gain_loss": float(total_gain_loss_decimal),
+                "total_value": str(total_value_decimal),
+                "total_cost": str(total_cost_decimal),
+                "total_gain_loss": str(total_gain_loss_decimal),
                 "total_gain_loss_percent": metrics.performance.total_gain_loss_percent,
-                "total_dividends": float(dividends_total_decimal),
+                "total_dividends": str(dividends_total_decimal),
                 "cache_status": metrics.cache_status,
                 "computation_time_ms": metrics.computation_time_ms
             }
@@ -1024,15 +1024,15 @@ async def backend_api_get_complete_portfolio(
                     # Convert to float for JSON serialization
                     holdings_list.append({
                         "symbol": holding.symbol,
-                        "quantity": float(quantity_decimal),
-                        "avg_cost": float(avg_cost_decimal),
-                        "total_cost": float(total_cost_decimal),
-                        "current_price": float(current_price_decimal),
-                        "current_value": float(current_value_decimal),
-                        "gain_loss": float(gain_loss_decimal),
+                        "quantity": str(quantity_decimal),
+                        "avg_cost": str(avg_cost_decimal),
+                        "total_cost": str(total_cost_decimal),
+                        "current_price": str(current_price_decimal),
+                        "current_value": str(current_value_decimal),
+                        "gain_loss": str(gain_loss_decimal),
                         "gain_loss_percent": holding.gain_loss_percent,
                         "allocation_percent": holding.allocation_percent,
-                        "dividends_received": float(dividends_received_decimal),
+                        "dividends_received": str(dividends_received_decimal),
                         "price_date": holding.price_date,
                         "currency": getattr(holding, 'currency', 'USD')
                     })
@@ -1081,7 +1081,7 @@ async def backend_api_get_complete_portfolio(
                     
                     # Calculate daily change using previous_close from current price data
                     daily_change_value = Decimal('0')
-                    daily_change_percent = 0.0
+                    daily_change_percent = Decimal('0')
                     
                     # previous_close should be available from the portfolio metrics calculation
                     # For now, we'll calculate it directly if needed
@@ -1096,7 +1096,7 @@ async def backend_api_get_complete_portfolio(
                             if previous_close > 0:
                                 # Calculate per-share change
                                 price_change = current_price - previous_close
-                                daily_change_percent = float((price_change / previous_close) * 100)
+                                daily_change_percent = (price_change / previous_close) * 100
                                 # Total value change for the position
                                 daily_change_value = price_change * quantity
                     except Exception as e:
@@ -1104,16 +1104,17 @@ async def backend_api_get_complete_portfolio(
                     
                     holdings_with_daily_changes.append({
                         **holding,
-                        "daily_change_value": float(daily_change_value),
-                        "daily_change_percent": daily_change_percent
+                        "daily_change_value": str(daily_change_value),
+                        "daily_change_percent": str(daily_change_percent)  # Convert to string for JSON
                     })
                 
                 # Filter holdings by daily gain/loss and sort
-                holdings_with_daily_gains = [h for h in holdings_with_daily_changes if h["daily_change_percent"] > 0]
-                holdings_with_daily_losses = [h for h in holdings_with_daily_changes if h["daily_change_percent"] < 0]
+                # daily_change_percent is stored as string, convert to Decimal for comparison
+                holdings_with_daily_gains = [h for h in holdings_with_daily_changes if Decimal(h["daily_change_percent"]) > 0]
+                holdings_with_daily_losses = [h for h in holdings_with_daily_changes if Decimal(h["daily_change_percent"]) < 0]
                 
                 # Sort gainers by daily percentage (descending) and take top 3
-                holdings_with_daily_gains.sort(key=lambda x: x["daily_change_percent"], reverse=True)
+                holdings_with_daily_gains.sort(key=lambda x: Decimal(x["daily_change_percent"]), reverse=True)
                 top_gainers = [
                     {
                         "name": holding['symbol'],  # Removed "Stock " prefix
@@ -1126,7 +1127,7 @@ async def backend_api_get_complete_portfolio(
                 ]
                 
                 # Sort losers by daily percentage (ascending - most negative first) and take top 3
-                holdings_with_daily_losses.sort(key=lambda x: x["daily_change_percent"])
+                holdings_with_daily_losses.sort(key=lambda x: Decimal(x["daily_change_percent"]))
                 top_losers = [
                     {
                         "name": holding['symbol'],  # Removed "Stock " prefix
@@ -1145,9 +1146,9 @@ async def backend_api_get_complete_portfolio(
                 # Core portfolio data
                 "portfolio_data": {
                     "holdings": holdings_list,
-                    "total_value": float(total_value_decimal),
-                    "total_cost": float(total_cost_decimal),
-                    "total_gain_loss": float(total_gain_loss_decimal),
+                    "total_value": str(total_value_decimal),
+                    "total_cost": str(total_cost_decimal),
+                    "total_gain_loss": str(total_gain_loss_decimal),
                     "total_gain_loss_percent": portfolio_metrics.performance.total_gain_loss_percent,
                     "base_currency": getattr(portfolio_metrics.performance, 'base_currency', 'USD')
                 },
@@ -1183,11 +1184,11 @@ async def backend_api_get_complete_portfolio(
                 "dividend_data": {
                     "recent_dividends": complete_data.detailed_dividends[:10],  # Last 10 dividends
                     "total_received_ytd": sum(
-                        float(div.get("amount", 0)) for div in complete_data.detailed_dividends
+                        Decimal(str(div.get("amount", 0))) for div in complete_data.detailed_dividends
                         if div.get("ex_date") and div["ex_date"].startswith(str(datetime.utcnow().year))
                     ),
                     "total_received_all_time": sum(
-                        float(div.get("amount", 0)) for div in complete_data.detailed_dividends
+                        Decimal(str(div.get("amount", 0))) for div in complete_data.detailed_dividends
                     ),
                     "dividend_count": len(complete_data.detailed_dividends)
                 },
@@ -1204,7 +1205,7 @@ async def backend_api_get_complete_portfolio(
                 
                 # Currency conversions
                 "currency_conversions": {
-                    currency_pair: float(rate) for currency_pair, rate in complete_data.currency_conversions.items()
+                    currency_pair: str(rate) for currency_pair, rate in complete_data.currency_conversions.items()
                 },
                 
                 # Top gainers and losers (3 each, mutually exclusive)
@@ -1482,11 +1483,11 @@ async def backend_api_get_historical_performance(
         
         # Format data for frontend
         portfolio_performance = [
-            {"date": d.isoformat(), "value": float(v)} for d, v in aligned_portfolio
+            {"date": d.isoformat(), "value": str(v)} for d, v in aligned_portfolio
         ]
         
         benchmark_performance = [
-            {"date": d.isoformat(), "value": float(v)} for d, v in aligned_benchmark
+            {"date": d.isoformat(), "value": str(v)} for d, v in aligned_benchmark
         ]
         
         # Reduced logging - only log essential information
@@ -1528,14 +1529,14 @@ async def backend_api_get_historical_performance(
                 "chart_type": "performance_comparison"
             },
             "performance_metrics": {
-                "portfolio_start_value": float(metrics.get("portfolio_start_value", 0)),
-                "portfolio_end_value": float(metrics.get("portfolio_end_value", 0)),
-                "portfolio_return_pct": float(metrics.get("portfolio_return_pct", 0)),
-                "index_start_value": float(metrics.get("index_start_value", 0)),
-                "index_end_value": float(metrics.get("index_end_value", 0)),
-                "index_return_pct": float(metrics.get("index_return_pct", 0)),
-                "outperformance_pct": float(metrics.get("outperformance_pct", 0)),
-                "absolute_outperformance": float(metrics.get("absolute_outperformance", 0))
+                "portfolio_start_value": str(metrics.get("portfolio_start_value", 0)),
+                "portfolio_end_value": str(metrics.get("portfolio_end_value", 0)),
+                "portfolio_return_pct": str(metrics.get("portfolio_return_pct", 0)),
+                "index_start_value": str(metrics.get("index_start_value", 0)),
+                "index_end_value": str(metrics.get("index_end_value", 0)),
+                "index_return_pct": str(metrics.get("index_return_pct", 0)),
+                "outperformance_pct": str(metrics.get("outperformance_pct", 0)),
+                "absolute_outperformance": str(metrics.get("absolute_outperformance", 0))
             }
         }
         

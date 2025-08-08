@@ -39,6 +39,44 @@ const NewsCardSkeleton: React.FC = () => (
   </div>
 );
 
+// List of supported image domains from next.config.js
+const SUPPORTED_IMAGE_DOMAINS = [
+  'g.foolcdn.com',
+  'cdn.finra.org',
+  'seekingalpha.com',
+  'static.seekingalpha.com',
+  'assets.marketwatch.com',
+  'cdn.marketaux.com',
+  'cdn.benzinga.com',
+  'www.benzinga.com',
+  'staticx-tuner.zacks.com',
+  'static.zacks.com',
+  'images.unsplash.com',
+  'via.placeholder.com',
+  'assets.bwbx.io',
+  'static01.nyt.com',
+  'images.wsj.net',
+  'thumbs.dreamstime.com',
+  'cdn.cnn.com',
+  'assets.cnbc.com',
+  'image.cnbcfm.com',
+  'media.cnn.com',
+  'graphics.reuters.com',
+];
+
+// Fallback stock market image from Unsplash (already in supported domains)
+const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&q=80';
+
+const isImageUrlSupported = (url: string | undefined): boolean => {
+  if (!url) return false;
+  try {
+    const urlObj = new URL(url);
+    return SUPPORTED_IMAGE_DOMAINS.includes(urlObj.hostname);
+  } catch {
+    return false;
+  }
+};
+
 const formatTimeAgo = (dateString: string): string => {
   // Parse the date string in format YYYYMMDDTHHMMSS
   const year = parseInt(dateString.substring(0, 4));
@@ -67,6 +105,16 @@ const NewsCard: React.FC<{ article: NewsArticle }> = ({ article }) => {
   const SentimentIcon = sentiment.icon;
   const _sentimentScore = Math.round(article.overall_sentiment_score * 100);
   
+  // Determine the image URL to use
+  const imageUrl = (() => {
+    if (imageError) return FALLBACK_IMAGE;
+    if (!article.banner_image) return FALLBACK_IMAGE;
+    // Use fallback if the domain is not supported
+    return isImageUrlSupported(article.banner_image) ? article.banner_image : FALLBACK_IMAGE;
+  })();
+  
+  const showImage = imageUrl !== null;
+  
   return (
     <a
       href={article.url}
@@ -76,9 +124,9 @@ const NewsCard: React.FC<{ article: NewsArticle }> = ({ article }) => {
     >
       {/* Image Container */}
       <div className="relative h-48 overflow-hidden bg-gray-900">
-        {article.banner_image && !imageError ? (
+        {showImage ? (
           <Image
-            src={article.banner_image}
+            src={imageUrl}
             alt={article.title}
             fill
             className="object-cover transition-transform duration-500 group-hover:scale-110"

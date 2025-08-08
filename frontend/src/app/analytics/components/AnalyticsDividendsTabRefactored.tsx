@@ -235,7 +235,7 @@ export default function AnalyticsDividendsTabRefactored() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) throw new Error('Not authenticated');
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/analytics/dividends/sync-all`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/analytics/dividends/sync-all`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`
@@ -263,7 +263,7 @@ export default function AnalyticsDividendsTabRefactored() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) throw new Error('Not authenticated');
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/analytics/dividends/manual-add`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/analytics/dividends/manual-add`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -304,7 +304,7 @@ export default function AnalyticsDividendsTabRefactored() {
         throw new Error('Not authenticated');
       }
       
-      const apiUrl = `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/analytics/dividends?confirmed_only=${showConfirmedOnly}`;
+      const apiUrl = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/analytics/dividends?confirmed_only=${showConfirmedOnly}`;
       console.log('[REFACTORED_FRONTEND] API URL:', apiUrl);
 
       const response = await fetch(apiUrl, {
@@ -458,7 +458,7 @@ export default function AnalyticsDividendsTabRefactored() {
         requestBody.edited_amount = params.editedAmount;
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/analytics/dividends/confirm?dividend_id=${params.dividendId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/analytics/dividends/confirm?dividend_id=${params.dividendId}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -511,7 +511,7 @@ export default function AnalyticsDividendsTabRefactored() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) throw new Error('Not authenticated');
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/analytics/dividends/reject?dividend_id=${params.dividendId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/analytics/dividends/reject?dividend_id=${params.dividendId}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -560,7 +560,7 @@ export default function AnalyticsDividendsTabRefactored() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) throw new Error('Not authenticated');
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/api/analytics/dividends/edit?original_dividend_id=${params.originalDividendId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/analytics/dividends/edit?original_dividend_id=${params.originalDividendId}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,

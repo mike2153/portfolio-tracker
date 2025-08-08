@@ -17,6 +17,7 @@ from services.portfolio_metrics_manager import portfolio_metrics_manager
 from utils.auth_helpers import extract_user_credentials
 from models.response_models import APIResponse
 from utils.response_factory import ResponseFactory
+from utils.decimal_json_encoder import convert_decimals_to_string
 from utils.error_handlers import (
     ServiceUnavailableError, InvalidInputError, DataNotFoundError,
     handle_database_error, handle_external_api_error, async_error_handler
@@ -109,24 +110,24 @@ async def backend_api_analytics_summary(
         # For now, always use the simple IRR calculation
         # TODO: Add XIRR to PortfolioPerformance model in future
         irr_data = await _calculate_simple_irr(user_id, user_token)
-        irr_percent = float(irr_data.get("irr_percent", 0))
+        irr_percent = str(irr_data.get("irr_percent", 0))
         
         # Calculate total profit including dividends
         total_dividends = dividend_summary.get("ytd_received", Decimal('0'))  # This year's dividends
         total_profit_with_dividends = total_gain_loss + total_dividends
         
-        # Convert Decimal values to float only at final serialization
+        # Convert Decimal values to string for JSON serialization (preserves precision)
         summary = {
-            "portfolio_value": float(portfolio_value),
-            "total_profit": float(total_profit_with_dividends),  # Include dividends in total profit
+            "portfolio_value": str(portfolio_value),
+            "total_profit": str(total_profit_with_dividends),  # Include dividends in total profit
             "total_profit_percent": total_gain_loss_percent,  # Keep original percentage for now
             "irr_percent": irr_percent,
-            "passive_income_ytd": float(dividend_summary.get("ytd_received", Decimal('0'))),
+            "passive_income_ytd": str(dividend_summary.get("ytd_received", Decimal('0'))),
             "cash_balance": 0,  # TODO: Implement cash tracking
             "dividend_summary": {
-                "ytd_received": float(dividend_summary.get("ytd_received", Decimal('0'))),
-                "total_received": float(dividend_summary.get("total_received", Decimal('0'))),
-                "total_pending": float(dividend_summary.get("total_pending", Decimal('0'))),
+                "ytd_received": str(dividend_summary.get("ytd_received", Decimal('0'))),
+                "total_received": str(dividend_summary.get("total_received", Decimal('0'))),
+                "total_pending": str(dividend_summary.get("total_pending", Decimal('0'))),
                 "confirmed_count": dividend_summary.get("confirmed_count", 0),
                 "pending_count": dividend_summary.get("pending_count", 0)
             }
@@ -889,10 +890,10 @@ async def _get_portfolio_summary(user_id: str, user_token: str) -> Dict[str, Any
         # Simple approximation of total invested (could be enhanced)
         # For now, just return current value as we're optimizing for speed
         return {
-            "total_value": float(latest_value_decimal),
+            "total_value": str(latest_value_decimal),
             "total_gain_loss": 0,  # Skip complex calculation for summary
             "total_gain_loss_percent": 0,  # Skip complex calculation for summary
-            "total_invested": float(latest_value_decimal)  # Simplified
+            "total_invested": str(latest_value_decimal)  # Simplified
         }
         
     except Exception as e:
@@ -953,18 +954,18 @@ async def _get_detailed_holdings(user_id: str, user_token: str, include_sold: bo
                 # Keep calculations in Decimal until final serialization
                 holding_dict = {
                     'symbol': holding.symbol,
-                    'quantity': float(quantity_decimal),
-                    'avg_cost': float(avg_cost_decimal),
-                    'current_price': float(current_price_decimal),
-                    'cost_basis': float(total_cost_decimal),
-                    'current_value': float(current_value_decimal),
-                    'unrealized_gain': float(gain_loss_decimal),
+                    'quantity': str(quantity_decimal),
+                    'avg_cost': str(avg_cost_decimal),
+                    'current_price': str(current_price_decimal),
+                    'cost_basis': str(total_cost_decimal),
+                    'current_value': str(current_value_decimal),
+                    'unrealized_gain': str(gain_loss_decimal),
                     'unrealized_gain_percent': holding.gain_loss_percent,
-                    'realized_pnl': float(realized_pnl_decimal),
-                    'dividends_received': float(dividends_received_decimal),
-                    'total_profit': float(total_profit_decimal),
+                    'realized_pnl': str(realized_pnl_decimal),
+                    'dividends_received': str(dividends_received_decimal),
+                    'total_profit': str(total_profit_decimal),
                     'total_profit_percent': holding.gain_loss_percent,  # Simplified for now
-                    'total_bought': float(total_cost_decimal),  # Simplified
+                    'total_bought': str(total_cost_decimal),  # Simplified
                     'total_sold': 0,  # TODO: Track sold amounts
                     'daily_change': 0,  # TODO: Implement daily change calculation
                     'daily_change_percent': 0,  # TODO: Implement daily change percent
@@ -1039,7 +1040,7 @@ async def _enrich_dividend_data(user_id: str, dividends: List[Dict[str, Any]]) -
         if not dividend['confirmed'] and enriched_dividend['current_holdings'] > 0:
             # Keep calculation in Decimal precision until final serialization
             projected_amount = Decimal(str(dividend['amount'])) * Decimal(str(enriched_dividend['current_holdings']))
-            enriched_dividend['projected_amount'] = float(projected_amount)  # Convert to float for JSON serialization
+            enriched_dividend['projected_amount'] = str(projected_amount)  # Convert to string for JSON serialization
         
         enriched.append(enriched_dividend)
     
@@ -1073,7 +1074,7 @@ async def _get_lightweight_dividend_summary(user_id: str) -> Dict[str, Any]:
                 ytd_received += Decimal(str(div['amount'])) * Decimal(str(div['shares_held_at_ex_date']))
         
         return {
-            "ytd_received": float(ytd_received),  # Convert to float for JSON serialization
+            "ytd_received": str(ytd_received),  # Convert to string for JSON serialization
             "total_received": 0,  # Skip for performance
             "total_pending": 0,   # Skip for performance
             "confirmed_count": len(ytd_result.data) if ytd_result.data else 0,
@@ -1122,9 +1123,9 @@ async def _calculate_simple_irr(user_id: str, user_token: str) -> Dict[str, Any]
         
         # Simple annualized return calculation - keep Decimal precision until final step
         from decimal import Decimal
-        annualized_return = float(((Decimal('1') + total_return) ** (Decimal('365') / Decimal(str(days)))) - Decimal('1'))
+        annualized_return = ((Decimal('1') + total_return) ** (Decimal('365') / Decimal(str(days)))) - Decimal('1')
         
-        return {"irr_percent": annualized_return * 100}
+        return {"irr_percent": str(annualized_return * 100)}
         
     except Exception as e:
         logger.error(f"Failed to calculate IRR: {e}")
@@ -1200,7 +1201,7 @@ async def backend_api_add_manual_dividend(
         # Calculate net amount after fees and taxes using Decimal precision
         net_amount_decimal = total_received_decimal - fee - tax
         # Convert to float only when passing to the service
-        net_amount = float(net_amount_decimal)
+        net_amount = net_amount_decimal
         
         logger.info(f"[backend_api_analytics.py::backend_api_add_manual_dividend] Adding manual dividend for {ticker} on {payment_date}, user: {user_id}")
         
@@ -1210,10 +1211,10 @@ async def backend_api_add_manual_dividend(
             user_token=user_token,
             ticker=ticker,
             payment_date=payment_date,
-            total_amount=float(total_received_decimal),
-            amount_per_share=float(amount_per_share_decimal),
-            fee=float(fee),
-            tax=float(tax),
+            total_amount=total_received_decimal,
+            amount_per_share=amount_per_share_decimal,
+            fee=fee,
+            tax=tax,
             note=note,
             company_name=company_name
         )
