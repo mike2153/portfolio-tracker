@@ -14,7 +14,8 @@ from debug_logger import DebugLogger
 from supa_api.supa_api_client import get_supa_service_client
 from vantage_api.vantage_api_client import get_vantage_client
 from utils.decimal_json_encoder import convert_decimals_to_float
-from utils.distributed_lock import DividendSyncLocks, distributed_lock, DistributedLockError
+# Distributed locks removed - using simple in-memory locks for single-server deployment
+# from utils.distributed_lock import DividendSyncLocks, distributed_lock, DistributedLockError
 try:
     from .feature_flag_service import is_feature_enabled
 except ImportError:
@@ -32,12 +33,12 @@ class DividendService:
         self.supa_client = get_supa_service_client()
         self.vantage_client = get_vantage_client()
         
-        # DEPRECATED: Race condition protection (replaced with distributed locks)
-        # TODO: Remove these in-memory locks once all methods are updated to use distributed locks
-        self._sync_lock = threading.RLock()  # DEPRECATED - use distributed_lock instead
+        # Simple in-memory locks for single-server deployment
+        # These provide basic race condition protection without distributed complexity
+        self._sync_lock = threading.RLock()
         self._last_global_sync = 0
-        self._user_sync_locks = {}  # DEPRECATED - use DividendSyncLocks instead
-        self._global_sync_in_progress = False  # DEPRECATED - use DividendSyncLocks instead
+        self._user_sync_locks = {}
+        self._global_sync_in_progress = False
         
         logger.info(f"[DividendService] Initialized with service client: {type(self.supa_client)}")
     
@@ -433,7 +434,7 @@ class DividendService:
                             continue
                         
                         amount = item.get('amount', 0)
-                        decimal_amount = self._safe_decimal_conversion(amount, user_id)
+                        decimal_amount = self._safe_decimal_conversion(amount, None)
                         if not amount or decimal_amount <= 0:
                             logger.warning(f"Skipping dividend for {symbol}: invalid amount {amount}")
                             continue
@@ -649,7 +650,7 @@ class DividendService:
             
         except Exception as e:
             logger.error(f"Failed to upsert global dividend for {symbol}: {e}")
-            logger.error(f"Dividend data that caused error: {data if 'data' in locals() else dividend_data}")
+            logger.error(f"Dividend data that caused error: {dividend_data}")
             return False
     
     async def _upsert_global_dividend_fixed(self, symbol: str, dividend_data: Dict[str, Any]) -> bool:
@@ -674,7 +675,7 @@ class DividendService:
             
             # Validate and convert amount
             try:
-                per_share_amount = self._safe_decimal_conversion(dividend_data['amount'], user_id)
+                per_share_amount = self._safe_decimal_conversion(dividend_data['amount'], None)
                 if per_share_amount <= 0:
                     logger.warning(f"Skipping dividend for {symbol}: non-positive amount {per_share_amount}")
                     return False
@@ -1533,30 +1534,36 @@ class DividendService:
         # Use distributed locking to prevent race conditions across multiple server instances
         user_lock_name = f"dividend_sync_user_{user_id}"
         
+        # Use simple in-memory lock for single-server deployment
+        if user_id not in self._user_sync_locks:
+            self._user_sync_locks[user_id] = threading.RLock()
+        
+        user_lock = self._user_sync_locks[user_id]
+        
+        if not user_lock.acquire(blocking=False):
+            logger.warning(f"[DividendService] User sync already in progress for {user_id}")
+            return {
+                "success": False,
+                "error": "Dividend sync already in progress for this user",
+                "code": "SYNC_IN_PROGRESS"
+            }
+        
         try:
-            async with distributed_lock(user_lock_name, timeout_seconds=300, max_wait_seconds=5):
-                logger.info(f"[DividendService] Acquired distributed lock for user {user_id} dividend sync")
-                
-                # Check if global sync is running (using distributed lock check)
-                if not await DividendSyncLocks.can_start_global_sync():
+            logger.info(f"[DividendService] Acquired lock for user {user_id} dividend sync")
+            
+            # Check if global sync is running
+            with self._sync_lock:
+                if self._global_sync_in_progress:
                     return {
                         "success": False,
                         "error": "Global dividend sync in progress, please try again later",
                         "code": "GLOBAL_SYNC_IN_PROGRESS"
                     }
-                
-                logger.info(f"[DividendService] Starting protected user sync for {user_id}")
-                
-                # Use the existing sync logic but with distributed protection
-                return await self._sync_dividends_for_all_holdings_impl(user_id, user_token)
-                
-        except DistributedLockError as e:
-            logger.warning(f"[DividendService] Could not acquire user sync lock for {user_id}: {e}")
-            return {
-                "success": False,
-                "error": "Dividend sync already in progress for this user on another server instance",
-                "code": "SYNC_IN_PROGRESS_DISTRIBUTED"
-            }
+            
+            logger.info(f"[DividendService] Starting protected user sync for {user_id}")
+            
+            # Use the existing sync logic but with in-memory protection
+            return await self._sync_dividends_for_all_holdings_impl(user_id, user_token)
         except Exception as e:
             logger.error(f"[DividendService] Unexpected error in user sync for {user_id}: {e}")
             return {
@@ -1564,6 +1571,8 @@ class DividendService:
                 "error": f"User sync failed: {str(e)}",
                 "code": "SYNC_ERROR"
             }
+        finally:
+            user_lock.release()
     
     async def _sync_dividends_for_all_holdings_impl(self, user_id: str, user_token: str) -> Dict[str, Any]:
         """Implementation of user dividend sync (extracted from original method)"""
@@ -1690,19 +1699,21 @@ class DividendService:
         
         #DebugLogger.info_if_enabled("[dividend_service::background_dividend_sync_all_users] Starting protected global sync", logger)
         
-        # Use distributed locking to prevent race conditions across multiple server instances
-        try:
-            async with distributed_lock("dividend_sync_global", timeout_seconds=600, max_wait_seconds=5):
-                logger.info("[DividendService] Acquired distributed lock for global dividend sync")
-                return await self._background_dividend_sync_all_users_impl()
-                
-        except DistributedLockError as e:
-            logger.warning(f"[DividendService] Could not acquire global sync lock: {e}")
+        # Use simple in-memory lock for single-server deployment
+        if not self._sync_lock.acquire(blocking=False):
+            logger.warning("[DividendService] Global sync already in progress")
             return {
                 "success": False,
-                "error": "Global dividend sync already in progress on another server instance",
-                "code": "SYNC_IN_PROGRESS_DISTRIBUTED"
+                "error": "Global dividend sync already in progress",
+                "code": "SYNC_IN_PROGRESS"
             }
+        
+        try:
+            with self._sync_lock:
+                self._global_sync_in_progress = True
+            
+            logger.info("[DividendService] Acquired lock for global dividend sync")
+            return await self._background_dividend_sync_all_users_impl()
         except Exception as e:
             logger.error(f"[DividendService] Unexpected error in global sync: {e}")
             return {
@@ -1710,6 +1721,10 @@ class DividendService:
                 "error": f"Global sync failed: {str(e)}",
                 "code": "SYNC_ERROR"
             }
+        finally:
+            with self._sync_lock:
+                self._global_sync_in_progress = False
+            self._sync_lock.release()
     
     async def _background_dividend_sync_all_users_impl(self) -> Dict[str, Any]:
         """Implementation of global background sync - OPTIMIZED with smart filtering"""

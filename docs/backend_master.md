@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This document provides comprehensive documentation of the Portfolio Tracker's advanced backend architecture. The system is built using FastAPI 0.116.1 with Python 3.11, integrating Supabase for database operations and Alpha Vantage for market data. The architecture features a Crown Jewel `/complete` endpoint, User Performance Manager for comprehensive data aggregation, intelligent multi-layer caching, and background performance refresh architecture. The system emphasizes zero-tolerance type safety, distributed system patterns, and operational excellence.
+This document provides comprehensive documentation of the Portfolio Tracker's advanced backend architecture. The system is built using FastAPI 0.116.1 with Python 3.11, integrating Supabase for database operations and Alpha Vantage for market data. The architecture features a Crown Jewel `/api/portfolio/complete` endpoint, User Performance Manager for comprehensive data aggregation, simplified in-memory caching only, and on-demand calculations. The system emphasizes zero-tolerance type safety, though critical violations exist (see bugs_and_issues_report.md).
 
 ---
 
@@ -41,14 +41,14 @@ The backend follows an **advanced layered architecture** with Crown Jewel optimi
 5. **Circuit Breaker Pattern**: In `price_manager.py` for external service resilience
 6. **Dependency Injection**: FastAPI's built-in DI for authentication and services
 7. **Aggregator Pattern**: `UserPerformanceManager` for comprehensive data aggregation
-8. **Cache-Aside Pattern**: Multi-layer caching with intelligent TTL management
-9. **Background Worker Pattern**: Distributed task execution with locking
-10. **Facade Pattern**: Crown Jewel `/complete` endpoint simplifies complex operations
+8. **Simplified Caching**: In-memory only via PortfolioMetricsManager (cache tables removed)
+9. **On-Demand Calculation**: PortfolioCalculator for real-time computations
+10. **Facade Pattern**: Crown Jewel `/api/portfolio/complete` endpoint simplifies complex operations
 
 ### Key Architectural Principles
 
-- **Zero-Tolerance Type Safety**: Complete type annotations with mypy/pyright strict mode
-- **Crown Jewel Architecture**: Single `/complete` endpoint for comprehensive data access
+- **Zero-Tolerance Type Safety**: Complete type annotations with mypy/pyright strict mode (**WARNING**: 90+ Any types, Optional user_id violations found)
+- **Crown Jewel Architecture**: Single `/api/portfolio/complete` endpoint for comprehensive data access
 - **Decimal Financial Precision**: ALL financial calculations use Decimal types
 - **Intelligent Caching**: Multi-layer caching with market-aware TTL strategies
 - **Circuit Breaker Resilience**: Graceful degradation for external service failures
@@ -97,7 +97,8 @@ backend/
 - `backend_api_forex.py` - Currency exchange operations
 
 **Business Logic (`services/`)**:
-- `user_performance_manager.py` - **Crown Jewel Service**: Complete user data aggregation orchestrating all portfolio data for /complete endpoint
+- `user_performance_manager.py` - **Crown Jewel Service**: Complete user data aggregation orchestrating all portfolio data for /api/portfolio/complete endpoint
+- `eod_job.py` - End-of-day price update job (undocumented, found in codebase)
 - `portfolio_calculator.py` - Core portfolio calculations and metrics with FIFO/LIFO methods
 - `portfolio_metrics_manager.py` - High-performance cached portfolio analytics with intelligent TTL management
 - `price_manager.py` - Unified price data management with circuit breaker pattern and market-aware caching
@@ -1109,11 +1110,11 @@ The backend enforces the strictest type safety standards in the industry:
 - **JWT validation**: Comprehensive token validation with proper error handling
 - **Row Level Security**: Database-level access control for user data
 
-### Technology Stack (Current)
+### Technology Stack (Current - Simplified)
 
 **Core Framework & Runtime:**
-- **Python**: 3.11 (production) / 3.13 (development) - Latest features and performance
-- **FastAPI**: 0.116.1 - Latest async web framework with enhanced performance and security
+- **Python**: 3.11+ with strict type checking
+- **FastAPI**: Latest version for async web framework
 - **Uvicorn**: 0.24.0+ - High-performance ASGI server with hot reload support
 - **Pydantic**: 2.5.0+ - Data validation and serialization with V2 performance improvements
 

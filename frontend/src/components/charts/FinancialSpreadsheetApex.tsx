@@ -36,7 +36,7 @@ const FinancialSpreadsheetApex: React.FC<FinancialSpreadsheetApexProps> = ({
 }) => {
   const [selectedType, setSelectedType] = useState<SpreadsheetType>('balance');
 
-  console.log('[FinancialSpreadsheetApex] Rendering with data:', {
+  if (process.env.NODE_ENV === 'development') console.log('[FinancialSpreadsheetApex] Rendering with data:', {
     ticker,
     selectedType,
     balanceReports: data?.balance?.annual_reports?.length || 0,
@@ -130,7 +130,7 @@ const FinancialSpreadsheetApex: React.FC<FinancialSpreadsheetApexProps> = ({
     const fieldDefinitions = getFieldDefinitions();
     const financialData = getFinancialData();
     
-    console.log('[FinancialSpreadsheetApex] Processing data:', {
+    if (process.env.NODE_ENV === 'development') console.log('[FinancialSpreadsheetApex] Processing data:', {
       fieldsCount: fieldDefinitions.length,
       reportsCount: financialData.length,
       sampleReport: financialData[0],
@@ -200,7 +200,7 @@ const FinancialSpreadsheetApex: React.FC<FinancialSpreadsheetApexProps> = ({
       items: fields as Array<keyof FinancialRowData>
     }));
 
-    console.log('[FinancialSpreadsheetApex] Transformed data:', {
+    if (process.env.NODE_ENV === 'development') console.log('[FinancialSpreadsheetApex] Transformed data:', {
       rowDataLength: rowData.length,
       columnsLength: baseColumns.length,
       categoriesLength: categories.length,

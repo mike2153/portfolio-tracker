@@ -1,0 +1,1265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portfolio Tracker - Fey Theme Preview</title>
+    <style>
+        /* CSS Reset and Base */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            /* Fey Color Palette */
+            --color-bg: #111113;
+            --color-bg-surface: #19191c;
+            --color-bg-card: rgba(25, 25, 28, 0.75);
+            --color-text-main: #e8e8ea;
+            --color-text-muted: #b6b6bd;
+            --color-text-disabled: #595964;
+            --color-accent-purple: #b2a5ff;
+            --color-accent-pink: #c5a7e4;
+            --color-accent-orange: #ffba8b;
+            --color-divider: rgba(36, 36, 44, 0.5);
+            --color-green: #27e39a;
+            --color-red: #e34c56;
+            --color-gold: #ffe475;
+            --color-btn-bg: rgba(34, 34, 39, 0.8);
+            --color-btn-glow: rgba(56, 56, 72, 0.8);
+            --frost-bg: rgba(16, 16, 17, 0.75);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--color-bg);
+            color: var(--color-text-main);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* Typography */
+        h1, h2, h3, h4, h5, h6 {
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        /* Gradient Text */
+        .gradient-text {
+            background: linear-gradient(90deg, #b2a5ff 0%, #c5a7e4 50%, #ffba8b 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            display: inline-block;
+        }
+
+        /* Glass Card */
+        .glass-card {
+            background: rgba(25, 25, 28, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(36, 36, 44, 0.5);
+            border-radius: 24px;
+            box-shadow: 0 8px 32px rgba(16, 16, 17, 0.75);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .glass-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(16, 16, 17, 0.85);
+            border-color: rgba(178, 165, 255, 0.3);
+        }
+
+        /* Button Styles */
+        .btn-primary {
+            background: linear-gradient(135deg, rgba(178, 165, 255, 0.15) 0%, rgba(255, 186, 139, 0.15) 100%);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(178, 165, 255, 0.3);
+            color: var(--color-text-main);
+            padding: 14px 32px;
+            border-radius: 18px;
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn-primary:hover::before {
+            left: 100%;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(178, 165, 255, 0.3);
+            border-color: var(--color-accent-purple);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid rgba(36, 36, 44, 0.5);
+            color: var(--color-text-muted);
+            padding: 14px 32px;
+            border-radius: 18px;
+            font-weight: 500;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-secondary:hover {
+            color: var(--color-text-main);
+            background: rgba(25, 25, 28, 0.5);
+            border-color: rgba(178, 165, 255, 0.3);
+        }
+
+        /* Navigation */
+        .navbar {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+            background: rgba(17, 17, 19, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--color-divider);
+            padding: 16px 0;
+        }
+
+        .nav-container {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 0 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: 700;
+            background: linear-gradient(90deg, #b2a5ff 0%, #ffba8b 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 32px;
+            align-items: center;
+        }
+
+        .nav-link {
+            color: var(--color-text-muted);
+            text-decoration: none;
+            transition: color 0.3s;
+            font-weight: 500;
+        }
+
+        .nav-link:hover {
+            color: var(--color-text-main);
+        }
+
+        /* Hero Section */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            padding: 120px 24px 80px;
+            position: relative;
+            background: radial-gradient(ellipse at top, rgba(178, 165, 255, 0.05) 0%, transparent 50%),
+                        radial-gradient(ellipse at bottom right, rgba(255, 186, 139, 0.05) 0%, transparent 50%);
+        }
+
+        .hero-container {
+            max-width: 1280px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 80px;
+            align-items: center;
+        }
+
+        .hero-content {
+            animation: fadeInUp 0.8s ease;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(39, 227, 154, 0.1);
+            border: 1px solid rgba(39, 227, 154, 0.3);
+            padding: 8px 16px;
+            border-radius: 50px;
+            margin-bottom: 24px;
+        }
+
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--color-green);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.2); }
+        }
+
+        .hero-title {
+            font-size: 56px;
+            line-height: 1.1;
+            margin-bottom: 24px;
+            font-weight: 800;
+        }
+
+        .hero-subtitle {
+            font-size: 20px;
+            color: var(--color-text-muted);
+            margin-bottom: 32px;
+            line-height: 1.5;
+        }
+
+        .hero-features {
+            display: flex;
+            gap: 24px;
+            margin-bottom: 40px;
+            flex-wrap: wrap;
+        }
+
+        .hero-feature {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--color-text-muted);
+            font-size: 14px;
+        }
+
+        .check-icon {
+            width: 16px;
+            height: 16px;
+            background: var(--color-green);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--color-bg);
+        }
+
+        .hero-buttons {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        /* Dashboard Preview */
+        .dashboard-preview {
+            position: relative;
+            animation: fadeInUp 0.8s ease 0.2s both;
+        }
+
+        .main-dashboard {
+            padding: 32px;
+            animation: float 6s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+        }
+
+        .dashboard-header {
+            font-size: 18px;
+            margin-bottom: 24px;
+            font-weight: 600;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .metric-card {
+            background: rgba(34, 34, 39, 0.5);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--color-divider);
+            padding: 16px;
+            border-radius: 16px;
+        }
+
+        .metric-label {
+            color: var(--color-text-muted);
+            font-size: 12px;
+            margin-bottom: 4px;
+        }
+
+        .metric-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--color-green);
+            margin-bottom: 4px;
+        }
+
+        .metric-change {
+            font-size: 14px;
+            color: var(--color-green);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .chart-container {
+            background: rgba(34, 34, 39, 0.3);
+            border: 1px solid var(--color-divider);
+            border-radius: 16px;
+            padding: 16px;
+            height: 120px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-around;
+            gap: 8px;
+        }
+
+        .chart-bar {
+            width: 12px;
+            background: linear-gradient(to top, var(--color-green), rgba(39, 227, 154, 0.3));
+            border-radius: 4px;
+            animation: growBar 1s ease forwards;
+        }
+
+        @keyframes growBar {
+            from { height: 0; }
+        }
+
+        /* Floating Cards */
+        .floating-card {
+            position: absolute;
+            background: rgba(25, 25, 28, 0.9);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--color-divider);
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        }
+
+        .floating-card-1 {
+            top: -20px;
+            right: -40px;
+            animation: float 8s ease-in-out infinite 0.5s;
+        }
+
+        .floating-card-2 {
+            bottom: -20px;
+            left: -40px;
+            animation: float 8s ease-in-out infinite 1s;
+        }
+
+        .floating-card-3 {
+            top: 50%;
+            left: -60px;
+            animation: float 8s ease-in-out infinite 1.5s;
+        }
+
+        /* Features Section */
+        .features {
+            padding: 120px 24px;
+            background: linear-gradient(180deg, transparent 0%, rgba(178, 165, 255, 0.02) 50%, transparent 100%);
+        }
+
+        .section-header {
+            text-align: center;
+            max-width: 800px;
+            margin: 0 auto 80px;
+        }
+
+        .section-badge {
+            display: inline-block;
+            background: rgba(178, 165, 255, 0.1);
+            border: 1px solid rgba(178, 165, 255, 0.3);
+            padding: 6px 16px;
+            border-radius: 50px;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 16px;
+            color: var(--color-accent-purple);
+        }
+
+        .section-title {
+            font-size: 48px;
+            margin-bottom: 16px;
+            font-weight: 800;
+        }
+
+        .section-subtitle {
+            font-size: 18px;
+            color: var(--color-text-muted);
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 24px;
+            max-width: 1280px;
+            margin: 0 auto;
+        }
+
+        .feature-card {
+            padding: 32px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--color-accent-purple), var(--color-accent-pink), var(--color-accent-orange));
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .feature-card:hover::before {
+            opacity: 1;
+        }
+
+        .feature-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .feature-title {
+            font-size: 24px;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+
+        .feature-description {
+            color: var(--color-text-muted);
+            margin-bottom: 16px;
+            line-height: 1.6;
+        }
+
+        .feature-benefits {
+            list-style: none;
+        }
+
+        .feature-benefit {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+            color: var(--color-text-muted);
+            font-size: 14px;
+        }
+
+        .feature-stat {
+            display: inline-block;
+            margin-top: 16px;
+            padding: 4px 12px;
+            background: rgba(255, 186, 139, 0.1);
+            border: 1px solid rgba(255, 186, 139, 0.3);
+            border-radius: 50px;
+            font-size: 12px;
+            color: var(--color-accent-orange);
+            font-weight: 600;
+        }
+
+        /* Testimonials */
+        .testimonials {
+            padding: 120px 24px;
+            background: radial-gradient(ellipse at center, rgba(197, 167, 228, 0.05) 0%, transparent 70%);
+        }
+
+        .testimonials-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 24px;
+            max-width: 1280px;
+            margin: 0 auto;
+        }
+
+        .testimonial-card {
+            padding: 32px;
+        }
+
+        .testimonial-content {
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 24px;
+            color: var(--color-text-main);
+        }
+
+        .testimonial-author {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .author-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--color-accent-purple), var(--color-accent-orange));
+        }
+
+        .author-info {
+            flex: 1;
+        }
+
+        .author-name {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .author-role {
+            font-size: 14px;
+            color: var(--color-text-muted);
+        }
+
+        .testimonial-rating {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 16px;
+        }
+
+        .star {
+            color: var(--color-gold);
+        }
+
+        /* Pricing */
+        .pricing {
+            padding: 120px 24px;
+            background: linear-gradient(180deg, transparent 0%, rgba(255, 186, 139, 0.02) 50%, transparent 100%);
+        }
+
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 24px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .pricing-card {
+            padding: 40px 32px;
+            position: relative;
+        }
+
+        .pricing-card.featured {
+            border-color: rgba(178, 165, 255, 0.5);
+            transform: scale(1.05);
+        }
+
+        .pricing-badge {
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(90deg, var(--color-accent-purple), var(--color-accent-orange));
+            padding: 4px 16px;
+            border-radius: 50px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .pricing-title {
+            font-size: 24px;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .pricing-description {
+            color: var(--color-text-muted);
+            margin-bottom: 24px;
+        }
+
+        .pricing-price {
+            font-size: 48px;
+            font-weight: 800;
+            margin-bottom: 8px;
+        }
+
+        .pricing-period {
+            color: var(--color-text-muted);
+            margin-bottom: 32px;
+        }
+
+        .pricing-features {
+            list-style: none;
+            margin-bottom: 32px;
+        }
+
+        .pricing-feature {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .pricing-button {
+            width: 100%;
+            justify-content: center;
+        }
+
+        /* CTA Section */
+        .cta {
+            padding: 120px 24px;
+            text-align: center;
+            background: radial-gradient(ellipse at bottom, rgba(178, 165, 255, 0.1) 0%, transparent 70%);
+        }
+
+        .cta-content {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .cta-title {
+            font-size: 48px;
+            margin-bottom: 24px;
+            font-weight: 800;
+        }
+
+        .cta-subtitle {
+            font-size: 20px;
+            color: var(--color-text-muted);
+            margin-bottom: 40px;
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+        }
+
+        /* Footer */
+        .footer {
+            padding: 40px 24px;
+            border-top: 1px solid var(--color-divider);
+            background: rgba(17, 17, 19, 0.5);
+        }
+
+        .footer-content {
+            max-width: 1280px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 32px;
+        }
+
+        .footer-link {
+            color: var(--color-text-muted);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .footer-link:hover {
+            color: var(--color-text-main);
+        }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .hero-container {
+                grid-template-columns: 1fr;
+                gap: 60px;
+            }
+
+            .dashboard-preview {
+                max-width: 600px;
+                margin: 0 auto;
+            }
+
+            .hero-title {
+                font-size: 42px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+
+            .hero-title {
+                font-size: 32px;
+            }
+
+            .section-title {
+                font-size: 32px;
+            }
+
+            .features-grid,
+            .testimonials-grid,
+            .pricing-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .hero-buttons {
+                flex-direction: column;
+            }
+
+            .cta-buttons {
+                flex-direction: column;
+            }
+
+            .footer-content {
+                flex-direction: column;
+                gap: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">PortfolioTracker</div>
+            <div class="nav-links">
+                <a href="#features" class="nav-link">Features</a>
+                <a href="#testimonials" class="nav-link">Reviews</a>
+                <a href="#pricing" class="nav-link">Pricing</a>
+                <a href="#" class="btn-secondary">Sign In</a>
+                <a href="#" class="btn-primary">Get Started</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-container">
+            <div class="hero-content">
+                <div class="hero-badge">
+                    <div class="pulse-dot"></div>
+                    <span style="color: var(--color-green); font-size: 14px; font-weight: 500;">Trusted by 10,000+ investors</span>
+                </div>
+                
+                <h1 class="hero-title">
+                    <span style="color: var(--color-text-main);">Stop Guessing About Your</span>
+                    <span class="gradient-text">Portfolio Performance</span>
+                </h1>
+                
+                <p class="hero-subtitle">
+                    Get real-time insights, track gains/losses, and make confident investment decisions with professional-grade analytics you can trust.
+                </p>
+                
+                <div class="hero-features">
+                    <div class="hero-feature">
+                        <div class="check-icon">✓</div>
+                        <span>Bank-level security</span>
+                    </div>
+                    <div class="hero-feature">
+                        <div class="check-icon">✓</div>
+                        <span>2-minute setup</span>
+                    </div>
+                    <div class="hero-feature">
+                        <div class="check-icon">✓</div>
+                        <span>No credit card required</span>
+                    </div>
+                </div>
+                
+                <div class="hero-buttons">
+                    <a href="#" class="btn-primary">
+                        Start Free Trial
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M5 12h14M12 5l7 7-7 7"/>
+                        </svg>
+                    </a>
+                    <a href="#features" class="btn-secondary">
+                        See How It Works
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
+                        </svg>
+                    </a>
+                </div>
+                
+                <p style="font-size: 14px; color: var(--color-text-muted);">
+                    ✓ 14-day free trial • ✓ Cancel anytime • ✓ Setup in under 5 minutes
+                </p>
+            </div>
+            
+            <div class="dashboard-preview">
+                <div class="glass-card main-dashboard">
+                    <h3 class="dashboard-header gradient-text">Portfolio Overview</h3>
+                    
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <div class="metric-label">Total Value</div>
+                            <div class="metric-value">$284,592</div>
+                            <div class="metric-change">
+                                +12.5% ↑
+                            </div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">Today's Change</div>
+                            <div class="metric-value">+$3,247</div>
+                            <div class="metric-change">
+                                +1.16% ↑
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="chart-container">
+                        <div class="chart-bar" style="height: 40%; animation-delay: 0.1s;"></div>
+                        <div class="chart-bar" style="height: 65%; animation-delay: 0.2s;"></div>
+                        <div class="chart-bar" style="height: 45%; animation-delay: 0.3s;"></div>
+                        <div class="chart-bar" style="height: 80%; animation-delay: 0.4s;"></div>
+                        <div class="chart-bar" style="height: 55%; animation-delay: 0.5s;"></div>
+                        <div class="chart-bar" style="height: 90%; animation-delay: 0.6s;"></div>
+                        <div class="chart-bar" style="height: 70%; animation-delay: 0.7s;"></div>
+                        <div class="chart-bar" style="height: 85%; animation-delay: 0.8s;"></div>
+                    </div>
+                </div>
+                
+                <!-- Floating Cards -->
+                <div class="floating-card floating-card-1">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div class="pulse-dot"></div>
+                        <div>
+                            <div style="font-size: 12px; color: var(--color-text-muted);">Real-time Updates</div>
+                            <div style="font-size: 14px; font-weight: 600; color: var(--color-green);">Live Data</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="floating-card floating-card-2">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 24px; height: 24px; background: var(--color-accent-purple); border-radius: 6px; display: flex; align-items: center; justify-content: center;">
+                            🔒
+                        </div>
+                        <div>
+                            <div style="font-size: 12px; color: var(--color-text-muted);">Security</div>
+                            <div style="font-size: 14px; font-weight: 600; color: var(--color-accent-purple);">256-bit SSL</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="floating-card floating-card-3">
+                    <div>
+                        <div style="font-size: 12px; color: var(--color-text-muted);">Performance</div>
+                        <div style="font-size: 16px; font-weight: 600; color: var(--color-gold);">+18.2%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features" id="features">
+        <div class="section-header">
+            <div class="section-badge">Features</div>
+            <h2 class="section-title">
+                Everything You Need to
+                <span class="gradient-text">Master Your Portfolio</span>
+            </h2>
+            <p class="section-subtitle">
+                Professional-grade tools that make portfolio management simple, powerful, and accessible to everyone.
+            </p>
+        </div>
+        
+        <div class="features-grid">
+            <div class="glass-card feature-card">
+                <div class="feature-icon">📊</div>
+                <h3 class="feature-title">Real-time Analytics</h3>
+                <p class="feature-description">
+                    Live portfolio performance tracking with institutional-grade metrics and instant updates.
+                </p>
+                <ul class="feature-benefits">
+                    <li class="feature-benefit">
+                        <div class="check-icon">✓</div>
+                        Track across multiple brokers
+                    </li>
+                    <li class="feature-benefit">
+                        <div class="check-icon">✓</div>
+                        Professional metrics (Sharpe, Alpha, Beta)
+                    </li>
+                    <li class="feature-benefit">
+                        <div class="check-icon">✓</div>
+                        Real-time profit/loss calculations
+                    </li>
+                </ul>
+                <span class="feature-stat">Updates every 15 seconds</span>
+            </div>
+            
+            <div class="glass-card feature-card">
+                <div class="feature-icon">🛡️</div>
+                <h3 class="feature-title">Bank-Level Security</h3>
+                <p class="feature-description">
+                    Your financial data is protected with the same security used by major banks.
+                </p>
+                <ul class="feature-benefits">
+                    <li class="feature-benefit">
+                        <div class="check-icon">✓</div>
+                        256-bit SSL encryption
+                    </li>
+                    <li class="feature-benefit">
+                        <div class="check-icon">✓</div>
+                        SOC 2 Type II compliance
+                    </li>
+                    <li class="feature-benefit">
+                        <div class="check-icon">✓</div>
+                        Never store banking passwords
+                    </li>
+                </ul>
+                <span class="feature-stat">Zero security incidents</span>
+            </div>
+            
+            <div class="glass-card feature-card">
+                <div class="feature-icon">📈</div>
+                <h3 class="feature-title">Risk Assessment</h3>
+                <p class="feature-description">
+                    Comprehensive portfolio risk analysis with personalized recommendations.
+                </p>
+                <ul class="feature-benefits">
+                    <li class="feature-benefit">
+                        <div class="check-icon">✓</div>
+                        Portfolio diversification analysis
+                    </li>
+                    <li class="feature-benefit">
+                        <div class="check-icon">✓</div>
+                        Risk-adjusted returns
+                    </li>
+                    <li class="feature-benefit">
+                        <div class="check-icon">✓</div>
+                        Asset allocation insights
+                    </li>
+                </ul>
+                <span class="feature-stat">15+ risk metrics</span>
+            </div>
+            
+            <div class="glass-card feature-card">
+                <div class="feature-icon">⚡</div>
+                <h3 class="feature-title">Instant Setup</h3>
+                <p class="feature-description">
+                    Connect your investment accounts securely in under 2 minutes.
+                </p>
+                <ul class="feature-benefits">
+                    <li class="feature-benefit">
+                        <div class="check-icon">✓</div>
+                        12,000+ financial institutions
+                    </li>
+                    <li class="feature-benefit">
+                        <div class="check-icon">✓</div>
+                        Automatic transaction import
+                    </li>
+                    <li class="feature-benefit">
+                        <div class="check-icon">✓</div>
+                        One-click portfolio sync
+                    </li>
+                </ul>
+                <span class="feature-stat">2-minute average setup</span>
+            </div>
+            
+            <div class="glass-card feature-card">
+                <div class="feature-icon">📱</div>
+                <h3 class="feature-title">Multi-Platform</h3>
+                <p class="feature-description">
+                    Access your portfolio anywhere with our responsive web and mobile apps.
+                </p>
+                <ul class="feature-benefits">
+                    <li class="feature-benefit">
+                        <div class="check-icon">✓</div>
+                        Real-time sync across devices
+                    </li>
+                    <li class="feature-benefit">
+                        <div class="check-icon">✓</div>
+                        Offline data access
+                    </li>
+                    <li class="feature-benefit">
+                        <div class="check-icon">✓</div>
+                        Push notifications
+                    </li>
+                </ul>
+                <span class="feature-stat">99.9% uptime</span>
+            </div>
+            
+            <div class="glass-card feature-card">
+                <div class="feature-icon">📋</div>
+                <h3 class="feature-title">Tax Reports</h3>
+                <p class="feature-description">
+                    Generate detailed reports for tax season and investment analysis.
+                </p>
+                <ul class="feature-benefits">
+                    <li class="feature-benefit">
+                        <div class="check-icon">✓</div>
+                        Tax-loss harvesting insights
+                    </li>
+                    <li class="feature-benefit">
+                        <div class="check-icon">✓</div>
+                        CSV/PDF exports
+                    </li>
+                    <li class="feature-benefit">
+                        <div class="check-icon">✓</div>
+                        Historical analysis
+                    </li>
+                </ul>
+                <span class="feature-stat">One-click exports</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Testimonials Section -->
+    <section class="testimonials" id="testimonials">
+        <div class="section-header">
+            <div class="section-badge">Testimonials</div>
+            <h2 class="section-title">
+                Loved by
+                <span class="gradient-text">10,000+ Investors</span>
+            </h2>
+            <p class="section-subtitle">
+                See what our users are saying about their experience with Portfolio Tracker.
+            </p>
+        </div>
+        
+        <div class="testimonials-grid">
+            <div class="glass-card testimonial-card">
+                <div class="testimonial-rating">
+                    <span class="star">⭐</span>
+                    <span class="star">⭐</span>
+                    <span class="star">⭐</span>
+                    <span class="star">⭐</span>
+                    <span class="star">⭐</span>
+                </div>
+                <p class="testimonial-content">
+                    "This app completely transformed how I manage my investments. The real-time analytics and risk assessment tools are game-changers. I can't imagine investing without it now."
+                </p>
+                <div class="testimonial-author">
+                    <div class="author-avatar"></div>
+                    <div class="author-info">
+                        <div class="author-name">Sarah Johnson</div>
+                        <div class="author-role">Private Investor</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="glass-card testimonial-card">
+                <div class="testimonial-rating">
+                    <span class="star">⭐</span>
+                    <span class="star">⭐</span>
+                    <span class="star">⭐</span>
+                    <span class="star">⭐</span>
+                    <span class="star">⭐</span>
+                </div>
+                <p class="testimonial-content">
+                    "The best portfolio tracker I've used. Clean interface, powerful features, and the security gives me peace of mind. Worth every penny of the subscription."
+                </p>
+                <div class="testimonial-author">
+                    <div class="author-avatar"></div>
+                    <div class="author-info">
+                        <div class="author-name">Michael Chen</div>
+                        <div class="author-role">Day Trader</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="glass-card testimonial-card">
+                <div class="testimonial-rating">
+                    <span class="star">⭐</span>
+                    <span class="star">⭐</span>
+                    <span class="star">⭐</span>
+                    <span class="star">⭐</span>
+                    <span class="star">⭐</span>
+                </div>
+                <p class="testimonial-content">
+                    "Finally, a portfolio tracker that actually works across all my accounts. The tax reporting feature alone has saved me hours during tax season."
+                </p>
+                <div class="testimonial-author">
+                    <div class="author-avatar"></div>
+                    <div class="author-info">
+                        <div class="author-name">Emily Rodriguez</div>
+                        <div class="author-role">Long-term Investor</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section class="pricing" id="pricing">
+        <div class="section-header">
+            <div class="section-badge">Pricing</div>
+            <h2 class="section-title">
+                Simple Pricing,
+                <span class="gradient-text">Powerful Features</span>
+            </h2>
+            <p class="section-subtitle">
+                Choose the plan that fits your investment strategy. All plans include a 14-day free trial.
+            </p>
+        </div>
+        
+        <div class="pricing-grid">
+            <div class="glass-card pricing-card">
+                <h3 class="pricing-title">Starter</h3>
+                <p class="pricing-description">Perfect for beginners</p>
+                <div class="pricing-price gradient-text">$9</div>
+                <div class="pricing-period">per month</div>
+                <ul class="pricing-features">
+                    <li class="pricing-feature">
+                        <div class="check-icon">✓</div>
+                        <span>Up to 3 portfolios</span>
+                    </li>
+                    <li class="pricing-feature">
+                        <div class="check-icon">✓</div>
+                        <span>Basic analytics</span>
+                    </li>
+                    <li class="pricing-feature">
+                        <div class="check-icon">✓</div>
+                        <span>Daily updates</span>
+                    </li>
+                    <li class="pricing-feature">
+                        <div class="check-icon">✓</div>
+                        <span>Email support</span>
+                    </li>
+                </ul>
+                <a href="#" class="btn-secondary pricing-button">Start Free Trial</a>
+            </div>
+            
+            <div class="glass-card pricing-card featured">
+                <div class="pricing-badge">Most Popular</div>
+                <h3 class="pricing-title">Professional</h3>
+                <p class="pricing-description">For serious investors</p>
+                <div class="pricing-price gradient-text">$29</div>
+                <div class="pricing-period">per month</div>
+                <ul class="pricing-features">
+                    <li class="pricing-feature">
+                        <div class="check-icon">✓</div>
+                        <span>Unlimited portfolios</span>
+                    </li>
+                    <li class="pricing-feature">
+                        <div class="check-icon">✓</div>
+                        <span>Advanced analytics</span>
+                    </li>
+                    <li class="pricing-feature">
+                        <div class="check-icon">✓</div>
+                        <span>Real-time updates</span>
+                    </li>
+                    <li class="pricing-feature">
+                        <div class="check-icon">✓</div>
+                        <span>Priority support</span>
+                    </li>
+                    <li class="pricing-feature">
+                        <div class="check-icon">✓</div>
+                        <span>Tax reports</span>
+                    </li>
+                </ul>
+                <a href="#" class="btn-primary pricing-button">Start Free Trial</a>
+            </div>
+            
+            <div class="glass-card pricing-card">
+                <h3 class="pricing-title">Enterprise</h3>
+                <p class="pricing-description">For teams & advisors</p>
+                <div class="pricing-price gradient-text">Custom</div>
+                <div class="pricing-period">contact sales</div>
+                <ul class="pricing-features">
+                    <li class="pricing-feature">
+                        <div class="check-icon">✓</div>
+                        <span>Everything in Pro</span>
+                    </li>
+                    <li class="pricing-feature">
+                        <div class="check-icon">✓</div>
+                        <span>Multi-user access</span>
+                    </li>
+                    <li class="pricing-feature">
+                        <div class="check-icon">✓</div>
+                        <span>API access</span>
+                    </li>
+                    <li class="pricing-feature">
+                        <div class="check-icon">✓</div>
+                        <span>Custom integrations</span>
+                    </li>
+                    <li class="pricing-feature">
+                        <div class="check-icon">✓</div>
+                        <span>Dedicated support</span>
+                    </li>
+                </ul>
+                <a href="#" class="btn-secondary pricing-button">Contact Sales</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta">
+        <div class="cta-content">
+            <h2 class="cta-title">
+                Ready to Take Control of Your
+                <span class="gradient-text">Investment Journey?</span>
+            </h2>
+            <p class="cta-subtitle">
+                Join thousands of investors who are already making smarter decisions with Portfolio Tracker.
+            </p>
+            <div class="cta-buttons">
+                <a href="#" class="btn-primary">
+                    Start Your Free Trial
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                    </svg>
+                </a>
+                <a href="#" class="btn-secondary">
+                    Schedule a Demo
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="logo">PortfolioTracker</div>
+            <div class="footer-links">
+                <a href="#" class="footer-link">Privacy</a>
+                <a href="#" class="footer-link">Terms</a>
+                <a href="#" class="footer-link">Support</a>
+                <a href="#" class="footer-link">Blog</a>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

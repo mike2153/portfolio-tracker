@@ -61,10 +61,12 @@ export default function ApexChart({
   additionalOptions = {},
 }: ApexChartProps) {
   const { loadChart, isLoading: chartLoading } = useChart();
-  const [ChartComponent, setChartComponent] = useState<React.ComponentType<any> | null>(null);
+  const [ChartComponent, setChartComponent] = useState<React.ComponentType<import('react-apexcharts').Props> | null>(null);
 
   useEffect(() => {
-    loadChart(type).then(component => setChartComponent(() => component)).catch(console.error);
+    loadChart(type)
+      .then((component) => setChartComponent(() => component as React.ComponentType<import('react-apexcharts').Props>))
+      .catch(console.error);
   }, [loadChart, type]);
   
   // Debug logging (development only)
@@ -210,31 +212,32 @@ export default function ApexChart({
         x: { format: 'dd MMM yyyy' }
       } : {}),
       y: {
-        formatter: (value: number, { seriesIndex, series: _series, w }: any) => {
+        formatter: (value: number, ctx: { seriesIndex: number; series: number[][]; w: any }) => {
           // Custom formatter to show both portfolio and benchmark values
           const formattedValue = tooltipFormatter(value);
-          const seriesName = w.config.series[seriesIndex]?.name || '';
+          const seriesName = ctx.w?.config?.series?.[ctx.seriesIndex]?.name || '';
           
           // Add currency symbol and series identification
           return `${seriesName}: $${formattedValue}`;
         }
       },
-      custom: ({ series, seriesIndex: _seriesIndex, dataPointIndex, w }: any) => {
+       custom: (ctx: { series: number[][]; seriesIndex: number; dataPointIndex: number; w: any }) => {
+        const { series, seriesIndex, dataPointIndex, w } = ctx;
         if (!series || series.length === 0) return '';
         
         // Get the date for this data point - handle multiple possible date sources
-        let date = '';
-        if (w.config.series[0]?.data[dataPointIndex]?.x) {
-          date = w.config.series[0].data[dataPointIndex].x;
-        } else if (w.config.xaxis.categories?.[dataPointIndex]) {
-          date = w.config.xaxis.categories[dataPointIndex];
+        let dateVal: string | number = '';
+        if (w?.config?.series?.[0]?.data?.[dataPointIndex]?.x) {
+          dateVal = w.config.series[0].data[dataPointIndex].x;
+        } else if (w?.config?.xaxis?.categories?.[dataPointIndex]) {
+          dateVal = w.config.xaxis.categories[dataPointIndex];
         } else {
           // Fallback to current timestamp if no date found
-          date = Date.now();
+          dateVal = Date.now();
         }
         
         // Format date properly
-        const formattedDate = new Date(date).toLocaleDateString('en-US', {
+        const formattedDate = new Date(dateVal as any).toLocaleDateString('en-US', {
           year: 'numeric',
           month: 'short',
           day: 'numeric'
@@ -266,8 +269,8 @@ export default function ApexChart({
         // Show all series values with fallback for missing data points
         series.forEach((seriesData: number[], index: number) => {
           let value = seriesData[dataPointIndex];
-          const seriesName = w.config.series[index]?.name || `Series ${index + 1}`;
-          const color = w.config.colors[index] || '#3B82F6';
+          const seriesName = w?.config?.series?.[index]?.name || `Series ${index + 1}`;
+          const color = (w?.config?.colors && w.config.colors[index]) || '#3B82F6';
           
           // If no value for this data point, use the last available value for portfolio series
           if ((value === undefined || value === null) && seriesName.toLowerCase().includes('portfolio')) {

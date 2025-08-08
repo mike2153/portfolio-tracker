@@ -26,10 +26,11 @@ async def get_user_profile(supabase: Client, user_id: str) -> Optional[Dict[str,
         return None
         
     try:
-        result = await supabase.table('user_profiles')\
+        query = supabase.table('user_profiles')\
             .select('*')\
-            .eq('user_id', user_id)\
-            .execute()
+            .eq('user_id', user_id)
+        # Support both async and sync clients
+        result = query.execute()
             
         if result.data and len(result.data) > 0:
             return result.data[0]
@@ -58,10 +59,10 @@ async def get_user_base_currency(supabase: Client, user_id: str) -> str:
         return 'USD'
         
     try:
-        result = await supabase.table('user_profiles')\
+        query = supabase.table('user_profiles')\
             .select('base_currency')\
-            .eq('user_id', user_id)\
-            .execute()
+            .eq('user_id', user_id)
+        result = query.execute()
             
         if result.data and len(result.data) > 0:
             currency: str = result.data[0].get('base_currency', 'USD')
@@ -110,7 +111,7 @@ async def create_user_profile(
             'base_currency': base_currency.upper()[:3]  # Ensure 3-letter code
         }
         
-        result = await supabase.table('user_profiles')\
+        result = supabase.table('user_profiles')\
             .insert(profile_data)\
             .execute()
             
@@ -159,7 +160,7 @@ async def update_user_profile(
         if 'country' in updates:
             updates['country'] = updates['country'].upper()[:2]
             
-        result = await supabase.table('user_profiles')\
+        result = supabase.table('user_profiles')\
             .update(updates)\
             .eq('user_id', user_id)\
             .execute()

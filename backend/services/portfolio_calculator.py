@@ -10,6 +10,10 @@ from decimal import Decimal, InvalidOperation
 from collections import defaultdict
 
 from services.price_manager import price_manager
+from supa_api.supa_api_historical_prices import (
+    supa_api_store_historical_prices_batch,
+)
+from vantage_api.vantage_api_quotes import vantage_api_get_daily_adjusted
 from services.feature_flag_service import is_feature_enabled
 from supa_api.supa_api_transactions import supa_api_get_user_transactions
 from supa_api.supa_api_jwt_helpers import create_authenticated_client
@@ -98,6 +102,8 @@ class XIRRCalculator:
                 else:
                     # Subsequent cash flows
                     years = days / 365.0
+                    if rate == -1:
+                        continue  # Skip this iteration if rate would cause division by zero
                     pv_factor = (1 + rate) ** (-years)
                     npv += cf * pv_factor
                     dnpv += -cf * years * pv_factor / (1 + rate)
@@ -360,9 +366,10 @@ class PortfolioCalculator:
                     }
                 }
             
+            # Get current prices with previous_close data for daily change calculations
             symbols = [h['symbol'] for h in holdings]
-            previous_day_prices = await price_manager.get_previous_day_prices(symbols, user_token)
-
+            current_prices = await price_manager.get_latest_prices(symbols, user_token)
+            
             allocations = []
             colors = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#6366F1", "#D946EF", "#F472B6"]
             
@@ -372,10 +379,12 @@ class PortfolioCalculator:
                 current_price = Decimal(str(holding.get('current_price', 0)))
                 
                 daily_change = Decimal('0')
-                previous_price_data = previous_day_prices.get(symbol)
-                if previous_price_data and previous_price_data.get('close') is not None:
-                    previous_close = Decimal(str(previous_price_data['close']))
-                    daily_change = (current_price - previous_close) * quantity
+                # Use previous_close from current price data if available
+                price_data = current_prices.get(symbol)
+                if price_data and price_data.get('previous_close') is not None:
+                    previous_close = Decimal(str(price_data['previous_close']))
+                    if previous_close > 0:
+                        daily_change = (current_price - previous_close) * quantity
 
                 allocations.append({
                     "symbol": holding['symbol'],
@@ -531,7 +540,11 @@ class PortfolioCalculator:
                 holdings[symbol]['quantity'] -= quantity
                 # Adjust cost basis proportionally
                 if holdings[symbol]['quantity'] > 0 and holdings[symbol]['total_cost'] > 0:
-                    cost_per_share = holdings[symbol]['total_cost'] / (holdings[symbol]['quantity'] + quantity)
+                    denominator = holdings[symbol]['quantity'] + quantity
+                    if denominator > 0:
+                        cost_per_share = holdings[symbol]['total_cost'] / denominator
+                    else:
+                        cost_per_share = Decimal('0')
                     holdings[symbol]['total_cost'] -= cost_per_share * quantity
                 else:
                     holdings[symbol]['total_cost'] = Decimal('0')
@@ -644,7 +657,8 @@ class PortfolioCalculator:
             return 0.0, 0.0
 
         symbols = [h['symbol'] for h in holdings]
-        previous_day_prices = await price_manager.get_previous_day_prices(symbols, user_token)
+        # Get current prices which include previous_close field
+        current_prices = await price_manager.get_latest_prices(symbols, user_token)
 
         total_previous_value = Decimal('0')
         total_current_value = Decimal('0')
@@ -656,9 +670,14 @@ class PortfolioCalculator:
             
             total_current_value += current_value
 
-            if symbol in previous_day_prices and previous_day_prices[symbol] is not None:
-                previous_price = Decimal(str(previous_day_prices[symbol]['close']))
-                total_previous_value += quantity * previous_price
+            price_data = current_prices.get(symbol)
+            if price_data and price_data.get('previous_close') is not None:
+                previous_close = Decimal(str(price_data['previous_close']))
+                if previous_close > 0:
+                    total_previous_value += quantity * previous_close
+                else:
+                    # Fallback: if no valid previous price, use current value
+                    total_previous_value += current_value
             else:
                 # Fallback: if no previous price, use current value for previous value
                 # to avoid skewing the daily change calculation.
@@ -698,9 +717,6 @@ class PortfolioCalculator:
             Tuple of (time_series_data, metadata)
         """
         try:
-            # Determine date range
-            start_date, end_date = PortfolioCalculator._compute_date_range(range_key)
-            
             # Use provided transactions or fetch them
             if transactions is None:
                 transactions = await supa_api_get_user_transactions(
@@ -712,6 +728,9 @@ class PortfolioCalculator:
             if not transactions:
                 logger.info(f"[PortfolioCalculator] No transactions found for time series")
                 return [], {"no_data": True, "reason": "no_transactions"}
+            
+            # Determine date range - pass transactions for MAX period calculation
+            start_date, end_date = PortfolioCalculator._compute_date_range(range_key, transactions)
             
             # Filter transactions by date
             relevant_txns = [t for t in transactions if datetime.strptime(t['date'], '%Y-%m-%d').date() <= end_date]
@@ -849,12 +868,13 @@ class PortfolioCalculator:
         return None
     
     @staticmethod
-    def _compute_date_range(range_key: str) -> Tuple[date, date]:
+    def _compute_date_range(range_key: str, transactions: Optional[List[Dict[str, Any]]] = None) -> Tuple[date, date]:
         """
         Compute start and end dates based on range key.
         
         Args:
             range_key: Time range identifier (7D, 1M, etc.)
+            transactions: Optional list of transactions (needed for MAX range)
             
         Returns:
             Tuple of (start_date, end_date)
@@ -874,7 +894,20 @@ class PortfolioCalculator:
         elif range_key == "YTD":
             start_date = date(today.year, 1, 1)
         elif range_key == "MAX":
-            start_date = date(2020, 1, 1)  # Reasonable default
+            # For MAX range, use the earliest transaction date
+            if transactions:
+                # Find the earliest transaction date
+                earliest_date = min(
+                    datetime.strptime(t['date'], '%Y-%m-%d').date() 
+                    for t in transactions
+                )
+                # Add a small buffer to ensure we capture the first transaction
+                start_date = earliest_date - timedelta(days=1)
+                logger.info(f"[PortfolioCalculator] MAX range using first transaction date: {earliest_date}")
+            else:
+                # Fallback to a reasonable default if no transactions
+                start_date = date(2020, 1, 1)
+                logger.info(f"[PortfolioCalculator] MAX range using default date (no transactions): {start_date}")
         else:
             # Default to 1 month
             start_date = today - timedelta(days=30)
@@ -1123,7 +1156,7 @@ class PortfolioCalculator:
             # Convert range key to number of trading days
             num_trading_days = PortfolioCalculator._get_trading_days_limit(range_key)
             
-            # Get trading dates for the benchmark
+            # Get trading dates for the benchmark (DB-first)
             if range_key == 'YTD':
                 # For YTD, we need dates from Jan 1 of current year
                 current_year = date.today().year
@@ -1150,11 +1183,56 @@ class PortfolioCalculator:
                 for record in dates_response.data
             ])
             
+            # If DB has no data, fetch from Alpha Vantage, upsert, and retry
+            if not trading_dates:
+                try:
+                    av_resp = await vantage_api_get_daily_adjusted(benchmark)
+                    if av_resp and av_resp.get('status') == 'success':
+                        ts = av_resp.get('data', {})
+                        records: List[Dict[str, Any]] = []
+                        for d_str, vals in ts.items():
+                            records.append({
+                                'symbol': benchmark,
+                                'date': d_str,
+                                # Use close price (not adjusted) per product decision
+                                'open': str(vals.get('1. open', '0')),
+                                'high': str(vals.get('2. high', '0')),
+                                'low': str(vals.get('3. low', '0')),
+                                'close': str(vals.get('4. close', '0')),
+                                'adjusted_close': str(vals.get('5. adjusted close', vals.get('4. close', '0'))),
+                                'volume': int(vals.get('6. volume', 0)),
+                                'dividend_amount': str(vals.get('7. dividend amount', '0')),
+                                'split_coefficient': str(vals.get('8. split coefficient', '1')),
+                            })
+                        if records:
+                            await supa_api_store_historical_prices_batch(records)
+                            # Retry fetching dates after upsert
+                            if range_key == 'YTD':
+                                dates_response = client.table('historical_prices') \
+                                    .select('date') \
+                                    .eq('symbol', benchmark) \
+                                    .gte('date', ytd_start.isoformat()) \
+                                    .order('date', desc=True) \
+                                    .execute()
+                            else:
+                                dates_response = client.table('historical_prices') \
+                                    .select('date') \
+                                    .eq('symbol', benchmark) \
+                                    .order('date', desc=True) \
+                                    .limit(num_trading_days) \
+                                    .execute()
+                            trading_dates = sorted([
+                                datetime.strptime(record['date'], '%Y-%m-%d').date() 
+                                for record in dates_response.data
+                            ])
+                except Exception:
+                    logger.exception("[PortfolioCalculator] Failed to fetch/upsert benchmark history from Alpha Vantage")
+            
             if not trading_dates:
                 return [], {
-                    "no_data": True, 
-                    "index_only": True, 
-                    "reason": "no_benchmark_data", 
+                    "no_data": True,
+                    "index_only": True,
+                    "reason": "no_benchmark_data",
                     "user_guidance": f"Historical data for {benchmark} is not available"
                 }
             
@@ -1162,7 +1240,7 @@ class PortfolioCalculator:
             start_date = trading_dates[0]
             end_date = trading_dates[-1]
             
-            # Get prices for the date range
+            # Get prices for the date range (use close price)
             prices_response = client.table('historical_prices') \
                 .select('date, close') \
                 .eq('symbol', benchmark) \

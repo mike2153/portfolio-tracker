@@ -172,7 +172,7 @@ async def backend_api_get_portfolio(
                     "computation_time_ms": metrics.computation_time_ms
                 }
             )
-            logger.info(f"[backend_api_portfolio.py::backend_api_get_portfolio] Returning v2 format response")
+            logger.debug(f"[backend_api_get_portfolio] Returning v2 format response")
             return response
         else:
             # Backward compatible format
@@ -182,7 +182,7 @@ async def backend_api_get_portfolio(
                 "cache_status": metrics.cache_status,
                 "computation_time_ms": metrics.computation_time_ms
             }
-            logger.info(f"[backend_api_portfolio.py::backend_api_get_portfolio] Returning v1 format response")
+            logger.debug(f"[backend_api_get_portfolio] Returning v1 format response")
             return response_data
         
         logger.info(f"[backend_api_portfolio.py::backend_api_get_portfolio] Response data structure: {list(portfolio_data.keys())}")
@@ -243,7 +243,7 @@ async def backend_api_get_transactions(
                 },
                 message="Transactions retrieved successfully"
             )
-            logger.info(f"[backend_api_portfolio.py::backend_api_get_transactions] Returning v2 format response")
+            logger.debug(f"[backend_api_get_transactions] Returning v2 format response")
             return response
         else:
             # Backward compatible format
@@ -252,7 +252,7 @@ async def backend_api_get_transactions(
                 "transactions": transactions,
                 "count": len(transactions)
             }
-            logger.info(f"[backend_api_portfolio.py::backend_api_get_transactions] Returning v1 format response")
+            logger.debug(f"[backend_api_get_transactions] Returning v1 format response")
             return response_data
         
         logger.info(f"[backend_api_portfolio.py::backend_api_get_transactions] === GET TRANSACTIONS REQUEST END (SUCCESS) ===")
@@ -881,7 +881,7 @@ async def backend_api_get_allocation(
                     "computation_time_ms": metrics.computation_time_ms
                 }
             )
-            logger.info(f"[backend_api_portfolio.py::backend_api_get_allocation] Returning v2 format response")
+            logger.debug(f"[backend_api_get_allocation] Returning v2 format response")
             return response
         else:
             # Backward compatible format
@@ -889,7 +889,7 @@ async def backend_api_get_allocation(
                 "success": True,
                 "data": allocation_data
             }
-            logger.info(f"[backend_api_portfolio.py::backend_api_get_allocation] Returning v1 format response")
+            logger.debug(f"[backend_api_get_allocation] Returning v1 format response")
             return response_data
         
         logger.info(f"[backend_api_portfolio.py::backend_api_get_allocation] === GET ALLOCATION REQUEST END (SUCCESS) ===")
@@ -955,21 +955,15 @@ async def backend_api_get_complete_portfolio(
     # Request timing and metadata tracking
     request_start_time = datetime.utcnow()
     
-    logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] === COMPLETE PORTFOLIO REQUEST START ===")
-    logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] User email: {user.get('email', 'unknown')}")
-    logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] User ID: {user.get('id', 'unknown')}")
-    logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Force refresh: {force_refresh}")
-    logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Include historical: {include_historical}")
-    logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] API version: {api_version}")
+    logger.debug(f"[backend_api_get_complete_portfolio] Request: user={user.get('id', 'unknown')[:8]}..., force_refresh={force_refresh}, include_historical={include_historical}")
     
     try:
         # Step 1: Extract and validate user credentials
         user_id, user_token = extract_user_credentials(user)
-        logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Extracted user_id: {user_id}")
-        logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Token present: {bool(user_token)}")
+        logger.debug(f"[backend_api_get_complete_portfolio] Extracted credentials: user_id={user_id[:8] if user_id else 'None'}..., token_present={bool(user_token)}")
         
         # Step 2: Generate complete portfolio data using UserPerformanceManager
-        logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Generating complete portfolio data...")
+        logger.debug(f"[backend_api_get_complete_portfolio] Generating complete portfolio data...")
         generation_start = datetime.utcnow()
         
         try:
@@ -978,7 +972,7 @@ async def backend_api_get_complete_portfolio(
                 user_token=user_token,
                 force_refresh=force_refresh
             )
-            logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Complete data generated successfully")
+            logger.debug(f"[backend_api_get_complete_portfolio] Complete data generated successfully")
         except Exception as gen_error:
             logger.error(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Error generating complete data: {gen_error}")
             logger.error(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Stack trace:", exc_info=True)
@@ -988,10 +982,10 @@ async def backend_api_get_complete_portfolio(
             )
         
         generation_time_ms = int((datetime.utcnow() - generation_start).total_seconds() * 1000)
-        logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Data generation completed in {generation_time_ms}ms")
+        logger.debug(f"[backend_api_get_complete_portfolio] Data generation completed in {generation_time_ms}ms")
         
         # Step 3: Transform data for API response with comprehensive error handling
-        logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Transforming data for API response...")
+        logger.debug(f"[backend_api_get_complete_portfolio] Transforming data for API response...")
         transform_start = datetime.utcnow()
         
         try:
@@ -1073,41 +1067,78 @@ async def backend_api_get_complete_portfolio(
                 total_gain_loss_decimal = Decimal('0')
             
             # Calculate top gainers and losers (3 each, mutually exclusive)
+            # First, we need to get daily change data for each holding
             top_gainers = []
             top_losers = []
             
             if holdings_list:
-                # Filter holdings by gain/loss and sort
-                holdings_with_gains = [h for h in holdings_list if h["gain_loss_percent"] > 0]
-                holdings_with_losses = [h for h in holdings_list if h["gain_loss_percent"] < 0]
+                # Calculate daily changes for each holding using previous_close from price data
+                holdings_with_daily_changes = []
+                for holding in holdings_list:
+                    symbol = holding["symbol"]
+                    quantity = Decimal(str(holding["quantity"]))
+                    current_price = Decimal(str(holding["current_price"]))
+                    
+                    # Calculate daily change using previous_close from current price data
+                    daily_change_value = Decimal('0')
+                    daily_change_percent = 0.0
+                    
+                    # previous_close should be available from the portfolio metrics calculation
+                    # For now, we'll calculate it directly if needed
+                    try:
+                        # Get current prices with previous_close
+                        symbols_for_prev = [symbol]
+                        current_prices = await price_manager.get_latest_prices(symbols_for_prev, user_token)
+                        price_data = current_prices.get(symbol)
+                        
+                        if price_data and price_data.get('previous_close') is not None:
+                            previous_close = Decimal(str(price_data['previous_close']))
+                            if previous_close > 0:
+                                # Calculate per-share change
+                                price_change = current_price - previous_close
+                                daily_change_percent = float((price_change / previous_close) * 100)
+                                # Total value change for the position
+                                daily_change_value = price_change * quantity
+                    except Exception as e:
+                        logger.warning(f"Error calculating daily change for {symbol}: {e}")
+                    
+                    holdings_with_daily_changes.append({
+                        **holding,
+                        "daily_change_value": float(daily_change_value),
+                        "daily_change_percent": daily_change_percent
+                    })
                 
-                # Sort gainers by percentage (descending) and take top 3
-                holdings_with_gains.sort(key=lambda x: x["gain_loss_percent"], reverse=True)
+                # Filter holdings by daily gain/loss and sort
+                holdings_with_daily_gains = [h for h in holdings_with_daily_changes if h["daily_change_percent"] > 0]
+                holdings_with_daily_losses = [h for h in holdings_with_daily_changes if h["daily_change_percent"] < 0]
+                
+                # Sort gainers by daily percentage (descending) and take top 3
+                holdings_with_daily_gains.sort(key=lambda x: x["daily_change_percent"], reverse=True)
                 top_gainers = [
                     {
-                        "name": f"Stock {holding['symbol']}",
+                        "name": holding['symbol'],  # Removed "Stock " prefix
                         "ticker": holding["symbol"],
                         "value": holding["current_value"],
-                        "changePercent": holding["gain_loss_percent"],
-                        "changeValue": holding["gain_loss"]
+                        "changePercent": holding["daily_change_percent"],  # Using daily change
+                        "changeValue": holding["daily_change_value"]  # Using daily change value
                     }
-                    for holding in holdings_with_gains[:3]
+                    for holding in holdings_with_daily_gains[:3]
                 ]
                 
-                # Sort losers by percentage (ascending - most negative first) and take top 3
-                holdings_with_losses.sort(key=lambda x: x["gain_loss_percent"])
+                # Sort losers by daily percentage (ascending - most negative first) and take top 3
+                holdings_with_daily_losses.sort(key=lambda x: x["daily_change_percent"])
                 top_losers = [
                     {
-                        "name": f"Stock {holding['symbol']}",
+                        "name": holding['symbol'],  # Removed "Stock " prefix
                         "ticker": holding["symbol"],
                         "value": holding["current_value"],
-                        "changePercent": holding["gain_loss_percent"],
-                        "changeValue": holding["gain_loss"]
+                        "changePercent": holding["daily_change_percent"],  # Using daily change
+                        "changeValue": holding["daily_change_value"]  # Using daily change value
                     }
-                    for holding in holdings_with_losses[:3]
+                    for holding in holdings_with_daily_losses[:3]
                 ]
             
-            logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Calculated {len(top_gainers)} gainers and {len(top_losers)} losers")
+            logger.debug(f"[backend_api_get_complete_portfolio] Calculated {len(top_gainers)} gainers and {len(top_losers)} losers")
             
             # Construct complete API response data
             complete_response_data = {
@@ -1123,14 +1154,14 @@ async def backend_api_get_complete_portfolio(
                 
                 # Performance metrics
                 "performance_data": {
-                    "daily_change": float(getattr(portfolio_metrics.performance, 'daily_change', Decimal('0'))),
+                    "daily_change": getattr(portfolio_metrics.performance, 'daily_change', Decimal('0')),
                     "daily_change_percent": getattr(portfolio_metrics.performance, 'daily_change_percent', 0.0),
-                    "ytd_return": float(getattr(portfolio_metrics.performance, 'ytd_return', Decimal('0'))),
+                    "ytd_return": getattr(portfolio_metrics.performance, 'ytd_return', Decimal('0')),
                     "ytd_return_percent": getattr(portfolio_metrics.performance, 'ytd_return_percent', 0.0),
                     "total_return_percent": portfolio_metrics.performance.total_gain_loss_percent,
-                    "volatility": float(getattr(portfolio_metrics.performance, 'volatility', Decimal('0')) or Decimal('0')),
-                    "sharpe_ratio": float(getattr(portfolio_metrics.performance, 'sharpe_ratio', Decimal('0')) or Decimal('0')),
-                    "max_drawdown": float(getattr(portfolio_metrics.performance, 'max_drawdown', Decimal('0')) or Decimal('0'))
+                    "volatility": getattr(portfolio_metrics.performance, 'volatility', Decimal('0')) or Decimal('0'),
+                    "sharpe_ratio": getattr(portfolio_metrics.performance, 'sharpe_ratio', Decimal('0')) or Decimal('0'),
+                    "max_drawdown": getattr(portfolio_metrics.performance, 'max_drawdown', Decimal('0')) or Decimal('0')
                 },
                 
                 # Allocation breakdown (reuse existing allocation logic)
@@ -1143,8 +1174,8 @@ async def backend_api_get_complete_portfolio(
                         }
                         for holding in holdings_list
                     ],
-                    "diversification_score": complete_data.market_analysis.get("portfolio_diversification", {}).get("diversification_score", 0.0),
-                    "concentration_risk": complete_data.market_analysis.get("portfolio_diversification", {}).get("concentration_risk", "unknown"),
+                    "diversification_score": (complete_data.market_analysis.get("portfolio_diversification") or {}).get("diversification_score", 0.0),
+                    "concentration_risk": (complete_data.market_analysis.get("portfolio_diversification") or {}).get("concentration_risk", "unknown"),
                     "number_of_positions": len(holdings_list)
                 },
                 
@@ -1165,7 +1196,7 @@ async def backend_api_get_complete_portfolio(
                 "transactions_summary": {
                     "total_transactions": getattr(complete_data.portfolio_metrics, 'transaction_count', 0),
                     "last_transaction_date": getattr(complete_data.portfolio_metrics, 'last_transaction_date', None),
-                    "realized_gains": float(getattr(complete_data.portfolio_metrics.performance, 'realized_gains', Decimal('0')))
+                    "realized_gains": getattr(complete_data.portfolio_metrics.performance, 'realized_gains', Decimal('0'))
                 },
                 
                 # Market analysis
@@ -1182,7 +1213,7 @@ async def backend_api_get_complete_portfolio(
             }
             
             transform_time_ms = int((datetime.utcnow() - transform_start).total_seconds() * 1000)
-            logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Data transformation completed in {transform_time_ms}ms")
+            logger.debug(f"[backend_api_get_complete_portfolio] Data transformation completed in {transform_time_ms}ms")
             
             # Validate response structure before returning
             required_fields = ['portfolio_data', 'performance_data', 'allocation_data', 'dividend_data', 'market_analysis', 'currency_conversions', 'transactions_summary']
@@ -1194,7 +1225,7 @@ async def backend_api_get_complete_portfolio(
                     f"Incomplete response data structure: missing {missing_fields}"
                 )
             
-            logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Response structure validation passed")
+            logger.debug(f"[backend_api_get_complete_portfolio] Response structure validation passed")
             
         except Exception as e:
             logger.error(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Error transforming data: {e}")
@@ -1211,8 +1242,7 @@ async def backend_api_get_complete_portfolio(
         payload_size_bytes = len(response_json.encode('utf-8'))
         payload_size_kb = round(payload_size_bytes / 1024, 2)
         
-        logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Total processing time: {total_processing_time_ms}ms")
-        logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Payload size: {payload_size_kb}KB ({payload_size_bytes} bytes)")
+        logger.debug(f"[backend_api_get_complete_portfolio] Processing: {total_processing_time_ms}ms, Size: {payload_size_kb}KB")
         
         # Step 5: Add comprehensive metadata
         metadata = {
@@ -1237,7 +1267,7 @@ async def backend_api_get_complete_portfolio(
         use_compression = payload_size_bytes > 50000  # Compress if >50KB
         
         if use_compression:
-            logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Compressing response (size: {payload_size_kb}KB)")
+            logger.debug(f"[backend_api_get_complete_portfolio] Compressing response (size: {payload_size_kb}KB)")
             
             # Check API version for response format
             if api_version == "v2":
@@ -1262,7 +1292,7 @@ async def backend_api_get_complete_portfolio(
             compressed_size_kb = round(len(compressed_json) / 1024, 2)
             compression_ratio = round((1 - len(compressed_json) / payload_size_bytes) * 100, 1)
             
-            logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Compressed to {compressed_size_kb}KB ({compression_ratio}% reduction)")
+            logger.debug(f"[backend_api_get_complete_portfolio] Compressed to {compressed_size_kb}KB ({compression_ratio}% reduction)")
             
             return Response(
                 content=compressed_json,
@@ -1278,7 +1308,7 @@ async def backend_api_get_complete_portfolio(
             )
         else:
             # Step 7: Return uncompressed response
-            logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Returning uncompressed response")
+            logger.debug(f"[backend_api_get_complete_portfolio] Returning uncompressed response")
             
             # Check API version for response format
             if api_version == "v2":
@@ -1287,7 +1317,7 @@ async def backend_api_get_complete_portfolio(
                     message="Complete portfolio data retrieved successfully",
                     metadata=metadata
                 )
-                logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Returning v2 format response")
+                logger.debug(f"[backend_api_get_complete_portfolio] Returning v2 format response")
                 return response
             else:
                 # Backward compatible format - properly merge metadata
@@ -1299,11 +1329,10 @@ async def backend_api_get_complete_portfolio(
                         **metadata
                     }
                 }
-                logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Returning v1 format response")
+                logger.debug(f"[backend_api_get_complete_portfolio] Returning v1 format response")
                 return response_data
         
-        logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] Holdings: {len(holdings_list)}, Dividends: {len(complete_data.detailed_dividends)}")
-        logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] === COMPLETE PORTFOLIO REQUEST END (SUCCESS) ===")
+        logger.debug(f"[backend_api_get_complete_portfolio] Complete - Holdings: {len(holdings_list)}, Dividends: {len(complete_data.detailed_dividends)}")
         
     except HTTPException:
         raise  # Re-raise HTTP exceptions as-is
@@ -1327,21 +1356,63 @@ async def backend_api_get_complete_portfolio(
             }
         )
         
-        logger.info(f"[backend_api_portfolio.py::backend_api_get_complete_portfolio] === COMPLETE PORTFOLIO REQUEST END (ERROR) ===")
+        logger.debug(f"[backend_api_get_complete_portfolio] Request failed - returning empty fallback structure")
         
-        # Determine error type and provide appropriate response
-        if "supabase" in str(e).lower() or "postgrest" in str(e).lower():
-            raise handle_database_error(e, "complete portfolio data retrieval", user_id if 'user_id' in locals() else None)
-        elif "user_performance_manager" in str(e).lower() or "cache" in str(e).lower():
-            raise ServiceUnavailableError(
-                "Portfolio Performance Service",
-                f"Failed to generate complete portfolio data: {str(e)}"
-            )
-        else:
-            raise ServiceUnavailableError(
-                "Complete Portfolio Service",
-                f"Failed to retrieve complete portfolio data: {str(e)}"
-            )
+        # Return empty but properly structured response for frontend compatibility
+        empty_fallback_response = {
+            "success": False,
+            "error": str(e),
+            "portfolio_data": {
+                "holdings": [],
+                "total_value": 0,
+                "total_cost": 0,
+                "total_gain_loss": 0,
+                "total_gain_loss_percent": 0,
+                "base_currency": "USD"
+            },
+            "performance_data": {
+                "daily_change": 0,
+                "daily_change_percent": 0,
+                "ytd_return": 0,
+                "ytd_return_percent": 0,
+                "total_return_percent": 0,
+                "volatility": 0,
+                "sharpe_ratio": 0,
+                "max_drawdown": 0
+            },
+            "allocation_data": {
+                "by_symbol": [],
+                "diversification_score": 0,
+                "concentration_risk": "unknown",
+                "number_of_positions": 0
+            },
+            "dividend_data": {
+                "recent_dividends": [],
+                "total_received_ytd": 0,
+                "total_received_all_time": 0,
+                "dividend_count": 0
+            },
+            "transactions_summary": {
+                "total_transactions": 0,
+                "last_transaction_date": None,
+                "realized_gains": 0
+            },
+            "market_analysis": {},
+            "currency_conversions": {},
+            "top_gainers": [],
+            "top_losers": [],
+            "metadata": {
+                "generated_at": datetime.utcnow().isoformat(),
+                "cache_hit": False,
+                "generation_time_ms": total_error_time_ms,
+                "payload_size_kb": 0,
+                "processing_time_ms": total_error_time_ms,
+                "error": True,
+                "error_message": str(e)
+            }
+        }
+        
+        return empty_fallback_response
 
 @portfolio_router.get("/portfolio/performance/historical")
 @DebugLogger.log_api_call(api_name="BACKEND_API", sender="FRONTEND", receiver="BACKEND", operation="GET_HISTORICAL_PERFORMANCE")
@@ -1368,7 +1439,7 @@ async def backend_api_get_historical_performance(
         from services.portfolio_calculator import portfolio_calculator
         from services.index_sim_service import IndexSimulationService
         
-        # Get portfolio time series using the robust calculator
+        # Get portfolio time series using the robust calculator (uses close/EOD)
         portfolio_series, portfolio_metadata = await portfolio_calculator.calculate_portfolio_time_series(
             user_id=user_id,
             user_token=user_token,
@@ -1382,7 +1453,7 @@ async def backend_api_get_historical_performance(
             start_date = portfolio_series[0][0]  # First date with holdings
             end_date = portfolio_series[-1][0]   # Last date with holdings
             
-            logger.info(f"[backend_api_get_historical_performance] Portfolio effective range: {start_date} to {end_date}")
+            logger.debug(f"[backend_api_get_historical_performance] Portfolio effective range: {start_date} to {end_date}")
             
             # Get index simulation using the same effective date range as portfolio
             index_series = await IndexSimulationService.get_index_sim_series(
@@ -1395,7 +1466,7 @@ async def backend_api_get_historical_performance(
         else:
             # Fallback to original date range if no portfolio data
             start_date, end_date = portfolio_calculator._compute_date_range(period)
-            logger.info(f"[backend_api_get_historical_performance] No portfolio data, using period range: {start_date} to {end_date}")
+            logger.debug(f"[backend_api_get_historical_performance] No portfolio data, using period range: {start_date} to {end_date}")
             
             index_series = await IndexSimulationService.get_index_sim_series(
                 user_id=user_id,
@@ -1418,55 +1489,9 @@ async def backend_api_get_historical_performance(
             {"date": d.isoformat(), "value": float(v)} for d, v in aligned_benchmark
         ]
         
-        # === DETAILED DEBUGGING FOR DATA ALIGNMENT ===
-        logger.info(f"[backend_api_get_historical_performance] === DATA ALIGNMENT DEBUG ===")
-        logger.info(f"[backend_api_get_historical_performance] Period: {period}, Benchmark: {benchmark}")
-        
-        # Show both the requested period range and actual data range
-        requested_start, requested_end = portfolio_calculator._compute_date_range(period)
-        logger.info(f"[backend_api_get_historical_performance] Requested period range: {requested_start} to {requested_end}")
-        
+        # Reduced logging - only log essential information
         if portfolio_performance and benchmark_performance:
-            actual_portfolio_start = portfolio_performance[0]['date']
-            actual_portfolio_end = portfolio_performance[-1]['date']
-            actual_benchmark_start = benchmark_performance[0]['date']
-            actual_benchmark_end = benchmark_performance[-1]['date']
-            
-            logger.info(f"[backend_api_get_historical_performance] Actual portfolio range: {actual_portfolio_start} to {actual_portfolio_end}")
-            logger.info(f"[backend_api_get_historical_performance] Actual benchmark range: {actual_benchmark_start} to {actual_benchmark_end}")
-            logger.info(f"[backend_api_get_historical_performance] Date ranges aligned: {actual_portfolio_start == actual_benchmark_start and actual_portfolio_end == actual_benchmark_end}")
-        else:
-            logger.info(f"[backend_api_get_historical_performance] No data available for alignment check")
-        
-        # Log first 10 and last 5 points of each series
-        logger.info(f"[backend_api_get_historical_performance] 📊 PORTFOLIO DATA ({len(portfolio_performance)} points):")
-        for i, point in enumerate(portfolio_performance[:10]):
-            logger.info(f"[backend_api_get_historical_performance]   Portfolio[{i}]: {point['date']} = ${point['value']}")
-        if len(portfolio_performance) > 10:
-            logger.info(f"[backend_api_get_historical_performance]   ... {len(portfolio_performance) - 10} more points ...")
-            for i, point in enumerate(portfolio_performance[-5:], len(portfolio_performance) - 5):
-                logger.info(f"[backend_api_get_historical_performance]   Portfolio[{i}]: {point['date']} = ${point['value']}")
-        
-        logger.info(f"[backend_api_get_historical_performance] 📈 BENCHMARK DATA ({len(benchmark_performance)} points):")
-        for i, point in enumerate(benchmark_performance[:10]):
-            logger.info(f"[backend_api_get_historical_performance]   Benchmark[{i}]: {point['date']} = ${point['value']}")
-        if len(benchmark_performance) > 10:
-            logger.info(f"[backend_api_get_historical_performance]   ... {len(benchmark_performance) - 10} more points ...")
-            for i, point in enumerate(benchmark_performance[-5:], len(benchmark_performance) - 5):
-                logger.info(f"[backend_api_get_historical_performance]   Benchmark[{i}]: {point['date']} = ${point['value']}")
-        
-        # Check if first values match
-        if portfolio_performance and benchmark_performance:
-            portfolio_first = portfolio_performance[0]
-            benchmark_first = benchmark_performance[0]
-            logger.info(f"[backend_api_get_historical_performance] 🔍 FIRST VALUE COMPARISON:")
-            logger.info(f"[backend_api_get_historical_performance]   Portfolio first: {portfolio_first['date']} = ${portfolio_first['value']}")
-            logger.info(f"[backend_api_get_historical_performance]   Benchmark first: {benchmark_first['date']} = ${benchmark_first['value']}")
-            logger.info(f"[backend_api_get_historical_performance]   Values match: {abs(portfolio_first['value'] - benchmark_first['value']) < 0.01}")
-            logger.info(f"[backend_api_get_historical_performance]   Dates match: {portfolio_first['date'] == benchmark_first['date']}")
-        
-        logger.info(f"[backend_api_get_historical_performance] === DATA ALIGNMENT DEBUG END ===")
-        # === END DEBUGGING ===
+            logger.debug(f"[backend_api_get_historical_performance] Portfolio: {len(portfolio_performance)} points, Benchmark: {len(benchmark_performance)} points")
         
         # Calculate performance metrics
         if portfolio_series and index_series:
@@ -1514,29 +1539,8 @@ async def backend_api_get_historical_performance(
             }
         }
         
-        logger.info(f"[backend_api_portfolio.py::backend_api_get_historical_performance] Retrieved {len(performance_data.get('portfolio_performance', []))} portfolio data points")
-        logger.info(f"[backend_api_portfolio.py::backend_api_get_historical_performance] Retrieved {len(performance_data.get('benchmark_performance', []))} benchmark data points")
-        
-        # === DEBUGGING: Log the complete response being sent to frontend ===
-        logger.info(f"[backend_api_portfolio.py::backend_api_get_historical_performance] === FRONTEND API RESPONSE DEBUG ===")
-        logger.info(f"[backend_api_portfolio.py::backend_api_get_historical_performance] 🚀 SENDING TO FRONTEND:")
-        logger.info(f"[backend_api_portfolio.py::backend_api_get_historical_performance] 📊 Portfolio data points: {len(performance_data.get('portfolio_performance', []))}")
-        logger.info(f"[backend_api_portfolio.py::backend_api_get_historical_performance] 📈 Benchmark data points: {len(performance_data.get('benchmark_performance', []))}")
-        logger.info(f"[backend_api_portfolio.py::backend_api_get_historical_performance] 📅 Period: {period}, Benchmark: {benchmark}")
-        
-        # Log first few data points of each series for verification
-        portfolio_data = performance_data.get('portfolio_performance', [])
-        benchmark_data = performance_data.get('benchmark_performance', [])
-        
-        if portfolio_data:
-            logger.info(f"[backend_api_portfolio.py::backend_api_get_historical_performance] 📊 Portfolio sample (first 3):")
-            for i, point in enumerate(portfolio_data[:3]):
-                logger.info(f"[backend_api_portfolio.py::backend_api_get_historical_performance]   Portfolio[{i}]: {point}")
-        
-        if benchmark_data:
-            logger.info(f"[backend_api_portfolio.py::backend_api_get_historical_performance] 📈 Benchmark sample (first 3):")
-            for i, point in enumerate(benchmark_data[:3]):
-                logger.info(f"[backend_api_portfolio.py::backend_api_get_historical_performance]   Benchmark[{i}]: {point}")
+        # Simple summary log
+        logger.debug(f"[backend_api_get_historical_performance] Retrieved {len(performance_data.get('portfolio_performance', []))} portfolio and {len(performance_data.get('benchmark_performance', []))} benchmark data points")
         
         response_data = {
             "success": True,
@@ -1547,8 +1551,6 @@ async def backend_api_get_historical_performance(
             "metadata": performance_data["metadata"],
             "performance_metrics": performance_data["performance_metrics"]
         }
-        
-        logger.info(f"[backend_api_portfolio.py::backend_api_get_historical_performance] === FRONTEND API RESPONSE DEBUG END ===")
         return response_data
         
     except Exception as e:

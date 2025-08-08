@@ -182,51 +182,12 @@ export default function PortfolioChartApex({
       selectedBenchmark
     });
 
-    // ===== DETAILED DEBUGGING: Log all dates and values =====
-    if (process.env.NODE_ENV === 'development') {
-      console.log('=================== PORTFOLIO CHART DATA DEBUG ===================');
-      console.log(`📊 TIMEFRAME: ${selectedRange} | BENCHMARK: ${selectedBenchmark} | MODE: ${displayMode}`);
-      
-      // Portfolio data debugging
-      console.log(`📈 PORTFOLIO DATA (${alignedPortfolio?.length || 0} points):`);
-      alignedPortfolio?.forEach((point, index) => {
-        const value = getValue(point);
-        console.log(`  Portfolio[${index}]: ${point.date} = $${value.toFixed(2)}`);
-      });
-      
-      // Benchmark data debugging  
-      console.log(`📊 BENCHMARK DATA (${alignedBenchmark?.length || 0} points):`);
-      alignedBenchmark?.forEach((point, index) => {
-        const value = getValue(point);
-        console.log(`  Benchmark[${index}]: ${point.date} = $${value.toFixed(2)}`);
-      });
-      
-      // Starting values comparison
-      if (alignedPortfolio?.length > 0 && alignedBenchmark?.length > 0) {
-        const portfolioStart = getValue(alignedPortfolio[0]);
-        const benchmarkStart = getValue(alignedBenchmark[0]);
-        console.log(`🔍 STARTING VALUES COMPARISON:`);
-        console.log(`  Portfolio starts at: $${portfolioStart.toFixed(2)} on ${alignedPortfolio[0].date}`);
-        console.log(`  Benchmark starts at: $${benchmarkStart.toFixed(2)} on ${alignedBenchmark[0].date}`);
-        console.log(`  Difference: $${(portfolioStart - benchmarkStart).toFixed(2)}`);
-        
-        const portfolioEnd = getValue(alignedPortfolio[alignedPortfolio.length - 1]);
-        const benchmarkEnd = getValue(alignedBenchmark[alignedBenchmark.length - 1]);
-        console.log(`🏁 ENDING VALUES COMPARISON:`);
-        console.log(`  Portfolio ends at: $${portfolioEnd.toFixed(2)} on ${alignedPortfolio[alignedPortfolio.length - 1].date}`);
-        console.log(`  Benchmark ends at: $${benchmarkEnd.toFixed(2)} on ${alignedBenchmark[alignedBenchmark.length - 1].date}`);
-        console.log(`  Difference: $${(portfolioEnd - benchmarkEnd).toFixed(2)}`);
-      }
-      
-      console.log('================================================================');
-    }
-    
     const result = [];
     
     // Portfolio series
     if (alignedPortfolio && alignedPortfolio.length > 0) {
       const portfolioSeries: [number, number][] = alignedPortfolio.map((point, index) => {
-        const timestamp = new Date(point.date).getTime();
+        const timestamp = new Date(`${point.date}T00:00:00Z`).getTime();
         const value = displayMode === 'value' ? getValue(point) : 
           (portfolioPercentReturns[index] || 0);
         return [timestamp, value] as [number, number];
@@ -242,7 +203,7 @@ export default function PortfolioChartApex({
     // Benchmark series
     if (alignedBenchmark && alignedBenchmark.length > 0) {
       const benchmarkSeries: [number, number][] = alignedBenchmark.map((point, index) => {
-        const timestamp = new Date(point.date).getTime();
+        const timestamp = new Date(`${point.date}T00:00:00Z`).getTime();
         const value = displayMode === 'value' ? getValue(point) : 
           (benchmarkPercentReturns[index] || 0);
         return [timestamp, value] as [number, number];

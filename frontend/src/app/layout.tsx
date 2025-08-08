@@ -94,6 +94,11 @@ export const metadata: Metadata = {
   category: 'finance',
   classification: 'Financial Technology',
   referrer: 'origin-when-cross-origin',
+  icons: {
+    icon: '/logo.png',
+    shortcut: '/logo.png',
+    apple: '/logo.png',
+  },
 }
 
 export const viewport: Viewport = {

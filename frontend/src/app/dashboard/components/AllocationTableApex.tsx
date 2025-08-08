@@ -5,11 +5,11 @@ import ApexListView from '@/components/charts/ApexListView';
 import type { ListViewColumn, ListViewAction } from '@/components/charts/ApexListView';
 import { cn } from '@/lib/utils';
 import { useDashboard } from '../contexts/DashboardContext';
-// MIGRATED: Replace usePortfolioAllocation with consolidated hook
-import { useAllocationData } from '@/hooks/useSessionPortfolio';
+// Use the main hook to get complete holdings data
+import { useSessionPortfolio } from '@/hooks/useSessionPortfolio';
 import { Star, StarOff } from 'lucide-react';
 
-// Define AllocationItem interface locally since we're migrating away from the old hook
+// Define AllocationItem interface for the transformed data
 interface AllocationItem {
   symbol: string;
   current_value: number;
@@ -29,10 +29,13 @@ interface AllocationRowExtended extends AllocationItem, Record<string, unknown> 
 
 const AllocationTableApex = () => {
   useDashboard();
-  // MIGRATED: Use consolidated allocation hook instead of individual API call
-  const { data: allocationData, isLoading, isError, error } = useAllocationData();
+  // Get complete portfolio data including all holdings details
+  const { portfolioData, isLoading, isError, error } = useSessionPortfolio();
   const [watchlistItems, setWatchlistItems] = useState<Set<string>>(new Set());
   const { addToast } = useToast();
+  
+  // Color palette for holdings
+  const colorPalette = ['emerald', 'blue', 'purple', 'orange', 'red', 'yellow', 'pink', 'indigo', 'cyan', 'lime'];
 
   // Load watchlist status on mount
   useEffect(() => {
@@ -86,24 +89,26 @@ const AllocationTableApex = () => {
 
   // Transform data for ApexListView
   const { listViewData, columns, actions } = useMemo(() => {
-    if (!allocationData) {
+    if (!portfolioData || !portfolioData.holdings) {
       return { listViewData: [], columns: [], actions: [] };
     }
     
-    // Transform consolidated allocation data to match expected format
-    // The new hook returns allocation data directly, not wrapped in an 'allocations' property
-    const allocations = Array.isArray(allocationData) ? allocationData : allocationData.by_symbol || [];
-    const transformedData: AllocationRowExtended[] = Object.entries(allocations).map(([symbol, data], index) => ({
-      symbol,
-      current_value: (data as any)?.current_value || 0,
-      cost_basis: (data as any)?.cost_basis || 0,
-      gain_loss: (data as any)?.gain_loss || 0,
-      gain_loss_percent: (data as any)?.gain_loss_percent || 0,
-      allocation_percent: (data as any)?.allocation_percent || 0,
-      color: (data as any)?.color || 'blue',
-      id: symbol || `row_${index}`,
-      accentColorClass: `bg-${(data as any)?.color || 'blue'}-500`
-    }));
+    // Transform holdings data to match expected format
+    // Holdings array contains all the data we need
+    const transformedData: AllocationRowExtended[] = portfolioData.holdings.map((holding, index) => {
+      const color = colorPalette[index % colorPalette.length];
+      return {
+        symbol: holding.symbol,
+        current_value: holding.current_value,
+        cost_basis: holding.total_cost, // total_cost is the cost basis
+        gain_loss: holding.gain_loss,
+        gain_loss_percent: holding.gain_loss_percent,
+        allocation_percent: holding.allocation_percent,
+        color: color,
+        id: holding.symbol || `row_${index}`,
+        accentColorClass: `bg-${color}-500`
+      };
+    });
 
     // Define columns
     const tableColumns: ListViewColumn<AllocationRowExtended>[] = [
@@ -185,8 +190,7 @@ const AllocationTableApex = () => {
         label: (item) => watchlistItems.has(item.symbol) ? 'Remove from Watchlist' : 'Add to Watchlist',
         icon: (item) => watchlistItems.has(item.symbol) ? <StarOff className="h-4 w-4" /> : <Star className="h-4 w-4" />,
         onClick: handleWatchlistToggle,
-        className: 'hover:opacity-80 transition-all duration-300',
-        style: { color: 'var(--color-gold)' }
+        className: 'hover:opacity-80 transition-all duration-300 text-[var(--color-gold)]'
       },
       {
         label: 'View Details',
@@ -194,8 +198,7 @@ const AllocationTableApex = () => {
           //console.log('[AllocationTableApex] View details for:', item.symbol);
           // TODO: Navigate to stock details page
         },
-        className: 'hover:opacity-80 transition-all duration-300',
-        style: { color: 'var(--color-text-main)' }
+        className: 'hover:opacity-80 transition-all duration-300 text-[var(--color-text-main)]'
       },
       {
         label: 'Add Transaction',
@@ -203,8 +206,7 @@ const AllocationTableApex = () => {
           //console.log('[AllocationTableApex] Add transaction for:', item.symbol);
           // TODO: Open add transaction modal with pre-filled symbol
         },
-        className: 'hover:opacity-80 transition-all duration-300',
-        style: { color: 'var(--color-green)' }
+        className: 'hover:opacity-80 transition-all duration-300 text-[var(--color-green)]'
       }
     ];
 
@@ -213,7 +215,7 @@ const AllocationTableApex = () => {
       columns: tableColumns,
       actions: tableActions
     };
-  }, [allocationData, watchlistItems, handleWatchlistToggle]);
+  }, [portfolioData, watchlistItems, handleWatchlistToggle, colorPalette]);
 
   return (
     <ApexListView

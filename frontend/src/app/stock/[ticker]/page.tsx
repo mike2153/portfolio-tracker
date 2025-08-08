@@ -58,18 +58,21 @@ interface NewsItem {
   }
 }
 
-interface StockAnalysisPageProps {
-  params: Promise<{ ticker: string }>
-}
-
-export default function StockAnalysisPage({ params }: StockAnalysisPageProps) {
-  const [ticker, setTicker] = useState<string>('')
-  
-  useEffect(() => {
-    params.then(({ ticker }) => {
-      setTicker(ticker)
-    })
-  }, [params])
+export default function StockAnalysisPage() {
+  const { push, back } = useRouter()
+  // Next.js client route params
+  const params = ((): { ticker?: string } => {
+    try {
+      // next/navigation useParams in app router
+      // dynamic import to avoid SSR mismatch
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { useParams } = require('next/navigation') as typeof import('next/navigation')
+      return useParams<{ ticker: string }>()
+    } catch {
+      return {}
+    }
+  })()
+  const [ticker, setTicker] = useState<string>(params?.ticker || '')
   const router = useRouter()
   
   const [overview, setOverview] = useState<StockOverview | null>(null)
@@ -375,8 +378,8 @@ export default function StockAnalysisPage({ params }: StockAnalysisPageProps) {
         {selectedTab === 'news' && (
           <div className="space-y-4">
             {news.length > 0 ? (
-              news.map((item, index) => (
-                <div key={index} className="card hover:shadow-md transition-shadow">
+              news.map((item) => (
+                <div key={item.url ?? item.title} className="card hover:shadow-md transition-shadow">
                   <div className="flex justify-between items-start mb-2">
                     <h3 className="text-lg font-semibold text-blue-600 hover:text-blue-800">
                       <a href={item.url} target="_blank" rel="noopener noreferrer">
@@ -396,7 +399,7 @@ export default function StockAnalysisPage({ params }: StockAnalysisPageProps) {
                   <p className="text-gray-600 mb-3">{item.summary}</p>
                   <div className="flex justify-between items-center text-sm text-gray-500">
                     <span>{item.source}</span>
-                    <span>{new Date(item.time_published).toLocaleDateString()}</span>
+                    <span>{new Date(`${item.time_published.slice(0,4)}-${item.time_published.slice(4,6)}-${item.time_published.slice(6,8)}T${item.time_published.slice(9,11)}:${item.time_published.slice(11,13)}:${item.time_published.slice(13,15)}Z`).toLocaleDateString()}</span>
                   </div>
                 </div>
               ))

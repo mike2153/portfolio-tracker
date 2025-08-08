@@ -1,6 +1,6 @@
 # Portfolio Tracker API Master Documentation
 
-📋 **CURRENT STATE**: This documentation reflects the actual implementation as of August 2025. Comprehensive update with all 70+ current API endpoints including new forex, profile, and analytics features.
+📋 **CURRENT STATE**: This documentation reflects the actual implementation as of January 2025. Post-simplification architecture with consolidated endpoints, removed caching layers, and streamlined price system.
 
 ## 📋 Documentation Status
 
@@ -8,12 +8,13 @@
 
 ### Current Implementation
 
-- **Backend**: FastAPI (Python) with complete route implementation
-- **Database**: Supabase with Row Level Security (RLS)
-- **External APIs**: Alpha Vantage integration for market data
-- **Authentication**: Supabase Auth with JWT tokens
-- **Frontend**: Next.js with shared API client
-- **Type Safety**: Pydantic models with Decimal precision for financial data
+- **Backend**: FastAPI (Python) with simplified architecture
+- **Database**: Supabase with Row Level Security (RLS) - 14 cache tables removed
+- **External APIs**: Alpha Vantage for EOD prices and market data
+- **Authentication**: Supabase Auth with JWT tokens, strict user_id validation
+- **Frontend**: React Native (Expo) with glass morphism UI
+- **Type Safety**: Zero tolerance for type errors, Decimal for all financial data
+- **Architecture**: Direct queries instead of cache layers, on-demand calculations
 
 ---
 
@@ -58,15 +59,27 @@ Frontend (Next.js) → Backend API (FastAPI) → Supabase Database
 - Strong type safety with Pydantic models and Decimal financial calculations
 
 ### Design Principles
-1. **Type Safety First**: Complete Pydantic validation for all inputs/outputs
+1. **Type Safety First**: Zero tolerance for type errors, complete Pydantic validation
 2. **Dual Response Format**: Legacy v1 and standardized v2 API formats
-3. **Cache-First Strategy**: Intelligent caching with background price updates
-4. **Security by Default**: RLS, input sanitization, and proper authentication
+3. **Simplified Architecture**: Direct database queries, no complex caching layers
+4. **Security by Default**: RLS, strict authentication with extract_user_credentials()
 5. **Error Standardization**: Consistent error responses across all endpoints
+6. **Performance**: Consolidated endpoints (e.g., /api/complete replaces 19 endpoints)
+7. **Reliability**: On-demand calculations for data accuracy over cached values
 
 ---
 
 ## Complete Endpoint Reference
+
+**Total Endpoints**: 47 endpoints across 9 routers
+- **Authentication**: 1 endpoint
+- **Research**: 8 endpoints  
+- **Portfolio**: 10 endpoints
+- **Dashboard**: 3 endpoints
+- **Analytics**: 14 endpoints
+- **Watchlist**: 5 endpoints
+- **User Profile**: 4 endpoints
+- **Forex**: 3 endpoints
 
 ### 🏠 Root Endpoints
 
@@ -110,9 +123,10 @@ GET /api/auth/validate
 
 #### Get Complete Portfolio Data
 ```http
-GET /api/complete
+GET /api/portfolio/complete
 ```
-**Description**: **Crown Jewel Endpoint** - Comprehensive portfolio data in a single response, replacing 19+ individual API calls for optimal performance
+**Description**: **Crown Jewel Endpoint** - Comprehensive portfolio data in a single response, replacing 19+ individual API calls. Uses UserPerformanceManager for complete data aggregation
+**WARNING**: Frontend currently calls `/api/complete` but must use `/api/portfolio/complete`
 **Auth**: Required (JWT Bearer token)
 **Headers**:
 - `Authorization: Bearer <jwt_token>`
@@ -273,7 +287,7 @@ GET /api/complete
 // New pattern - single call loads everything
 const { data } = useQuery({
   queryKey: ['complete-portfolio'],
-  queryFn: () => apiClient.get('/api/complete'),
+  queryFn: () => apiClient.get('/api/portfolio/complete'), // FIXED: was /api/complete
   staleTime: 30 * 60 * 1000, // 30 minutes
 });
 
@@ -281,6 +295,38 @@ const { data } = useQuery({
 const portfolioSummary = data?.portfolio_data;
 const performanceChart = data?.time_series_data?.chart_data;
 const dividendSummary = data?.dividend_data;
+```
+
+#### Get Historical Portfolio Performance
+```http
+GET /api/portfolio/performance/historical
+```
+**Description**: Historical portfolio performance vs benchmark
+**Auth**: Required
+**Query Parameters**:
+- `period` (string): Time period ("1Y", "3M", "6M", "YTD", default: "1Y")
+- `benchmark` (string): Benchmark symbol (default: "SPY")
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "portfolio_performance": [
+      {"date": "2024-01-01", "value": 100000.00},
+      {"date": "2024-01-02", "value": 101500.00}
+    ],
+    "benchmark_performance": [
+      {"date": "2024-01-01", "value": 100000.00},
+      {"date": "2024-01-02", "value": 100750.00}
+    ],
+    "metrics": {
+      "portfolio_return": 15.5,
+      "benchmark_return": 12.3,
+      "alpha": 3.2
+    }
+  }
+}
 ```
 
 ---
@@ -291,7 +337,7 @@ const dividendSummary = data?.dividend_data;
 ```http
 GET /api/portfolio
 ```
-**Description**: Current portfolio holdings calculated from transactions using PortfolioMetricsManager
+**Description**: Current portfolio holdings calculated from transactions using PortfolioCalculator (the authoritative calculation engine) via PortfolioMetricsManager orchestration
 **Auth**: Required (JWT Bearer token)
 **Query Parameters**:
 - `force_refresh` (boolean): Force cache refresh (default: false)
@@ -1718,11 +1764,12 @@ All sensitive configuration stored in environment variables:
 #### Current Implementation
 - **Module Structure**: Organized in `vantage_api/` directory
 - **Main Modules**: 
-  - `vantage_api_search.py` - Symbol search with combined results
-  - `vantage_api_quotes.py` - Real-time quotes and historical data
-  - `vantage_api_financials.py` - Company financials via FinancialsService
+  - `vantage_api_client.py` - Base HTTP client with error handling
+  - `vantage_api_quotes.py` - EOD quotes and historical data
+  - `vantage_api_search.py` - Symbol search functionality
   - `vantage_api_news.py` - News and sentiment data
-  - `vantage_api_client.py` - Base client with circuit breaker
+- **Price Management**: SimplifiedPriceManager handles all price operations
+- **No Direct Price Fetching**: PortfolioCalculator uses PriceManager exclusively
 
 #### Endpoints Used
 - **Symbol Search**: `SYMBOL_SEARCH` function with intelligent scoring
@@ -1743,13 +1790,13 @@ All sensitive configuration stored in environment variables:
   - Manual reset via `/api/debug/reset-circuit-breaker`
 - **Request Queuing**: Intelligent request spacing
 
-#### Caching Strategy
-- **Symbol Search**: 24 hours (cached in combined_symbol_search)
-- **Company Financials**: 24 hours via FinancialsService
-- **Historical Prices**: 4 hours in Supabase
-- **Real-time Quotes**: 5 minutes during market hours, 1 hour after close
-- **Dividend Data**: 24 hours via dividend_service
-- **News Data**: Minimal caching (real-time preference)
+#### Caching Strategy (Post-Simplification)
+- **In-Memory Only**: PortfolioMetricsManager handles short-term caching
+- **No Database Caching**: 14 cache tables removed in migration 012
+- **Direct Queries**: Always fetch fresh data from source tables
+- **Company Financials**: Still cached in company_financials table (24h)
+- **Historical Prices**: Stored in historical_prices table
+- **Dividend Data**: Managed by DividendService with distributed locking
 
 #### Error Handling
 ```json
@@ -1774,15 +1821,26 @@ All sensitive configuration stored in environment variables:
 
 ### Supabase Integration
 
-#### Database Tables (Current Schema)
+#### Database Tables (Post-Simplification Schema)
+**Core Tables (16 total)**:
 - `transactions` - User buy/sell transactions with RLS
-- `user_dividends` - Dividend tracking and confirmation
+- `user_dividends` - Dividend tracking and confirmation system
 - `watchlist` - User watchlists with target prices
 - `user_profiles` - User preferences and base currency
-- `historical_prices` - Cached price data from Alpha Vantage
-- `company_financials` - Cached financial data with TTL
-- `forex_rates` - Cached exchange rates
-- `global_dividends` - Master dividend data from Alpha Vantage
+- `historical_prices` - EOD price data (OHLCV + dividends)
+- `company_financials` - Company financial statement data
+- `forex_rates` - Currency exchange rates
+- `market_holidays` - Market closure dates
+- `api_usage` - API call tracking
+- `audit_log` - System audit trail
+
+**Removed Tables (Migration 012)**:
+- ❌ `user_performance`, `portfolio_caches`, `portfolio_metrics_cache`
+- ❌ `api_cache`, `market_info_cache`, `previous_day_price_cache`
+- ❌ `price_request_cache`, `user_currency_cache`
+- ❌ `cache_refresh_jobs`, `price_update_log`
+- ❌ `circuit_breaker_state`, `distributed_locks`
+- ❌ `stocks`, `symbol_market_info`
 
 #### Row Level Security (RLS)
 - **Comprehensive Policies**: All tables have user-specific RLS
@@ -1936,20 +1994,21 @@ def sanitize_notes(cls, v: Optional[str]) -> Optional[str]:
 
 ## Performance & Caching
 
-### Caching Strategy
+### Caching Strategy (Simplified Architecture)
 
-#### Cache Layers
-1. **Application Cache**: In-memory caching for frequently accessed data
-2. **Database Cache**: Supabase cached queries and materialized views
-3. **External API Cache**: Cached responses from Alpha Vantage
+#### Current Approach
+1. **In-Memory Only**: PortfolioMetricsManager provides short-term caching
+2. **No Database Caching**: All cache tables removed for data consistency
+3. **On-Demand Calculations**: Real-time computation preferred over stale cache
+4. **Direct Queries**: Fetch data directly from source tables
 
-#### Cache TTL (Time To Live)
-- **Portfolio Metrics**: 5 minutes (auto-invalidated on transactions)
-- **Stock Prices**: 5 minutes during market hours, 1 hour after close  
-- **Company Financials**: 24 hours
-- **Historical Data**: 4 hours
-- **Dividend Data**: 24 hours
-- **Symbol Search**: 24 hours
+#### Data Freshness Strategy
+- **Portfolio Metrics**: Calculated on-demand via PortfolioCalculator
+- **EOD Prices**: Fetched from historical_prices table or Alpha Vantage
+- **Company Financials**: 24 hours (only remaining cached data)
+- **Historical Data**: Stored permanently in historical_prices
+- **Dividend Data**: Synced via DividendService with distributed locking
+- **In-Memory Cache**: Short-term caching in PortfolioMetricsManager
 
 #### Cache Headers
 ```http

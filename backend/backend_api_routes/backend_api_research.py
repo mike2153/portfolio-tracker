@@ -109,21 +109,32 @@ async def backend_api_stock_overview_handler(
         # Get both quote and overview data in parallel
         import asyncio
         
-        # Extract user token for CurrentPriceManager
+        # Extract user token for price_manager
         user_token = user_data.get("access_token")
         
-        # Use fast quote for basic stock overview to improve performance
-        quote_task = asyncio.create_task(price_manager.get_current_price_fast(symbol))
+        # Get latest EOD price and overview data
+        quote_task = asyncio.create_task(price_manager.get_latest_prices([symbol], user_token))
         overview_task = asyncio.create_task(vantage_api_get_overview(symbol))
         
-        quote_result, overview_data = await asyncio.gather(quote_task, overview_task)
+        prices_result, overview_data = await asyncio.gather(quote_task, overview_task)
         
-        # Extract quote data from CurrentPriceManager result
-        if quote_result.get("success"):
-            quote_data = quote_result["data"]
+        # Extract price data from price_manager result
+        if symbol in prices_result:
+            price_data = prices_result[symbol]
+            quote_data = {
+                "symbol": price_data["symbol"],
+                "price": float(price_data["price"]),
+                "date": price_data["date"],
+                "volume": float(price_data["volume"]),
+                "open": float(price_data["open"]),
+                "high": float(price_data["high"]),
+                "low": float(price_data["low"]),
+                "close": float(price_data["close"]),
+                "price_type": "EOD Price"  # Add EOD notation
+            }
         else:
             quote_data = None
-            logger.warning(f"[backend_api_research.py] Failed to get current price for {symbol}: {quote_result.get('error')}")
+            logger.warning(f"[backend_api_research.py] Failed to get EOD price for {symbol}")
         
         # Log overview data for debugging
         logger.info(f"[backend_api_research.py] Overview data for {symbol}: {type(overview_data)} with {len(overview_data) if isinstance(overview_data, dict) else 'non-dict'} keys")
@@ -135,13 +146,17 @@ async def backend_api_stock_overview_handler(
             "symbol": symbol,
             "price_data": quote_data,
             "fundamentals": overview_data,
-            "price_metadata": quote_result.get("metadata", {})
+            "price_metadata": {
+                "data_type": "eod_price",
+                "source": "database",
+                "price_note": "End-of-Day Price" if quote_data else "EOD price unavailable"
+            }
         }
         
         if api_version == "v2":
             return ResponseFactory.success(
                 data=combined_data,
-                message=f"Stock overview retrieved for {symbol}"
+                message=f"Stock overview with EOD price retrieved for {symbol}"
             )
         else:
             return {
@@ -167,7 +182,7 @@ async def backend_api_stock_overview_handler(
         if api_version == "v2":
             return ResponseFactory.error(
                 error="ServiceError",
-                message=f"Failed to retrieve stock overview: {str(e)}",
+                message=f"Failed to retrieve stock overview with EOD price: {str(e)}",
                 status_code=500
             )
         else:
@@ -184,32 +199,52 @@ async def backend_api_quote_handler(
     user_data: Dict[str, Any] = Depends(require_authenticated_user),
     api_version: Optional[str] = Header(None, alias="X-API-Version")
 ) -> Union[Dict[str, Any], APIResponse[Dict[str, Any]]]:
-    """Get real-time quote data for a symbol using CurrentPriceManager"""
-    logger.info(f"[backend_api_research.py::backend_api_quote_handler] Quote request for: {symbol}")
+    """Get latest EOD price data for a symbol using price_manager"""
+    logger.info(f"[backend_api_research.py::backend_api_quote_handler] EOD price request for: {symbol}")
     
     try:
         user_token = user_data.get("access_token")
-        quote_result = await price_manager.get_current_price(symbol.upper(), user_token)
+        symbol = symbol.upper().strip()
         
-        if quote_result.get("success"):
+        # Get latest price using price_manager.get_latest_prices()
+        prices_result = await price_manager.get_latest_prices([symbol], user_token)
+        
+        if symbol in prices_result:
+            price_data = prices_result[symbol]
+            
+            # Format data to match expected structure
             quote_data = {
-                "data": quote_result["data"],
-                "metadata": quote_result.get("metadata", {})
+                "symbol": price_data["symbol"],
+                "price": float(price_data["price"]),
+                "date": price_data["date"],
+                "volume": float(price_data["volume"]),
+                "open": float(price_data["open"]),
+                "high": float(price_data["high"]),
+                "low": float(price_data["low"]),
+                "close": float(price_data["close"]),
+                "price_type": "EOD Price"  # Add EOD notation
+            }
+            
+            metadata = {
+                "data_type": "eod_price",
+                "source": "database",
+                "price_note": "End-of-Day Price"
             }
             
             if api_version == "v2":
                 return ResponseFactory.success(
-                    data=quote_data["data"],
-                    message="Quote retrieved successfully",
-                    metadata=quote_data["metadata"]
+                    data=quote_data,
+                    message="EOD price retrieved successfully",
+                    metadata=metadata
                 )
             else:
                 return {
                     "success": True,
-                    **quote_data
+                    "data": quote_data,
+                    "metadata": metadata
                 }
         else:
-            error_msg = quote_result.get("error", "Data Not Available At This Time")
+            error_msg = f"EOD price data not available for {symbol}"
             
             if api_version == "v2":
                 return ResponseFactory.error(
@@ -222,7 +257,7 @@ async def backend_api_quote_handler(
                     "success": False,
                     "error": error_msg,
                     "data": None,
-                    "metadata": quote_result.get("metadata", {})
+                    "metadata": {"data_type": "eod_price"}
                 }
     except Exception as e:
         DebugLogger.log_error(
@@ -234,13 +269,13 @@ async def backend_api_quote_handler(
         if api_version == "v2":
             return ResponseFactory.error(
                 error="ServiceError",
-                message="Data Not Available At This Time",
+                message="EOD price data not available at this time",
                 status_code=500
             )
         else:
             return {
                 "success": False,
-                "error": "Data Not Available At This Time",
+                "error": "EOD price data not available at this time",
                 "data": None,
                 "metadata": {}
             }
@@ -498,20 +533,21 @@ async def backend_api_stock_prices_handler(
         start_date = today - timedelta(days=5 * 365)
 
     try:
-        # Fetch price data using CurrentPriceManager
+        # Fetch historical price data using price_manager
         user_token = user_data.get("access_token")
         if not user_token:
             raise HTTPException(status_code=401, detail="Unauthorized")
             
-        result = await price_manager.get_historical_prices(
-            symbol=symbol,
+        # Use price_manager.get_historical_prices() which takes a list of symbols
+        prices_result = await price_manager.get_historical_prices(
+            symbols=[symbol],
             start_date=start_date,
             end_date=today,
             user_token=user_token
         )
 
-        if not result["success"]:
-            error_msg = result.get("error", "Data Not Available At This Time")
+        if symbol not in prices_result or not prices_result[symbol]:
+            error_msg = f"Historical EOD price data not available for {symbol}"
             
             if api_version == "v2":
                 return ResponseFactory.error(
@@ -524,8 +560,21 @@ async def backend_api_stock_prices_handler(
                     "success": False,
                     "error": error_msg,
                     "data": None,
-                    "metadata": result.get("metadata", {})
+                    "metadata": {"data_type": "historical_eod_prices"}
                 }
+        
+        # Convert Decimal values to float for JSON serialization
+        historical_data = []
+        for price_record in prices_result[symbol]:
+            historical_data.append({
+                "date": price_record["date"],
+                "open": float(price_record["open"]),
+                "high": float(price_record["high"]),
+                "low": float(price_record["low"]),
+                "close": float(price_record["close"]),
+                "volume": float(price_record["volume"]),
+                "adjusted_close": float(price_record["adjusted_close"])
+            })
     except Exception as e:
         DebugLogger.log_error(
             file_name="backend_api_research.py",
@@ -539,37 +588,44 @@ async def backend_api_stock_prices_handler(
         if api_version == "v2":
             return ResponseFactory.error(
                 error="ServiceError",
-                message="Data Not Available At This Time",
+                message="Historical EOD price data not available at this time",
                 status_code=500
             )
         else:
             return {
                 "success": False,
-                "error": "Data Not Available At This Time",
+                "error": "Historical EOD price data not available at this time",
                 "data": None,
                 "metadata": {}
             }
 
-    # Success response
+    # Success response with EOD notation
     price_data = {
         "symbol": symbol,
-        "price_data": result["data"],
+        "price_data": historical_data,
         "start_date": str(start_date),
         "end_date": str(today),
-        "data_points": len(result["data"]) if result["data"] else 0
+        "data_points": len(historical_data),
+        "price_type": "EOD Prices"  # Add EOD notation
+    }
+    
+    metadata = {
+        "data_type": "historical_eod_prices",
+        "source": "database",
+        "price_note": "End-of-Day Historical Prices"
     }
     
     if api_version == "v2":
         return ResponseFactory.success(
             data=price_data,
-            message=f"Historical prices retrieved for {symbol}",
-            metadata=result.get("metadata", {})
+            message=f"Historical EOD prices retrieved for {symbol}",
+            metadata=metadata
         )
     else:
         return {
             "success": True,
             "data": price_data,
-            "metadata": result.get("metadata", {})
+            "metadata": metadata
         }
 
 @research_router.get("/news/{symbol}")

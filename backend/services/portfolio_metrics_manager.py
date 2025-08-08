@@ -13,7 +13,7 @@ import hashlib
 import json
 from datetime import datetime, timedelta, timezone, date
 from typing import Dict, Any, List, Optional, Tuple, Set, Union
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from dataclasses import dataclass
 from enum import Enum
 
@@ -83,6 +83,13 @@ class PortfolioPerformance(BaseModel):
     xirr: Optional[float] = None
     sharpe_ratio: Optional[float] = None
     base_currency: str = Field(default="USD")
+    # Additional fields needed by frontend
+    daily_change: Decimal = Field(default=Decimal("0"))
+    daily_change_percent: float = Field(default=0.0)
+    ytd_return: Decimal = Field(default=Decimal("0"))
+    ytd_return_percent: float = Field(default=0.0)
+    volatility: Decimal = Field(default=Decimal("0"))
+    max_drawdown: Decimal = Field(default=Decimal("0"))
     
     class Config:
         json_encoders = {
@@ -170,6 +177,10 @@ class PortfolioMetrics(BaseModel):
     sector_allocation: Dict[str, float] = Field(default_factory=dict)
     top_performers: List[Dict[str, Any]] = Field(default_factory=list)
     
+    # Transaction metadata
+    transaction_count: int = Field(default=0)
+    last_transaction_date: Optional[datetime] = None
+    
     # Metadata
     computation_time_ms: Optional[int] = None
     data_completeness: Dict[str, bool] = Field(default_factory=dict)
@@ -236,6 +247,12 @@ class PortfolioMetricsManager:
         alpha_vantage_key = os.getenv("ALPHA_VANTAGE_API_KEY", "")
         supabase_client = get_supa_service_client()
         self.forex_manager = ForexManager(supabase_client, alpha_vantage_key)
+
+        # Circuit breaker state (initialized here rather than lazily later)
+        self._service_failures: Dict[str, int] = {}
+        self._circuit_open_until: Dict[str, datetime] = {}
+        self._max_failures: int = 3
+        self._recovery_timeout: int = 60  # seconds
     
     async def _get_cache_manager(self):
         """Get or initialize the thread-safe cache manager."""
@@ -303,8 +320,11 @@ class PortfolioMetricsManager:
             logger.info(f"Invalidated {invalidated_count} cache entries for user {user_id}")
             return invalidated_count
             
-        except Exception as e:
-            logger.error(f"Error invalidating cache for user {user_id}: {e}")
+        except (KeyError, ValueError) as e:
+            logger.error("Error invalidating cache for user %s", user_id, exc_info=True)
+            return 0
+        except Exception:
+            logger.exception("Unexpected error invalidating cache for user %s", user_id)
             return 0
         
         # Circuit breaker configuration
@@ -313,7 +333,7 @@ class PortfolioMetricsManager:
         
         logger.info("[PortfolioMetricsManager] Initialized")
     
-    def _safe_decimal_to_float(self, value: Any) -> Decimal:
+    def _to_decimal(self, value: Any) -> Decimal:
         """
         DEPRECATED: Use decimal_json_encoder instead for proper JSON serialization.
         
@@ -340,7 +360,7 @@ class PortfolioMetricsManager:
     
     async def get_user_base_currency(self, user_id: str) -> str:
         """
-        Get user's base currency with caching
+        Get user's base currency with in-memory caching
         
         Args:
             user_id: User's UUID
@@ -348,36 +368,20 @@ class PortfolioMetricsManager:
         Returns:
             Base currency code (defaults to 'USD')
         """
-        # Check database cache first
-        supabase_client = get_supa_service_client()
+        # Check in-memory cache first
+        user_cache = await self._get_user_cache_manager()
+        cache_key = f"base_currency"
         
-        try:
-            # Try to get from cache
-            cache_result = supabase_client.table('user_currency_cache').select('base_currency').eq(
-                'user_id', user_id
-            ).gte(
-                'expires_at', datetime.now(timezone.utc).isoformat()
-            ).single().execute()
-            
-            if cache_result.data:
-                return cache_result.data['base_currency']
-        except:
-            # Cache miss or error, continue to fetch
-            pass
+        cached_currency = await user_cache.get_user_cache(user_id, cache_key)
+        if cached_currency:
+            return cached_currency
         
         # Fetch from user profile
+        supabase_client = get_supa_service_client()
         base_currency = await get_user_base_currency(supabase_client, user_id)
         
-        # Cache the result in database
-        try:
-            supabase_client.table('user_currency_cache').upsert({
-                'user_id': user_id,
-                'base_currency': base_currency,
-                'cached_at': datetime.now(timezone.utc).isoformat(),
-                'expires_at': (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
-            }).execute()
-        except Exception as e:
-            logger.warning(f"Failed to cache user currency: {e}")
+        # Cache the result in memory for 1 hour
+        await user_cache.set_user_cache(user_id, cache_key, base_currency, 3600)
         
         return base_currency
     
@@ -832,8 +836,8 @@ class PortfolioMetricsManager:
             return MarketStatus(
                 is_open=status.get("is_open", False),
                 session=status.get("session", "closed"),
-                next_open=datetime.fromisoformat(status["next_open"]) if status.get("next_open") else None,
-                next_close=datetime.fromisoformat(status["next_close"]) if status.get("next_close") else None,
+                next_open=(lambda s: (datetime.fromisoformat(s) if s else None).replace(tzinfo=timezone.utc) if (s and datetime.fromisoformat(s).tzinfo is None) else (datetime.fromisoformat(s) if s else None))(status.get("next_open")),
+                next_close=(lambda s: (datetime.fromisoformat(s) if s else None).replace(tzinfo=timezone.utc) if (s and datetime.fromisoformat(s).tzinfo is None) else (datetime.fromisoformat(s) if s else None))(status.get("next_close")),
                 timezone=status.get("timezone", "America/New_York")
             )
         except Exception as e:
@@ -924,6 +928,15 @@ class PortfolioMetricsManager:
             # Try to get from holdings context (would need to be passed in)
             base_currency = getattr(self, '_current_base_currency', 'USD')
         
+        # Calculate YTD metrics
+        current_year = datetime.now().year
+        ytd_return = total_gain_loss  # Simplified - should calculate from Jan 1
+        ytd_return_percent = self._safe_decimal_to_float(total_gain_loss_percent)  # Simplified
+        
+        # Daily change would require historical data - using 0 for now
+        daily_change = Decimal("0")
+        daily_change_percent = 0.0
+        
         return PortfolioPerformance(
             total_value=total_value,
             total_cost=total_cost,
@@ -935,7 +948,14 @@ class PortfolioMetricsManager:
             dividends_ytd=dividend_summary.ytd_received,
             xirr=None,  # TODO: Calculate XIRR in Step 3
             sharpe_ratio=None,  # TODO: Calculate Sharpe in future
-            base_currency=base_currency
+            base_currency=base_currency,
+            # Additional performance metrics
+            daily_change=daily_change,
+            daily_change_percent=daily_change_percent,
+            ytd_return=ytd_return,
+            ytd_return_percent=ytd_return_percent,
+            volatility=Decimal("0"),  # TODO: Calculate from historical data
+            max_drawdown=Decimal("0")  # TODO: Calculate from historical data
         )
     
     def _calculate_sector_allocation(self, holdings: List[PortfolioHolding]) -> Dict[str, float]:
@@ -970,6 +990,48 @@ class PortfolioMetricsManager:
             }
             for h in sorted_holdings[:limit]
         ]
+
+    # ========================================================================
+    # Internal Helpers (compatibility + safety)
+    # ========================================================================
+
+    def _safe_decimal_to_float(self, value: Any) -> float:
+        """Safely convert Decimal/numeric/string to float for serialization."""
+        try:
+            if isinstance(value, Decimal):
+                return float(value)
+            if isinstance(value, (int, float)):
+                return float(value)
+            return float(str(value))
+        except (ValueError, TypeError):
+            return 0.0
+
+    def _is_service_available(self, service_name: str) -> bool:
+        """Simple circuit breaker check for dependent services."""
+        now = datetime.now(timezone.utc)
+        open_until = self._circuit_open_until.get(service_name)
+        if open_until and now < open_until:
+            return False
+        return True
+
+    def _record_service_failure(self, service_name: str) -> None:
+        """Record a failure and possibly open the circuit for a cooldown period."""
+        failures = self._service_failures.get(service_name, 0) + 1
+        self._service_failures[service_name] = failures
+        if failures >= self._max_failures:
+            self._circuit_open_until[service_name] = datetime.now(timezone.utc) + timedelta(seconds=self._recovery_timeout)
+            logger.warning(
+                "[PortfolioMetricsManager] Circuit opened for %s after %d failures",
+                service_name,
+                failures,
+            )
+
+    def _reset_service_failures(self, service_name: str) -> None:
+        """Reset failure counters and close circuit."""
+        if service_name in self._service_failures:
+            self._service_failures.pop(service_name, None)
+        if service_name in self._circuit_open_until:
+            self._circuit_open_until.pop(service_name, None)
     
     # ========================================================================
     # Cache Management
@@ -995,227 +1057,7 @@ class PortfolioMetricsManager:
         
         return full_key
     
-    async def _get_cached_metrics(
-        self, 
-        user_id: str,
-        cache_key: str,
-        allow_stale: bool = False
-    ) -> Optional[PortfolioMetrics]:
-        """Retrieve metrics from cache"""
-        try:
-            client = get_supa_service_client()
-            
-            # Query the cache table
-            result = client.table("portfolio_caches").select("*").eq(
-                "user_id", user_id
-            ).eq(
-                "cache_key", cache_key
-            ).single().execute()
-            
-            if not result.data:
-                return None
-            
-            cache_data = result.data
-            expires_at = datetime.fromisoformat(cache_data["expires_at"]).replace(tzinfo=timezone.utc)
-            
-            # Check expiration
-            if not allow_stale and datetime.now(timezone.utc) > expires_at:
-                return None
-            
-            # Deserialize metrics
-            metrics_data = json.loads(cache_data["metrics_json"])
-            metrics = PortfolioMetrics(**metrics_data)
-            
-            # Update hit count
-            client.table("portfolio_caches").update({
-                "hit_count": cache_data["hit_count"] + 1,
-                "last_accessed": datetime.now(timezone.utc).isoformat()
-            }).eq("user_id", user_id).eq("cache_key", cache_key).execute()
-            
-            return metrics
-            
-        except Exception as e:
-            logger.error(f"[PortfolioMetricsManager] Cache read error: {str(e)}")
-            return None
-    
-    async def _cache_metrics(self, user_id: str, cache_key: str, metrics: PortfolioMetrics) -> None:
-        """Store metrics in cache"""
-        try:
-            client = get_supa_service_client()
-            
-            # Get TTL based on market status
-            _, expires_at = self.cache_config.get_ttl(metrics.market_status)
-            
-            # Serialize metrics
-            metrics_json = metrics.json()
-            
-            # Extract dependencies for cache invalidation
-            dependencies = self._extract_dependencies(metrics)
-            
-            # Try upsert first, handle duplicate key gracefully
-            try:
-                client.table("portfolio_caches").upsert({
-                    "user_id": user_id,
-                    "cache_key": cache_key,
-                    "metrics_json": metrics_json,
-                    "created_at": datetime.now(timezone.utc).isoformat(),
-                    "expires_at": expires_at.isoformat(),
-                    "last_accessed": datetime.now(timezone.utc).isoformat(),
-                    "hit_count": 0,
-                    "cache_version": 1,
-                    "dependencies": json.dumps(dependencies),
-                    "computation_time_ms": metrics.computation_time_ms
-                }).execute()
-                
-            except Exception as upsert_error:
-                # If duplicate key error, it means another process cached this already - that's fine
-                error_msg = str(upsert_error)
-                if "duplicate key value violates unique constraint" in error_msg and "portfolio_caches_user_cache_key_unique" in error_msg:
-                    logger.info(f"[PortfolioMetricsManager] Cache entry already exists for key {cache_key} - concurrent operation handled")
-                else:
-                    # Re-raise if it's a different error
-                    raise upsert_error
-            
-        except Exception as e:
-            logger.error(f"[PortfolioMetricsManager] Cache write error: {str(e)}")
-            # Don't fail the request if cache write fails
-    
-    def _extract_dependencies(self, metrics: PortfolioMetrics) -> List[Dict[str, Any]]:
-        """Extract cache dependencies for invalidation tracking"""
-        dependencies = []
-        
-        # Transaction dependencies
-        dependencies.append({
-            "type": "transactions",
-            "user_id": metrics.user_id
-        })
-        
-        # Price dependencies for each holding
-        symbols = [h.symbol for h in metrics.holdings]
-        for symbol in symbols:
-            dependencies.append({
-                "type": "prices",
-                "symbol": symbol
-            })
-        
-        # Dividend dependencies
-        dependencies.append({
-            "type": "dividends",
-            "user_id": metrics.user_id
-        })
-        
-        return dependencies
-    
-    # ========================================================================
-    # Circuit Breaker
-    # ========================================================================
-    
-    def _record_service_failure(self, service_name: str) -> None:
-        """Record a service failure for circuit breaker"""
-        try:
-            client = get_supa_service_client()
-            client.rpc('record_service_failure', {
-                'p_service_name': service_name,
-                'p_failure_threshold': self._max_failures
-            }).execute()
-            logger.warning(f"[PortfolioMetricsManager] Recorded failure for service {service_name}")
-        except Exception as e:
-            logger.error(f"[PortfolioMetricsManager] Failed to record service failure: {e}")
-    
-    def _is_service_available(self, service_name: str) -> bool:
-        """Check if service is available (not circuit broken)"""
-        try:
-            client = get_supa_service_client()
-            result = client.rpc('check_circuit_breaker', {
-                'p_service_name': service_name,
-                'p_failure_threshold': self._max_failures,
-                'p_recovery_timeout': self._recovery_timeout
-            }).execute()
-            
-            if result.data and len(result.data) > 0:
-                is_open = result.data[0]['is_open']
-                state = result.data[0]['state']
-                logger.debug(f"[PortfolioMetricsManager] Circuit breaker for {service_name}: state={state}, is_open={is_open}")
-                return not is_open
-            
-            # Default to available if check fails
-            return True
-        except Exception as e:
-            logger.error(f"[PortfolioMetricsManager] Failed to check circuit breaker: {e}")
-            # Fail open - allow service calls if circuit breaker check fails
-            return True
-    
-    def _reset_service_failures(self, service_name: str) -> None:
-        """Reset failure count for a service"""
-        try:
-            client = get_supa_service_client()
-            client.rpc('record_service_success', {
-                'p_service_name': service_name
-            }).execute()
-            logger.info(f"[PortfolioMetricsManager] Reset failures for service {service_name}")
-        except Exception as e:
-            logger.error(f"[PortfolioMetricsManager] Failed to reset service failures: {e}")
-    
-    async def reset_all_circuit_breakers(self) -> None:
-        """Reset all circuit breakers (e.g., on a schedule)"""
-        try:
-            client = get_supa_service_client()
-            client.rpc('reset_circuit_breaker').execute()
-            logger.info("[PortfolioMetricsManager] All circuit breakers reset")
-        except Exception as e:
-            logger.error(f"[PortfolioMetricsManager] Failed to reset all circuit breakers: {e}")
-    
-    async def invalidate_user_cache(self, user_id: str, metric_type: Optional[str] = None) -> None:
-        """
-        Invalidate cache for a specific user
-        
-        Args:
-            user_id: User's UUID
-            metric_type: Optional specific metric type to invalidate
-        """
-        logger.info(f"[PortfolioMetricsManager] === CACHE INVALIDATION ===")
-        logger.info(f"[PortfolioMetricsManager] User ID: {user_id}")
-        logger.info(f"[PortfolioMetricsManager] Metric type: {metric_type if metric_type else 'ALL'}")
-        
-        try:
-            client = get_supa_service_client()
-            
-            if metric_type:
-                # Invalidate specific metric type
-                cache_key = self._generate_cache_key(user_id, metric_type, {})
-                logger.info(f"[PortfolioMetricsManager] Invalidating cache key: {cache_key}")
-                result = client.table("portfolio_caches").delete().eq(
-                    "user_id", user_id
-                ).eq(
-                    "cache_key", cache_key
-                ).execute()
-                logger.info(f"[PortfolioMetricsManager] Deleted {len(result.data) if result.data else 0} cache entries")
-            else:
-                # Invalidate all cache entries for user
-                logger.info(f"[PortfolioMetricsManager] Invalidating ALL cache entries for user")
-                result = client.table("portfolio_caches").delete().eq(
-                    "user_id", user_id
-                ).execute()
-                logger.info(f"[PortfolioMetricsManager] Deleted {len(result.data) if result.data else 0} cache entries")
-            
-            logger.info(f"[PortfolioMetricsManager] Cache invalidation completed successfully")
-        except Exception as e:
-            logger.error(f"[PortfolioMetricsManager] Failed to invalidate cache: {type(e).__name__}: {str(e)}")
-            logger.error(f"[PortfolioMetricsManager] Stack trace:", exc_info=True)
-    
-    async def cleanup_expired_cache(self) -> None:
-        """Clean up expired cache entries from database"""
-        try:
-            client = get_supa_service_client()
-            
-            # Delete entries where expires_at < now
-            client.table("portfolio_caches").delete().lt(
-                "expires_at", datetime.now(timezone.utc).isoformat()
-            ).execute()
-            
-            logger.info("[PortfolioMetricsManager] Expired cache entries cleaned up")
-        except Exception as e:
-            logger.error(f"[PortfolioMetricsManager] Failed to cleanup cache: {str(e)}")
+    # Database cache methods removed - using in-memory cache only
 
 
 # ============================================================================

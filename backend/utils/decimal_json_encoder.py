@@ -81,7 +81,7 @@ def convert_decimals_to_float(obj: Any) -> Any:
         clean_data = convert_decimals_to_float(data)
         # Result: {"price": 123.45, "quantity": 10.0}
     """
-    logger.warning("convert_decimals_to_float() used - consider convert_decimals_to_string() for precision")
+    # Warning removed to reduce log noise - function still deprecated but functional
     if isinstance(obj, Decimal):
         return float(obj)
     elif isinstance(obj, dict):

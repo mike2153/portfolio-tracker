@@ -65,7 +65,9 @@
       "Bash(do sed -i 's/old_name/new_name/g' \"$file\")",
       "Bash(done)",
       "Bash(echo:*)",
-      "Bash(supabase db reset:*)"
+      "Bash(supabase db reset:*)",
+      "Bash(docker logs:*)",
+      "Bash(docker ps:*)"
     ],
     "deny": []
   },

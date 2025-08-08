@@ -47,11 +47,11 @@ export default function DividendChartApex({
     }
 
     // Sort data by date
-    const sortedData = [...data].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const sortedData = [...data].sort((a, b) => new Date(`${a.date}T00:00:00Z`).getTime() - new Date(`${b.date}T00:00:00Z`).getTime());
 
     // Create dividend amount series with proper tuple typing
     const dividendSeries: Array<[number, number]> = sortedData.map(item => {
-      const timestamp = new Date(item.date).getTime();
+      const timestamp = new Date(`${item.date}T00:00:00Z`).getTime();
       return [timestamp, item.amount] as [number, number];
     });
 

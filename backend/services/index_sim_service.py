@@ -108,8 +108,9 @@ class IndexSimulationService:
                 user_token=user_token,
                 include_indexes=False  # Already processing an index
             )
-            if update_result.get("data", {}).get("updated"):
-                 logger.info(f"[index_sim_service] Updated {benchmark} prices with {update_result['data']['sessions_filled']} sessions")
+            if (update_result.get("data") or {}).get("updated"):
+                 sessions_filled = (update_result.get("data") or {}).get('sessions_filled', 0)
+                 logger.info(f"[index_sim_service] Updated {benchmark} prices with {sessions_filled} sessions")
             else:
                 logger.warning(f"[index_sim_service] ⚠️ No price data for {benchmark} even after update {update_result}")
             
@@ -154,7 +155,11 @@ class IndexSimulationService:
                     shares = Decimal(str(tx['quantity']))
                     user_price = Decimal(str(tx['price']))
                     cash_delta_amount = abs(shares) * user_price
+                
                 transaction_type = tx.get('transaction_type', 'Buy').upper()
+                if transaction_type not in ['BUY', 'SELL', 'DIVIDEND']:
+                    transaction_type = 'BUY'  # Default to BUY for invalid types
+                
                 cash_delta_amount = abs(cash_delta_amount)
                 if transaction_type in ['BUY', 'Buy']:
                     cash_delta = cash_delta_amount
@@ -212,6 +217,8 @@ class IndexSimulationService:
                 user_price = Decimal(str(tx['price']))
                 cash_delta_amount = abs(shares) * user_price
             transaction_type = tx.get('transaction_type', 'Buy').upper()
+            if transaction_type not in ['BUY', 'SELL', 'DIVIDEND']:
+                transaction_type = 'BUY'  # Default to BUY for invalid types
 
             # Calculate cash delta using benchmark closing price
             cash_delta_amount = abs(cash_delta_amount)
@@ -528,8 +535,8 @@ class IndexSimulationService:
                 include_indexes=False  # Already processing an index
             )
             
-            if update_result.get("data", {}).get("updated"):
-                sessions_filled = update_result.get("data", {}).get("sessions_filled", 0)
+            if (update_result.get("data") or {}).get("updated"):
+                sessions_filled = (update_result.get("data") or {}).get("sessions_filled", 0)
                 logger.info(f"Updated {benchmark} prices, filled {sessions_filled} sessions")
             
             # Get benchmark prices for the timeframe

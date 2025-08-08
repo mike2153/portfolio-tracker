@@ -3,7 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../components/AuthProvider';
 import { RootStackParamList } from './types';
 import { useTheme } from '../contexts/ThemeContext';
-import AuthScreen from '../screens/AuthScreen';
+import AuthScreenFey from '../screens/AuthScreenFey';
 import { ProfileCompletionScreen } from '../screens/ProfileCompletionScreen';
 import MainTabNavigator from './MainTabNavigator';
 import StockDetailScreen from '../screens/StockDetailScreen';
@@ -19,7 +19,7 @@ export default function RootNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {!user ? (
-        <Stack.Screen name="Auth" component={AuthScreen} />
+        <Stack.Screen name="Auth" component={AuthScreenFey} />
       ) : (
         <>
           <Stack.Screen name="ProfileCompletion" component={ProfileCompletionScreen} />

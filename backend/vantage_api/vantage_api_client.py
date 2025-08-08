@@ -95,72 +95,35 @@ BASE_URL: {self.base_url}
             raise
     
     async def _get_from_cache(self, cache_key: str) -> Optional[Dict[str, Any]]:
-        """Get data from Supabase cache"""
-        # logger.info(f"""
-# ========== CACHE LOOKUP ==========
-# FILE: vantage_api_client.py
-# FUNCTION: _get_from_cache
-# API: SUPABASE
-# CACHE_KEY: {cache_key}
-# ==================================""")
-        
+        """Get data from in-memory cache"""
         try:
-            # Query cache table
-            result = self.supa_client.table('api_cache') \
-                .select('data, created_at, expires_at') \
-                .eq('cache_key', cache_key) \
-                .single() \
-                .execute()
+            # Get cache manager
+            from services.cache_manager import get_cache_manager
+            cache_manager = await get_cache_manager()
             
-            if result.data:
-                # Check expires_at if available, otherwise fall back to created_at check
-                if 'expires_at' in result.data and result.data['expires_at']:
-                    expires_at = datetime.fromisoformat(result.data['expires_at'].replace('Z', '+00:00'))
-                    if datetime.now(expires_at.tzinfo) < expires_at:
-                        logger.info(f"[vantage_api_client.py::_get_from_cache] Cache hit! Valid until: {expires_at}")
-                        return result.data['data']
-                    else:
-                        logger.info(f"[vantage_api_client.py::_get_from_cache] Cache expired at: {expires_at}")
-                else:
-                    # Fallback for old cache entries without expires_at
-                    created_at = datetime.fromisoformat(result.data['created_at'].replace('Z', '+00:00'))
-                    age_seconds = (datetime.now(created_at.tzinfo) - created_at).total_seconds()
-                    
-                    if age_seconds < CACHE_TTL_SECONDS:
-                        logger.info(f"[vantage_api_client.py::_get_from_cache] Cache hit! Age: {age_seconds:.0f}s")
-                        return result.data['data']
-                    else:
-                        logger.info(f"[vantage_api_client.py::_get_from_cache] Cache expired. Age: {age_seconds:.0f}s")
+            # Check cache
+            cached_data = await cache_manager.get(cache_key)
+            if cached_data:
+                logger.info(f"[vantage_api_client.py::_get_from_cache] Cache hit for key: {cache_key}")
+                return cached_data
             else:
-                logger.info("[vantage_api_client.py::_get_from_cache] Cache miss")
-            
-            return None
+                logger.info(f"[vantage_api_client.py::_get_from_cache] Cache miss for key: {cache_key}")
+                return None
             
         except Exception as e:
             logger.warning(f"[vantage_api_client.py::_get_from_cache] Cache lookup failed: {e}")
             return None
     
     async def _save_to_cache(self, cache_key: str, data: Dict[str, Any]) -> None:
-        """Save data to Supabase cache"""
-        # logger.info(f"""
-# ========== CACHE SAVE ==========
-# FILE: vantage_api_client.py
-# FUNCTION: _save_to_cache
-# API: SUPABASE
-# CACHE_KEY: {cache_key}
-# =================================""")
-        
+        """Save data to in-memory cache"""
         try:
-            expires_at = datetime.now() + timedelta(seconds=CACHE_TTL_SECONDS)
+            # Get cache manager
+            from services.cache_manager import get_cache_manager
+            cache_manager = await get_cache_manager()
             
-            # Upsert to cache
-            self.supa_client.table('api_cache').upsert({
-                'cache_key': cache_key,
-                'data': data,
-                'expires_at': expires_at.isoformat()
-            }).execute()
-            
-            # logger.info("[vantage_api_client.py::_save_to_cache] Data cached successfully")
+            # Save to cache with TTL
+            await cache_manager.set(cache_key, data, CACHE_TTL_SECONDS)
+            logger.info(f"[vantage_api_client.py::_save_to_cache] Data cached successfully for key: {cache_key}")
             
         except Exception as e:
             logger.warning(f"[vantage_api_client.py::_save_to_cache] Cache save failed: {e}")

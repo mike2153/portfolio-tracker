@@ -7,7 +7,7 @@ import { AuthProvider } from './app/components/AuthProvider';
 import RootNavigator from './app/navigation/RootNavigator';
 import { ThemeProvider } from './app/contexts/ThemeContext';
 
-console.log('🚀 Portfolio Tracker App starting...');
+if (__DEV__) console.log('🚀 Portfolio Tracker App starting...');
 
 const queryClient = new QueryClient({
   defaultOptions: {

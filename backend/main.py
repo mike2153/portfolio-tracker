@@ -12,8 +12,10 @@ from typing import Dict, Any, AsyncGenerator
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from services.dividend_service import dividend_service
+from services.price_manager import price_manager
 from debug_logger import DebugLogger
 import asyncio
+from pytz import timezone
 
 # Import configuration
 from config import (
@@ -61,9 +63,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Startup and shutdown events"""
     # Startup
     
-    DebugLogger.info_if_enabled("[main.py::lifespan] Startup: Initiating immediate dividend sync for all users", logger)
+    # Step 1: Update EOD prices on startup
+    logger.info("[main.py::lifespan] Starting initial EOD price update on startup")
+    try:
+        price_result = await price_manager.update_eod_prices()
+        if price_result.get("success"):
+            logger.info(f"[main.py::lifespan] Initial price update successful: updated {price_result.get('updated', 0)} symbols")
+        else:
+            logger.warning(f"[main.py::lifespan] Initial price update had issues: {price_result.get('error', 'Unknown error')}")
+    except Exception as e:
+        logger.error(f"[main.py::lifespan] Initial price update failed: {e}")
     
-    # Step 1: Sync global dividends from Alpha Vantage (with graceful handling for multiple instances)
+    # Step 2: Sync global dividends from Alpha Vantage (with graceful handling for multiple instances)
+    DebugLogger.info_if_enabled("[main.py::lifespan] Starting dividend sync", logger)
     sync_result = await dividend_service.background_dividend_sync_all_users()
     if sync_result.get("success"):
         # logger.info(f"[main.py::lifespan] Successfully synced {sync_result.get('total_assigned', 0)} global dividends")
@@ -73,7 +85,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     else:
         logger.warning(f"[main.py::lifespan] Dividend sync had issues: {sync_result.get('error', 'Unknown error')}")
     
-    # Step 2: Assign dividends to all users based on their holdings
+    # Step 3: Assign dividends to all users based on their holdings
     # This ensures users get dividends even if they were already in the global table
     # logger.info("[main.py::lifespan] Starting dividend assignment to users...")
     assignment_result = await dividend_service.assign_dividends_to_users_simple()
@@ -85,15 +97,32 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     
     DebugLogger.info_if_enabled("[main.py::lifespan] Startup sync and assignment completed", logger)
     
+    # Setup scheduler with both price and dividend jobs
     loop = asyncio.get_running_loop()
     scheduler = AsyncIOScheduler(event_loop=loop)
+    
+    # Add daily EOD price update job (server-local 02:00 UTC by default)
+    from services.eod_job import run_nightly_eod
+    scheduler.add_job(
+        run_nightly_eod,
+        CronTrigger(hour=2, minute=0),
+        kwargs={'force': True},
+        id='daily_eod_job',
+        name='Daily EOD Job',
+        misfire_grace_time=3600
+    )
+    logger.info("[main.py::lifespan] Scheduled daily EOD job at 02:00 (server time)")
+    
+    # Keep existing dividend sync job
     scheduler.add_job(
         dividend_service.background_dividend_sync_all_users,
         CronTrigger(hour=2, minute=0),
-        id='daily_dividend_sync'
+        id='daily_dividend_sync',
+        name='Daily Dividend Sync'
     )
+    
     scheduler.start()
-    DebugLogger.info_if_enabled("[main.py::lifespan] Scheduler started with event loop", logger)
+    logger.info("[main.py::lifespan] Scheduler started with daily price and dividend updates")
     
     yield
     

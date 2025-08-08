@@ -122,7 +122,8 @@ def convert_python_type_to_typescript(python_type: str) -> str:
     # Handle Optional types
     if python_type.startswith('Union[') and 'NoneType' in python_type:
         # Extract the non-None type from Union
-        inner_type = python_type.replace('Union[', '').replace(']', '').split(',')[0].strip()
+        parts = python_type.replace('Union[', '').replace(']', '').split(',')
+        inner_type = parts[0].strip() if parts else 'any'
         return f"{convert_python_type_to_typescript(inner_type)} | null"
     
     # Handle Optional directly

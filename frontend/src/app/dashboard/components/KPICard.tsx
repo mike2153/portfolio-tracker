@@ -114,7 +114,7 @@ const KPICard = ({
     // If it's a string, try to parse it
     if (typeof val === 'string') {
   //    console.log(`[KPICard] safeFormatValue: value is string, attempting to parse`);
-      const parsed = parseFloat(val);
+      const parsed = Number(val);
       if (!isNaN(parsed)) {
         //console.log(`[KPICard] safeFormatValue: successfully parsed string to number:`, parsed);
         if (showValueAsPercent) {
